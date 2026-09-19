@@ -39,7 +39,6 @@ const els = {
   filterSummary: document.getElementById("filterSummary"),
   sortSelect: document.getElementById("sortSelect"),
   resetFiltersButton: document.getElementById("resetFiltersButton"),
-  refreshButton: document.getElementById("refreshButton"),
   cardViewButton: document.getElementById("cardViewButton"),
   listViewButton: document.getElementById("listViewButton"),
   heroEyebrow: document.getElementById("heroEyebrow"),
@@ -1854,7 +1853,6 @@ document.addEventListener("keydown", (event) => {
   if (!els.readerOverlay.hidden) closeReader();
 });
 
-els.refreshButton.addEventListener("click", () => loadArchive(true));
 
 
 let readerProgressSaveTimer = 0;
