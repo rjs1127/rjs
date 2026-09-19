@@ -3,7 +3,7 @@ const state = {
   combination: "전체",
   length: "전체",
   search: "",
-  sort: localStorage.getItem("archiveSort") || "latest",
+  sort: localStorage.getItem("archiveSort") || "title",
   view: localStorage.getItem("archiveViewV2") || "list",
   mobileFiltersOpen: false,
   activeReaderItem: null,
