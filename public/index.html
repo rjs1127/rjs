@@ -14,27 +14,20 @@
         <span class="brand-mark">A</span>
         <span class="brand-text">Archive</span>
       </a>
-      <button id="refreshButton" class="ghost-button" type="button" title="목록 새로고침">
-        새로고침
-      </button>
+      <button id="refreshButton" class="ghost-button" type="button">새로고침</button>
     </header>
 
     <main>
       <section class="hero">
-        <p class="eyebrow">GOOGLE DRIVE ARCHIVE</p>
-        <h1>내 콘텐츠를<br />한곳에서 찾아보세요.</h1>
-        <p class="hero-copy">
+        <p id="heroEyebrow" class="eyebrow">GOOGLE DRIVE ARCHIVE</p>
+        <h1 id="heroTitle">내 콘텐츠를<br />한곳에서 찾아보세요.</h1>
+        <p id="heroSubtitle" class="hero-copy">
           인물조합과 분량으로 분류하고, 제목이나 작성자로 빠르게 검색할 수 있습니다.
         </p>
 
         <div class="search-box">
           <span class="search-icon" aria-hidden="true">⌕</span>
-          <input
-            id="searchInput"
-            type="search"
-            placeholder="제목 또는 작성자 검색"
-            autocomplete="off"
-          />
+          <input id="searchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
           <button id="clearSearch" class="clear-search" type="button" aria-label="검색어 지우기">×</button>
         </div>
       </section>
@@ -54,6 +47,26 @@
             </div>
           </div>
         </div>
+
+        <div class="filter-row secondary">
+          <div>
+            <span class="filter-label">파일 상태</span>
+            <div id="statusFilters" class="chips">
+              <button class="chip active" type="button" data-status="전체">전체</button>
+              <button class="chip" type="button" data-status="정상">정상</button>
+              <button class="chip" type="button" data-status="수정됨">수정됨</button>
+              <button class="chip" type="button" data-status="확인 필요">확인 필요</button>
+            </div>
+          </div>
+
+          <div class="view-switch-wrap">
+            <span class="filter-label">보기 방식</span>
+            <div class="view-switch">
+              <button id="cardViewButton" class="view-button active" type="button">▦ 카드형</button>
+              <button id="listViewButton" class="view-button" type="button">☰ 리스트형</button>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section class="content-section">
@@ -67,10 +80,25 @@
 
         <div id="status" class="status-card">
           <div class="spinner" aria-hidden="true"></div>
-          <p>Google Drive에서 콘텐츠를 불러오고 있어요.</p>
+          <p>저장된 콘텐츠 목록을 불러오고 있어요.</p>
         </div>
 
         <div id="contentGrid" class="content-grid" hidden></div>
+
+        <div id="contentListWrap" class="content-list-wrap" hidden>
+          <table class="content-list">
+            <thead>
+              <tr>
+                <th>인물조합</th>
+                <th>구분</th>
+                <th>제목</th>
+                <th>작성자</th>
+                <th>상태</th>
+              </tr>
+            </thead>
+            <tbody id="contentListBody"></tbody>
+          </table>
+        </div>
 
         <div id="emptyState" class="empty-state" hidden>
           <div class="empty-symbol">⌕</div>
@@ -87,10 +115,12 @@
         <div class="reader-meta-top">
           <span id="readerCombination" class="reader-tag"></span>
           <span id="readerLength" class="reader-tag subtle"></span>
+          <span id="readerStatus" class="reader-tag warning" hidden></span>
         </div>
         <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">×</button>
         <h2 id="readerTitle"></h2>
         <p id="readerAuthor" class="reader-author"></p>
+        <p id="readerFileName" class="reader-filename"></p>
       </header>
       <div id="readerBody" class="reader-body">
         <div class="reader-loading">

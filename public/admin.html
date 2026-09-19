@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Archive Admin</title>
+  <link rel="stylesheet" href="/admin.css" />
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-header">
+      <div>
+        <p class="eyebrow">ARCHIVE ADMIN</p>
+        <h1>관리자 페이지</h1>
+        <p class="sub">Drive 동기화, 파일명 수정, 메인 화면 문구를 관리합니다.</p>
+      </div>
+      <a class="back-link" href="/">사이트 보기 ↗</a>
+    </header>
+
+    <section id="loginCard" class="panel login-panel">
+      <h2>관리자 로그인</h2>
+      <p>Cloudflare Secret에 설정한 관리자 비밀번호를 입력하세요.</p>
+      <form id="loginForm">
+        <input id="passwordInput" type="password" placeholder="관리자 비밀번호" autocomplete="current-password" />
+        <button type="submit">로그인</button>
+      </form>
+      <p id="loginError" class="error" hidden></p>
+    </section>
+
+    <div id="adminContent" hidden>
+      <section class="stats-grid">
+        <div class="stat"><span>전체 콘텐츠</span><strong id="statCount">-</strong></div>
+        <div class="stat"><span>확인 필요</span><strong id="statReview">-</strong></div>
+        <div class="stat"><span>수정 완료</span><strong id="statEdited">-</strong></div>
+        <div class="stat"><span>마지막 동기화</span><strong id="statSync">-</strong></div>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">DRIVE CACHE</p>
+            <h2>Google Drive 동기화</h2>
+          </div>
+          <button id="syncButton" class="primary">Drive 다시 읽기</button>
+        </div>
+        <p class="muted">일반 사용자는 KV에 저장된 JSON 목록을 조회합니다. Drive 파일을 추가·삭제·이동한 뒤 이 버튼을 눌러 목록을 갱신하세요.</p>
+        <p id="syncMessage" class="message" hidden></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">HERO TEXT</p>
+            <h2>메인 화면 문구</h2>
+          </div>
+        </div>
+
+        <form id="settingsForm" class="settings-form">
+          <label>
+            <span>서브 타이틀</span>
+            <input id="eyebrowInput" type="text" />
+          </label>
+          <label>
+            <span>메인 타이틀</span>
+            <textarea id="titleInput" rows="3"></textarea>
+            <small>줄바꿈을 넣으면 메인 화면에도 그대로 반영됩니다.</small>
+          </label>
+          <label>
+            <span>설명 문구</span>
+            <textarea id="subtitleInput" rows="3"></textarea>
+          </label>
+          <div><button class="primary" type="submit">문구 저장</button></div>
+        </form>
+        <p id="settingsMessage" class="message" hidden></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <div>
+            <p class="eyebrow">NEEDS REVIEW</p>
+            <h2>파일명 확인 필요</h2>
+          </div>
+          <span id="reviewCount" class="count-badge">0개</span>
+        </div>
+        <p class="muted">자동 파싱에 실패한 파일입니다. 원본 파일명을 확인한 뒤 제목과 작성자를 직접 지정할 수 있습니다.</p>
+
+        <div id="reviewList" class="review-list"></div>
+        <div id="reviewEmpty" class="empty" hidden>확인할 파일이 없습니다.</div>
+      </section>
+    </div>
+  </main>
+
+  <script src="/admin.js" defer></script>
+</body>
+</html>
