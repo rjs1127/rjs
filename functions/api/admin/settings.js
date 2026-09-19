@@ -3,12 +3,12 @@ import {
   DEFAULT_SETTINGS,
   jsonResponse,
   requireKv,
-  requireAdmin,
 } from "../../_shared.js";
+import { requireAdminSession } from "../../_admin_session.js";
 
 export async function onRequestPost(context) {
   try {
-    requireAdmin(context);
+    await requireAdminSession(context);
     const kv = requireKv(context.env);
     const body = await context.request.json();
 

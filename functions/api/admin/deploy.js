@@ -1,7 +1,7 @@
 import {
   jsonResponse,
-  requireAdmin,
 } from "../../_shared.js";
+import { requireAdminSession } from "../../_admin_session.js";
 
 const GITHUB_OWNER = "rjs1127";
 const GITHUB_REPO = "rjs";
@@ -161,7 +161,7 @@ function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
 
 export async function onRequestPost(context) {
   try {
-    requireAdmin(context);
+    await requireAdminSession(context);
 
     const token = context.env.GITHUB_TOKEN;
     if (!token) {

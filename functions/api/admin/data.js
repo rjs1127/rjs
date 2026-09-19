@@ -3,15 +3,15 @@ import {
   OVERRIDES_KEY,
   jsonResponse,
   requireKv,
-  requireAdmin,
   getJson,
   applyOverrides,
   readSettings,
 } from "../../_shared.js";
+import { requireAdminSession } from "../../_admin_session.js";
 
 export async function onRequestGet(context) {
   try {
-    requireAdmin(context);
+    await requireAdminSession(context);
     const kv = requireKv(context.env);
 
     const [archive, overrides, settings] = await Promise.all([

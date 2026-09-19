@@ -1,9 +1,10 @@
-import { jsonResponse, requireAdmin } from "../../_shared.js";
+import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
   ensureUserSchema,
   userErrorResponse,
 } from "../../_user.js";
+import { requireAdminSession } from "../../_admin_session.js";
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
 
@@ -30,7 +31,7 @@ function buildDateKeys(days) {
 
 export async function onRequestGet(context) {
   try {
-    requireAdmin(context);
+    await requireAdminSession(context);
 
     const db = requireUserDb(context.env);
     await ensureUserSchema(db);

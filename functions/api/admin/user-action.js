@@ -1,14 +1,15 @@
-import { jsonResponse, requireAdmin } from "../../_shared.js";
+import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
   ensureUserSchema,
   normalizeUserId,
   userErrorResponse,
 } from "../../_user.js";
+import { requireAdminSession } from "../../_admin_session.js";
 
 export async function onRequestPost(context) {
   try {
-    requireAdmin(context);
+    await requireAdminSession(context);
 
     const db = requireUserDb(context.env);
     await ensureUserSchema(db);

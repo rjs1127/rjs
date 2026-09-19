@@ -2,6 +2,33 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.26
+
+### 관리자 페이지 소스 보호
+- 기존 `/admin.html` 정적 관리자 화면을 `/admin` 서버 보호 화면으로 전환
+- 로그인 전에는 관리자 로그인 화면의 최소 HTML/CSS/JS만 전달
+- 관리자 대시보드, 유저 관리, Drive 동기화, 배포 로직은 인증 성공 후에만 서버에서 HTML에 포함해 전달
+- 기존 공개 `public/admin.js`, `public/admin.css`는 실제 관리자 구현이 노출되지 않는 빈 안내 파일로 교체
+- 기존 `/admin.html` 주소는 `/admin`으로 자동 이동하도록 변경
+
+### 관리자 로그인 보안 개선
+- 관리자 비밀번호를 브라우저 `sessionStorage`에 저장하던 방식 제거
+- 로그인 성공 시 12시간 유효한 서명된 관리자 세션 발급
+- 세션은 `HttpOnly + Secure + SameSite=Strict` 쿠키로 저장하여 JavaScript에서 읽을 수 없음
+- 관리자 세션 토큰은 `ADMIN_PASSWORD`를 이용한 HMAC-SHA256 서명으로 위변조 검증
+- 로그아웃 시 관리자 세션 쿠키 즉시 삭제
+- 관리자 페이지에 로그아웃 버튼 추가
+
+### 관리자 API 보호
+- `/api/admin/data`, `sync`, `settings`, `item`, `deploy`, `users`, `user-action` 모두 관리자 세션 쿠키 검증 후에만 실행
+- 로그인하지 않은 상태에서 관리자 API를 직접 호출해도 401 응답
+- 기존 `ADMIN_PASSWORD` Cloudflare Secret은 그대로 사용하며 새로운 Secret/바인딩 추가 없음
+
+### 참고
+- 브라우저에서 실행되는 코드는 로그인한 관리자 본인에게는 개발자도구로 보이는 것이 정상임
+- 이번 변경의 목적은 `로그인하기 전` 일반 방문자에게 관리자 구현 소스를 정적으로 공개하지 않는 것임
+- 서버 측 Functions 소스와 Cloudflare Secret은 브라우저에 전송되지 않음
+
 ## v6.25
 
 ### 관리자 대시보드
