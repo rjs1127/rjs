@@ -23,6 +23,7 @@ const els = {
   heroEyebrow: document.getElementById("heroEyebrow"),
   heroTitle: document.getElementById("heroTitle"),
   heroSection: document.getElementById("heroSection"),
+  pageScrollTop: document.getElementById("pageScrollTop"),
   readerOverlay: document.getElementById("readerOverlay"),
   readerPanel: document.getElementById("readerPanel"),
   closeReader: document.getElementById("closeReader"),
@@ -188,6 +189,7 @@ async function openReader(item) {
   if (!item) return;
 
   document.body.classList.add("reader-open");
+  els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
   if (els.readerPanel) els.readerPanel.scrollTop = 0;
   els.readerPanel?.classList.remove("reader-compact");
@@ -226,6 +228,7 @@ function closeReader() {
   els.readerScrollTop?.classList.remove("visible");
   document.body.classList.remove("reader-open");
   els.readerBody.textContent = "";
+  updatePageScrollTopButton();
 }
 
 els.searchInput.addEventListener("input", (event) => {
@@ -326,5 +329,29 @@ els.readerScrollTop?.addEventListener("click", () => {
 });
 
 
+
+function updatePageScrollTopButton() {
+  if (!els.pageScrollTop) return;
+
+  const shouldShow =
+    !document.body.classList.contains("reader-open") &&
+    window.scrollY > 420;
+
+  els.pageScrollTop.classList.toggle("visible", shouldShow);
+}
+
+window.addEventListener("scroll", updatePageScrollTopButton, {
+  passive: true,
+});
+
+els.pageScrollTop?.addEventListener("click", () => {
+  window.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+});
+
+
+updatePageScrollTopButton();
 syncViewButtons();
 loadArchive();

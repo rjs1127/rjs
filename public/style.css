@@ -1510,3 +1510,68 @@ body.reader-open {
     bottom: calc(16px + env(safe-area-inset-bottom));
   }
 }
+
+
+/* v6.13 - outer page scroll-to-top */
+.page-scroll-top {
+  position: fixed;
+  z-index: 80;
+  right: 24px;
+  bottom: 24px;
+  width: 44px;
+  height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(42,41,38,.94);
+  color: #fff;
+  box-shadow: 0 10px 26px rgba(25,24,22,.16);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition:
+    opacity .16s ease,
+    visibility .16s ease,
+    transform .16s ease,
+    background .16s ease;
+}
+
+.page-scroll-top span {
+  display: block;
+  font-size: 22px;
+  line-height: 1;
+  transform: translateY(2px);
+}
+
+.page-scroll-top.visible {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.page-scroll-top:hover {
+  background: #161513;
+  transform: translateY(-2px);
+}
+
+body.reader-open .page-scroll-top {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .page-scroll-top {
+    right: 14px;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+  }
+
+  .page-scroll-top span {
+    font-size: 20px;
+  }
+}
