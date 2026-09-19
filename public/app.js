@@ -25,6 +25,7 @@ const els = {
   heroSubtitle: document.getElementById("heroSubtitle"),
   heroSection: document.getElementById("heroSection"),
   readerOverlay: document.getElementById("readerOverlay"),
+  readerPanel: document.getElementById("readerPanel"),
   closeReader: document.getElementById("closeReader"),
   readerCombination: document.getElementById("readerCombination"),
   readerLength: document.getElementById("readerLength"),
@@ -191,6 +192,7 @@ async function openReader(item) {
   document.body.classList.add("reader-open");
   els.readerOverlay.hidden = false;
   els.readerOverlay.scrollTop = 0;
+  els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
@@ -222,6 +224,8 @@ async function openReader(item) {
 
 function closeReader() {
   els.readerOverlay.hidden = true;
+  els.readerPanel?.classList.remove("reader-compact");
+  els.readerScrollTop?.classList.remove("visible");
   document.body.classList.remove("reader-open");
   els.readerBody.textContent = "";
 }
@@ -296,16 +300,23 @@ document.addEventListener("keydown", (event) => {
 els.refreshButton.addEventListener("click", () => loadArchive(true));
 
 
-function updateReaderScrollTopButton() {
-  if (!els.readerScrollTop || !els.readerOverlay) return;
+function updateReaderScrollUi() {
+  if (!els.readerOverlay) return;
 
-  els.readerScrollTop.classList.toggle(
+  const scrollTop = els.readerOverlay.scrollTop;
+
+  els.readerPanel?.classList.toggle(
+    "reader-compact",
+    scrollTop > 90
+  );
+
+  els.readerScrollTop?.classList.toggle(
     "visible",
-    els.readerOverlay.scrollTop > 360
+    scrollTop > 220
   );
 }
 
-els.readerOverlay.addEventListener("scroll", updateReaderScrollTopButton, {
+els.readerOverlay.addEventListener("scroll", updateReaderScrollUi, {
   passive: true,
 });
 

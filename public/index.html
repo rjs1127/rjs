@@ -105,7 +105,7 @@
   </div>
 
   <div id="readerOverlay" class="reader-overlay" hidden>
-    <article class="reader" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
+    <article id="readerPanel" class="reader" role="dialog" aria-modal="true" aria-labelledby="readerTitle">
       <header class="reader-header">
         <div class="reader-meta-top">
           <span id="readerCombination" class="reader-tag"></span>
@@ -123,10 +123,11 @@
         </div>
       </div>
 
-      <button id="readerScrollTop" class="reader-scroll-top" type="button" aria-label="본문 맨 위로 이동" title="맨 위로">
-        ↑
-      </button>
     </article>
+
+    <button id="readerScrollTop" class="reader-scroll-top" type="button" aria-label="본문 맨 위로 이동" title="맨 위로">
+      ↑
+    </button>
   </div>
 
   <script src="/app.js" defer></script>
