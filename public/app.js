@@ -8,6 +8,7 @@ const state = {
   mobileFiltersOpen: false,
   activeReaderItem: null,
   readerRenderToken: 0,
+  suspendReaderProgressSave: false,
 };
 
 const els = {
@@ -284,7 +285,41 @@ function getReaderProgress(id) {
   }
 }
 
+function getResumeTarget(saved) {
+  if (!saved || !els.readerPanel) return 0;
+
+  const maxScroll = Math.max(
+    0,
+    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+  );
+
+  const percent = Number(saved.percent);
+
+  if (Number.isFinite(percent) && percent > 0 && percent < 100) {
+    return Math.max(
+      0,
+      Math.min(maxScroll, maxScroll * (percent / 100))
+    );
+  }
+
+  return Math.max(
+    0,
+    Math.min(maxScroll, Number(saved.scrollTop) || 0)
+  );
+}
+
+function temporarilySuspendProgressSave(duration = 700) {
+  state.suspendReaderProgressSave = true;
+
+  window.setTimeout(() => {
+    state.suspendReaderProgressSave = false;
+    saveReaderProgress();
+  }, duration);
+}
+
 function saveReaderProgress() {
+  if (state.suspendReaderProgressSave) return;
+
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return;
 
@@ -559,6 +594,9 @@ function showResumePrompt(item) {
   els.readerResume.hidden = false;
   els.readerResume.dataset.itemId = item.id;
 
+  if (els.readerResumeButton) els.readerResumeButton.disabled = false;
+  if (els.readerRestartButton) els.readerRestartButton.disabled = false;
+
   if (els.readerResumeText) {
     els.readerResumeText.textContent =
       `${saved.percent || 0}% 지점까지 읽었습니다.`;
@@ -569,6 +607,7 @@ async function openReader(item) {
   if (!item) return;
 
   state.activeReaderItem = item;
+  state.suspendReaderProgressSave = true;
   const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
@@ -638,6 +677,10 @@ async function openReader(item) {
     if (!rendered || renderToken !== state.readerRenderToken) return;
 
     showResumePrompt(item);
+
+    window.setTimeout(() => {
+      state.suspendReaderProgressSave = false;
+    }, 250);
   } catch (error) {
     window.clearInterval(waitTimer);
 
@@ -651,6 +694,7 @@ async function openReader(item) {
 }
 
 function closeReader() {
+  state.suspendReaderProgressSave = false;
   saveReaderProgress();
   state.readerRenderToken += 1;
   state.activeReaderItem = null;
@@ -702,36 +746,53 @@ els.resetFiltersButton?.addEventListener("click", () => {
   render();
 });
 
-els.readerResumeButton?.addEventListener("click", () => {
+els.readerResume?.addEventListener("click", (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return;
 
-  const saved = getReaderProgress(item.id);
-  if (!saved) return;
+  event.preventDefault();
+  event.stopPropagation();
 
-  els.readerResume.hidden = true;
+  if (button.id === "readerResumeButton") {
+    const saved = getReaderProgress(item.id);
+    if (!saved) {
+      els.readerResume.hidden = true;
+      return;
+    }
 
-  els.readerPanel.scrollTo({
-    top: Math.max(0, saved.scrollTop),
-    behavior: "smooth",
-  });
-});
+    const target = getResumeTarget(saved);
 
-els.readerRestartButton?.addEventListener("click", () => {
-  const item = state.activeReaderItem;
+    temporarilySuspendProgressSave(900);
+    els.readerResume.hidden = true;
 
-  if (item) {
+    requestAnimationFrame(() => {
+      els.readerPanel.scrollTo({
+        top: target,
+        behavior: "smooth",
+      });
+    });
+
+    return;
+  }
+
+  if (button.id === "readerRestartButton") {
     try {
       localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
     } catch {}
+
+    temporarilySuspendProgressSave(500);
+    els.readerResume.hidden = true;
+
+    requestAnimationFrame(() => {
+      els.readerPanel.scrollTo({
+        top: 0,
+        behavior: "smooth",
+      });
+    });
   }
-
-  if (els.readerResume) els.readerResume.hidden = true;
-
-  els.readerPanel?.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
 });
 
 
