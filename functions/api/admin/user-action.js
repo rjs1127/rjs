@@ -1,7 +1,6 @@
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
-  ensureUserSchema,
   normalizeUserId,
   userErrorResponse,
 } from "../../_user.js";
@@ -12,7 +11,6 @@ export async function onRequestPost(context) {
     await requireAdminSession(context);
 
     const db = requireUserDb(context.env);
-    await ensureUserSchema(db);
 
     const body = await context.request.json();
     const action = String(body?.action || "").trim();
@@ -52,6 +50,7 @@ export async function onRequestPost(context) {
         db.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_items WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visits WHERE user_id = ?`).bind(userId),
+        db.prepare(`DELETE FROM user_visit_stats WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM users WHERE user_id = ?`).bind(userId),
       ]);
 

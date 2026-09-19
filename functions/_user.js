@@ -11,8 +11,12 @@ function requireUserDb(env) {
   return env.USER_DB;
 }
 
+let schemaReadyPromise = null;
+
 async function ensureUserSchema(db) {
-  await db.batch([
+  if (schemaReadyPromise) return schemaReadyPromise;
+
+  schemaReadyPromise = db.batch([
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
@@ -56,7 +60,6 @@ async function ensureUserSchema(db) {
       CREATE INDEX IF NOT EXISTS idx_user_items_bookmark
       ON user_items(user_id, bookmarked)
     `),
-
     db.prepare(`
       CREATE TABLE IF NOT EXISTS user_visits (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -72,7 +75,33 @@ async function ensureUserSchema(db) {
       CREATE INDEX IF NOT EXISTS idx_user_visits_time
       ON user_visits(visited_at DESC)
     `),
-  ]);
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_visit_stats (
+        user_id TEXT PRIMARY KEY,
+        visit_count INTEGER NOT NULL DEFAULT 0,
+        last_visit_at INTEGER
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS daily_user_metrics (
+        metric_date TEXT PRIMARY KEY,
+        visit_count INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_system_meta (
+        meta_key TEXT PRIMARY KEY,
+        meta_value TEXT,
+        updated_at INTEGER NOT NULL
+      )
+    `),
+  ]).catch((error) => {
+    schemaReadyPromise = null;
+    throw error;
+  });
+
+  return schemaReadyPromise;
 }
 
 function normalizeUserId(value) {
@@ -139,7 +168,6 @@ function getBearerToken(request) {
 
 async function requireUser(context) {
   const db = requireUserDb(context.env);
-  await ensureUserSchema(db);
 
   const token = getBearerToken(context.request);
   if (!token) {

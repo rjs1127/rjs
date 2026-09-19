@@ -21,6 +21,8 @@ const state = {
   libraryKind: "bookmarks",
   librarySearch: "",
   visitRecordedUserId: "",
+  remoteProgressState: new Map(),
+  bookmarkSaveTimers: new Map(),
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -231,6 +233,7 @@ function clearUserSession(clearToken = true) {
   if (clearToken) setAuthToken("");
   state.user = null;
   state.userLibrary = new Map();
+  state.remoteProgressState = new Map();
   state.visitRecordedUserId = "";
   updateAccountUi();
   updateReaderBookmarkButton();
@@ -310,6 +313,19 @@ async function loadUserLibrary() {
       const normalized = normalizeLibraryRow(row);
       return [normalized.fileId, normalized];
     })
+  );
+
+  state.remoteProgressState = new Map(
+    [...state.userLibrary.entries()].map(([fileId, entry]) => [
+      fileId,
+      {
+        progressPercent: Number(entry.progressPercent || 0),
+        scrollTop: entry.scrollTop,
+        chunkIndex: entry.chunkIndex,
+        chunkRatio: entry.chunkRatio,
+        readAt: entry.readAt,
+      },
+    ])
   );
 
   updateReaderBookmarkButton();
@@ -392,8 +408,45 @@ async function recordRecentView(item) {
   }
 }
 
+
+function shouldPersistProgress(fileId, saved) {
+  const previous = state.remoteProgressState.get(fileId);
+  if (!previous) return true;
+
+  const nextPercent = Number(saved?.percent || 0);
+  const previousPercent = Number(previous.progressPercent || 0);
+
+  if (nextPercent >= 95 && !previous.readAt) return true;
+  if (Math.abs(nextPercent - previousPercent) >= 0.5) return true;
+
+  if (saved?.mode === "chunk") {
+    if (Number(saved.chunkIndex ?? -1) !== Number(previous.chunkIndex ?? -1)) {
+      return true;
+    }
+
+    if (
+      Math.abs(
+        Number(saved.chunkRatio ?? 0) -
+        Number(previous.chunkRatio ?? 0)
+      ) >= 0.01
+    ) {
+      return true;
+    }
+  }
+
+  if (saved?.mode === "scroll") {
+    const nextScroll = Number(saved.scrollTop || 0);
+    const previousScroll = Number(previous.scrollTop || 0);
+
+    if (Math.abs(nextScroll - previousScroll) >= 80) return true;
+  }
+
+  return false;
+}
+
 async function persistProgress(item, saved) {
   if (!state.user || !item || !saved) return;
+  if (!shouldPersistProgress(item.id, saved)) return;
 
   const payload = {
     action: "progress",
@@ -423,6 +476,16 @@ async function persistProgress(item, saved) {
       body: JSON.stringify(payload),
     });
     state.lastRemoteProgressAt = Date.now();
+    state.remoteProgressState.set(item.id, {
+      progressPercent: payload.percent,
+      scrollTop: payload.scrollTop,
+      chunkIndex: payload.chunkIndex,
+      chunkRatio: payload.chunkRatio,
+      readAt:
+        payload.percent >= 95
+          ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
+          : getUserLibraryEntry(item.id)?.readAt || null,
+    });
     if (state.items.length) render();
   } catch (error) {
     console.warn("이어보기 저장 실패", error);
@@ -1819,7 +1882,7 @@ els.logoutButton?.addEventListener("click", async () => {
   closeModal(els.accountModal);
 });
 
-els.readerBookmarkButton?.addEventListener("click", async () => {
+els.readerBookmarkButton?.addEventListener("click", () => {
   const item = state.activeReaderItem;
   if (!item) return;
 
@@ -1831,30 +1894,37 @@ els.readerBookmarkButton?.addEventListener("click", async () => {
     return;
   }
 
-  const nextValue = !getUserLibraryEntry(item.id)?.bookmarked;
+  const fileId = item.id;
+  const nextValue = !getUserLibraryEntry(fileId)?.bookmarked;
 
-  updateUserLibraryEntry(item.id, {
+  updateUserLibraryEntry(fileId, {
     bookmarked: nextValue,
     updatedAt: Date.now(),
   });
   updateReaderBookmarkButton();
 
-  try {
-    await userApi("/api/user/item", {
-      method: "POST",
-      body: JSON.stringify({
-        action: "bookmark",
-        fileId: item.id,
-        bookmarked: nextValue,
-      }),
-    });
-  } catch (error) {
-    updateUserLibraryEntry(item.id, {
-      bookmarked: !nextValue,
-    });
-    updateReaderBookmarkButton();
-    console.warn(error);
-  }
+  const previousTimer = state.bookmarkSaveTimers.get(fileId);
+  if (previousTimer) window.clearTimeout(previousTimer);
+
+  const timer = window.setTimeout(async () => {
+    state.bookmarkSaveTimers.delete(fileId);
+    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
+
+    try {
+      await userApi("/api/user/item", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "bookmark",
+          fileId,
+          bookmarked: finalValue,
+        }),
+      });
+    } catch (error) {
+      console.warn("북마크 저장 실패", error);
+    }
+  }, 650);
+
+  state.bookmarkSaveTimers.set(fileId, timer);
 });
 
 els.librarySearchInput?.addEventListener("input", (event) => {
@@ -2073,6 +2143,7 @@ function updateReaderScrollUi() {
       saved &&
       state.user &&
       state.activeReaderItem &&
+      // Frequent scroll events stay client-side; D1 sync is at most every 5 minutes.
       Date.now() - state.lastRemoteProgressAt >= 5 * 60 * 1000
     ) {
       persistProgress(state.activeReaderItem, saved);

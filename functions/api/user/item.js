@@ -65,6 +65,7 @@ export async function onRequestPost(context) {
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           bookmarked = excluded.bookmarked,
           updated_at = excluded.updated_at
+        WHERE user_items.bookmarked IS NOT excluded.bookmarked
       `).bind(auth.userId, fileId, bookmarked, now).run();
 
       return jsonResponse({ ok: true, bookmarked: Boolean(bookmarked) });
@@ -106,6 +107,12 @@ export async function onRequestPost(context) {
             ELSE user_items.read_at
           END,
           updated_at = excluded.updated_at
+        WHERE
+          ABS(COALESCE(user_items.progress_percent, 0) - COALESCE(excluded.progress_percent, 0)) >= 0.5
+          OR COALESCE(user_items.scroll_top, -1) != COALESCE(excluded.scroll_top, -1)
+          OR COALESCE(user_items.chunk_index, -1) != COALESCE(excluded.chunk_index, -1)
+          OR ABS(COALESCE(user_items.chunk_ratio, -1) - COALESCE(excluded.chunk_ratio, -1)) >= 0.01
+          OR (excluded.read_at IS NOT NULL AND user_items.read_at IS NULL)
       `).bind(
         auth.userId,
         fileId,
