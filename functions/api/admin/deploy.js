@@ -103,6 +103,62 @@ function toBase64FromBytes(bytes) {
   return btoa(binary);
 }
 
+
+function decodeBase64Utf8(value) {
+  try {
+    const binary = atob(String(value || ""));
+    const bytes = new Uint8Array(binary.length);
+
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+
+    return new TextDecoder("utf-8").decode(bytes);
+  } catch {
+    return "";
+  }
+}
+
+function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
+  const text = String(readmeText || "").replace(/\r\n/g, "\n");
+  const versionMatch = text.match(/^##\s+(v[0-9]+(?:\.[0-9]+)*)\s*$/m);
+  const version = versionMatch ? versionMatch[1].trim() : "";
+
+  let section = text;
+
+  if (versionMatch) {
+    const start = versionMatch.index + versionMatch[0].length;
+    const tail = text.slice(start);
+    const next = tail.match(/^##\s+v[0-9]+(?:\.[0-9]+)*\s*$/m);
+    section = next ? tail.slice(0, next.index) : tail;
+  }
+
+  let summary = section
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) =>
+      line
+        .replace(/^[-*]\s+/, "")
+        .replace(/`/g, "")
+        .replace(/\s+/g, " ")
+        .replace(/[.!。]+$/g, "")
+        .trim()
+    )
+    .filter(Boolean)
+    .slice(0, 2)
+    .join(" / ");
+
+  if (summary.length > 78) {
+    summary = summary.slice(0, 75).trimEnd() + "…";
+  }
+
+  if (version && summary) return `${version}: ${summary}`;
+  if (version) return `${version}: Archive site update`;
+  if (summary) return `Archive update: ${summary}`;
+  return `Archive update (${fileCount} files)`;
+}
+
 export async function onRequestPost(context) {
   try {
     requireAdmin(context);
@@ -113,8 +169,7 @@ export async function onRequestPost(context) {
     }
 
     const body = await context.request.json();
-    const commitMessage =
-      String(body?.message || "").trim() || "Archive site update";
+    let commitMessage = String(body?.message || "").trim();
     const incoming = Array.isArray(body?.files) ? body.files : [];
 
     if (!incoming.length) {
@@ -167,6 +222,19 @@ export async function onRequestPost(context) {
           blocked,
         },
         400
+      );
+    }
+
+    const readmeFile = files.find((file) => file.path === "README.md");
+
+    if (!commitMessage || commitMessage === "Archive site update") {
+      const readmeText = readmeFile
+        ? decodeBase64Utf8(readmeFile.contentBase64)
+        : "";
+
+      commitMessage = buildCommitMessageFromReadmeServer(
+        readmeText,
+        files.length
       );
     }
 
@@ -250,6 +318,7 @@ export async function onRequestPost(context) {
       repo: GITHUB_REPO,
       branch: GITHUB_BRANCH,
       commitSha: newCommit.sha,
+      commitMessage,
       commitUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/commit/${newCommit.sha}`,
       deployedFiles: files.map((file) => file.path),
       blocked,
