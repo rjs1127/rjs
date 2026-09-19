@@ -36,7 +36,24 @@
       </section>
 
       <section class="controls" aria-label="콘텐츠 필터">
-        <div class="controls-grid">
+        <div class="controls-toolbar">
+          <button id="filterToggleButton" class="mobile-filter-toggle" type="button" aria-expanded="false">
+            <span>필터</span>
+            <span id="filterSummary" class="filter-summary">전체</span>
+            <span class="filter-chevron" aria-hidden="true">⌄</span>
+          </button>
+
+          <label class="sort-control">
+            <span>정렬</span>
+            <select id="sortSelect">
+              <option value="latest">최신 추가순</option>
+              <option value="title">제목순</option>
+              <option value="author">작가순</option>
+            </select>
+          </label>
+        </div>
+
+        <div id="controlsGrid" class="controls-grid">
           <div class="control-card control-card-wide">
             <span class="filter-label">인물조합</span>
             <div id="combinationFilters" class="chips"></div>
@@ -95,6 +112,7 @@
           <div class="empty-symbol">⌕</div>
           <h3>검색 결과가 없습니다.</h3>
           <p>검색어나 필터를 바꿔보세요.</p>
+          <button id="resetFiltersButton" class="empty-reset-button" type="button">검색·필터 초기화</button>
         </div>
       </section>
     </main>
@@ -116,10 +134,27 @@
         <p id="readerAuthor" class="reader-author"></p>
         <p id="readerFileName" class="reader-filename"></p>
       </header>
+      <div id="readerResume" class="reader-resume" hidden>
+        <div>
+          <strong>이전에 읽던 위치가 있어요.</strong>
+          <span id="readerResumeText">이어 읽을 수 있습니다.</span>
+        </div>
+        <div class="reader-resume-actions">
+          <button id="readerResumeButton" type="button">이어보기</button>
+          <button id="readerRestartButton" type="button">처음부터</button>
+        </div>
+      </div>
+
       <div id="readerBody" class="reader-body">
-        <div class="reader-loading">
-          <div class="spinner" aria-hidden="true"></div>
-          <p>본문을 불러오는 중…</p>
+        <div class="reader-loading rich-loading">
+          <div class="loading-copy">
+            <strong id="readerLoadingTitle">본문을 불러오는 중…</strong>
+            <span id="readerLoadingText">파일을 준비하고 있습니다.</span>
+          </div>
+          <div class="reader-progress" aria-hidden="true">
+            <span id="readerProgressBar"></span>
+          </div>
+          <span id="readerProgressLabel" class="reader-progress-label">0%</span>
         </div>
       </div>
 

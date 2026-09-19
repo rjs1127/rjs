@@ -179,7 +179,7 @@ async function listFolder(accessToken, folderId) {
   do {
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: "nextPageToken,files(id,name,mimeType,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType))",
+      fields: "nextPageToken,files(id,name,mimeType,createdTime,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType))",
       pageSize: "1000",
       orderBy: "name",
       supportsAllDrives: "true",
@@ -200,7 +200,7 @@ async function listFolder(accessToken, folderId) {
 
 async function getFileMeta(accessToken, fileId) {
   const params = new URLSearchParams({
-    fields: "id,name,mimeType,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType)",
+    fields: "id,name,mimeType,createdTime,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType)",
     supportsAllDrives: "true",
   });
 
@@ -408,6 +408,7 @@ async function buildArchiveFromDrive(env) {
                   author: parsed.author,
                   fileName: file.name,
                   parseFailed: parsed.parseFailed,
+                  createdTime: file.createdTime || null,
                   modifiedTime: file.modifiedTime || null,
                   size: file.size ? Number(file.size) : null,
                 });

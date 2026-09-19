@@ -1575,3 +1575,248 @@ body.reader-open .page-scroll-top {
     font-size: 20px;
   }
 }
+
+
+/* v6.14 - sorting, collapsible mobile filters, resume, loading progress */
+.controls-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: end;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mobile-filter-toggle {
+  display: none;
+}
+
+.sort-control {
+  display: grid;
+  gap: 6px;
+  min-width: 150px;
+}
+
+.sort-control > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.sort-control select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+  padding: 9px 32px 9px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  outline: none;
+}
+
+.empty-reset-button {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reader-resume {
+  position: sticky;
+  top: 0;
+  z-index: 16;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0 28px 18px;
+  padding: 12px 14px;
+  border: 1px solid #e1d9cd;
+  border-radius: 14px;
+  background: rgba(248,244,237,.97);
+  box-shadow: 0 8px 18px rgba(37,33,28,.05);
+}
+
+.reader-resume > div:first-child {
+  display: grid;
+  gap: 3px;
+}
+
+.reader-resume strong {
+  font-size: 12px;
+}
+
+.reader-resume span {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.reader-resume-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.reader-resume-actions button {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  padding: 7px 9px;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.reader-resume-actions button:first-child {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.rich-loading {
+  width: min(100%, 520px);
+  margin: 80px auto;
+  padding: 22px;
+  border: 1px solid var(--line-soft);
+  border-radius: 18px;
+  background: rgba(255,255,255,.58);
+}
+
+.loading-copy {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.loading-copy strong {
+  font-size: 14px;
+}
+
+.loading-copy span {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.reader-progress {
+  width: 100%;
+  height: 7px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8e2da;
+}
+
+.reader-progress span {
+  display: block;
+  width: 4%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ink);
+  transition: width .22s ease;
+}
+
+.reader-progress-label {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 800;
+  text-align: right;
+}
+
+@media (max-width: 640px) {
+  .controls-toolbar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: stretch;
+    gap: 7px;
+    margin-bottom: 8px;
+  }
+
+  .mobile-filter-toggle {
+    min-width: 0;
+    display: grid;
+    grid-template-columns: auto minmax(0,1fr) auto;
+    align-items: center;
+    gap: 7px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    background: rgba(255,255,255,.66);
+    padding: 7px 9px;
+    color: var(--ink);
+    font-size: 10px;
+    font-weight: 850;
+  }
+
+  .filter-summary {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--muted);
+    font-weight: 700;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .filter-chevron {
+    font-size: 14px;
+    transition: transform .15s ease;
+  }
+
+  .mobile-filter-toggle[aria-expanded="true"] .filter-chevron {
+    transform: rotate(180deg);
+  }
+
+  .sort-control {
+    min-width: 112px;
+    gap: 0;
+  }
+
+  .sort-control > span {
+    display: none;
+  }
+
+  .sort-control select {
+    height: 100%;
+    min-height: 34px;
+    padding: 7px 25px 7px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+  }
+
+  .controls-grid {
+    display: none;
+  }
+
+  .controls-grid.mobile-open {
+    display: grid;
+  }
+
+  .reader-resume {
+    top: 0;
+    margin: 0 14px 12px;
+    padding: 10px;
+    gap: 8px;
+  }
+
+  .reader-resume strong {
+    font-size: 11px;
+  }
+
+  .reader-resume-actions button {
+    padding: 6px 7px;
+    font-size: 9px;
+  }
+
+  .rich-loading {
+    width: calc(100% - 28px);
+    margin: 54px auto;
+    padding: 17px;
+  }
+}

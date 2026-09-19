@@ -3,7 +3,11 @@ const state = {
   combination: "전체",
   length: "전체",
   search: "",
+  sort: localStorage.getItem("archiveSort") || "latest",
   view: localStorage.getItem("archiveViewV2") || "list",
+  mobileFiltersOpen: false,
+  activeReaderItem: null,
+  readerRenderToken: 0,
 };
 
 const els = {
@@ -17,6 +21,11 @@ const els = {
   clearSearch: document.getElementById("clearSearch"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
+  controlsGrid: document.getElementById("controlsGrid"),
+  filterToggleButton: document.getElementById("filterToggleButton"),
+  filterSummary: document.getElementById("filterSummary"),
+  sortSelect: document.getElementById("sortSelect"),
+  resetFiltersButton: document.getElementById("resetFiltersButton"),
   refreshButton: document.getElementById("refreshButton"),
   cardViewButton: document.getElementById("cardViewButton"),
   listViewButton: document.getElementById("listViewButton"),
@@ -33,6 +42,14 @@ const els = {
   readerAuthor: document.getElementById("readerAuthor"),
   readerFileName: document.getElementById("readerFileName"),
   readerBody: document.getElementById("readerBody"),
+  readerResume: document.getElementById("readerResume"),
+  readerResumeText: document.getElementById("readerResumeText"),
+  readerResumeButton: document.getElementById("readerResumeButton"),
+  readerRestartButton: document.getElementById("readerRestartButton"),
+  readerLoadingTitle: document.getElementById("readerLoadingTitle"),
+  readerLoadingText: document.getElementById("readerLoadingText"),
+  readerProgressBar: document.getElementById("readerProgressBar"),
+  readerProgressLabel: document.getElementById("readerProgressLabel"),
   readerScrollTop: document.getElementById("readerScrollTop"),
 };
 
@@ -104,24 +121,89 @@ function buildCombinationFilters(combinations) {
     .join("");
 }
 
-function getFilteredItems() {
-  const q = state.search.trim().toLocaleLowerCase("ko-KR");
+function normalizeSearchText(value = "") {
+  return String(value)
+    .normalize("NFKC")
+    .toLocaleLowerCase("ko-KR")
+    .replace(/[\s_\-\[\]\(\)\{\}.,'"/\\|:;!?·~`]+/g, "");
+}
 
-  return state.items.filter((item) => {
+function getSearchTokens(query = "") {
+  const rawTokens = String(query)
+    .normalize("NFKC")
+    .toLocaleLowerCase("ko-KR")
+    .trim()
+    .split(/\s+/)
+    .map(normalizeSearchText)
+    .filter(Boolean);
+
+  const compact = normalizeSearchText(query);
+  return [...new Set([compact, ...rawTokens].filter(Boolean))];
+}
+
+function sortItems(items) {
+  const collator = new Intl.Collator("ko", {
+    sensitivity: "base",
+    numeric: true,
+  });
+
+  return [...items].sort((a, b) => {
+    if (state.sort === "title") {
+      const titleCompare = collator.compare(a.title || "", b.title || "");
+      if (titleCompare !== 0) return titleCompare;
+      return collator.compare(a.author || "", b.author || "");
+    }
+
+    if (state.sort === "author") {
+      const authorCompare = collator.compare(a.author || "", b.author || "");
+      if (authorCompare !== 0) return authorCompare;
+      return collator.compare(a.title || "", b.title || "");
+    }
+
+    const aTime = Date.parse(a.createdTime || a.modifiedTime || "") || 0;
+    const bTime = Date.parse(b.createdTime || b.modifiedTime || "") || 0;
+    if (bTime !== aTime) return bTime - aTime;
+
+    return collator.compare(a.title || "", b.title || "");
+  });
+}
+
+function updateFilterSummary() {
+  if (!els.filterSummary) return;
+
+  const parts = [];
+  if (state.combination !== "전체") parts.push(state.combination);
+  if (state.length !== "전체") parts.push(state.length);
+  if (state.view === "card") parts.push("카드형");
+
+  els.filterSummary.textContent = parts.length ? parts.join(" · ") : "전체";
+}
+
+function getFilteredItems() {
+  const tokens = getSearchTokens(state.search);
+
+  const filtered = state.items.filter((item) => {
     const matchesCombination =
       state.combination === "전체" || item.combination === state.combination;
     const matchesLength =
       state.length === "전체" || item.lengthType === state.length;
 
-    const haystack = `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
-      .toLocaleLowerCase("ko-KR");
+    const haystack = normalizeSearchText(
+      `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
+    );
 
-    return matchesCombination && matchesLength && (!q || haystack.includes(q));
+    const matchesSearch =
+      tokens.length === 0 || tokens.every((token) => haystack.includes(token));
+
+    return matchesCombination && matchesLength && matchesSearch;
   });
+
+  return sortItems(filtered);
 }
 
 function render() {
   const items = getFilteredItems();
+  updateFilterSummary();
   els.resultCount.textContent = `총 ${items.length.toLocaleString("ko-KR")}개`;
 
   if (!items.length) {
@@ -185,44 +267,304 @@ function setView(view) {
   render();
 }
 
+const READER_PROGRESS_PREFIX = "archiveReaderProgress:v1:";
+
+function getReaderProgress(id) {
+  if (!id) return null;
+
+  try {
+    const parsed = JSON.parse(
+      localStorage.getItem(`${READER_PROGRESS_PREFIX}${id}`) || "null"
+    );
+
+    if (!parsed || !Number.isFinite(parsed.scrollTop)) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveReaderProgress() {
+  const item = state.activeReaderItem;
+  if (!item || !els.readerPanel) return;
+
+  const maxScroll = Math.max(
+    0,
+    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+  );
+
+  const scrollTop = Math.max(0, els.readerPanel.scrollTop);
+  const percent = maxScroll > 0
+    ? Math.min(100, Math.round((scrollTop / maxScroll) * 100))
+    : 0;
+
+  try {
+    if (scrollTop < 40 || percent >= 99) {
+      localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
+      return;
+    }
+
+    localStorage.setItem(
+      `${READER_PROGRESS_PREFIX}${item.id}`,
+      JSON.stringify({
+        scrollTop,
+        percent,
+        updatedAt: Date.now(),
+      })
+    );
+  } catch {}
+}
+
+function setReaderLoadingProgress(percent, title, text) {
+  const safePercent = Math.max(0, Math.min(100, Math.round(percent)));
+
+  if (els.readerProgressBar) {
+    els.readerProgressBar.style.width = `${safePercent}%`;
+  }
+
+  if (els.readerProgressLabel) {
+    els.readerProgressLabel.textContent = `${safePercent}%`;
+  }
+
+  if (title && els.readerLoadingTitle) {
+    els.readerLoadingTitle.textContent = title;
+  }
+
+  if (text && els.readerLoadingText) {
+    els.readerLoadingText.textContent = text;
+  }
+}
+
+function showReaderLoading(item) {
+  const isLarge = Number(item?.size || 0) > 700000;
+
+  els.readerBody.innerHTML = `
+    <div class="reader-loading rich-loading">
+      <div class="loading-copy">
+        <strong id="readerLoadingTitle">본문을 불러오는 중…</strong>
+        <span id="readerLoadingText">${
+          isLarge
+            ? "긴 파일입니다. 잠시만 기다리면 읽기 화면이 준비됩니다."
+            : "파일을 준비하고 있습니다."
+        }</span>
+      </div>
+      <div class="reader-progress" aria-hidden="true">
+        <span id="readerProgressBar"></span>
+      </div>
+      <span id="readerProgressLabel" class="reader-progress-label">4%</span>
+    </div>
+  `;
+
+  els.readerLoadingTitle = document.getElementById("readerLoadingTitle");
+  els.readerLoadingText = document.getElementById("readerLoadingText");
+  els.readerProgressBar = document.getElementById("readerProgressBar");
+  els.readerProgressLabel = document.getElementById("readerProgressLabel");
+  setReaderLoadingProgress(4);
+}
+
+function nextFrame() {
+  return new Promise((resolve) => requestAnimationFrame(resolve));
+}
+
+async function streamTextIntoReader(response, renderToken) {
+  const totalBytes =
+    Number(response.headers.get("x-content-bytes")) ||
+    Number(response.headers.get("content-length")) ||
+    0;
+
+  if (!response.body?.getReader) {
+    const text = await response.text();
+    if (renderToken !== state.readerRenderToken) return;
+
+    setReaderLoadingProgress(65, "본문을 화면에 준비하는 중…", "긴 본문은 여러 번 나누어 표시합니다.");
+    await nextFrame();
+
+    els.readerBody.textContent = "";
+
+    const chunkSize = 50000;
+    const totalChars = Math.max(1, text.length);
+
+    for (let offset = 0; offset < text.length; offset += chunkSize) {
+      if (renderToken !== state.readerRenderToken) return;
+
+      els.readerBody.appendChild(
+        document.createTextNode(text.slice(offset, offset + chunkSize))
+      );
+
+      setReaderLoadingProgress(
+        65 + ((offset + chunkSize) / totalChars) * 34,
+        "본문을 화면에 준비하는 중…",
+        "거의 다 준비됐습니다."
+      );
+
+      await nextFrame();
+    }
+
+    return;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder("utf-8");
+  const fragmentTarget = document.createDocumentFragment();
+
+  let received = 0;
+  let lastYieldAt = 0;
+  let firstChunk = true;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (renderToken !== state.readerRenderToken) {
+      try { await reader.cancel(); } catch {}
+      return;
+    }
+
+    received += value.byteLength;
+    const decoded = decoder.decode(value, { stream: true });
+
+    if (firstChunk) {
+      els.readerBody.textContent = "";
+      firstChunk = false;
+    }
+
+    fragmentTarget.appendChild(document.createTextNode(decoded));
+
+    const now = performance.now();
+
+    if (now - lastYieldAt > 40) {
+      els.readerBody.appendChild(fragmentTarget.cloneNode(true));
+      while (fragmentTarget.firstChild) fragmentTarget.removeChild(fragmentTarget.firstChild);
+
+      const networkRatio = totalBytes > 0
+        ? Math.min(1, received / totalBytes)
+        : Math.min(.96, .25 + received / 2000000);
+
+      setReaderLoadingProgress(
+        42 + networkRatio * 56,
+        "본문을 불러오는 중…",
+        totalBytes > 0
+          ? "본문을 순서대로 받아 표시하고 있습니다."
+          : "긴 본문을 나누어 표시하고 있습니다."
+      );
+
+      lastYieldAt = now;
+      await nextFrame();
+    }
+  }
+
+  const tail = decoder.decode();
+  if (tail) fragmentTarget.appendChild(document.createTextNode(tail));
+  if (fragmentTarget.childNodes.length) els.readerBody.appendChild(fragmentTarget);
+
+  setReaderLoadingProgress(100, "본문 준비 완료", "읽기를 시작할 수 있습니다.");
+}
+
+function showResumePrompt(item) {
+  if (!els.readerResume) return;
+
+  const saved = getReaderProgress(item?.id);
+
+  if (!saved || saved.scrollTop < 40 || saved.percent >= 99) {
+    els.readerResume.hidden = true;
+    return;
+  }
+
+  els.readerResume.hidden = false;
+  els.readerResume.dataset.itemId = item.id;
+
+  if (els.readerResumeText) {
+    els.readerResumeText.textContent =
+      `${saved.percent || 0}% 지점까지 읽었습니다.`;
+  }
+}
+
 async function openReader(item) {
   if (!item) return;
+
+  state.activeReaderItem = item;
+  const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
+
   if (els.readerPanel) els.readerPanel.scrollTop = 0;
+
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
+  if (els.readerResume) els.readerResume.hidden = true;
+
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
   els.readerTitle.textContent = item.title || "제목 미상";
   els.readerAuthor.textContent = item.author || "작성자 미상";
   els.readerFileName.textContent = `원본 파일명: ${item.fileName || ""}`;
 
-  els.readerBody.innerHTML = `
-    <div class="reader-loading">
-      <div class="spinner" aria-hidden="true"></div>
-      <p>본문을 불러오는 중…</p>
-    </div>`;
+  showReaderLoading(item);
+
+  let waitingProgress = 5;
+  const waitTimer = window.setInterval(() => {
+    waitingProgress = Math.min(38, waitingProgress + Math.max(1, (40 - waitingProgress) * .08));
+    setReaderLoadingProgress(
+      waitingProgress,
+      "본문을 불러오는 중…",
+      Number(item.size || 0) > 700000
+        ? "파일이 길어 준비에 조금 더 시간이 걸릴 수 있습니다."
+        : "파일을 준비하고 있습니다."
+    );
+  }, 280);
 
   try {
     const params = new URLSearchParams({
       id: item.id,
       modified: item.modifiedTime || "unknown",
+      raw: "1",
     });
-    const response = await fetch(`/api/content?${params.toString()}`);
-    const data = await response.json();
 
-    if (!response.ok) throw new Error(data?.error || "본문을 불러오지 못했습니다.");
-    els.readerBody.textContent = data.content || "";
+    const response = await fetch(`/api/content?${params.toString()}`);
+
+    window.clearInterval(waitTimer);
+
+    if (!response.ok) {
+      let message = "본문을 불러오지 못했습니다.";
+      try {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          message = data?.error || message;
+        } else {
+          message = (await response.text()) || message;
+        }
+      } catch {}
+      throw new Error(message);
+    }
+
+    setReaderLoadingProgress(
+      42,
+      "본문을 받았습니다.",
+      "긴 본문은 화면이 멈추지 않도록 나누어 표시합니다."
+    );
+
+    await nextFrame();
+    await streamTextIntoReader(response, renderToken);
+
+    if (renderToken !== state.readerRenderToken) return;
+
+    showResumePrompt(item);
   } catch (error) {
+    window.clearInterval(waitTimer);
+
+    if (renderToken !== state.readerRenderToken) return;
+
     els.readerBody.innerHTML =
       `<p class="reader-error">${escapeHtml(error?.message || "본문을 불러오지 못했습니다.")}</p>`;
   }
 }
 
 function closeReader() {
+  saveReaderProgress();
+  state.readerRenderToken += 1;
+  state.activeReaderItem = null;
   els.readerOverlay.hidden = true;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
@@ -230,6 +572,79 @@ function closeReader() {
   els.readerBody.textContent = "";
   updatePageScrollTopButton();
 }
+
+
+if (!["latest", "title", "author"].includes(state.sort)) {
+  state.sort = "latest";
+}
+els.sortSelect.value = state.sort;
+
+els.sortSelect.addEventListener("change", (event) => {
+  state.sort = event.target.value;
+  localStorage.setItem("archiveSort", state.sort);
+  render();
+});
+
+els.filterToggleButton?.addEventListener("click", () => {
+  state.mobileFiltersOpen = !state.mobileFiltersOpen;
+  els.controlsGrid?.classList.toggle("mobile-open", state.mobileFiltersOpen);
+  els.filterToggleButton.setAttribute(
+    "aria-expanded",
+    state.mobileFiltersOpen ? "true" : "false"
+  );
+});
+
+els.resetFiltersButton?.addEventListener("click", () => {
+  state.search = "";
+  state.combination = "전체";
+  state.length = "전체";
+
+  els.searchInput.value = "";
+  els.clearSearch.classList.remove("visible");
+
+  els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.combination === "전체");
+  });
+
+  els.lengthFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.length === "전체");
+  });
+
+  render();
+});
+
+els.readerResumeButton?.addEventListener("click", () => {
+  const item = state.activeReaderItem;
+  if (!item || !els.readerPanel) return;
+
+  const saved = getReaderProgress(item.id);
+  if (!saved) return;
+
+  els.readerResume.hidden = true;
+
+  els.readerPanel.scrollTo({
+    top: Math.max(0, saved.scrollTop),
+    behavior: "smooth",
+  });
+});
+
+els.readerRestartButton?.addEventListener("click", () => {
+  const item = state.activeReaderItem;
+
+  if (item) {
+    try {
+      localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
+    } catch {}
+  }
+
+  if (els.readerResume) els.readerResume.hidden = true;
+
+  els.readerPanel?.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+});
+
 
 els.searchInput.addEventListener("input", (event) => {
   state.search = event.target.value;
@@ -301,10 +716,15 @@ document.addEventListener("keydown", (event) => {
 els.refreshButton.addEventListener("click", () => loadArchive(true));
 
 
+let readerProgressSaveTimer = 0;
+
 function updateReaderScrollUi() {
   if (!els.readerPanel) return;
 
   const scrollTop = els.readerPanel.scrollTop;
+
+  window.clearTimeout(readerProgressSaveTimer);
+  readerProgressSaveTimer = window.setTimeout(saveReaderProgress, 240);
 
   els.readerPanel.classList.toggle(
     "reader-compact",
