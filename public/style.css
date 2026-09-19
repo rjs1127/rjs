@@ -1903,3 +1903,16 @@ body.reader-open .page-scroll-top {
 .reader:not(.reader-loading-locked) {
   overflow-y: auto;
 }
+
+
+/* v6.19 - large files are rendered progressively instead of laying out the whole document */
+.reader-virtual-chunk {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+.reader-virtual-chunk + .reader-virtual-chunk {
+  margin-top: 0;
+}

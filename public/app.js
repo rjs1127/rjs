@@ -10,6 +10,9 @@ const state = {
   readerRenderToken: 0,
   suspendReaderProgressSave: false,
   readerLoadingStartedAt: 0,
+  largeReaderChunks: null,
+  largeReaderRenderedCount: 0,
+  largeReaderRendering: false,
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -282,7 +285,15 @@ function getReaderProgress(id) {
       localStorage.getItem(`${READER_PROGRESS_PREFIX}${id}`) || "null"
     );
 
-    if (!parsed || !Number.isFinite(parsed.scrollTop)) return null;
+    if (!parsed) return null;
+
+    const hasScroll = Number.isFinite(parsed.scrollTop);
+    const hasChunk = Number.isFinite(parsed.chunkIndex);
+
+    if (!hasScroll && !hasChunk && !Number.isFinite(parsed.percent)) {
+      return null;
+    }
+
     return parsed;
   } catch {
     return null;
@@ -327,17 +338,39 @@ function saveReaderProgress() {
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return;
 
-  const maxScroll = Math.max(
-    0,
-    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
-  );
-
-  const scrollTop = Math.max(0, els.readerPanel.scrollTop);
-  const percent = maxScroll > 0
-    ? Math.min(100, Math.round((scrollTop / maxScroll) * 100))
-    : 0;
-
   try {
+    if (isLargeReaderFile(item) && state.largeReaderChunks) {
+      const position = getLargeReaderPosition();
+      if (!position) return;
+
+      if ((position.index === 0 && position.ratio < 0.03) || position.percent >= 99) {
+        localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
+        return;
+      }
+
+      localStorage.setItem(
+        `${READER_PROGRESS_PREFIX}${item.id}`,
+        JSON.stringify({
+          mode: "chunk",
+          chunkIndex: position.index,
+          chunkRatio: position.ratio,
+          percent: position.percent,
+          updatedAt: Date.now(),
+        })
+      );
+      return;
+    }
+
+    const maxScroll = Math.max(
+      0,
+      els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+    );
+
+    const scrollTop = Math.max(0, els.readerPanel.scrollTop);
+    const percent = maxScroll > 0
+      ? Math.min(100, Math.round((scrollTop / maxScroll) * 100))
+      : 0;
+
     if (scrollTop < 40 || percent >= 99) {
       localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
       return;
@@ -346,6 +379,7 @@ function saveReaderProgress() {
     localStorage.setItem(
       `${READER_PROGRESS_PREFIX}${item.id}`,
       JSON.stringify({
+        mode: "scroll",
         scrollTop,
         percent,
         updatedAt: Date.now(),
@@ -389,6 +423,7 @@ function unlockReaderScroll() {
 
 function showReaderLoading(item) {
   const isLarge = isLargeReaderFile(item);
+  resetLargeReaderState();
   lockReaderScroll();
 
   els.readerBody.innerHTML = `
@@ -508,6 +543,143 @@ async function collectResponseText(response, renderToken) {
 }
 
 
+
+const LARGE_READER_CHUNK_CHARS = 180000;
+
+function resetLargeReaderState() {
+  state.largeReaderChunks = null;
+  state.largeReaderRenderedCount = 0;
+  state.largeReaderRendering = false;
+}
+
+function splitLargeReaderText(text) {
+  const chunks = [];
+  let offset = 0;
+
+  while (offset < text.length) {
+    let end = Math.min(text.length, offset + LARGE_READER_CHUNK_CHARS);
+
+    if (end < text.length) {
+      const nextBreak = text.indexOf("\n", end);
+      if (nextBreak >= 0 && nextBreak - end <= 2500) {
+        end = nextBreak + 1;
+      }
+    }
+
+    chunks.push(text.slice(offset, end));
+    offset = end;
+  }
+
+  return chunks.length ? chunks : [""];
+}
+
+function appendLargeReaderChunk(index) {
+  if (!els.readerContent || !state.largeReaderChunks) return;
+
+  const text = state.largeReaderChunks[index];
+  if (typeof text !== "string") return;
+
+  const section = document.createElement("section");
+  section.className = "reader-virtual-chunk";
+  section.dataset.readerChunkIndex = String(index);
+  section.appendChild(document.createTextNode(text));
+  els.readerContent.appendChild(section);
+}
+
+async function renderLargeReaderThrough(targetIndex, renderToken) {
+  if (
+    !state.largeReaderChunks ||
+    state.largeReaderRendering ||
+    renderToken !== state.readerRenderToken
+  ) {
+    return;
+  }
+
+  const finalIndex = Math.min(
+    state.largeReaderChunks.length - 1,
+    Math.max(0, targetIndex)
+  );
+
+  if (state.largeReaderRenderedCount > finalIndex) return;
+
+  state.largeReaderRendering = true;
+
+  try {
+    while (state.largeReaderRenderedCount <= finalIndex) {
+      if (renderToken !== state.readerRenderToken) return;
+
+      appendLargeReaderChunk(state.largeReaderRenderedCount);
+      state.largeReaderRenderedCount += 1;
+
+      await nextFrame();
+    }
+  } finally {
+    state.largeReaderRendering = false;
+  }
+}
+
+async function maybeRenderMoreLargeReader() {
+  if (
+    !state.largeReaderChunks ||
+    state.largeReaderRendering ||
+    !els.readerPanel ||
+    state.largeReaderRenderedCount >= state.largeReaderChunks.length
+  ) {
+    return;
+  }
+
+  const distanceToBottom =
+    els.readerPanel.scrollHeight -
+    els.readerPanel.scrollTop -
+    els.readerPanel.clientHeight;
+
+  if (distanceToBottom > 1500) return;
+
+  const target = Math.min(
+    state.largeReaderChunks.length - 1,
+    state.largeReaderRenderedCount + 1
+  );
+
+  await renderLargeReaderThrough(target, state.readerRenderToken);
+}
+
+function getLargeReaderPosition() {
+  if (!state.largeReaderChunks || !els.readerPanel || !els.readerContent) {
+    return null;
+  }
+
+  const sections = Array.from(
+    els.readerContent.querySelectorAll(".reader-virtual-chunk")
+  );
+
+  if (!sections.length) return null;
+
+  const viewportTop = els.readerPanel.scrollTop + 92;
+  let current = sections[0];
+
+  for (const section of sections) {
+    if (section.offsetTop <= viewportTop) {
+      current = section;
+    } else {
+      break;
+    }
+  }
+
+  const index = Number(current.dataset.readerChunkIndex || 0);
+  const localOffset = Math.max(0, viewportTop - current.offsetTop);
+  const ratio = current.offsetHeight > 0
+    ? Math.min(1, localOffset / current.offsetHeight)
+    : 0;
+
+  const total = Math.max(1, state.largeReaderChunks.length);
+  const percent = Math.min(
+    100,
+    Math.max(0, Math.round(((index + ratio) / total) * 100))
+  );
+
+  return { index, ratio, percent };
+}
+
 async function waitForReaderScrollReady(renderToken, options = {}) {
   if (!els.readerPanel || !els.readerContent) return false;
 
@@ -566,21 +738,72 @@ async function waitForReaderScrollReady(renderToken, options = {}) {
 }
 
 async function renderLongText(text, renderToken) {
-  if (!els.readerContent) return;
+  if (!els.readerContent) return false;
 
   els.readerContent.textContent = "";
+  resetLargeReaderState();
+
+  const item = state.activeReaderItem;
+  const isLarge = isLargeReaderFile(item);
+
+  if (isLarge) {
+    state.largeReaderChunks = splitLargeReaderText(text);
+
+    setReaderLoadingProgress(
+      76,
+      "첫 화면을 준비하는 중…",
+      "긴 파일은 처음부터 전부 그리지 않고 읽는 만큼만 화면에 표시합니다."
+    );
+
+    const initialLastIndex = Math.min(
+      state.largeReaderChunks.length - 1,
+      1
+    );
+
+    await renderLargeReaderThrough(initialLastIndex, renderToken);
+
+    if (renderToken !== state.readerRenderToken) return false;
+
+    setReaderLoadingProgress(
+      94,
+      "스크롤 준비 중…",
+      "첫 읽기 화면의 스크롤 영역을 준비하고 있습니다."
+    );
+
+    await nextFrame();
+    void els.readerPanel.scrollHeight;
+    await nextFrame();
+
+    unlockReaderScroll();
+
+    // 잠금을 푼 상태에서 실제 scrollbar가 먼저 나타나도록 기다린다.
+    await nextFrame();
+    await nextFrame();
+
+    if (renderToken !== state.readerRenderToken) return false;
+
+    setReaderLoadingProgress(
+      100,
+      "준비 완료",
+      "이제 바로 읽을 수 있습니다. 아래로 읽으면 다음 내용이 자동으로 이어집니다."
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 180));
+
+    els.readerLoadingOverlay?.classList.add("done");
+    await new Promise((resolve) => setTimeout(resolve, 180));
+
+    if (els.readerLoadingOverlay) {
+      els.readerLoadingOverlay.remove();
+      els.readerLoadingOverlay = null;
+    }
+
+    return true;
+  }
 
   const totalChars = Math.max(1, text.length);
-
-  // 긴 파일일수록 작은 단위로 나눠 메인 스레드를 자주 양보한다.
-  const chunkSize =
-    totalChars > 3000000 ? 18000 :
-    totalChars > 1200000 ? 26000 :
-    totalChars > 500000 ? 36000 :
-    60000;
-
+  const chunkSize = 60000;
   let offset = 0;
-  let batchCount = 0;
 
   while (offset < text.length) {
     if (renderToken !== state.readerRenderToken) return false;
@@ -591,39 +814,19 @@ async function renderLongText(text, renderToken) {
     );
 
     offset = end;
-    batchCount += 1;
-
-    const ratio = offset / totalChars;
 
     setReaderLoadingProgress(
-      64 + ratio * 31,
+      64 + (offset / totalChars) * 31,
       "본문을 화면에 배치하는 중…",
-      ratio < .7
-        ? "긴 본문을 조금씩 나누어 표시하고 있습니다."
-        : "거의 다 준비됐습니다."
+      "거의 다 준비됐습니다."
     );
 
-    // 몇 덩어리마다 브라우저에게 페인트/입력 처리 시간을 준다.
-    if (batchCount % 2 === 0) {
-      await nextFrame();
-    } else {
-      await nextTask();
-    }
+    await nextFrame();
   }
 
   if (renderToken !== state.readerRenderToken) return false;
 
-  setReaderLoadingProgress(
-    96,
-    "마지막 화면 정리 중…",
-    "글 배치와 스크롤 영역을 계산하고 있습니다."
-  );
-
-  // 실제 scrollHeight 계산을 여기서 끝내고 로딩 UI를 유지한다.
-  await nextFrame();
-  void els.readerContent.offsetHeight;
-  await nextFrame();
-  await nextTask();
+  unlockReaderScroll();
   await nextFrame();
 
   setReaderLoadingProgress(
@@ -632,72 +835,10 @@ async function renderLongText(text, renderToken) {
     "이제 바로 읽을 수 있습니다."
   );
 
-  const item = state.activeReaderItem;
-  const isLarge = isLargeReaderFile(item);
-
-  if (isLarge) {
-    const elapsed = performance.now() - (state.readerLoadingStartedAt || 0);
-    const remaining = Math.max(
-      0,
-      LARGE_FILE_MIN_LOADING_VISIBLE_MS - elapsed
-    );
-
-    if (remaining > 0) {
-      setReaderLoadingProgress(
-        99,
-        "스크롤 준비 중…",
-        "긴 파일이라 화면이 안정될 때까지 잠시만 기다려주세요."
-      );
-      await new Promise((resolve) => setTimeout(resolve, remaining));
-    }
-
-    const scrollReady = await waitForReaderScrollReady(renderToken, {
-      stableForMs: 750,
-      maxWaitMs: 9000,
-    });
-
-    if (renderToken !== state.readerRenderToken) return false;
-
-    /*
-     * 중요한 순서:
-     * 1) 프로그래스바가 아직 보이는 상태에서 스크롤 잠금 해제
-     * 2) 실제 scrollbar가 계산될 프레임을 기다림
-     * 3) 그 다음에 프로그래스바를 제거
-     *
-     * 따라서 사용자에게 로딩창이 사라졌는데 scrollbar가 뒤늦게
-     * 생기는 구간이 보이지 않도록 한다.
-     */
-    unlockReaderScroll();
-
-    await nextFrame();
-    void els.readerPanel.scrollHeight;
-    await nextFrame();
-
-    if (scrollReady) {
-      setReaderLoadingProgress(
-        100,
-        "준비 완료",
-        "스크롤 준비가 완료되었습니다."
-      );
-    } else {
-      setReaderLoadingProgress(
-        100,
-        "준비 완료",
-        "본문 준비가 완료되었습니다."
-      );
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 220));
-  } else {
-    unlockReaderScroll();
-    await nextFrame();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-  }
-
-  if (renderToken !== state.readerRenderToken) return false;
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   els.readerLoadingOverlay?.classList.add("done");
-  await new Promise((resolve) => setTimeout(resolve, isLarge ? 220 : 150));
+  await new Promise((resolve) => setTimeout(resolve, 150));
 
   if (els.readerLoadingOverlay) {
     els.readerLoadingOverlay.remove();
@@ -722,7 +863,7 @@ function showResumePrompt(item) {
 
   const saved = getReaderProgress(item?.id);
 
-  if (!saved || saved.scrollTop < 40 || saved.percent >= 99) {
+  if (!saved || Number(saved.percent || 0) <= 0 || saved.percent >= 99) {
     els.readerResume.hidden = true;
     return;
   }
@@ -837,6 +978,7 @@ function closeReader() {
   saveReaderProgress();
   state.readerRenderToken += 1;
   state.activeReaderItem = null;
+  resetLargeReaderState();
   els.readerOverlay.hidden = true;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
@@ -885,7 +1027,7 @@ els.resetFiltersButton?.addEventListener("click", () => {
   render();
 });
 
-els.readerResume?.addEventListener("click", (event) => {
+els.readerResume?.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button) return;
 
@@ -899,6 +1041,57 @@ els.readerResume?.addEventListener("click", (event) => {
     const saved = getReaderProgress(item.id);
     if (!saved) {
       els.readerResume.hidden = true;
+      return;
+    }
+
+    if (isLargeReaderFile(item) && state.largeReaderChunks) {
+      const total = state.largeReaderChunks.length;
+      let targetIndex = Number(saved.chunkIndex);
+
+      if (!Number.isFinite(targetIndex)) {
+        const percent = Math.max(0, Math.min(99, Number(saved.percent || 0)));
+        targetIndex = Math.floor((percent / 100) * total);
+      }
+
+      targetIndex = Math.max(0, Math.min(total - 1, targetIndex));
+
+      els.readerResumeButton.disabled = true;
+      els.readerRestartButton.disabled = true;
+      els.readerResumeText.textContent = "읽던 위치까지 준비하고 있습니다…";
+
+      await renderLargeReaderThrough(targetIndex, state.readerRenderToken);
+
+      const targetChunk = els.readerContent?.querySelector(
+        `.reader-virtual-chunk[data-reader-chunk-index="${targetIndex}"]`
+      );
+
+      if (targetChunk) {
+        const ratio = Math.max(
+          0,
+          Math.min(1, Number(saved.chunkRatio || 0))
+        );
+
+        state.suspendReaderProgressSave = true;
+        els.readerResume.hidden = true;
+
+        const targetTop =
+          targetChunk.offsetTop +
+          targetChunk.offsetHeight * ratio -
+          92;
+
+        els.readerPanel.scrollTo({
+          top: Math.max(0, targetTop),
+          behavior: "smooth",
+        });
+
+        window.setTimeout(() => {
+          state.suspendReaderProgressSave = false;
+          saveReaderProgress();
+        }, 900);
+      }
+
+      els.readerResumeButton.disabled = false;
+      els.readerRestartButton.disabled = false;
       return;
     }
 
@@ -1024,6 +1217,8 @@ function updateReaderScrollUi() {
     "visible",
     scrollTop > 180
   );
+
+  maybeRenderMoreLargeReader();
 }
 
 els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
