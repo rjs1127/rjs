@@ -331,6 +331,18 @@
       <p class="simple-modal-kicker">MY LIBRARY</p>
       <h2 id="libraryModalTitle">북마크</h2>
       <p id="libraryModalDescription" class="simple-modal-description"></p>
+
+      <div class="library-tools">
+        <label class="library-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"></circle>
+            <path d="m16 16 4 4"></path>
+          </svg>
+          <input id="librarySearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
+        </label>
+        <button id="libraryClearButton" class="library-clear-button" type="button">전체 삭제</button>
+      </div>
+
       <div id="libraryModalList" class="library-modal-list"></div>
     </section>
   </div>

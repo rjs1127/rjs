@@ -18,6 +18,8 @@ const state = {
   authMode: "login",
   pendingAuthReason: "",
   lastRemoteProgressAt: 0,
+  libraryKind: "bookmarks",
+  librarySearch: "",
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -97,6 +99,8 @@ const els = {
   libraryModal: document.getElementById("libraryModal"),
   libraryModalTitle: document.getElementById("libraryModalTitle"),
   libraryModalDescription: document.getElementById("libraryModalDescription"),
+  librarySearchInput: document.getElementById("librarySearchInput"),
+  libraryClearButton: document.getElementById("libraryClearButton"),
   libraryModalList: document.getElementById("libraryModalList"),
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
@@ -228,13 +232,32 @@ function clearUserSession(clearToken = true) {
   state.userLibrary = new Map();
   updateAccountUi();
   updateReaderBookmarkButton();
+
+  if (state.items.length) {
+    render();
+  }
 }
 
 function updateAccountUi() {
   const loggedIn = Boolean(state.user?.userId);
 
   if (els.loginButton) {
-    els.loginButton.textContent = loggedIn ? state.user.userId : "로그인";
+    if (loggedIn) {
+      els.loginButton.innerHTML = `
+        <span class="account-avatar" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="12" cy="8" r="3.25"></circle>
+            <path d="M5.5 19c.8-3.5 3.1-5.25 6.5-5.25S17.7 15.5 18.5 19"></path>
+          </svg>
+        </span>
+        <span class="account-id">${escapeHtml(state.user.userId)}</span>
+      `;
+      els.loginButton.setAttribute("aria-label", `${state.user.userId} 계정`);
+    } else {
+      els.loginButton.textContent = "로그인";
+      els.loginButton.setAttribute("aria-label", "로그인");
+    }
+
     els.loginButton.classList.toggle("logged-in", loggedIn);
   }
 
@@ -381,6 +404,7 @@ async function persistProgress(item, saved) {
       body: JSON.stringify(payload),
     });
     state.lastRemoteProgressAt = Date.now();
+    if (state.items.length) render();
   } catch (error) {
     console.warn("이어보기 저장 실패", error);
   }
@@ -398,6 +422,85 @@ function formatLibraryDate(timestamp) {
   }
 }
 
+function getLibraryVisibleEntries(kind = state.libraryKind, query = state.librarySearch) {
+  const normalizedQuery = normalizeSearchText(query);
+
+  return [...state.userLibrary.values()]
+    .filter((entry) =>
+      kind === "bookmarks" ? entry.bookmarked : Boolean(entry.viewedAt)
+    )
+    .sort((a, b) =>
+      kind === "bookmarks"
+        ? (b.updatedAt || 0) - (a.updatedAt || 0)
+        : (b.viewedAt || 0) - (a.viewedAt || 0)
+    )
+    .map((entry) => {
+      const item = state.items.find((candidate) => candidate.id === entry.fileId);
+      return { entry, item };
+    })
+    .filter(({ item }) => {
+      if (!item) return false;
+      if (!normalizedQuery) return true;
+
+      const haystack = normalizeSearchText(
+        `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
+      );
+      return haystack.includes(normalizedQuery);
+    })
+    .slice(0, 100);
+}
+
+function renderUserLibraryModal() {
+  const kind = state.libraryKind;
+  const visible = getLibraryVisibleEntries();
+
+  if (els.libraryClearButton) {
+    els.libraryClearButton.textContent =
+      kind === "bookmarks" ? "북마크 전체 해제" : "최근 조회 전체 삭제";
+    els.libraryClearButton.disabled = !visible.length && !state.librarySearch;
+  }
+
+  if (!visible.length) {
+    els.libraryModalList.innerHTML =
+      `<div class="library-empty">${
+        state.librarySearch
+          ? "검색 결과가 없습니다."
+          : kind === "bookmarks"
+            ? "아직 북마크한 작품이 없습니다."
+            : "아직 조회한 작품이 없습니다."
+      }</div>`;
+    return;
+  }
+
+  els.libraryModalList.innerHTML = visible.map(({ entry, item }) => `
+    <div class="library-entry" data-library-file-id="${escapeHtml(item.id)}">
+      <button class="library-entry-open" type="button" data-library-open="${escapeHtml(item.id)}">
+        <span class="library-entry-main">
+          <span class="library-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
+          <span class="library-entry-meta">${escapeHtml(item.author || "작성자 미상")} · ${escapeHtml(item.combination || "")} ${escapeHtml(item.lengthType || "")}</span>
+        </span>
+        <span class="library-entry-progress ${
+          entry.readAt ? "is-read" : ""
+        }">${
+          entry.readAt
+            ? "✓ 읽음"
+            : entry.progressPercent > 0
+              ? `${Math.round(entry.progressPercent)}%`
+              : formatLibraryDate(entry.viewedAt)
+        }</span>
+      </button>
+
+      <button
+        class="library-entry-remove"
+        type="button"
+        data-library-remove="${escapeHtml(item.id)}"
+        aria-label="${kind === "bookmarks" ? "북마크 해제" : "최근 조회에서 삭제"}"
+        title="${kind === "bookmarks" ? "북마크 해제" : "최근 조회에서 삭제"}"
+      >×</button>
+    </div>
+  `).join("");
+}
+
 function showUserLibrary(kind) {
   if (!state.user) {
     openAuthModal(
@@ -409,58 +512,24 @@ function showUserLibrary(kind) {
     return;
   }
 
-  const entries = [...state.userLibrary.values()]
-    .filter((entry) =>
-      kind === "bookmarks" ? entry.bookmarked : Boolean(entry.viewedAt)
-    )
-    .sort((a, b) =>
-      kind === "bookmarks"
-        ? (b.updatedAt || 0) - (a.updatedAt || 0)
-        : (b.viewedAt || 0) - (a.viewedAt || 0)
-    )
-    .slice(0, 50);
+  state.libraryKind = kind === "recent" ? "recent" : "bookmarks";
+  state.librarySearch = "";
 
   els.libraryModalTitle.textContent =
-    kind === "bookmarks" ? "북마크" : "최근 조회";
+    state.libraryKind === "bookmarks" ? "북마크" : "최근 조회";
   els.libraryModalDescription.textContent =
-    kind === "bookmarks"
-      ? "저장해 둔 작품입니다."
-      : "최근 열어본 작품입니다.";
+    state.libraryKind === "bookmarks"
+      ? "저장해 둔 작품입니다. 검색하거나 필요 없는 북마크를 해제할 수 있어요."
+      : "최근 열어본 작품입니다. 검색하거나 기록을 정리할 수 있어요.";
 
-  const visible = entries
-    .map((entry) => {
-      const item = state.items.find((candidate) => candidate.id === entry.fileId);
-      return { entry, item };
-    })
-    .filter(({ item }) => item);
-
-  if (!visible.length) {
-    els.libraryModalList.innerHTML =
-      `<div class="library-empty">${
-        kind === "bookmarks"
-          ? "아직 북마크한 작품이 없습니다."
-          : "아직 조회한 작품이 없습니다."
-      }</div>`;
-  } else {
-    els.libraryModalList.innerHTML = visible.map(({ entry, item }) => `
-      <button class="library-entry" type="button" data-library-file-id="${escapeHtml(item.id)}">
-        <span class="library-entry-main">
-          <span class="library-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
-          <span class="library-entry-meta">${escapeHtml(item.author || "작성자 미상")} · ${escapeHtml(item.combination || "")} ${escapeHtml(item.lengthType || "")}</span>
-        </span>
-        <span class="library-entry-progress">${
-          entry.readAt
-            ? "읽음"
-            : entry.progressPercent > 0
-              ? `${Math.round(entry.progressPercent)}%`
-              : formatLibraryDate(entry.viewedAt)
-        }</span>
-      </button>
-    `).join("");
+  if (els.librarySearchInput) {
+    els.librarySearchInput.value = "";
   }
 
+  renderUserLibraryModal();
   openModal(els.libraryModal);
 }
+
 
 function escapeHtml(value = "") {
   return String(value)
@@ -638,14 +707,36 @@ function render() {
   syncViewButtons();
 }
 
+
+function getItemReadingBadge(item) {
+  if (!state.user || !item) return "";
+
+  const entry = getUserLibraryEntry(item.id);
+  if (!entry) return "";
+
+  if (entry.readAt) {
+    return `<span class="reading-state-badge read">✓ 읽음</span>`;
+  }
+
+  const percent = Math.round(Number(entry.progressPercent || 0));
+  if (percent > 0 && percent < 99) {
+    return `<span class="reading-state-badge progress">${percent}%</span>`;
+  }
+
+  return "";
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
     <article class="content-card" tabindex="0" role="button"
       data-id="${escapeHtml(item.id)}"
       aria-label="${escapeHtml(item.title)} 본문 열기">
-      <div class="card-tags">
-        <span class="card-tag">${escapeHtml(item.combination)}</span>
-        <span class="card-tag">${escapeHtml(item.lengthType)}</span>
+      <div class="card-topline">
+        <div class="card-tags">
+          <span class="card-tag">${escapeHtml(item.combination)}</span>
+          <span class="card-tag">${escapeHtml(item.lengthType)}</span>
+        </div>
+        ${getItemReadingBadge(item)}
       </div>
       <h3 class="card-title">${escapeHtml(item.title)}</h3>
       <p class="card-author">${escapeHtml(item.author)}</p>
@@ -659,7 +750,12 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}">
       <td>${escapeHtml(item.combination)}</td>
       <td>${escapeHtml(item.lengthType)}</td>
-      <td class="list-title">${escapeHtml(item.title)}</td>
+      <td class="list-title">
+        <span class="list-title-row">
+          <span>${escapeHtml(item.title)}</span>
+          ${getItemReadingBadge(item)}
+        </span>
+      </td>
       <td>${escapeHtml(item.author)}</td>
     </tr>
   `).join("");
@@ -1740,12 +1836,98 @@ els.readerBookmarkButton?.addEventListener("click", async () => {
   }
 });
 
-els.libraryModalList?.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-library-file-id]");
-  if (!button) return;
+els.librarySearchInput?.addEventListener("input", (event) => {
+  state.librarySearch = event.target.value || "";
+  renderUserLibraryModal();
+});
+
+els.libraryClearButton?.addEventListener("click", async () => {
+  if (!state.user) return;
+
+  const kind = state.libraryKind;
+  const message =
+    kind === "bookmarks"
+      ? "저장된 북마크를 모두 해제할까요?"
+      : "최근 조회 기록을 모두 삭제할까요?";
+
+  if (!window.confirm(message)) return;
+
+  els.libraryClearButton.disabled = true;
+
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({
+        action: kind === "bookmarks" ? "clear_bookmarks" : "clear_recent",
+      }),
+    });
+
+    for (const [fileId, entry] of state.userLibrary.entries()) {
+      if (kind === "bookmarks") {
+        state.userLibrary.set(fileId, { ...entry, bookmarked: false });
+      } else {
+        state.userLibrary.set(fileId, { ...entry, viewedAt: null });
+      }
+    }
+
+    state.librarySearch = "";
+    if (els.librarySearchInput) els.librarySearchInput.value = "";
+    renderUserLibraryModal();
+    render();
+    updateReaderBookmarkButton();
+  } catch (error) {
+    console.warn(error);
+    window.alert(error.message || "기록을 삭제하지 못했습니다.");
+  } finally {
+    els.libraryClearButton.disabled = false;
+  }
+});
+
+els.libraryModalList?.addEventListener("click", async (event) => {
+  const removeButton = event.target.closest("[data-library-remove]");
+
+  if (removeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const fileId = removeButton.dataset.libraryRemove;
+    const kind = state.libraryKind;
+
+    try {
+      await userApi("/api/user/item", {
+        method: "POST",
+        body: JSON.stringify({
+          action: kind === "bookmarks" ? "bookmark" : "remove_recent",
+          fileId,
+          bookmarked: false,
+        }),
+      });
+
+      const current = getUserLibraryEntry(fileId);
+      if (current) {
+        updateUserLibraryEntry(
+          fileId,
+          kind === "bookmarks"
+            ? { bookmarked: false, updatedAt: Date.now() }
+            : { viewedAt: null, updatedAt: Date.now() }
+        );
+      }
+
+      renderUserLibraryModal();
+      render();
+      updateReaderBookmarkButton();
+    } catch (error) {
+      console.warn(error);
+    }
+
+    return;
+  }
+
+  const openButton = event.target.closest("[data-library-open]");
+  if (!openButton) return;
 
   const item = state.items.find(
-    (candidate) => candidate.id === button.dataset.libraryFileId
+    (candidate) => candidate.id === openButton.dataset.libraryOpen
   );
   if (!item) return;
 

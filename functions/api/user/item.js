@@ -6,14 +6,43 @@ export async function onRequestPost(context) {
     const auth = await requireUser(context);
     const body = await context.request.json();
 
-    const fileId = String(body?.fileId || "").trim();
     const action = String(body?.action || "").trim();
+    const fileId = String(body?.fileId || "").trim();
+    const now = Date.now();
+
+    if (action === "clear_bookmarks") {
+      await auth.db.prepare(`
+        UPDATE user_items
+        SET bookmarked = 0, updated_at = ?
+        WHERE user_id = ? AND bookmarked = 1
+      `).bind(now, auth.userId).run();
+
+      return jsonResponse({ ok: true });
+    }
+
+    if (action === "clear_recent") {
+      await auth.db.prepare(`
+        UPDATE user_items
+        SET viewed_at = NULL, updated_at = ?
+        WHERE user_id = ? AND viewed_at IS NOT NULL
+      `).bind(now, auth.userId).run();
+
+      return jsonResponse({ ok: true });
+    }
 
     if (!fileId) {
       return jsonResponse({ error: "파일 ID가 없습니다." }, 400);
     }
 
-    const now = Date.now();
+    if (action === "remove_recent") {
+      await auth.db.prepare(`
+        UPDATE user_items
+        SET viewed_at = NULL, updated_at = ?
+        WHERE user_id = ? AND file_id = ?
+      `).bind(now, auth.userId, fileId).run();
+
+      return jsonResponse({ ok: true });
+    }
 
     if (action === "view") {
       await auth.db.prepare(`
