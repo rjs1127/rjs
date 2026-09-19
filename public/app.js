@@ -80,6 +80,19 @@ const els = {
   authPassword: document.getElementById("authPassword"),
   authSubmitButton: document.getElementById("authSubmitButton"),
   authMessage: document.getElementById("authMessage"),
+  authGoSignupButton: document.getElementById("authGoSignupButton"),
+  signupModal: document.getElementById("signupModal"),
+  signupFormView: document.getElementById("signupFormView"),
+  signupCompleteView: document.getElementById("signupCompleteView"),
+  signupForm: document.getElementById("signupForm"),
+  signupUserId: document.getElementById("signupUserId"),
+  signupPassword: document.getElementById("signupPassword"),
+  signupPasswordConfirm: document.getElementById("signupPasswordConfirm"),
+  signupRecoveryConfirm: document.getElementById("signupRecoveryConfirm"),
+  signupSubmitButton: document.getElementById("signupSubmitButton"),
+  signupMessage: document.getElementById("signupMessage"),
+  signupGoLoginButton: document.getElementById("signupGoLoginButton"),
+  signupCompleteButton: document.getElementById("signupCompleteButton"),
   helpModal: document.getElementById("helpModal"),
   helpLoginButton: document.getElementById("helpLoginButton"),
   libraryModal: document.getElementById("libraryModal"),
@@ -155,23 +168,52 @@ function setAuthMessage(message = "", isError = false) {
 }
 
 function setAuthMode(mode) {
-  state.authMode = mode === "signup" ? "signup" : "login";
-  const signup = state.authMode === "signup";
-
-  els.authModalTitle.textContent = signup ? "회원가입" : "로그인";
-  els.authSubmitButton.textContent = signup ? "회원가입" : "로그인";
-  els.authPassword.autocomplete = signup ? "new-password" : "current-password";
-  els.authLoginTab.classList.toggle("active", !signup);
-  els.authSignupTab.classList.toggle("active", signup);
+  state.authMode = "login";
 
   if (state.pendingAuthReason) {
     els.authModalDescription.textContent = state.pendingAuthReason;
   } else {
     els.authModalDescription.textContent =
-      "다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.";
+      "로그인하면 다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.";
   }
 
   setAuthMessage("");
+}
+
+
+function setSignupMessage(message = "", isError = false) {
+  if (!els.signupMessage) return;
+  els.signupMessage.hidden = !message;
+  els.signupMessage.textContent = message;
+  els.signupMessage.classList.toggle("error", isError);
+}
+
+function resetSignupModal() {
+  els.signupForm?.reset();
+  els.signupFormView.hidden = false;
+  els.signupCompleteView.hidden = true;
+  els.signupSubmitButton.disabled = true;
+  setSignupMessage("");
+}
+
+function openSignupModal() {
+  resetSignupModal();
+  openModal(els.signupModal);
+  window.setTimeout(() => els.signupUserId?.focus(), 30);
+}
+
+function updateSignupButtonState() {
+  if (!els.signupSubmitButton) return;
+
+  const password = els.signupPassword?.value || "";
+  const passwordConfirm = els.signupPasswordConfirm?.value || "";
+  const accepted = Boolean(els.signupRecoveryConfirm?.checked);
+
+  els.signupSubmitButton.disabled =
+    !accepted ||
+    password.length < 6 ||
+    passwordConfirm.length < 6 ||
+    password !== passwordConfirm;
 }
 
 function openAuthModal(mode = "login", reason = "") {
@@ -1526,7 +1568,7 @@ els.loginButton?.addEventListener("click", () => {
 });
 
 els.signupButton?.addEventListener("click", () => {
-  openAuthModal("signup");
+  openSignupModal();
 });
 
 els.helpButton?.addEventListener("click", () => {
@@ -1546,18 +1588,79 @@ els.recentLibraryButton?.addEventListener("click", () => {
   showUserLibrary("recent");
 });
 
-els.authLoginTab?.addEventListener("click", () => setAuthMode("login"));
-els.authSignupTab?.addEventListener("click", () => setAuthMode("signup"));
+
+
+els.authGoSignupButton?.addEventListener("click", () => {
+  closeModal(els.authModal);
+  openSignupModal();
+});
+
+els.signupGoLoginButton?.addEventListener("click", () => {
+  closeModal(els.signupModal);
+  openAuthModal("login");
+});
+
+for (const input of [
+  els.signupPassword,
+  els.signupPasswordConfirm,
+  els.signupRecoveryConfirm,
+]) {
+  input?.addEventListener("input", updateSignupButtonState);
+  input?.addEventListener("change", updateSignupButtonState);
+}
+
+els.signupForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const userId = els.signupUserId.value.trim().toLowerCase();
+  const password = els.signupPassword.value;
+  const passwordConfirm = els.signupPasswordConfirm.value;
+
+  if (password !== passwordConfirm) {
+    setSignupMessage("비밀번호가 서로 일치하지 않습니다.", true);
+    return;
+  }
+
+  if (!els.signupRecoveryConfirm.checked) {
+    setSignupMessage(
+      "계정 복구가 현재 제공되지 않는다는 안내를 확인해 주세요.",
+      true
+    );
+    return;
+  }
+
+  els.signupSubmitButton.disabled = true;
+  setSignupMessage("");
+
+  try {
+    const data = await userApi("/api/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ userId, password }),
+    });
+
+    setAuthToken(data.token);
+    state.user = data.user;
+    updateAccountUi();
+    await loadUserLibrary();
+
+    els.signupFormView.hidden = true;
+    els.signupCompleteView.hidden = false;
+  } catch (error) {
+    setSignupMessage(error.message, true);
+    updateSignupButtonState();
+  }
+});
+
+els.signupCompleteButton?.addEventListener("click", () => {
+  closeModal(els.signupModal);
+});
 
 els.authForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
   const userId = els.authUserId.value.trim().toLowerCase();
   const password = els.authPassword.value;
-  const endpoint =
-    state.authMode === "signup"
-      ? "/api/auth/signup"
-      : "/api/auth/login";
+  const endpoint = "/api/auth/login";
 
   els.authSubmitButton.disabled = true;
   setAuthMessage("");
@@ -1659,6 +1762,7 @@ document.querySelectorAll("[data-close-modal]").forEach((button) => {
 
 for (const modal of [
   els.authModal,
+  els.signupModal,
   els.helpModal,
   els.libraryModal,
   els.accountModal,
@@ -1736,6 +1840,7 @@ document.addEventListener("keydown", (event) => {
 
   const openSimpleModal = [
     els.authModal,
+    els.signupModal,
     els.helpModal,
     els.libraryModal,
     els.accountModal,
