@@ -2297,3 +2297,195 @@ body.reader-open .page-scroll-top {
     border-radius: 20px;
   }
 }
+
+
+/* v6.21 - dedicated signup guidance */
+.auth-secondary-link {
+  width: 100%;
+  margin-top: 11px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 6px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.signup-modal {
+  width: min(100%, 520px);
+}
+
+.signup-benefits {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 4px 0 14px;
+}
+
+.signup-benefits > div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  background: rgba(255,255,255,.62);
+}
+
+.signup-benefits strong {
+  color: var(--ink);
+  font-size: 10px;
+}
+
+.signup-benefits span {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.45;
+}
+
+.signup-warning {
+  margin: 0 0 16px;
+  padding: 13px 14px;
+  border: 1px solid #e8d5b7;
+  border-radius: 14px;
+  background: #fff7e8;
+}
+
+.signup-warning strong {
+  display: block;
+  margin-bottom: 5px;
+  color: #6f4f1e;
+  font-size: 11px;
+}
+
+.signup-warning p {
+  margin: 0;
+  color: #836639;
+  font-size: 10px;
+  line-height: 1.6;
+}
+
+.signup-warning.compact {
+  margin-top: 14px;
+}
+
+.signup-confirm-row {
+  display: grid !important;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 8px !important;
+  padding: 2px 0 4px;
+  cursor: pointer;
+}
+
+.signup-confirm-row input {
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  accent-color: var(--ink);
+}
+
+.signup-confirm-row span {
+  color: var(--muted) !important;
+  font-size: 9px !important;
+  line-height: 1.5;
+}
+
+.modal-primary-button:disabled {
+  opacity: .42;
+  cursor: not-allowed;
+}
+
+.signup-complete {
+  padding: 8px 0 0;
+  text-align: center;
+}
+
+.signup-complete .simple-modal-description {
+  max-width: 390px;
+  margin-inline: auto;
+}
+
+.signup-complete-icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  margin: 0 auto 13px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 900;
+}
+
+@media (max-width: 640px) {
+  .signup-benefits {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .signup-benefits > div {
+    padding: 9px 10px;
+  }
+
+  .signup-warning {
+    padding: 11px 12px;
+  }
+}
+
+
+/* v6.22 - header library icon buttons */
+.header-icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 31px;
+  height: 31px;
+  flex: 0 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+  padding: 0;
+  cursor: pointer;
+  transition:
+    background .15s ease,
+    border-color .15s ease,
+    transform .15s ease;
+}
+
+.header-icon-button:hover {
+  background: #fff;
+  border-color: rgba(35,31,27,.26);
+  transform: translateY(-1px);
+}
+
+.header-icon-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#bookmarkLibraryButton svg path {
+  fill: none;
+}
+
+@media (max-width: 760px) {
+  .header-icon-button {
+    width: 28px;
+    height: 28px;
+  }
+
+  .header-icon-button svg {
+    width: 14px;
+    height: 14px;
+  }
+}
