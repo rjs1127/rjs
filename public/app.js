@@ -189,7 +189,7 @@ async function openReader(item) {
 
   document.body.classList.add("reader-open");
   els.readerOverlay.hidden = false;
-  els.readerOverlay.scrollTop = 0;
+  if (els.readerPanel) els.readerPanel.scrollTop = 0;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   els.readerCombination.textContent = item.combination || "";
@@ -299,27 +299,27 @@ els.refreshButton.addEventListener("click", () => loadArchive(true));
 
 
 function updateReaderScrollUi() {
-  if (!els.readerOverlay) return;
+  if (!els.readerPanel) return;
 
-  const scrollTop = els.readerOverlay.scrollTop;
+  const scrollTop = els.readerPanel.scrollTop;
 
-  els.readerPanel?.classList.toggle(
+  els.readerPanel.classList.toggle(
     "reader-compact",
     scrollTop > 90
   );
 
   els.readerScrollTop?.classList.toggle(
     "visible",
-    scrollTop > 220
+    scrollTop > 180
   );
 }
 
-els.readerOverlay.addEventListener("scroll", updateReaderScrollUi, {
+els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
   passive: true,
 });
 
 els.readerScrollTop?.addEventListener("click", () => {
-  els.readerOverlay.scrollTo({
+  els.readerPanel?.scrollTo({
     top: 0,
     behavior: "smooth",
   });
