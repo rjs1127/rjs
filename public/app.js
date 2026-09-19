@@ -23,6 +23,7 @@ const els = {
   heroEyebrow: document.getElementById("heroEyebrow"),
   heroTitle: document.getElementById("heroTitle"),
   heroSubtitle: document.getElementById("heroSubtitle"),
+  heroSection: document.getElementById("heroSection"),
   readerOverlay: document.getElementById("readerOverlay"),
   closeReader: document.getElementById("closeReader"),
   readerCombination: document.getElementById("readerCombination"),
@@ -31,6 +32,7 @@ const els = {
   readerAuthor: document.getElementById("readerAuthor"),
   readerFileName: document.getElementById("readerFileName"),
   readerBody: document.getElementById("readerBody"),
+  readerScrollTop: document.getElementById("readerScrollTop"),
 };
 
 function escapeHtml(value = "") {
@@ -61,6 +63,9 @@ function applySettings(settings = {}) {
   if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
   if (settings.title) els.heroTitle.textContent = settings.title;
   if (settings.subtitle) els.heroSubtitle.textContent = settings.subtitle;
+
+  els.heroSection?.classList.remove("hero-settings-pending");
+  els.heroSection?.classList.add("hero-settings-ready");
 }
 
 async function loadArchive(force = false) {
@@ -81,6 +86,8 @@ async function loadArchive(force = false) {
     render();
   } catch (error) {
     console.error(error);
+    els.heroSection?.classList.remove("hero-settings-pending");
+    els.heroSection?.classList.add("hero-settings-ready");
     els.resultCount.textContent = "연결 오류";
     showStatus(error?.message || "콘텐츠 목록을 불러오지 못했습니다.", true);
   }
@@ -183,6 +190,8 @@ async function openReader(item) {
 
   document.body.classList.add("reader-open");
   els.readerOverlay.hidden = false;
+  els.readerOverlay.scrollTop = 0;
+  els.readerScrollTop?.classList.remove("visible");
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
   els.readerTitle.textContent = item.title || "제목 미상";
@@ -285,6 +294,28 @@ document.addEventListener("keydown", (event) => {
 });
 
 els.refreshButton.addEventListener("click", () => loadArchive(true));
+
+
+function updateReaderScrollTopButton() {
+  if (!els.readerScrollTop || !els.readerOverlay) return;
+
+  els.readerScrollTop.classList.toggle(
+    "visible",
+    els.readerOverlay.scrollTop > 360
+  );
+}
+
+els.readerOverlay.addEventListener("scroll", updateReaderScrollTopButton, {
+  passive: true,
+});
+
+els.readerScrollTop?.addEventListener("click", () => {
+  els.readerOverlay.scrollTo({
+    top: 0,
+    behavior: "smooth",
+  });
+});
+
 
 syncViewButtons();
 loadArchive();
