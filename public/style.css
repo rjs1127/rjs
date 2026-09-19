@@ -1300,3 +1300,127 @@ body.reader-open {
     font-size: 20px;
   }
 }
+
+
+/* v6.11 - simplified hero / compact mobile controls */
+.hero {
+  padding-top: 34px;
+  padding-bottom: 24px;
+  max-width: 680px;
+}
+
+.hero h1 {
+  font-size: clamp(34px, 4.3vw, 54px);
+  line-height: 1.04;
+}
+
+.search-box {
+  margin-top: 22px;
+}
+
+@media (max-width: 640px) {
+  .hero {
+    padding: 12px 0 12px;
+    max-width: none;
+  }
+
+  .hero .eyebrow,
+  .hero h1 {
+    display: none;
+  }
+
+  .search-box {
+    margin-top: 0;
+    min-height: 44px;
+    border-radius: 14px;
+    padding: 0 12px;
+    gap: 8px;
+    box-shadow: 0 8px 20px rgba(37,33,28,.05);
+  }
+
+  .search-icon {
+    font-size: 20px;
+  }
+
+  .search-box input {
+    padding: 11px 0;
+    font-size: 13px;
+  }
+
+  .clear-search {
+    width: 28px;
+    height: 28px;
+    font-size: 18px;
+  }
+
+  .controls {
+    padding: 0 0 20px;
+  }
+
+  .controls-grid {
+    gap: 8px;
+  }
+
+  .control-card {
+    min-height: 0;
+    padding: 10px 11px;
+    border-radius: 14px;
+  }
+
+  .filter-label {
+    margin-bottom: 8px;
+    font-size: 10px;
+  }
+
+  .chips {
+    gap: 6px;
+  }
+
+  .chip {
+    padding: 6px 10px;
+    font-size: 11px;
+  }
+
+  .view-switch {
+    gap: 4px;
+    padding: 3px;
+    border-radius: 11px;
+  }
+
+  .view-button {
+    padding: 7px 9px;
+    border-radius: 8px;
+    font-size: 10px;
+  }
+
+  .content-section {
+    padding-top: 24px;
+  }
+
+  .section-head {
+    margin-bottom: 16px;
+  }
+}
+
+@media (max-width: 420px) {
+  .app-shell {
+    width: min(calc(100% - 24px), var(--max));
+  }
+
+  .hero {
+    padding-top: 8px;
+  }
+
+  .search-box {
+    min-height: 42px;
+  }
+
+  .control-card {
+    padding: 9px 10px;
+  }
+
+  .chip {
+    padding: 5px 9px;
+    font-size: 10px;
+  }
+}

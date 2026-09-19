@@ -22,7 +22,6 @@ const els = {
   listViewButton: document.getElementById("listViewButton"),
   heroEyebrow: document.getElementById("heroEyebrow"),
   heroTitle: document.getElementById("heroTitle"),
-  heroSubtitle: document.getElementById("heroSubtitle"),
   heroSection: document.getElementById("heroSection"),
   readerOverlay: document.getElementById("readerOverlay"),
   readerPanel: document.getElementById("readerPanel"),
@@ -63,7 +62,6 @@ function hideStatus() {
 function applySettings(settings = {}) {
   if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
   if (settings.title) els.heroTitle.textContent = settings.title;
-  if (settings.subtitle) els.heroSubtitle.textContent = settings.subtitle;
 
   els.heroSection?.classList.remove("hero-settings-pending");
   els.heroSection?.classList.add("hero-settings-ready");
