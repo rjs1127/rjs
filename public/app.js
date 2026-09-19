@@ -507,6 +507,64 @@ async function collectResponseText(response, renderToken) {
   return chunks.join("");
 }
 
+
+async function waitForReaderScrollReady(renderToken, options = {}) {
+  if (!els.readerPanel || !els.readerContent) return false;
+
+  const maxWaitMs = Number(options.maxWaitMs || 9000);
+  const stableForMs = Number(options.stableForMs || 700);
+  const startedAt = performance.now();
+
+  let lastScrollHeight = -1;
+  let lastContentHeight = -1;
+  let stableSince = 0;
+
+  while (performance.now() - startedAt < maxWaitMs) {
+    if (renderToken !== state.readerRenderToken) return false;
+
+    // 강제로 레이아웃 값을 읽어 브라우저가 긴 본문의 높이를 계산하게 한다.
+    const contentHeight = els.readerContent.getBoundingClientRect().height;
+    const scrollHeight = els.readerPanel.scrollHeight;
+    const clientHeight = els.readerPanel.clientHeight;
+
+    const heightChanged =
+      Math.abs(scrollHeight - lastScrollHeight) > 2 ||
+      Math.abs(contentHeight - lastContentHeight) > 2;
+
+    const hasOverflow = scrollHeight > clientHeight + 8;
+
+    if (heightChanged) {
+      lastScrollHeight = scrollHeight;
+      lastContentHeight = contentHeight;
+      stableSince = performance.now();
+    } else if (!stableSince) {
+      stableSince = performance.now();
+    }
+
+    const stableLongEnough =
+      performance.now() - stableSince >= stableForMs;
+
+    if (hasOverflow && stableLongEnough) {
+      return true;
+    }
+
+    setReaderLoadingProgress(
+      99,
+      "스크롤 준비 중…",
+      "긴 본문의 높이와 스크롤 영역을 계산하고 있습니다."
+    );
+
+    await new Promise((resolve) => setTimeout(resolve, 90));
+    await nextFrame();
+  }
+
+  // 너무 오래 걸리는 기기에서도 영구 대기하지 않도록 최대 대기 후 진행.
+  return (
+    els.readerPanel.scrollHeight >
+    els.readerPanel.clientHeight + 8
+  );
+}
+
 async function renderLongText(text, renderToken) {
   if (!els.readerContent) return;
 
@@ -584,35 +642,68 @@ async function renderLongText(text, renderToken) {
       LARGE_FILE_MIN_LOADING_VISIBLE_MS - elapsed
     );
 
-    setReaderLoadingProgress(
-      100,
-      "준비 완료",
-      "긴 파일이라 스크롤이 안정될 때까지 잠시만 기다려주세요."
-    );
-
     if (remaining > 0) {
+      setReaderLoadingProgress(
+        99,
+        "스크롤 준비 중…",
+        "긴 파일이라 화면이 안정될 때까지 잠시만 기다려주세요."
+      );
       await new Promise((resolve) => setTimeout(resolve, remaining));
     }
 
-    // 마지막 레이아웃/스크롤 높이가 안정되도록 몇 프레임 더 기다린다.
+    const scrollReady = await waitForReaderScrollReady(renderToken, {
+      stableForMs: 750,
+      maxWaitMs: 9000,
+    });
+
+    if (renderToken !== state.readerRenderToken) return false;
+
+    /*
+     * 중요한 순서:
+     * 1) 프로그래스바가 아직 보이는 상태에서 스크롤 잠금 해제
+     * 2) 실제 scrollbar가 계산될 프레임을 기다림
+     * 3) 그 다음에 프로그래스바를 제거
+     *
+     * 따라서 사용자에게 로딩창이 사라졌는데 scrollbar가 뒤늦게
+     * 생기는 구간이 보이지 않도록 한다.
+     */
+    unlockReaderScroll();
+
     await nextFrame();
+    void els.readerPanel.scrollHeight;
     await nextFrame();
-    await nextTask();
+
+    if (scrollReady) {
+      setReaderLoadingProgress(
+        100,
+        "준비 완료",
+        "스크롤 준비가 완료되었습니다."
+      );
+    } else {
+      setReaderLoadingProgress(
+        100,
+        "준비 완료",
+        "본문 준비가 완료되었습니다."
+      );
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 220));
   } else {
+    unlockReaderScroll();
+    await nextFrame();
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
 
   if (renderToken !== state.readerRenderToken) return false;
 
   els.readerLoadingOverlay?.classList.add("done");
-  await new Promise((resolve) => setTimeout(resolve, isLarge ? 260 : 150));
+  await new Promise((resolve) => setTimeout(resolve, isLarge ? 220 : 150));
 
   if (els.readerLoadingOverlay) {
     els.readerLoadingOverlay.remove();
     els.readerLoadingOverlay = null;
   }
 
-  unlockReaderScroll();
   return true;
 }
 
@@ -680,7 +771,7 @@ async function openReader(item) {
     setReaderLoadingProgress(
       waitingProgress,
       "본문을 불러오는 중…",
-      Number(item.size || 0) > 700000
+      isLargeReaderFile(item)
         ? "파일이 길어 준비에 조금 더 시간이 걸릴 수 있습니다."
         : "파일을 준비하고 있습니다."
     );

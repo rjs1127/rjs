@@ -1888,3 +1888,18 @@ body.reader-open .page-scroll-top {
   opacity: 0 !important;
   pointer-events: none !important;
 }
+
+
+/* v6.18 - keep progress visible until scrollbar is actually ready */
+.reader-content {
+  contain: none !important;
+}
+
+.reader.reader-loading-locked {
+  scrollbar-gutter: stable;
+}
+
+/* 잠금 해제 순간 scrollbar가 먼저 계산되고, 로딩 오버레이는 그 위에 유지된다. */
+.reader:not(.reader-loading-locked) {
+  overflow-y: auto;
+}
