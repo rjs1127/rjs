@@ -67,6 +67,85 @@ function formatDate(value) {
   }
 }
 
+
+function ensureDiagnosticsUi() {
+  if (!document.querySelector('link[href="/admin-diagnostics.css"]')) {
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/admin-diagnostics.css";
+    document.head.appendChild(link);
+  }
+
+  let grid = document.getElementById("driveDiagnostics");
+  if (grid) return;
+
+  const syncButton = document.getElementById("syncButton");
+  const syncPanel = syncButton?.closest(".panel");
+  if (!syncPanel) return;
+
+  const section = document.createElement("section");
+  section.className = "panel";
+  section.innerHTML = `
+    <div class="panel-head">
+      <div>
+        <p class="eyebrow">DRIVE SCAN STATUS</p>
+        <h2>폴더 탐색 현황</h2>
+      </div>
+    </div>
+    <p class="muted">
+      메인폴더 바로 아래의 인물조합별 단편/장편 폴더와 TXT 개수를 표시합니다.
+      폴더 바로가기도 자동으로 따라갑니다.
+    </p>
+    <div id="driveDiagnostics" class="diagnostics-grid"></div>
+    <div id="diagnosticsEmpty" class="empty" hidden>
+      아직 동기화 기록이 없습니다. Drive 다시 읽기를 실행해주세요.
+    </div>
+  `;
+
+  syncPanel.insertAdjacentElement("afterend", section);
+}
+
+function renderDiagnostics(items = []) {
+  ensureDiagnosticsUi();
+
+  const grid = document.getElementById("driveDiagnostics");
+  const empty = document.getElementById("diagnosticsEmpty");
+  if (!grid || !empty) return;
+
+  empty.hidden = items.length !== 0;
+
+  grid.innerHTML = items.map((item) => {
+    const lengths = Array.isArray(item.lengthFolders) ? item.lengthFolders : [];
+
+    return `
+      <article class="diagnostic-card">
+        <div class="diagnostic-head">
+          <strong>${escapeHtml(item.combination || "-")}</strong>
+          <span class="diagnostic-type">${escapeHtml(item.sourceType || "폴더")}</span>
+        </div>
+        <div class="diagnostic-lengths">
+          ${
+            lengths.length
+              ? lengths.map((length) => `
+                  <div class="diagnostic-row">
+                    <span>${escapeHtml(length.name || "-")}${length.sourceType === "바로가기" ? " · 바로가기" : ""}</span>
+                    <strong>${Number(length.count || 0).toLocaleString("ko-KR")}개</strong>
+                  </div>
+                  ${length.error ? `<div class="diagnostic-error">${escapeHtml(length.error)}</div>` : ""}
+                `).join("")
+              : `<div class="diagnostic-row"><span>단편/장편</span><strong>0개</strong></div>`
+          }
+        </div>
+        <div class="diagnostic-total">
+          <span>총 콘텐츠</span>
+          <strong>${Number(item.contentCount || 0).toLocaleString("ko-KR")}개</strong>
+        </div>
+        ${item.error ? `<div class="diagnostic-error">${escapeHtml(item.error)}</div>` : ""}
+      </article>
+    `;
+  }).join("");
+}
+
 async function loadAdmin() {
   const data = await api("/api/admin/data");
 
@@ -83,6 +162,7 @@ async function loadAdmin() {
   els.subtitleInput.value = data.settings?.subtitle || "";
 
   renderReview(data.needsReview || []);
+  renderDiagnostics(data.diagnostics || []);
 }
 
 function renderReview(items) {
@@ -141,6 +221,7 @@ els.syncButton.addEventListener("click", async () => {
       reconciled > 0
         ? `동기화 완료: ${data.count.toLocaleString("ko-KR")}개 · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
         : `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
+    renderDiagnostics(data.diagnostics || []);
     await loadAdmin();
   } catch (error) {
     els.syncMessage.textContent = error.message;

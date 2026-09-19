@@ -1,0 +1,60 @@
+.diagnostics-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:12px;
+  margin-top:20px;
+}
+.diagnostic-card{
+  border:1px solid var(--line);
+  border-radius:16px;
+  background:#fff;
+  padding:16px;
+}
+.diagnostic-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:12px;
+}
+.diagnostic-head strong{font-size:18px}
+.diagnostic-type{
+  padding:5px 8px;
+  border-radius:999px;
+  background:#f1ece5;
+  color:var(--muted);
+  font-size:10px;
+  font-weight:850;
+}
+.diagnostic-lengths{
+  display:grid;
+  gap:7px;
+}
+.diagnostic-row{
+  display:flex;
+  justify-content:space-between;
+  gap:12px;
+  font-size:12px;
+}
+.diagnostic-row span{color:var(--muted)}
+.diagnostic-total{
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--line);
+  display:flex;
+  justify-content:space-between;
+  font-size:12px;
+  font-weight:850;
+}
+.diagnostic-error{
+  margin-top:10px;
+  padding:8px 10px;
+  border-radius:9px;
+  background:#fff3f0;
+  color:#a14635;
+  font-size:11px;
+  line-height:1.5;
+}
+@media(max-width:900px){
+  .diagnostics-grid{grid-template-columns:1fr}
+}

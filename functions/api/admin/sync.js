@@ -24,7 +24,6 @@ export async function onRequestPost(context) {
       existingOverrides
     );
 
-    // 새 Drive 목록과 정리된 수동 수정값을 둘 다 KV에 반영한다.
     await Promise.all([
       kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive)),
       kv.put(OVERRIDES_KEY, JSON.stringify(reconciliation.overrides)),
@@ -34,6 +33,7 @@ export async function onRequestPost(context) {
       ok: true,
       count: archive.count,
       syncedAt: archive.syncedAt,
+      diagnostics: archive.diagnostics || [],
       reconciledCount: reconciliation.reconciled.length,
       reconciled: reconciliation.reconciled,
     });

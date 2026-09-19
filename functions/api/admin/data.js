@@ -29,6 +29,7 @@ export async function onRequestGet(context) {
       settings,
       syncedAt: archive?.syncedAt || null,
       count: archive?.count || 0,
+      diagnostics: archive?.diagnostics || [],
       needsReview,
       editedCount: Object.keys(overrides).length,
     });

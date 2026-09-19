@@ -179,7 +179,7 @@ async function listFolder(accessToken, folderId) {
   do {
     const params = new URLSearchParams({
       q: `'${folderId}' in parents and trashed = false`,
-      fields: "nextPageToken,files(id,name,mimeType,modifiedTime,size,parents)",
+      fields: "nextPageToken,files(id,name,mimeType,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType))",
       pageSize: "1000",
       orderBy: "name",
       supportsAllDrives: "true",
@@ -200,7 +200,7 @@ async function listFolder(accessToken, folderId) {
 
 async function getFileMeta(accessToken, fileId) {
   const params = new URLSearchParams({
-    fields: "id,name,mimeType,modifiedTime,size,parents",
+    fields: "id,name,mimeType,modifiedTime,size,parents,shortcutDetails(targetId,targetMimeType)",
     supportsAllDrives: "true",
   });
 
@@ -309,70 +309,141 @@ async function getJson(kv, key, fallback) {
 
 async function buildArchiveFromDrive(env) {
   const accessToken = await getAccessToken(env);
-  const combinationFolders = (await listFolder(accessToken, DRIVE_ROOT_FOLDER_ID))
-    .filter((f) => f.mimeType === FOLDER_MIME);
+  const SHORTCUT_MIME = "application/vnd.google-apps.shortcut";
 
-  const combinationResults = await Promise.all(
-    combinationFolders.map(async (combinationFolder) => {
-      const lengthFolders = (await listFolder(accessToken, combinationFolder.id))
-        .filter(
-          (f) =>
-            f.mimeType === FOLDER_MIME &&
-            ["단편", "장편"].includes(f.name)
-        );
+  function isFolderLike(entry) {
+    if (!entry) return false;
+    if (entry.mimeType === FOLDER_MIME) return true;
 
-      const lengthResults = await Promise.all(
-        lengthFolders.map(async (lengthFolder) => {
-          const files = await listFolder(accessToken, lengthFolder.id);
+    return (
+      entry.mimeType === SHORTCUT_MIME &&
+      entry.shortcutDetails?.targetMimeType === FOLDER_MIME &&
+      entry.shortcutDetails?.targetId
+    );
+  }
 
-          return files
-            .filter(
-              (file) =>
-                file.mimeType !== FOLDER_MIME &&
-                file.name?.toLowerCase().endsWith(".txt")
-            )
-            .map((file) => {
-              const parsed = parseFileName(file.name);
+  function folderTargetId(entry) {
+    if (entry.mimeType === SHORTCUT_MIME) {
+      return entry.shortcutDetails?.targetId || null;
+    }
+    return entry.id;
+  }
 
-              return {
-                id: file.id,
-                combination: combinationFolder.name,
-                lengthType: lengthFolder.name,
-                title: parsed.title,
-                author: parsed.author,
-                fileName: file.name,
-                parseFailed: parsed.parseFailed,
-                modifiedTime: file.modifiedTime || null,
-                size: file.size ? Number(file.size) : null,
-              };
-            });
-        })
-      );
+  const rootEntries = await listFolder(accessToken, DRIVE_ROOT_FOLDER_ID);
+  const combinationEntries = rootEntries.filter(isFolderLike);
 
-      return {
-        combination: combinationFolder.name,
-        items: lengthResults.flat(),
+  const diagnostics = [];
+  const allItems = [];
+
+  // Each combination is isolated so one inaccessible folder does not abort the whole sync.
+  await Promise.all(
+    combinationEntries.map(async (combinationEntry) => {
+      const combination = combinationEntry.name;
+      const combinationId = folderTargetId(combinationEntry);
+
+      const diag = {
+        combination,
+        sourceType:
+          combinationEntry.mimeType === SHORTCUT_MIME ? "바로가기" : "폴더",
+        combinationId,
+        lengthFolders: [],
+        contentCount: 0,
+        error: null,
       };
+
+      try {
+        if (!combinationId) {
+          throw new Error("폴더 대상 ID를 확인할 수 없습니다.");
+        }
+
+        const lengthEntries = (await listFolder(accessToken, combinationId))
+          .filter(isFolderLike)
+          .filter((entry) => ["단편", "장편"].includes(entry.name));
+
+        if (!lengthEntries.length) {
+          diag.error = "단편/장편 폴더를 찾지 못했습니다.";
+          diagnostics.push(diag);
+          return;
+        }
+
+        await Promise.all(
+          lengthEntries.map(async (lengthEntry) => {
+            const lengthType = lengthEntry.name;
+            const lengthId = folderTargetId(lengthEntry);
+
+            const lengthDiag = {
+              name: lengthType,
+              sourceType:
+                lengthEntry.mimeType === SHORTCUT_MIME ? "바로가기" : "폴더",
+              count: 0,
+              error: null,
+            };
+
+            diag.lengthFolders.push(lengthDiag);
+
+            try {
+              if (!lengthId) {
+                throw new Error("폴더 대상 ID를 확인할 수 없습니다.");
+              }
+
+              const childEntries = await listFolder(accessToken, lengthId);
+              const txtFiles = childEntries.filter(
+                (file) =>
+                  file.mimeType !== FOLDER_MIME &&
+                  file.mimeType !== SHORTCUT_MIME &&
+                  file.name?.toLowerCase().endsWith(".txt")
+              );
+
+              lengthDiag.count = txtFiles.length;
+              diag.contentCount += txtFiles.length;
+
+              for (const file of txtFiles) {
+                const parsed = parseFileName(file.name);
+
+                allItems.push({
+                  id: file.id,
+                  combination,
+                  lengthType,
+                  title: parsed.title,
+                  author: parsed.author,
+                  fileName: file.name,
+                  parseFailed: parsed.parseFailed,
+                  modifiedTime: file.modifiedTime || null,
+                  size: file.size ? Number(file.size) : null,
+                });
+              }
+            } catch (error) {
+              lengthDiag.error = error?.message || "폴더 조회 실패";
+            }
+          })
+        );
+      } catch (error) {
+        diag.error = error?.message || "인물조합 폴더 조회 실패";
+      }
+
+      diagnostics.push(diag);
     })
   );
 
-  const items = combinationResults.flatMap((r) => r.items);
-  const combinations = combinationResults
-    .map((r) => r.combination)
-    .sort((a, b) => a.localeCompare(b, "ko"));
-
-  items.sort((a, b) => {
+  allItems.sort((a, b) => {
     const aTime = a.modifiedTime ? Date.parse(a.modifiedTime) : 0;
     const bTime = b.modifiedTime ? Date.parse(b.modifiedTime) : 0;
     if (bTime !== aTime) return bTime - aTime;
     return a.title.localeCompare(b.title, "ko");
   });
 
+  diagnostics.sort((a, b) => a.combination.localeCompare(b.combination, "ko"));
+
+  const combinations = diagnostics
+    .map((diag) => diag.combination)
+    .sort((a, b) => a.localeCompare(b, "ko"));
+
   return {
     rootFolderId: DRIVE_ROOT_FOLDER_ID,
     combinations,
-    items,
-    count: items.length,
+    items: allItems,
+    count: allItems.length,
+    diagnostics,
     syncedAt: new Date().toISOString(),
   };
 }
