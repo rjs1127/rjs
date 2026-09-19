@@ -240,6 +240,54 @@ function bytesToBase64(bytes) {
   return btoa(binary);
 }
 
+
+function buildCommitMessageFromReadme(readmeText, fallbackFileCount = 0) {
+  const text = String(readmeText || "").replace(/\r\n/g, "\n");
+
+  const versionMatch = text.match(/^##\s+(v[0-9][^\n]*)/m);
+  const version = versionMatch ? versionMatch[1].trim() : "";
+
+  let section = text;
+  if (versionMatch) {
+    const start = versionMatch.index + versionMatch[0].length;
+    const nextVersion = text.slice(start).search(/^##\s+/m);
+    section =
+      nextVersion >= 0
+        ? text.slice(start, start + nextVersion)
+        : text.slice(start);
+  }
+
+  const bulletLines = section
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, "").trim())
+    .filter(Boolean);
+
+  let summary = "";
+
+  if (bulletLines.length) {
+    const picked = bulletLines.slice(0, 2).map((line) =>
+      line
+        .replace(/`/g, "")
+        .replace(/\s+/g, " ")
+        .replace(/[.!。]+$/g, "")
+    );
+
+    summary = picked.join(" / ");
+  }
+
+  if (summary.length > 72) {
+    summary = summary.slice(0, 69).trimEnd() + "…";
+  }
+
+  if (version && summary) return `${version}: ${summary}`;
+  if (version) return `${version}: Archive site update`;
+  if (summary) return `Archive update: ${summary}`;
+
+  return `Archive update (${fallbackFileCount} files)`;
+}
+
 async function inspectZip(file) {
   if (!window.JSZip) {
     throw new Error("ZIP 처리 라이브러리를 불러오지 못했습니다.");
@@ -249,8 +297,18 @@ async function inspectZip(file) {
   const allowed = [];
   const blocked = [];
   const entries = Object.values(zip.files);
+  let readmeText = "";
 
   for (const entry of entries) {
+    const normalizedEntryPath = normalizeZipPath(entry.name);
+
+    if (!entry.dir && normalizedEntryPath === "README.md") {
+      try {
+        readmeText = await entry.async("string");
+      } catch {
+        readmeText = "";
+      }
+    }
     if (entry.dir) continue;
 
     const check = checkDeployPath(entry.name);
@@ -282,6 +340,16 @@ async function inspectZip(file) {
 
   deployFiles = allowed;
   deployBlocked = blocked;
+
+  const autoMessage = buildCommitMessageFromReadme(
+    readmeText,
+    allowed.length
+  );
+
+  if (els.commitMessageInput) {
+    els.commitMessageInput.value = autoMessage;
+  }
+
   renderDeployPreview();
 }
 
