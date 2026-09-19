@@ -21,7 +21,14 @@
         </span>
         <span class="brand-text">RJS BOOK</span>
       </a>
-      <button id="refreshButton" class="ghost-button" type="button">새로고침</button>
+      <div class="header-actions">
+        <button id="bookmarkLibraryButton" class="header-text-button" type="button">북마크</button>
+        <button id="recentLibraryButton" class="header-text-button" type="button">최근 조회</button>
+        <button id="refreshButton" class="ghost-button" type="button">새로고침</button>
+        <button id="helpButton" class="ghost-button help-button" type="button" aria-label="도움말">?</button>
+        <button id="signupButton" class="header-text-button account-action" type="button">회원가입</button>
+        <button id="loginButton" class="header-account-button" type="button">로그인</button>
+      </div>
     </header>
 
     <main>
@@ -129,7 +136,13 @@
           <span id="readerCombination" class="reader-tag"></span>
           <span id="readerLength" class="reader-tag subtle"></span>
         </div>
-        <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">×</button>
+        <div class="reader-header-actions">
+          <button id="readerBookmarkButton" class="reader-bookmark-button" type="button" aria-label="북마크">
+            <span aria-hidden="true">☆</span>
+            <span class="reader-bookmark-label">북마크</span>
+          </button>
+          <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">×</button>
+        </div>
         <h2 id="readerTitle"></h2>
         <p id="readerAuthor" class="reader-author"></p>
         <p id="readerFileName" class="reader-filename"></p>
@@ -163,6 +176,75 @@
     <button id="readerScrollTop" class="reader-scroll-top" type="button" aria-label="본문 맨 위로 이동" title="맨 위로">
       ↑
     </button>
+  </div>
+
+
+  <div id="authModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="authModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">MY RJS BOOK</p>
+      <h2 id="authModalTitle">로그인</h2>
+      <p id="authModalDescription" class="simple-modal-description">
+        다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.
+      </p>
+
+      <div class="auth-tabs">
+        <button id="authLoginTab" class="auth-tab active" type="button">로그인</button>
+        <button id="authSignupTab" class="auth-tab" type="button">회원가입</button>
+      </div>
+
+      <form id="authForm" class="auth-form">
+        <label>
+          <span>아이디</span>
+          <input id="authUserId" type="text" autocomplete="username" maxlength="20"
+            placeholder="영문/숫자 3~20자" required />
+        </label>
+        <label>
+          <span>비밀번호</span>
+          <input id="authPassword" type="password" autocomplete="current-password"
+            minlength="6" maxlength="50" placeholder="6자 이상" required />
+        </label>
+        <button id="authSubmitButton" class="modal-primary-button" type="submit">로그인</button>
+      </form>
+      <p id="authMessage" class="modal-message" hidden></p>
+    </section>
+  </div>
+
+  <div id="helpModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal help-modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="helpModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">HELP</p>
+      <h2 id="helpModalTitle">기록 저장 안내</h2>
+      <p class="simple-modal-description">
+        이어보기, 북마크, 최근 조회 작품을 저장하려면 로그인 후 감상해 주세요.
+      </p>
+      <div class="help-points">
+        <div><strong>이어보기</strong><span>읽던 위치를 계정에 저장해 다른 기기에서도 이어서 볼 수 있어요.</span></div>
+        <div><strong>북마크</strong><span>다시 보고 싶은 작품을 계정별로 모아둘 수 있어요.</span></div>
+        <div><strong>최근 조회</strong><span>최근 열어본 작품을 계정별로 확인할 수 있어요.</span></div>
+      </div>
+      <button id="helpLoginButton" class="modal-primary-button" type="button">로그인하기</button>
+    </section>
+  </div>
+
+  <div id="libraryModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal library-modal" role="dialog" aria-modal="true" aria-labelledby="libraryModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="libraryModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">MY LIBRARY</p>
+      <h2 id="libraryModalTitle">북마크</h2>
+      <p id="libraryModalDescription" class="simple-modal-description"></p>
+      <div id="libraryModalList" class="library-modal-list"></div>
+    </section>
+  </div>
+
+  <div id="accountModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal account-modal" role="dialog" aria-modal="true" aria-labelledby="accountModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="accountModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">ACCOUNT</p>
+      <h2 id="accountModalTitle">로그인 정보</h2>
+      <p id="accountModalUser" class="simple-modal-description"></p>
+      <button id="logoutButton" class="modal-secondary-button" type="button">로그아웃</button>
+    </section>
   </div>
 
   <script src="/app.js" defer></script>

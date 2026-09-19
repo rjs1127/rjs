@@ -1916,3 +1916,384 @@ body.reader-open .page-scroll-top {
 .reader-virtual-chunk + .reader-virtual-chunk {
   margin-top: 0;
 }
+
+
+/* v6.20 - simple account / bookmarks / recent views */
+.header-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  min-width: 0;
+}
+
+.header-text-button,
+.header-account-button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 7px 5px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.header-text-button:hover {
+  color: var(--ink);
+}
+
+.header-account-button {
+  border: 1px solid var(--ink);
+  border-radius: 999px;
+  background: var(--ink);
+  color: #fff;
+  padding: 7px 11px;
+}
+
+.header-account-button.logged-in {
+  background: #fff;
+  color: var(--ink);
+}
+
+.help-button {
+  min-width: 31px;
+  padding-inline: 9px;
+  border-radius: 999px;
+  font-weight: 900;
+}
+
+.reader-header-actions {
+  position: absolute;
+  top: 21px;
+  right: 24px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.reader-header-actions .reader-close {
+  position: static;
+}
+
+.reader-bookmark-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.8);
+  color: var(--muted);
+  padding: 7px 9px;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.reader-bookmark-button.active {
+  background: var(--ink);
+  border-color: var(--ink);
+  color: #fff;
+}
+
+.reader-bookmark-button > span:first-child {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.simple-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(31, 28, 24, .42);
+  backdrop-filter: blur(8px);
+}
+
+.simple-modal-overlay[hidden] {
+  display: none;
+}
+
+.simple-modal {
+  position: relative;
+  width: min(100%, 430px);
+  max-height: min(82vh, 720px);
+  overflow-y: auto;
+  border: 1px solid rgba(255,255,255,.75);
+  border-radius: 24px;
+  background: #fbf9f5;
+  box-shadow: 0 24px 80px rgba(34, 30, 25, .2);
+  padding: 27px;
+}
+
+.simple-modal-close {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: #fff;
+  color: var(--ink);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.simple-modal-kicker {
+  margin: 0 0 7px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .14em;
+}
+
+.simple-modal h2 {
+  margin: 0;
+  padding-right: 36px;
+  font-size: 22px;
+}
+
+.simple-modal-description {
+  margin: 9px 0 19px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.auth-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px;
+  margin-bottom: 15px;
+  padding: 4px;
+  border-radius: 13px;
+  background: #eee9e1;
+}
+
+.auth-tab {
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  padding: 9px;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.auth-tab.active {
+  background: #fff;
+  color: var(--ink);
+  box-shadow: 0 2px 8px rgba(30,28,25,.06);
+}
+
+.auth-form {
+  display: grid;
+  gap: 11px;
+}
+
+.auth-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-form label > span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.auth-form input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--ink);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.modal-primary-button,
+.modal-secondary-button {
+  width: 100%;
+  border: 0;
+  border-radius: 12px;
+  padding: 11px 13px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.modal-primary-button {
+  background: var(--ink);
+  color: #fff;
+}
+
+.modal-secondary-button {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--ink);
+}
+
+.modal-message {
+  margin: 12px 0 0;
+  border-radius: 10px;
+  background: #f0ece5;
+  color: var(--muted);
+  padding: 9px 10px;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.modal-message.error {
+  background: #f8e8e5;
+  color: #9d4338;
+}
+
+.help-points {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.help-points > div {
+  display: grid;
+  gap: 3px;
+  padding: 11px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  background: rgba(255,255,255,.55);
+}
+
+.help-points strong {
+  font-size: 11px;
+}
+
+.help-points span {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+.library-modal {
+  width: min(100%, 520px);
+}
+
+.library-modal-list {
+  display: grid;
+  gap: 7px;
+}
+
+.library-entry {
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line-soft);
+  border-radius: 13px;
+  background: #fff;
+  padding: 11px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-entry-main {
+  min-width: 0;
+}
+
+.library-entry-title {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-entry-meta {
+  display: block;
+  margin-top: 3px;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-entry-progress {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 850;
+}
+
+.library-empty {
+  padding: 26px 8px;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    gap: 8px;
+  }
+
+  .header-actions {
+    gap: 3px;
+  }
+
+  .header-text-button {
+    font-size: 9px;
+    padding-inline: 3px;
+  }
+
+  .account-action {
+    display: none;
+  }
+
+  .header-account-button {
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+
+  .ghost-button {
+    font-size: 9px;
+  }
+
+  .help-button {
+    min-width: 27px;
+    padding-inline: 7px;
+  }
+
+  .reader-header-actions {
+    top: 15px;
+    right: 14px;
+  }
+
+  .reader-bookmark-label {
+    display: none;
+  }
+
+  .reader-bookmark-button {
+    width: 32px;
+    height: 32px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .simple-modal {
+    padding: 23px 18px 18px;
+    border-radius: 20px;
+  }
+}

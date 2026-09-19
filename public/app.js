@@ -13,6 +13,11 @@ const state = {
   largeReaderChunks: null,
   largeReaderRenderedCount: 0,
   largeReaderRendering: false,
+  user: null,
+  userLibrary: new Map(),
+  authMode: "login",
+  pendingAuthReason: "",
+  lastRemoteProgressAt: 0,
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -59,7 +64,362 @@ const els = {
   readerProgressBar: document.getElementById("readerProgressBar"),
   readerProgressLabel: document.getElementById("readerProgressLabel"),
   readerScrollTop: document.getElementById("readerScrollTop"),
+  bookmarkLibraryButton: document.getElementById("bookmarkLibraryButton"),
+  recentLibraryButton: document.getElementById("recentLibraryButton"),
+  helpButton: document.getElementById("helpButton"),
+  signupButton: document.getElementById("signupButton"),
+  loginButton: document.getElementById("loginButton"),
+  readerBookmarkButton: document.getElementById("readerBookmarkButton"),
+  authModal: document.getElementById("authModal"),
+  authModalTitle: document.getElementById("authModalTitle"),
+  authModalDescription: document.getElementById("authModalDescription"),
+  authLoginTab: document.getElementById("authLoginTab"),
+  authSignupTab: document.getElementById("authSignupTab"),
+  authForm: document.getElementById("authForm"),
+  authUserId: document.getElementById("authUserId"),
+  authPassword: document.getElementById("authPassword"),
+  authSubmitButton: document.getElementById("authSubmitButton"),
+  authMessage: document.getElementById("authMessage"),
+  helpModal: document.getElementById("helpModal"),
+  helpLoginButton: document.getElementById("helpLoginButton"),
+  libraryModal: document.getElementById("libraryModal"),
+  libraryModalTitle: document.getElementById("libraryModalTitle"),
+  libraryModalDescription: document.getElementById("libraryModalDescription"),
+  libraryModalList: document.getElementById("libraryModalList"),
+  accountModal: document.getElementById("accountModal"),
+  accountModalUser: document.getElementById("accountModalUser"),
+  logoutButton: document.getElementById("logoutButton"),
 };
+
+
+const AUTH_TOKEN_KEY = "rjsBookAuthTokenV1";
+
+function getAuthToken() {
+  return localStorage.getItem(AUTH_TOKEN_KEY) || "";
+}
+
+function setAuthToken(token) {
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+async function userApi(path, options = {}) {
+  const headers = new Headers(options.headers || {});
+  const token = getAuthToken();
+
+  if (token) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
+
+  if (options.body && !headers.has("content-type")) {
+    headers.set("content-type", "application/json");
+  }
+
+  const response = await fetch(path, {
+    ...options,
+    headers,
+    cache: "no-store",
+  });
+
+  let data = {};
+  try {
+    data = await response.json();
+  } catch {}
+
+  if (!response.ok) {
+    if (response.status === 401) {
+      clearUserSession(false);
+    }
+    throw new Error(data?.error || "요청을 처리하지 못했습니다.");
+  }
+
+  return data;
+}
+
+function closeModal(modal) {
+  if (modal) modal.hidden = true;
+}
+
+function openModal(modal) {
+  if (modal) modal.hidden = false;
+}
+
+function setAuthMessage(message = "", isError = false) {
+  if (!els.authMessage) return;
+  els.authMessage.hidden = !message;
+  els.authMessage.textContent = message;
+  els.authMessage.classList.toggle("error", isError);
+}
+
+function setAuthMode(mode) {
+  state.authMode = mode === "signup" ? "signup" : "login";
+  const signup = state.authMode === "signup";
+
+  els.authModalTitle.textContent = signup ? "회원가입" : "로그인";
+  els.authSubmitButton.textContent = signup ? "회원가입" : "로그인";
+  els.authPassword.autocomplete = signup ? "new-password" : "current-password";
+  els.authLoginTab.classList.toggle("active", !signup);
+  els.authSignupTab.classList.toggle("active", signup);
+
+  if (state.pendingAuthReason) {
+    els.authModalDescription.textContent = state.pendingAuthReason;
+  } else {
+    els.authModalDescription.textContent =
+      "다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.";
+  }
+
+  setAuthMessage("");
+}
+
+function openAuthModal(mode = "login", reason = "") {
+  state.pendingAuthReason = reason;
+  setAuthMode(mode);
+  openModal(els.authModal);
+  window.setTimeout(() => els.authUserId?.focus(), 30);
+}
+
+function clearUserSession(clearToken = true) {
+  if (clearToken) setAuthToken("");
+  state.user = null;
+  state.userLibrary = new Map();
+  updateAccountUi();
+  updateReaderBookmarkButton();
+}
+
+function updateAccountUi() {
+  const loggedIn = Boolean(state.user?.userId);
+
+  if (els.loginButton) {
+    els.loginButton.textContent = loggedIn ? state.user.userId : "로그인";
+    els.loginButton.classList.toggle("logged-in", loggedIn);
+  }
+
+  if (els.signupButton) {
+    els.signupButton.hidden = loggedIn;
+  }
+}
+
+function normalizeLibraryRow(row) {
+  return {
+    fileId: row.file_id,
+    progressPercent: Number(row.progress_percent || 0),
+    scrollTop: row.scroll_top == null ? null : Number(row.scroll_top),
+    chunkIndex: row.chunk_index == null ? null : Number(row.chunk_index),
+    chunkRatio: row.chunk_ratio == null ? null : Number(row.chunk_ratio),
+    bookmarked: Boolean(row.bookmarked),
+    viewedAt: row.viewed_at == null ? null : Number(row.viewed_at),
+    readAt: row.read_at == null ? null : Number(row.read_at),
+    updatedAt: row.updated_at == null ? null : Number(row.updated_at),
+  };
+}
+
+async function loadUserLibrary() {
+  if (!state.user) {
+    state.userLibrary = new Map();
+    return;
+  }
+
+  const data = await userApi("/api/user/library");
+  state.userLibrary = new Map(
+    (data.items || []).map((row) => {
+      const normalized = normalizeLibraryRow(row);
+      return [normalized.fileId, normalized];
+    })
+  );
+
+  updateReaderBookmarkButton();
+}
+
+async function restoreAuth() {
+  const token = getAuthToken();
+  if (!token) {
+    updateAccountUi();
+    return;
+  }
+
+  try {
+    const data = await userApi("/api/auth/me");
+    state.user = data.user;
+    updateAccountUi();
+    await loadUserLibrary();
+  } catch {
+    clearUserSession(true);
+  }
+}
+
+function getUserLibraryEntry(fileId) {
+  return state.userLibrary.get(fileId) || null;
+}
+
+function updateUserLibraryEntry(fileId, patch) {
+  const current = getUserLibraryEntry(fileId) || {
+    fileId,
+    progressPercent: 0,
+    scrollTop: null,
+    chunkIndex: null,
+    chunkRatio: null,
+    bookmarked: false,
+    viewedAt: null,
+    readAt: null,
+    updatedAt: null,
+  };
+
+  state.userLibrary.set(fileId, {
+    ...current,
+    ...patch,
+    fileId,
+  });
+}
+
+function updateReaderBookmarkButton() {
+  if (!els.readerBookmarkButton) return;
+
+  const item = state.activeReaderItem;
+  const bookmarked = Boolean(
+    state.user &&
+    item &&
+    getUserLibraryEntry(item.id)?.bookmarked
+  );
+
+  els.readerBookmarkButton.classList.toggle("active", bookmarked);
+  els.readerBookmarkButton.querySelector("span").textContent =
+    bookmarked ? "★" : "☆";
+  els.readerBookmarkButton.title = bookmarked ? "북마크 해제" : "북마크";
+}
+
+async function recordRecentView(item) {
+  if (!state.user || !item) return;
+
+  const viewedAt = Date.now();
+  updateUserLibraryEntry(item.id, { viewedAt });
+
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "view",
+        fileId: item.id,
+      }),
+    });
+  } catch (error) {
+    console.warn("최근 조회 저장 실패", error);
+  }
+}
+
+async function persistProgress(item, saved) {
+  if (!state.user || !item || !saved) return;
+
+  const payload = {
+    action: "progress",
+    fileId: item.id,
+    percent: Number(saved.percent || 0),
+    mode: saved.mode === "chunk" ? "chunk" : "scroll",
+    scrollTop: saved.scrollTop ?? null,
+    chunkIndex: saved.chunkIndex ?? null,
+    chunkRatio: saved.chunkRatio ?? null,
+  };
+
+  updateUserLibraryEntry(item.id, {
+    progressPercent: payload.percent,
+    scrollTop: payload.scrollTop,
+    chunkIndex: payload.chunkIndex,
+    chunkRatio: payload.chunkRatio,
+    readAt:
+      payload.percent >= 95
+        ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
+        : getUserLibraryEntry(item.id)?.readAt || null,
+    updatedAt: Date.now(),
+  });
+
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    state.lastRemoteProgressAt = Date.now();
+  } catch (error) {
+    console.warn("이어보기 저장 실패", error);
+  }
+}
+
+function formatLibraryDate(timestamp) {
+  if (!timestamp) return "";
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      month: "numeric",
+      day: "numeric",
+    }).format(new Date(timestamp));
+  } catch {
+    return "";
+  }
+}
+
+function showUserLibrary(kind) {
+  if (!state.user) {
+    openAuthModal(
+      "login",
+      kind === "bookmarks"
+        ? "북마크를 저장하고 다른 기기에서도 불러오려면 로그인해 주세요."
+        : "최근 조회 작품을 저장하고 다른 기기에서도 불러오려면 로그인해 주세요."
+    );
+    return;
+  }
+
+  const entries = [...state.userLibrary.values()]
+    .filter((entry) =>
+      kind === "bookmarks" ? entry.bookmarked : Boolean(entry.viewedAt)
+    )
+    .sort((a, b) =>
+      kind === "bookmarks"
+        ? (b.updatedAt || 0) - (a.updatedAt || 0)
+        : (b.viewedAt || 0) - (a.viewedAt || 0)
+    )
+    .slice(0, 50);
+
+  els.libraryModalTitle.textContent =
+    kind === "bookmarks" ? "북마크" : "최근 조회";
+  els.libraryModalDescription.textContent =
+    kind === "bookmarks"
+      ? "저장해 둔 작품입니다."
+      : "최근 열어본 작품입니다.";
+
+  const visible = entries
+    .map((entry) => {
+      const item = state.items.find((candidate) => candidate.id === entry.fileId);
+      return { entry, item };
+    })
+    .filter(({ item }) => item);
+
+  if (!visible.length) {
+    els.libraryModalList.innerHTML =
+      `<div class="library-empty">${
+        kind === "bookmarks"
+          ? "아직 북마크한 작품이 없습니다."
+          : "아직 조회한 작품이 없습니다."
+      }</div>`;
+  } else {
+    els.libraryModalList.innerHTML = visible.map(({ entry, item }) => `
+      <button class="library-entry" type="button" data-library-file-id="${escapeHtml(item.id)}">
+        <span class="library-entry-main">
+          <span class="library-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
+          <span class="library-entry-meta">${escapeHtml(item.author || "작성자 미상")} · ${escapeHtml(item.combination || "")} ${escapeHtml(item.lengthType || "")}</span>
+        </span>
+        <span class="library-entry-progress">${
+          entry.readAt
+            ? "읽음"
+            : entry.progressPercent > 0
+              ? `${Math.round(entry.progressPercent)}%`
+              : formatLibraryDate(entry.viewedAt)
+        }</span>
+      </button>
+    `).join("");
+  }
+
+  openModal(els.libraryModal);
+}
 
 function escapeHtml(value = "") {
   return String(value)
@@ -278,26 +638,35 @@ function setView(view) {
 const READER_PROGRESS_PREFIX = "archiveReaderProgress:v1:";
 
 function getReaderProgress(id) {
-  if (!id) return null;
+  if (!id || !state.user) return null;
 
-  try {
-    const parsed = JSON.parse(
-      localStorage.getItem(`${READER_PROGRESS_PREFIX}${id}`) || "null"
-    );
-
-    if (!parsed) return null;
-
-    const hasScroll = Number.isFinite(parsed.scrollTop);
-    const hasChunk = Number.isFinite(parsed.chunkIndex);
-
-    if (!hasScroll && !hasChunk && !Number.isFinite(parsed.percent)) {
-      return null;
-    }
-
-    return parsed;
-  } catch {
+  const entry = getUserLibraryEntry(id);
+  if (!entry || entry.progressPercent <= 0 || entry.progressPercent >= 99) {
     return null;
   }
+
+  if (Number.isFinite(entry.chunkIndex)) {
+    return {
+      mode: "chunk",
+      chunkIndex: entry.chunkIndex,
+      chunkRatio: Number(entry.chunkRatio || 0),
+      percent: entry.progressPercent,
+    };
+  }
+
+  if (Number.isFinite(entry.scrollTop)) {
+    return {
+      mode: "scroll",
+      scrollTop: entry.scrollTop,
+      percent: entry.progressPercent,
+    };
+  }
+
+  return {
+    mode: "scroll",
+    scrollTop: 0,
+    percent: entry.progressPercent,
+  };
 }
 
 function getResumeTarget(saved) {
@@ -333,34 +702,24 @@ function temporarilySuspendProgressSave(duration = 700) {
 }
 
 function saveReaderProgress() {
-  if (state.suspendReaderProgressSave) return;
+  if (state.suspendReaderProgressSave || !state.user) return null;
 
   const item = state.activeReaderItem;
-  if (!item || !els.readerPanel) return;
+  if (!item || !els.readerPanel) return null;
 
-  try {
-    if (isLargeReaderFile(item) && state.largeReaderChunks) {
-      const position = getLargeReaderPosition();
-      if (!position) return;
+  let saved = null;
 
-      if ((position.index === 0 && position.ratio < 0.03) || position.percent >= 99) {
-        localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
-        return;
-      }
+  if (isLargeReaderFile(item) && state.largeReaderChunks) {
+    const position = getLargeReaderPosition();
+    if (!position) return null;
 
-      localStorage.setItem(
-        `${READER_PROGRESS_PREFIX}${item.id}`,
-        JSON.stringify({
-          mode: "chunk",
-          chunkIndex: position.index,
-          chunkRatio: position.ratio,
-          percent: position.percent,
-          updatedAt: Date.now(),
-        })
-      );
-      return;
-    }
-
+    saved = {
+      mode: "chunk",
+      chunkIndex: position.index,
+      chunkRatio: position.ratio,
+      percent: position.percent,
+    };
+  } else {
     const maxScroll = Math.max(
       0,
       els.readerPanel.scrollHeight - els.readerPanel.clientHeight
@@ -371,21 +730,26 @@ function saveReaderProgress() {
       ? Math.min(100, Math.round((scrollTop / maxScroll) * 100))
       : 0;
 
-    if (scrollTop < 40 || percent >= 99) {
-      localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
-      return;
-    }
+    saved = {
+      mode: "scroll",
+      scrollTop,
+      percent,
+    };
+  }
 
-    localStorage.setItem(
-      `${READER_PROGRESS_PREFIX}${item.id}`,
-      JSON.stringify({
-        mode: "scroll",
-        scrollTop,
-        percent,
-        updatedAt: Date.now(),
-      })
-    );
-  } catch {}
+  updateUserLibraryEntry(item.id, {
+    progressPercent: saved.percent,
+    scrollTop: saved.mode === "scroll" ? saved.scrollTop : null,
+    chunkIndex: saved.mode === "chunk" ? saved.chunkIndex : null,
+    chunkRatio: saved.mode === "chunk" ? saved.chunkRatio : null,
+    readAt:
+      saved.percent >= 95
+        ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
+        : getUserLibraryEntry(item.id)?.readAt || null,
+    updatedAt: Date.now(),
+  });
+
+  return saved;
 }
 
 function setReaderLoadingProgress(percent, title, text) {
@@ -904,6 +1268,8 @@ async function openReader(item) {
   els.readerFileName.textContent = `원본 파일명: ${item.fileName || ""}`;
 
   state.readerLoadingStartedAt = performance.now();
+  updateReaderBookmarkButton();
+  recordRecentView(item);
   showReaderLoading(item);
 
   let waitingProgress = 5;
@@ -975,7 +1341,14 @@ async function openReader(item) {
 function closeReader() {
   unlockReaderScroll();
   state.suspendReaderProgressSave = false;
-  saveReaderProgress();
+
+  const closingItem = state.activeReaderItem;
+  const savedProgress = saveReaderProgress();
+
+  if (closingItem && savedProgress && state.user) {
+    persistProgress(closingItem, savedProgress);
+  }
+
   state.readerRenderToken += 1;
   state.activeReaderItem = null;
   resetLargeReaderState();
@@ -1111,9 +1484,21 @@ els.readerResume?.addEventListener("click", async (event) => {
   }
 
   if (button.id === "readerRestartButton") {
-    try {
-      localStorage.removeItem(`${READER_PROGRESS_PREFIX}${item.id}`);
-    } catch {}
+    if (state.user) {
+      updateUserLibraryEntry(item.id, {
+        progressPercent: 0,
+        scrollTop: 0,
+        chunkIndex: null,
+        chunkRatio: null,
+        updatedAt: Date.now(),
+      });
+
+      persistProgress(item, {
+        mode: "scroll",
+        scrollTop: 0,
+        percent: 0,
+      });
+    }
 
     temporarilySuspendProgressSave(500);
     els.readerResume.hidden = true;
@@ -1127,6 +1512,161 @@ els.readerResume?.addEventListener("click", async (event) => {
   }
 });
 
+
+
+els.loginButton?.addEventListener("click", () => {
+  if (state.user) {
+    els.accountModalUser.textContent =
+      `${state.user.userId} 계정으로 로그인되어 있습니다.`;
+    openModal(els.accountModal);
+    return;
+  }
+
+  openAuthModal("login");
+});
+
+els.signupButton?.addEventListener("click", () => {
+  openAuthModal("signup");
+});
+
+els.helpButton?.addEventListener("click", () => {
+  openModal(els.helpModal);
+});
+
+els.helpLoginButton?.addEventListener("click", () => {
+  closeModal(els.helpModal);
+  openAuthModal("login");
+});
+
+els.bookmarkLibraryButton?.addEventListener("click", () => {
+  showUserLibrary("bookmarks");
+});
+
+els.recentLibraryButton?.addEventListener("click", () => {
+  showUserLibrary("recent");
+});
+
+els.authLoginTab?.addEventListener("click", () => setAuthMode("login"));
+els.authSignupTab?.addEventListener("click", () => setAuthMode("signup"));
+
+els.authForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  const userId = els.authUserId.value.trim().toLowerCase();
+  const password = els.authPassword.value;
+  const endpoint =
+    state.authMode === "signup"
+      ? "/api/auth/signup"
+      : "/api/auth/login";
+
+  els.authSubmitButton.disabled = true;
+  setAuthMessage("");
+
+  try {
+    const data = await userApi(endpoint, {
+      method: "POST",
+      body: JSON.stringify({ userId, password }),
+    });
+
+    setAuthToken(data.token);
+    state.user = data.user;
+    updateAccountUi();
+    await loadUserLibrary();
+
+    els.authPassword.value = "";
+    state.pendingAuthReason = "";
+    closeModal(els.authModal);
+  } catch (error) {
+    setAuthMessage(error.message, true);
+  } finally {
+    els.authSubmitButton.disabled = false;
+  }
+});
+
+els.logoutButton?.addEventListener("click", async () => {
+  try {
+    if (state.activeReaderItem) {
+      const saved = saveReaderProgress();
+      if (saved) await persistProgress(state.activeReaderItem, saved);
+    }
+
+    await userApi("/api/auth/logout", {
+      method: "POST",
+      body: "{}",
+    });
+  } catch {}
+
+  clearUserSession(true);
+  closeModal(els.accountModal);
+});
+
+els.readerBookmarkButton?.addEventListener("click", async () => {
+  const item = state.activeReaderItem;
+  if (!item) return;
+
+  if (!state.user) {
+    openAuthModal(
+      "login",
+      "북마크를 저장하려면 로그인해 주세요."
+    );
+    return;
+  }
+
+  const nextValue = !getUserLibraryEntry(item.id)?.bookmarked;
+
+  updateUserLibraryEntry(item.id, {
+    bookmarked: nextValue,
+    updatedAt: Date.now(),
+  });
+  updateReaderBookmarkButton();
+
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "bookmark",
+        fileId: item.id,
+        bookmarked: nextValue,
+      }),
+    });
+  } catch (error) {
+    updateUserLibraryEntry(item.id, {
+      bookmarked: !nextValue,
+    });
+    updateReaderBookmarkButton();
+    console.warn(error);
+  }
+});
+
+els.libraryModalList?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-library-file-id]");
+  if (!button) return;
+
+  const item = state.items.find(
+    (candidate) => candidate.id === button.dataset.libraryFileId
+  );
+  if (!item) return;
+
+  closeModal(els.libraryModal);
+  openReader(item);
+});
+
+document.querySelectorAll("[data-close-modal]").forEach((button) => {
+  button.addEventListener("click", () => {
+    closeModal(document.getElementById(button.dataset.closeModal));
+  });
+});
+
+for (const modal of [
+  els.authModal,
+  els.helpModal,
+  els.libraryModal,
+  els.accountModal,
+]) {
+  modal?.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal(modal);
+  });
+}
 
 els.searchInput.addEventListener("input", (event) => {
   state.search = event.target.value;
@@ -1192,7 +1732,21 @@ els.readerOverlay.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && !els.readerOverlay.hidden) closeReader();
+  if (event.key !== "Escape") return;
+
+  const openSimpleModal = [
+    els.authModal,
+    els.helpModal,
+    els.libraryModal,
+    els.accountModal,
+  ].find((modal) => modal && !modal.hidden);
+
+  if (openSimpleModal) {
+    closeModal(openSimpleModal);
+    return;
+  }
+
+  if (!els.readerOverlay.hidden) closeReader();
 });
 
 els.refreshButton.addEventListener("click", () => loadArchive(true));
@@ -1206,7 +1760,18 @@ function updateReaderScrollUi() {
   const scrollTop = els.readerPanel.scrollTop;
 
   window.clearTimeout(readerProgressSaveTimer);
-  readerProgressSaveTimer = window.setTimeout(saveReaderProgress, 240);
+  readerProgressSaveTimer = window.setTimeout(() => {
+    const saved = saveReaderProgress();
+
+    if (
+      saved &&
+      state.user &&
+      state.activeReaderItem &&
+      Date.now() - state.lastRemoteProgressAt >= 5 * 60 * 1000
+    ) {
+      persistProgress(state.activeReaderItem, saved);
+    }
+  }, 240);
 
   els.readerPanel.classList.toggle(
     "reader-compact",
@@ -1258,4 +1823,6 @@ els.pageScrollTop?.addEventListener("click", () => {
 
 updatePageScrollTopButton();
 syncViewButtons();
+updateAccountUi();
 loadArchive();
+restoreAuth();

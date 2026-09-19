@@ -1,0 +1,103 @@
+import { jsonResponse } from "../../_shared.js";
+import { requireUser, userErrorResponse } from "../../_user.js";
+
+export async function onRequestPost(context) {
+  try {
+    const auth = await requireUser(context);
+    const body = await context.request.json();
+
+    const fileId = String(body?.fileId || "").trim();
+    const action = String(body?.action || "").trim();
+
+    if (!fileId) {
+      return jsonResponse({ error: "파일 ID가 없습니다." }, 400);
+    }
+
+    const now = Date.now();
+
+    if (action === "view") {
+      await auth.db.prepare(`
+        INSERT INTO user_items(user_id, file_id, viewed_at, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          viewed_at = excluded.viewed_at,
+          updated_at = excluded.updated_at
+      `).bind(auth.userId, fileId, now, now).run();
+
+      return jsonResponse({ ok: true, viewedAt: now });
+    }
+
+    if (action === "bookmark") {
+      const bookmarked = body?.bookmarked ? 1 : 0;
+
+      await auth.db.prepare(`
+        INSERT INTO user_items(user_id, file_id, bookmarked, updated_at)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          bookmarked = excluded.bookmarked,
+          updated_at = excluded.updated_at
+      `).bind(auth.userId, fileId, bookmarked, now).run();
+
+      return jsonResponse({ ok: true, bookmarked: Boolean(bookmarked) });
+    }
+
+    if (action === "progress") {
+      const percent = Math.max(0, Math.min(100, Number(body?.percent || 0)));
+      const mode = body?.mode === "chunk" ? "chunk" : "scroll";
+      const scrollTop = Number.isFinite(Number(body?.scrollTop))
+        ? Number(body.scrollTop)
+        : null;
+      const chunkIndex = Number.isFinite(Number(body?.chunkIndex))
+        ? Math.max(0, Math.floor(Number(body.chunkIndex)))
+        : null;
+      const chunkRatio = Number.isFinite(Number(body?.chunkRatio))
+        ? Math.max(0, Math.min(1, Number(body.chunkRatio)))
+        : null;
+      const readAt = percent >= 95 ? now : null;
+
+      await auth.db.prepare(`
+        INSERT INTO user_items(
+          user_id,
+          file_id,
+          progress_percent,
+          scroll_top,
+          chunk_index,
+          chunk_ratio,
+          read_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          progress_percent = excluded.progress_percent,
+          scroll_top = excluded.scroll_top,
+          chunk_index = excluded.chunk_index,
+          chunk_ratio = excluded.chunk_ratio,
+          read_at = CASE
+            WHEN excluded.read_at IS NOT NULL THEN excluded.read_at
+            ELSE user_items.read_at
+          END,
+          updated_at = excluded.updated_at
+      `).bind(
+        auth.userId,
+        fileId,
+        percent,
+        mode === "scroll" ? scrollTop : null,
+        mode === "chunk" ? chunkIndex : null,
+        mode === "chunk" ? chunkRatio : null,
+        readAt,
+        now
+      ).run();
+
+      return jsonResponse({
+        ok: true,
+        progressPercent: percent,
+        read: Boolean(readAt),
+      });
+    }
+
+    return jsonResponse({ error: "지원하지 않는 저장 작업입니다." }, 400);
+  } catch (error) {
+    console.error(error);
+    return userErrorResponse(error);
+  }
+}
