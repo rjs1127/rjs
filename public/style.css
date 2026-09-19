@@ -1025,3 +1025,135 @@ body.reader-open {
     font-size: 8.8px;
   }
 }
+
+
+/* v6.9 - compact header / RJS BOOK brand */
+.site-header {
+  height: 64px;
+}
+
+.brand {
+  gap: 9px;
+}
+
+.brand-mark {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+}
+
+.cat-mark {
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: #fff;
+}
+
+.cat-mark svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+}
+
+.brand-text {
+  font-size: 17px;
+  letter-spacing: .015em;
+}
+
+.ghost-button {
+  padding: 8px 12px;
+  font-size: 12px;
+}
+
+.hero {
+  padding: 46px 0 32px;
+  max-width: 720px;
+}
+
+.eyebrow {
+  margin-bottom: 12px;
+}
+
+.hero h1 {
+  font-size: clamp(38px, 5vw, 62px);
+  line-height: 1.02;
+}
+
+.hero-copy {
+  margin-top: 18px;
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+.search-box {
+  margin-top: 26px;
+  min-height: 56px;
+  border-radius: 17px;
+  box-shadow: 0 12px 34px rgba(37,33,28,.065);
+}
+
+.search-box input {
+  padding: 15px 0;
+  font-size: 15px;
+}
+
+.controls {
+  padding: 4px 0 38px;
+}
+
+.control-card {
+  min-height: 98px;
+  padding: 16px 18px;
+}
+
+.content-section {
+  padding-top: 34px;
+}
+
+@media (max-width: 640px) {
+  .site-header {
+    height: 58px;
+  }
+
+  .brand-mark {
+    width: 30px;
+    height: 30px;
+  }
+
+  .cat-mark svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .brand-text {
+    font-size: 15px;
+  }
+
+  .hero {
+    padding: 28px 0 24px;
+  }
+
+  .hero h1 {
+    font-size: clamp(31px, 9vw, 42px);
+    line-height: 1.06;
+  }
+
+  .hero-copy {
+    margin-top: 14px;
+    font-size: 14px;
+  }
+
+  .search-box {
+    margin-top: 20px;
+    min-height: 52px;
+    padding: 0 14px;
+  }
+
+  .controls {
+    padding-bottom: 28px;
+  }
+
+  .control-card {
+    padding: 14px 15px;
+  }
+}
