@@ -18,6 +18,11 @@ const els = {
   reviewList: document.getElementById("reviewList"),
   reviewEmpty: document.getElementById("reviewEmpty"),
   reviewCount: document.getElementById("reviewCount"),
+  statusNormalCount: document.getElementById("statusNormalCount"),
+  statusEditedCount: document.getElementById("statusEditedCount"),
+  statusReviewCount: document.getElementById("statusReviewCount"),
+  driveDiagnostics: document.getElementById("driveDiagnostics"),
+  diagnosticsEmpty: document.getElementById("diagnosticsEmpty"),
   zipInput: document.getElementById("zipInput"),
   zipDropZone: document.getElementById("zipDropZone"),
   commitMessageInput: document.getElementById("commitMessageInput"),
@@ -27,9 +32,13 @@ const els = {
   blockedFileList: document.getElementById("blockedFileList"),
   deployButton: document.getElementById("deployButton"),
   deployMessage: document.getElementById("deployMessage"),
+  tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
+  panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
 };
 
 let password = sessionStorage.getItem("archiveAdminPassword") || "";
+let deployFiles = [];
+let deployBlocked = [];
 
 function escapeHtml(value = "") {
   return String(value)
@@ -67,54 +76,23 @@ function formatDate(value) {
   }
 }
 
+function setActiveTab(name) {
+  els.tabs.forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset.tabTarget === name);
+  });
 
-function ensureDiagnosticsUi() {
-  if (!document.querySelector('link[href="/admin-diagnostics.css"]')) {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = "/admin-diagnostics.css";
-    document.head.appendChild(link);
-  }
+  els.panels.forEach((panel) => {
+    const active = panel.dataset.tabPanel === name;
+    panel.hidden = !active;
+    panel.classList.toggle("active", active);
+  });
 
-  let grid = document.getElementById("driveDiagnostics");
-  if (grid) return;
-
-  const syncButton = document.getElementById("syncButton");
-  const syncPanel = syncButton?.closest(".panel");
-  if (!syncPanel) return;
-
-  const section = document.createElement("section");
-  section.className = "panel";
-  section.innerHTML = `
-    <div class="panel-head">
-      <div>
-        <p class="eyebrow">DRIVE SCAN STATUS</p>
-        <h2>폴더 탐색 현황</h2>
-      </div>
-    </div>
-    <p class="muted">
-      메인폴더 바로 아래의 인물조합별 단편/장편 폴더와 TXT 개수를 표시합니다.
-      폴더 바로가기도 자동으로 따라갑니다.
-    </p>
-    <div id="driveDiagnostics" class="diagnostics-grid"></div>
-    <div id="diagnosticsEmpty" class="empty" hidden>
-      아직 동기화 기록이 없습니다. Drive 다시 읽기를 실행해주세요.
-    </div>
-  `;
-
-  syncPanel.insertAdjacentElement("afterend", section);
+  sessionStorage.setItem("archiveAdminTab", name);
 }
 
 function renderDiagnostics(items = []) {
-  ensureDiagnosticsUi();
-
-  const grid = document.getElementById("driveDiagnostics");
-  const empty = document.getElementById("diagnosticsEmpty");
-  if (!grid || !empty) return;
-
-  empty.hidden = items.length !== 0;
-
-  grid.innerHTML = items.map((item) => {
+  els.diagnosticsEmpty.hidden = items.length !== 0;
+  els.driveDiagnostics.innerHTML = items.map((item) => {
     const lengths = Array.isArray(item.lengthFolders) ? item.lengthFolders : [];
 
     return `
@@ -146,25 +124,6 @@ function renderDiagnostics(items = []) {
   }).join("");
 }
 
-async function loadAdmin() {
-  const data = await api("/api/admin/data");
-
-  els.loginCard.hidden = true;
-  els.adminContent.hidden = false;
-
-  els.statCount.textContent = `${data.count.toLocaleString("ko-KR")}개`;
-  els.statReview.textContent = `${data.needsReview.length.toLocaleString("ko-KR")}개`;
-  els.statEdited.textContent = `${data.editedCount.toLocaleString("ko-KR")}개`;
-  els.statSync.textContent = formatDate(data.syncedAt);
-
-  els.eyebrowInput.value = data.settings?.eyebrow || "";
-  els.titleInput.value = data.settings?.title || "";
-  els.subtitleInput.value = data.settings?.subtitle || "";
-
-  renderReview(data.needsReview || []);
-  renderDiagnostics(data.diagnostics || []);
-}
-
 function renderReview(items) {
   els.reviewCount.textContent = `${items.length.toLocaleString("ko-KR")}개`;
   els.reviewEmpty.hidden = items.length !== 0;
@@ -192,108 +151,35 @@ function renderReview(items) {
   `).join("");
 }
 
-els.loginForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  password = els.passwordInput.value;
-  els.loginError.hidden = true;
+async function loadAdmin() {
+  const data = await api("/api/admin/data");
 
-  try {
-    await loadAdmin();
-    sessionStorage.setItem("archiveAdminPassword", password);
-  } catch (error) {
-    els.loginError.textContent = error.message;
-    els.loginError.hidden = false;
-  }
-});
+  els.loginCard.hidden = true;
+  els.adminContent.hidden = false;
 
-els.syncButton.addEventListener("click", async () => {
-  els.syncButton.disabled = true;
-  els.syncMessage.hidden = false;
-  els.syncMessage.textContent = "Google Drive를 다시 읽는 중입니다…";
+  const reviewCount = Array.isArray(data.needsReview) ? data.needsReview.length : 0;
+  const editedCount = Number(data.editedCount || 0);
+  const totalCount = Number(data.count || 0);
+  const normalCount = Math.max(0, totalCount - reviewCount - editedCount);
 
-  try {
-    const data = await api("/api/admin/sync", {
-      method: "POST",
-      body: "{}",
-    });
-    const reconciled = Number(data.reconciledCount || 0);
-    els.syncMessage.textContent =
-      reconciled > 0
-        ? `동기화 완료: ${data.count.toLocaleString("ko-KR")}개 · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
-        : `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
-    renderDiagnostics(data.diagnostics || []);
-    await loadAdmin();
-  } catch (error) {
-    els.syncMessage.textContent = error.message;
-  } finally {
-    els.syncButton.disabled = false;
-  }
-});
+  els.statCount.textContent = `${totalCount.toLocaleString("ko-KR")}개`;
+  els.statReview.textContent = `${reviewCount.toLocaleString("ko-KR")}개`;
+  els.statEdited.textContent = `${editedCount.toLocaleString("ko-KR")}개`;
+  els.statSync.textContent = formatDate(data.syncedAt);
 
-els.settingsForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  els.settingsMessage.hidden = false;
-  els.settingsMessage.textContent = "저장 중…";
+  els.statusNormalCount.textContent = `${normalCount.toLocaleString("ko-KR")}개`;
+  els.statusEditedCount.textContent = `${editedCount.toLocaleString("ko-KR")}개`;
+  els.statusReviewCount.textContent = `${reviewCount.toLocaleString("ko-KR")}개`;
 
-  try {
-    await api("/api/admin/settings", {
-      method: "POST",
-      body: JSON.stringify({
-        eyebrow: els.eyebrowInput.value,
-        title: els.titleInput.value,
-        subtitle: els.subtitleInput.value,
-      }),
-    });
-    els.settingsMessage.textContent = "저장했습니다. 메인 화면 새로고침 시 반영됩니다.";
-  } catch (error) {
-    els.settingsMessage.textContent = error.message;
-  }
-});
+  els.eyebrowInput.value = data.settings?.eyebrow || "";
+  els.titleInput.value = data.settings?.title || "";
+  els.subtitleInput.value = data.settings?.subtitle || "";
 
-els.reviewList.addEventListener("submit", async (event) => {
-  const form = event.target.closest(".review-form");
-  if (!form) return;
-  event.preventDefault();
+  renderReview(data.needsReview || []);
+  renderDiagnostics(data.diagnostics || []);
 
-  const item = form.closest(".review-item");
-  const button = form.querySelector("button");
-  const title = form.elements.title.value.trim();
-  const author = form.elements.author.value.trim();
-
-  button.disabled = true;
-  button.textContent = "저장 중…";
-
-  try {
-    await api("/api/admin/item", {
-      method: "POST",
-      body: JSON.stringify({
-        id: item.dataset.id,
-        title,
-        author,
-      }),
-    });
-
-    item.remove();
-    await loadAdmin();
-  } catch (error) {
-    alert(error.message);
-    button.disabled = false;
-    button.textContent = "저장";
-  }
-});
-
-if (password) {
-  loadAdmin().catch(() => {
-    sessionStorage.removeItem("archiveAdminPassword");
-    password = "";
-    els.loginCard.hidden = false;
-    els.adminContent.hidden = true;
-  });
+  setActiveTab(sessionStorage.getItem("archiveAdminTab") || "overview");
 }
-
-
-let deployFiles = [];
-let deployBlocked = [];
 
 function normalizeZipPath(path) {
   return String(path || "")
@@ -335,7 +221,7 @@ function checkDeployPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/"))) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || normalized === "README.md")) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 
@@ -362,7 +248,6 @@ async function inspectZip(file) {
   const zip = await JSZip.loadAsync(file);
   const allowed = [];
   const blocked = [];
-
   const entries = Object.values(zip.files);
 
   for (const entry of entries) {
@@ -448,6 +333,99 @@ async function handleZipFile(file) {
   }
 }
 
+els.tabs.forEach((tab) => {
+  tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
+});
+
+els.loginForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  password = els.passwordInput.value;
+  els.loginError.hidden = true;
+
+  try {
+    await loadAdmin();
+    sessionStorage.setItem("archiveAdminPassword", password);
+  } catch (error) {
+    els.loginError.textContent = error.message;
+    els.loginError.hidden = false;
+  }
+});
+
+els.syncButton.addEventListener("click", async () => {
+  els.syncButton.disabled = true;
+  els.syncMessage.hidden = false;
+  els.syncMessage.textContent = "Google Drive를 다시 읽는 중입니다…";
+
+  try {
+    const data = await api("/api/admin/sync", {
+      method: "POST",
+      body: "{}",
+    });
+    const reconciled = Number(data.reconciledCount || 0);
+    els.syncMessage.textContent =
+      reconciled > 0
+        ? `동기화 완료: ${data.count.toLocaleString("ko-KR")}개 · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
+        : `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
+    renderDiagnostics(data.diagnostics || []);
+    await loadAdmin();
+  } catch (error) {
+    els.syncMessage.textContent = error.message;
+  } finally {
+    els.syncButton.disabled = false;
+  }
+});
+
+els.settingsForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  els.settingsMessage.hidden = false;
+  els.settingsMessage.textContent = "저장 중…";
+
+  try {
+    await api("/api/admin/settings", {
+      method: "POST",
+      body: JSON.stringify({
+        eyebrow: els.eyebrowInput.value,
+        title: els.titleInput.value,
+        subtitle: els.subtitleInput.value,
+      }),
+    });
+    els.settingsMessage.textContent = "저장했습니다. 메인 화면 새로고침 시 반영됩니다.";
+  } catch (error) {
+    els.settingsMessage.textContent = error.message;
+  }
+});
+
+els.reviewList.addEventListener("submit", async (event) => {
+  const form = event.target.closest(".review-form");
+  if (!form) return;
+  event.preventDefault();
+
+  const item = form.closest(".review-item");
+  const button = form.querySelector("button");
+  const title = form.elements.title.value.trim();
+  const author = form.elements.author.value.trim();
+
+  button.disabled = true;
+  button.textContent = "저장 중…";
+
+  try {
+    await api("/api/admin/item", {
+      method: "POST",
+      body: JSON.stringify({
+        id: item.dataset.id,
+        title,
+        author,
+      }),
+    });
+
+    await loadAdmin();
+  } catch (error) {
+    alert(error.message);
+    button.disabled = false;
+    button.textContent = "저장";
+  }
+});
+
 els.zipInput.addEventListener("change", (event) => {
   handleZipFile(event.target.files?.[0]);
 });
@@ -470,8 +448,7 @@ els.zipDropZone.addEventListener("drop", (event) => {
 els.deployButton.addEventListener("click", async () => {
   if (!deployFiles.length) return;
 
-  const message =
-    els.commitMessageInput.value.trim() || "Archive site update";
+  const message = els.commitMessageInput.value.trim() || "Archive site update";
 
   els.deployButton.disabled = true;
   els.deployButton.textContent = "GitHub 커밋 중…";
@@ -506,3 +483,12 @@ els.deployButton.addEventListener("click", async () => {
     els.deployButton.textContent = "GitHub에 배포";
   }
 });
+
+if (password) {
+  loadAdmin().catch(() => {
+    sessionStorage.removeItem("archiveAdminPassword");
+    password = "";
+    els.loginCard.hidden = false;
+    els.adminContent.hidden = true;
+  });
+}

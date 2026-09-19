@@ -2,9 +2,8 @@ const state = {
   items: [],
   combination: "전체",
   length: "전체",
-  status: "전체",
   search: "",
-  view: localStorage.getItem("archiveView") || "card",
+  view: localStorage.getItem("archiveViewV2") || "list",
 };
 
 const els = {
@@ -18,7 +17,6 @@ const els = {
   clearSearch: document.getElementById("clearSearch"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
-  statusFilters: document.getElementById("statusFilters"),
   refreshButton: document.getElementById("refreshButton"),
   cardViewButton: document.getElementById("cardViewButton"),
   listViewButton: document.getElementById("listViewButton"),
@@ -29,7 +27,6 @@ const els = {
   closeReader: document.getElementById("closeReader"),
   readerCombination: document.getElementById("readerCombination"),
   readerLength: document.getElementById("readerLength"),
-  readerStatus: document.getElementById("readerStatus"),
   readerTitle: document.getElementById("readerTitle"),
   readerAuthor: document.getElementById("readerAuthor"),
   readerFileName: document.getElementById("readerFileName"),
@@ -108,13 +105,11 @@ function getFilteredItems() {
       state.combination === "전체" || item.combination === state.combination;
     const matchesLength =
       state.length === "전체" || item.lengthType === state.length;
-    const matchesStatus =
-      state.status === "전체" || item.status === state.status;
 
     const haystack = `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
       .toLocaleLowerCase("ko-KR");
 
-    return matchesCombination && matchesLength && matchesStatus && (!q || haystack.includes(q));
+    return matchesCombination && matchesLength && (!q || haystack.includes(q));
   });
 }
 
@@ -145,12 +140,6 @@ function render() {
   syncViewButtons();
 }
 
-function statusBadgeClass(status) {
-  if (status === "확인 필요") return "warning";
-  if (status === "수정됨") return "edited";
-  return "";
-}
-
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
     <article class="content-card" tabindex="0" role="button"
@@ -162,9 +151,6 @@ function renderCards(items) {
       </div>
       <h3 class="card-title">${escapeHtml(item.title)}</h3>
       <p class="card-author">${escapeHtml(item.author)}</p>
-      ${item.status !== "정상"
-        ? `<span class="card-status ${statusBadgeClass(item.status)}">${escapeHtml(item.status)}</span>`
-        : ""}
       <span class="card-arrow" aria-hidden="true">↗</span>
     </article>
   `).join("");
@@ -177,9 +163,6 @@ function renderList(items) {
       <td>${escapeHtml(item.lengthType)}</td>
       <td class="list-title">${escapeHtml(item.title)}</td>
       <td>${escapeHtml(item.author)}</td>
-      <td>
-        <span class="list-status ${statusBadgeClass(item.status)}">${escapeHtml(item.status)}</span>
-      </td>
     </tr>
   `).join("");
 }
@@ -191,7 +174,7 @@ function syncViewButtons() {
 
 function setView(view) {
   state.view = view;
-  localStorage.setItem("archiveView", view);
+  localStorage.setItem("archiveViewV2", view);
   render();
 }
 
@@ -205,14 +188,6 @@ async function openReader(item) {
   els.readerTitle.textContent = item.title || "제목 미상";
   els.readerAuthor.textContent = item.author || "작성자 미상";
   els.readerFileName.textContent = `원본 파일명: ${item.fileName || ""}`;
-
-  if (item.status !== "정상") {
-    els.readerStatus.hidden = false;
-    els.readerStatus.textContent = item.status;
-    els.readerStatus.className = `reader-tag warning ${statusBadgeClass(item.status)}`;
-  } else {
-    els.readerStatus.hidden = true;
-  }
 
   els.readerBody.innerHTML = `
     <div class="reader-loading">
@@ -259,6 +234,7 @@ els.clearSearch.addEventListener("click", () => {
 els.combinationFilters.addEventListener("click", (event) => {
   const button = event.target.closest("[data-combination]");
   if (!button) return;
+
   state.combination = button.dataset.combination;
   els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.combination === state.combination);
@@ -269,19 +245,10 @@ els.combinationFilters.addEventListener("click", (event) => {
 els.lengthFilters.addEventListener("click", (event) => {
   const button = event.target.closest("[data-length]");
   if (!button) return;
+
   state.length = button.dataset.length;
   els.lengthFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.length === state.length);
-  });
-  render();
-});
-
-els.statusFilters.addEventListener("click", (event) => {
-  const button = event.target.closest("[data-status]");
-  if (!button) return;
-  state.status = button.dataset.status;
-  els.statusFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.status === state.status);
   });
   render();
 });
