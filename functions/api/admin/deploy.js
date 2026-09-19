@@ -44,7 +44,7 @@ function isAllowedPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/"))) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || normalized === "README.md")) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 
