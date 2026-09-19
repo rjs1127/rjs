@@ -20,6 +20,7 @@ const state = {
   lastRemoteProgressAt: 0,
   libraryKind: "bookmarks",
   librarySearch: "",
+  visitRecordedUserId: "",
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -230,6 +231,7 @@ function clearUserSession(clearToken = true) {
   if (clearToken) setAuthToken("");
   state.user = null;
   state.userLibrary = new Map();
+  state.visitRecordedUserId = "";
   updateAccountUi();
   updateReaderBookmarkButton();
 
@@ -280,6 +282,22 @@ function normalizeLibraryRow(row) {
   };
 }
 
+
+async function recordLoggedInVisit() {
+  const userId = state.user?.userId;
+  if (!userId || state.visitRecordedUserId === userId) return;
+
+  try {
+    await userApi("/api/user/visit", {
+      method: "POST",
+      body: "{}",
+    });
+    state.visitRecordedUserId = userId;
+  } catch (error) {
+    console.warn("방문 기록 저장 실패", error);
+  }
+}
+
 async function loadUserLibrary() {
   if (!state.user) {
     state.userLibrary = new Map();
@@ -309,6 +327,7 @@ async function restoreAuth() {
     state.user = data.user;
     updateAccountUi();
     await loadUserLibrary();
+    await recordLoggedInVisit();
   } catch {
     clearUserSession(true);
   }
@@ -1737,6 +1756,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
     state.user = data.user;
     updateAccountUi();
     await loadUserLibrary();
+    await recordLoggedInVisit();
 
     els.signupFormView.hidden = true;
     els.signupCompleteView.hidden = false;
@@ -1770,6 +1790,7 @@ els.authForm?.addEventListener("submit", async (event) => {
     state.user = data.user;
     updateAccountUi();
     await loadUserLibrary();
+    await recordLoggedInVisit();
 
     els.authPassword.value = "";
     state.pendingAuthReason = "";

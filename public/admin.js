@@ -32,6 +32,19 @@ const els = {
   blockedFileList: document.getElementById("blockedFileList"),
   deployButton: document.getElementById("deployButton"),
   deployMessage: document.getElementById("deployMessage"),
+  dashboardTotalUsers: document.getElementById("dashboardTotalUsers"),
+  dashboardTodaySignups: document.getElementById("dashboardTodaySignups"),
+  dashboardTodayVisits: document.getElementById("dashboardTodayVisits"),
+  dashboardTotalVisits: document.getElementById("dashboardTotalVisits"),
+  dashboardChart: document.getElementById("dashboardChart"),
+  dashboardDailyList: document.getElementById("dashboardDailyList"),
+  dashboardRefreshButton: document.getElementById("dashboardRefreshButton"),
+  userCountBadge: document.getElementById("userCountBadge"),
+  userSearchInput: document.getElementById("userSearchInput"),
+  userRefreshButton: document.getElementById("userRefreshButton"),
+  userTableBody: document.getElementById("userTableBody"),
+  userEmpty: document.getElementById("userEmpty"),
+  userMessage: document.getElementById("userMessage"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
   panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
 };
@@ -39,6 +52,11 @@ const els = {
 let password = sessionStorage.getItem("archiveAdminPassword") || "";
 let deployFiles = [];
 let deployBlocked = [];
+let userAdminData = {
+  summary: {},
+  daily: [],
+  users: [],
+};
 
 function escapeHtml(value = "") {
   return String(value)
@@ -151,6 +169,136 @@ function renderReview(items) {
   `).join("");
 }
 
+
+function formatShortDate(value) {
+  if (!value) return "-";
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      year: "2-digit",
+      month: "2-digit",
+      day: "2-digit",
+    }).format(new Date(value));
+  } catch {
+    return "-";
+  }
+}
+
+function formatDashboardDate(value) {
+  const date = new Date(`${value}T00:00:00+09:00`);
+  return `${date.getMonth() + 1}/${date.getDate()}`;
+}
+
+function renderDashboard(data = userAdminData) {
+  const summary = data.summary || {};
+  const daily = Array.isArray(data.daily) ? data.daily : [];
+
+  els.dashboardTotalUsers.textContent =
+    Number(summary.totalUsers || 0).toLocaleString("ko-KR");
+  els.dashboardTodaySignups.textContent =
+    Number(summary.todaySignups || 0).toLocaleString("ko-KR");
+  els.dashboardTodayVisits.textContent =
+    Number(summary.todayVisits || 0).toLocaleString("ko-KR");
+  els.dashboardTotalVisits.textContent =
+    Number(summary.totalVisits || 0).toLocaleString("ko-KR");
+
+  const maxValue = Math.max(
+    1,
+    ...daily.flatMap((row) => [
+      Number(row.signups || 0),
+      Number(row.visits || 0),
+    ])
+  );
+
+  els.dashboardChart.innerHTML = daily.map((row) => {
+    const signupHeight = Math.max(
+      row.signups ? 4 : 2,
+      (Number(row.signups || 0) / maxValue) * 140
+    );
+    const visitHeight = Math.max(
+      row.visits ? 4 : 2,
+      (Number(row.visits || 0) / maxValue) * 140
+    );
+
+    return `
+      <div class="dashboard-day" title="${escapeHtml(row.date)} · 가입 ${Number(row.signups || 0)} · 방문 ${Number(row.visits || 0)}">
+        <div class="dashboard-day-value">${Number(row.signups || 0)}/${Number(row.visits || 0)}</div>
+        <div class="dashboard-bars">
+          <span class="dashboard-bar signups" style="height:${signupHeight}px"></span>
+          <span class="dashboard-bar visits" style="height:${visitHeight}px"></span>
+        </div>
+        <span class="dashboard-day-label">${escapeHtml(formatDashboardDate(row.date))}</span>
+      </div>
+    `;
+  }).join("");
+
+  els.dashboardDailyList.innerHTML = [...daily]
+    .reverse()
+    .map((row) => `
+      <div class="dashboard-daily-row">
+        <strong>${escapeHtml(row.date)}</strong>
+        <span>가입 <strong>${Number(row.signups || 0).toLocaleString("ko-KR")}</strong></span>
+        <span>방문 <strong>${Number(row.visits || 0).toLocaleString("ko-KR")}</strong></span>
+      </div>
+    `)
+    .join("");
+}
+
+function getFilteredAdminUsers() {
+  const query = String(els.userSearchInput?.value || "")
+    .trim()
+    .toLowerCase();
+
+  if (!query) return userAdminData.users || [];
+
+  return (userAdminData.users || []).filter((user) =>
+    String(user.userId || "").toLowerCase().includes(query)
+  );
+}
+
+function renderAdminUsers() {
+  const users = getFilteredAdminUsers();
+  const total = (userAdminData.users || []).length;
+
+  els.userCountBadge.textContent = `${total.toLocaleString("ko-KR")}명`;
+  els.userEmpty.hidden = users.length !== 0;
+
+  els.userTableBody.innerHTML = users.map((user) => `
+    <tr data-user-id="${escapeHtml(user.userId)}">
+      <td class="user-id-cell">${escapeHtml(user.userId)}</td>
+      <td>${escapeHtml(formatShortDate(user.createdAt))}</td>
+      <td>${escapeHtml(user.lastActivityAt ? formatDate(user.lastActivityAt) : "-")}</td>
+      <td>${Number(user.visitCount || 0).toLocaleString("ko-KR")}</td>
+      <td>${Number(user.bookmarkCount || 0).toLocaleString("ko-KR")}</td>
+      <td>${Number(user.recentCount || 0).toLocaleString("ko-KR")}</td>
+      <td>${Number(user.readCount || 0).toLocaleString("ko-KR")}</td>
+      <td>
+        <div class="user-actions">
+          <button class="user-action-button" type="button" data-user-action="reset_sessions">세션 초기화</button>
+          <button class="user-action-button danger" type="button" data-user-action="delete_user">계정 삭제</button>
+        </div>
+      </td>
+    </tr>
+  `).join("");
+}
+
+async function loadUserAdminData(showMessage = false) {
+  const data = await api("/api/admin/users?days=14");
+
+  userAdminData = {
+    summary: data.summary || {},
+    daily: data.daily || [],
+    users: data.users || [],
+  };
+
+  renderDashboard(userAdminData);
+  renderAdminUsers();
+
+  if (showMessage && els.userMessage) {
+    els.userMessage.hidden = false;
+    els.userMessage.textContent = "유저 정보를 새로 불러왔습니다.";
+  }
+}
+
 async function loadAdmin() {
   const data = await api("/api/admin/data");
 
@@ -178,7 +326,13 @@ async function loadAdmin() {
   renderReview(data.needsReview || []);
   renderDiagnostics(data.diagnostics || []);
 
-  setActiveTab(sessionStorage.getItem("archiveAdminTab") || "overview");
+  try {
+    await loadUserAdminData();
+  } catch (error) {
+    console.warn("유저 대시보드 로딩 실패", error);
+  }
+
+  setActiveTab(sessionStorage.getItem("archiveAdminTab") || "dashboard");
 }
 
 function normalizeZipPath(path) {
@@ -430,6 +584,74 @@ async function handleZipFile(file) {
 
 els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
+});
+
+
+els.dashboardRefreshButton?.addEventListener("click", async () => {
+  els.dashboardRefreshButton.disabled = true;
+  try {
+    await loadUserAdminData(false);
+  } catch (error) {
+    window.alert(error.message || "대시보드를 불러오지 못했습니다.");
+  } finally {
+    els.dashboardRefreshButton.disabled = false;
+  }
+});
+
+els.userRefreshButton?.addEventListener("click", async () => {
+  els.userRefreshButton.disabled = true;
+  try {
+    await loadUserAdminData(true);
+  } catch (error) {
+    els.userMessage.hidden = false;
+    els.userMessage.textContent =
+      error.message || "유저 정보를 불러오지 못했습니다.";
+  } finally {
+    els.userRefreshButton.disabled = false;
+  }
+});
+
+els.userSearchInput?.addEventListener("input", renderAdminUsers);
+
+els.userTableBody?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-user-action]");
+  if (!button) return;
+
+  const row = button.closest("[data-user-id]");
+  const userId = row?.dataset.userId;
+  const action = button.dataset.userAction;
+
+  if (!userId || !action) return;
+
+  const confirmed = window.confirm(
+    action === "delete_user"
+      ? `${userId} 계정을 삭제할까요?\n이어보기, 북마크, 최근 조회, 방문 기록과 로그인 세션이 모두 삭제됩니다.`
+      : `${userId} 계정의 모든 로그인 세션을 초기화할까요?\n현재 로그인된 기기들은 다시 로그인해야 합니다.`
+  );
+
+  if (!confirmed) return;
+
+  button.disabled = true;
+
+  try {
+    await api("/api/admin/user-action", {
+      method: "POST",
+      body: JSON.stringify({ action, userId }),
+    });
+
+    await loadUserAdminData(false);
+
+    els.userMessage.hidden = false;
+    els.userMessage.textContent =
+      action === "delete_user"
+        ? `${userId} 계정을 삭제했습니다.`
+        : `${userId} 계정의 로그인 세션을 초기화했습니다.`;
+  } catch (error) {
+    els.userMessage.hidden = false;
+    els.userMessage.textContent = error.message || "작업에 실패했습니다.";
+  } finally {
+    button.disabled = false;
+  }
 });
 
 els.loginForm.addEventListener("submit", async (event) => {

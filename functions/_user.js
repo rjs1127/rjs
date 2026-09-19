@@ -56,6 +56,22 @@ async function ensureUserSchema(db) {
       CREATE INDEX IF NOT EXISTS idx_user_items_bookmark
       ON user_items(user_id, bookmarked)
     `),
+
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_visits (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        visited_at INTEGER NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_user_visits_user
+      ON user_visits(user_id, visited_at DESC)
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_user_visits_time
+      ON user_visits(visited_at DESC)
+    `),
   ]);
 }
 
