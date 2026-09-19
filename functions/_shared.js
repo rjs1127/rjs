@@ -452,10 +452,20 @@ function applyOverrides(archive, overrides = {}) {
   const items = (archive?.items || []).map((item) => {
     const override = overrides[item.id];
 
+    // 정상 파일명은 항상 Google Drive의 현재 파싱 결과가 최우선.
+    // KV에 오래된 수동 수정값이 남아 있어도 사용자 화면에는 적용하지 않는다.
+    if (!item.parseFailed) {
+      return {
+        ...item,
+        status: "정상",
+        manuallyEdited: false,
+      };
+    }
+
     if (!override) {
       return {
         ...item,
-        status: item.parseFailed ? "확인 필요" : "정상",
+        status: "확인 필요",
       };
     }
 
@@ -476,32 +486,46 @@ function applyOverrides(archive, overrides = {}) {
 }
 
 
-function reconcileOverridesWithArchive(archive, overrides = {}) {
+function reconcileOverridesWithArchive(archive, overrides = {}, previousArchive = null) {
   const nextOverrides = { ...overrides };
   const reconciled = [];
+  const previousById = new Map(
+    (previousArchive?.items || []).map((item) => [item.id, item])
+  );
 
   for (const item of archive?.items || []) {
     const override = nextOverrides[item.id];
+    if (!override) continue;
 
-    // Drive 파일명이 현재 정상 형식으로 파싱되면 Drive 정보를 우선한다.
-    // 이전에 관리자 수동 수정값이 있어도 제거하여 KV 상태도 정리한다.
-    if (!item.parseFailed && override) {
+    // 현재 Drive 파일명이 정상 형식으로 파싱되면 Drive가 최우선이다.
+    if (!item.parseFailed) {
+      const previous = previousById.get(item.id);
+      const filenameChanged =
+        previous ? previous.fileName !== item.fileName : null;
+
       const overrideTitle = String(override.title || "").trim();
       const overrideAuthor = String(override.author || "").trim();
-
-      const differsFromDrive =
-        overrideTitle !== String(item.title || "").trim() ||
-        overrideAuthor !== String(item.author || "").trim();
+      const driveTitle = String(item.title || "").trim();
+      const driveAuthor = String(item.author || "").trim();
 
       delete nextOverrides[item.id];
 
       reconciled.push({
         id: item.id,
+        previousFileName: previous?.fileName || null,
         fileName: item.fileName,
-        title: item.title,
-        author: item.author,
+        filenameChanged,
+        previousOverride: {
+          title: overrideTitle,
+          author: overrideAuthor,
+        },
+        driveValue: {
+          title: driveTitle,
+          author: driveAuthor,
+        },
         removedOverride: true,
-        differedFromPreviousOverride: differsFromDrive,
+        differedFromPreviousOverride:
+          overrideTitle !== driveTitle || overrideAuthor !== driveAuthor,
       });
     }
   }

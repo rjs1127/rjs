@@ -21,9 +21,15 @@ export async function onRequestGet(context) {
     ]);
 
     const applied = archive ? applyOverrides(archive, overrides) : null;
+    const baseItems = archive?.items || [];
+
     const needsReview = (applied?.items || []).filter(
       (item) => item.parseFailed && !item.manuallyEdited
     );
+
+    const effectiveEditedCount = baseItems.filter(
+      (item) => item.parseFailed && Boolean(overrides[item.id])
+    ).length;
 
     return jsonResponse({
       settings,
@@ -31,7 +37,7 @@ export async function onRequestGet(context) {
       count: archive?.count || 0,
       diagnostics: archive?.diagnostics || [],
       needsReview,
-      editedCount: Object.keys(overrides).length,
+      editedCount: effectiveEditedCount,
     });
   } catch (error) {
     return jsonResponse(

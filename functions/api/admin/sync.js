@@ -14,14 +14,16 @@ export async function onRequestPost(context) {
     requireAdmin(context);
     const kv = requireKv(context.env);
 
-    const [archive, existingOverrides] = await Promise.all([
+    const [archive, previousArchive, existingOverrides] = await Promise.all([
       buildArchiveFromDrive(context.env),
+      getJson(kv, ARCHIVE_CACHE_KEY, null),
       getJson(kv, OVERRIDES_KEY, {}),
     ]);
 
     const reconciliation = reconcileOverridesWithArchive(
       archive,
-      existingOverrides
+      existingOverrides,
+      previousArchive
     );
 
     await Promise.all([
