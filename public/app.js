@@ -339,26 +339,35 @@ function showReaderLoading(item) {
   const isLarge = Number(item?.size || 0) > 700000;
 
   els.readerBody.innerHTML = `
-    <div class="reader-loading rich-loading">
-      <div class="loading-copy">
-        <strong id="readerLoadingTitle">본문을 불러오는 중…</strong>
-        <span id="readerLoadingText">${
-          isLarge
-            ? "긴 파일입니다. 잠시만 기다리면 읽기 화면이 준비됩니다."
-            : "파일을 준비하고 있습니다."
-        }</span>
+    <div id="readerRenderShell" class="reader-render-shell">
+      <div id="readerContent" class="reader-content" aria-live="off"></div>
+
+      <div id="readerLoadingOverlay" class="reader-loading-overlay">
+        <div class="reader-loading rich-loading">
+          <div class="loading-copy">
+            <strong id="readerLoadingTitle">본문을 불러오는 중…</strong>
+            <span id="readerLoadingText">${
+              isLarge
+                ? "긴 파일입니다. 본문을 여러 단계로 나누어 준비합니다."
+                : "파일을 준비하고 있습니다."
+            }</span>
+          </div>
+          <div class="reader-progress" aria-hidden="true">
+            <span id="readerProgressBar"></span>
+          </div>
+          <span id="readerProgressLabel" class="reader-progress-label">4%</span>
+        </div>
       </div>
-      <div class="reader-progress" aria-hidden="true">
-        <span id="readerProgressBar"></span>
-      </div>
-      <span id="readerProgressLabel" class="reader-progress-label">4%</span>
     </div>
   `;
 
+  els.readerContent = document.getElementById("readerContent");
+  els.readerLoadingOverlay = document.getElementById("readerLoadingOverlay");
   els.readerLoadingTitle = document.getElementById("readerLoadingTitle");
   els.readerLoadingText = document.getElementById("readerLoadingText");
   els.readerProgressBar = document.getElementById("readerProgressBar");
   els.readerProgressLabel = document.getElementById("readerProgressLabel");
+
   setReaderLoadingProgress(4);
 }
 
@@ -366,7 +375,11 @@ function nextFrame() {
   return new Promise((resolve) => requestAnimationFrame(resolve));
 }
 
-async function streamTextIntoReader(response, renderToken) {
+function nextTask() {
+  return new Promise((resolve) => setTimeout(resolve, 0));
+}
+
+async function collectResponseText(response, renderToken) {
   const totalBytes =
     Number(response.headers.get("x-content-bytes")) ||
     Number(response.headers.get("content-length")) ||
@@ -374,89 +387,163 @@ async function streamTextIntoReader(response, renderToken) {
 
   if (!response.body?.getReader) {
     const text = await response.text();
-    if (renderToken !== state.readerRenderToken) return;
 
-    setReaderLoadingProgress(65, "본문을 화면에 준비하는 중…", "긴 본문은 여러 번 나누어 표시합니다.");
-    await nextFrame();
+    if (renderToken !== state.readerRenderToken) return null;
 
-    els.readerBody.textContent = "";
+    setReaderLoadingProgress(
+      62,
+      "본문을 받았습니다.",
+      "이제 화면에 읽기 좋은 형태로 배치하고 있습니다."
+    );
 
-    const chunkSize = 50000;
-    const totalChars = Math.max(1, text.length);
-
-    for (let offset = 0; offset < text.length; offset += chunkSize) {
-      if (renderToken !== state.readerRenderToken) return;
-
-      els.readerBody.appendChild(
-        document.createTextNode(text.slice(offset, offset + chunkSize))
-      );
-
-      setReaderLoadingProgress(
-        65 + ((offset + chunkSize) / totalChars) * 34,
-        "본문을 화면에 준비하는 중…",
-        "거의 다 준비됐습니다."
-      );
-
-      await nextFrame();
-    }
-
-    return;
+    return text;
   }
 
   const reader = response.body.getReader();
   const decoder = new TextDecoder("utf-8");
-  const fragmentTarget = document.createDocumentFragment();
+  const chunks = [];
 
   let received = 0;
-  let lastYieldAt = 0;
-  let firstChunk = true;
+  let lastPaintAt = 0;
 
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
+
     if (renderToken !== state.readerRenderToken) {
       try { await reader.cancel(); } catch {}
-      return;
+      return null;
     }
 
     received += value.byteLength;
-    const decoded = decoder.decode(value, { stream: true });
-
-    if (firstChunk) {
-      els.readerBody.textContent = "";
-      firstChunk = false;
-    }
-
-    fragmentTarget.appendChild(document.createTextNode(decoded));
+    chunks.push(decoder.decode(value, { stream: true }));
 
     const now = performance.now();
 
-    if (now - lastYieldAt > 40) {
-      els.readerBody.appendChild(fragmentTarget.cloneNode(true));
-      while (fragmentTarget.firstChild) fragmentTarget.removeChild(fragmentTarget.firstChild);
-
-      const networkRatio = totalBytes > 0
+    if (now - lastPaintAt > 45) {
+      const ratio = totalBytes > 0
         ? Math.min(1, received / totalBytes)
-        : Math.min(.96, .25 + received / 2000000);
+        : Math.min(.96, .18 + received / 2500000);
 
       setReaderLoadingProgress(
-        42 + networkRatio * 56,
+        10 + ratio * 52,
         "본문을 불러오는 중…",
         totalBytes > 0
-          ? "본문을 순서대로 받아 표시하고 있습니다."
-          : "긴 본문을 나누어 표시하고 있습니다."
+          ? "파일을 순서대로 받고 있습니다."
+          : "긴 파일을 순서대로 받고 있습니다."
       );
 
-      lastYieldAt = now;
+      lastPaintAt = now;
       await nextFrame();
     }
   }
 
   const tail = decoder.decode();
-  if (tail) fragmentTarget.appendChild(document.createTextNode(tail));
-  if (fragmentTarget.childNodes.length) els.readerBody.appendChild(fragmentTarget);
+  if (tail) chunks.push(tail);
 
-  setReaderLoadingProgress(100, "본문 준비 완료", "읽기를 시작할 수 있습니다.");
+  if (renderToken !== state.readerRenderToken) return null;
+
+  setReaderLoadingProgress(
+    63,
+    "본문 다운로드 완료",
+    "화면이 멈추지 않도록 본문을 나누어 배치합니다."
+  );
+
+  await nextFrame();
+
+  return chunks.join("");
+}
+
+async function renderLongText(text, renderToken) {
+  if (!els.readerContent) return;
+
+  els.readerContent.textContent = "";
+
+  const totalChars = Math.max(1, text.length);
+
+  // 긴 파일일수록 작은 단위로 나눠 메인 스레드를 자주 양보한다.
+  const chunkSize =
+    totalChars > 3000000 ? 18000 :
+    totalChars > 1200000 ? 26000 :
+    totalChars > 500000 ? 36000 :
+    60000;
+
+  let offset = 0;
+  let batchCount = 0;
+
+  while (offset < text.length) {
+    if (renderToken !== state.readerRenderToken) return false;
+
+    const end = Math.min(text.length, offset + chunkSize);
+    els.readerContent.appendChild(
+      document.createTextNode(text.slice(offset, end))
+    );
+
+    offset = end;
+    batchCount += 1;
+
+    const ratio = offset / totalChars;
+
+    setReaderLoadingProgress(
+      64 + ratio * 31,
+      "본문을 화면에 배치하는 중…",
+      ratio < .7
+        ? "긴 본문을 조금씩 나누어 표시하고 있습니다."
+        : "거의 다 준비됐습니다."
+    );
+
+    // 몇 덩어리마다 브라우저에게 페인트/입력 처리 시간을 준다.
+    if (batchCount % 2 === 0) {
+      await nextFrame();
+    } else {
+      await nextTask();
+    }
+  }
+
+  if (renderToken !== state.readerRenderToken) return false;
+
+  setReaderLoadingProgress(
+    96,
+    "마지막 화면 정리 중…",
+    "글 배치와 스크롤 영역을 계산하고 있습니다."
+  );
+
+  // 실제 scrollHeight 계산을 여기서 끝내고 로딩 UI를 유지한다.
+  await nextFrame();
+  void els.readerContent.offsetHeight;
+  await nextFrame();
+  await nextTask();
+  await nextFrame();
+
+  setReaderLoadingProgress(
+    100,
+    "준비 완료",
+    "이제 바로 읽을 수 있습니다."
+  );
+
+  await new Promise((resolve) => setTimeout(resolve, 100));
+
+  if (renderToken !== state.readerRenderToken) return false;
+
+  els.readerLoadingOverlay?.classList.add("done");
+  await new Promise((resolve) => setTimeout(resolve, 150));
+
+  if (els.readerLoadingOverlay) {
+    els.readerLoadingOverlay.remove();
+    els.readerLoadingOverlay = null;
+  }
+
+  return true;
+}
+
+async function streamTextIntoReader(response, renderToken) {
+  const text = await collectResponseText(response, renderToken);
+
+  if (text === null || renderToken !== state.readerRenderToken) {
+    return false;
+  }
+
+  return renderLongText(text, renderToken);
 }
 
 function showResumePrompt(item) {
@@ -546,9 +633,9 @@ async function openReader(item) {
     );
 
     await nextFrame();
-    await streamTextIntoReader(response, renderToken);
+    const rendered = await streamTextIntoReader(response, renderToken);
 
-    if (renderToken !== state.readerRenderToken) return;
+    if (!rendered || renderToken !== state.readerRenderToken) return;
 
     showResumePrompt(item);
   } catch (error) {
@@ -558,6 +645,8 @@ async function openReader(item) {
 
     els.readerBody.innerHTML =
       `<p class="reader-error">${escapeHtml(error?.message || "본문을 불러오지 못했습니다.")}</p>`;
+    els.readerLoadingOverlay = null;
+    els.readerContent = null;
   }
 }
 
