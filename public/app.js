@@ -9,7 +9,11 @@ const state = {
   activeReaderItem: null,
   readerRenderToken: 0,
   suspendReaderProgressSave: false,
+  readerLoadingStartedAt: 0,
 };
+
+const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
+const LARGE_FILE_MIN_LOADING_VISIBLE_MS = 1700;
 
 const els = {
   status: document.getElementById("status"),
@@ -370,8 +374,22 @@ function setReaderLoadingProgress(percent, title, text) {
   }
 }
 
+
+function isLargeReaderFile(item) {
+  return Number(item?.size || 0) >= LARGE_FILE_LOADING_THRESHOLD_BYTES;
+}
+
+function lockReaderScroll() {
+  els.readerPanel?.classList.add("reader-loading-locked");
+}
+
+function unlockReaderScroll() {
+  els.readerPanel?.classList.remove("reader-loading-locked");
+}
+
 function showReaderLoading(item) {
-  const isLarge = Number(item?.size || 0) > 700000;
+  const isLarge = isLargeReaderFile(item);
+  lockReaderScroll();
 
   els.readerBody.innerHTML = `
     <div id="readerRenderShell" class="reader-render-shell">
@@ -556,18 +574,45 @@ async function renderLongText(text, renderToken) {
     "이제 바로 읽을 수 있습니다."
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  const item = state.activeReaderItem;
+  const isLarge = isLargeReaderFile(item);
+
+  if (isLarge) {
+    const elapsed = performance.now() - (state.readerLoadingStartedAt || 0);
+    const remaining = Math.max(
+      0,
+      LARGE_FILE_MIN_LOADING_VISIBLE_MS - elapsed
+    );
+
+    setReaderLoadingProgress(
+      100,
+      "준비 완료",
+      "긴 파일이라 스크롤이 안정될 때까지 잠시만 기다려주세요."
+    );
+
+    if (remaining > 0) {
+      await new Promise((resolve) => setTimeout(resolve, remaining));
+    }
+
+    // 마지막 레이아웃/스크롤 높이가 안정되도록 몇 프레임 더 기다린다.
+    await nextFrame();
+    await nextFrame();
+    await nextTask();
+  } else {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
 
   if (renderToken !== state.readerRenderToken) return false;
 
   els.readerLoadingOverlay?.classList.add("done");
-  await new Promise((resolve) => setTimeout(resolve, 150));
+  await new Promise((resolve) => setTimeout(resolve, isLarge ? 260 : 150));
 
   if (els.readerLoadingOverlay) {
     els.readerLoadingOverlay.remove();
     els.readerLoadingOverlay = null;
   }
 
+  unlockReaderScroll();
   return true;
 }
 
@@ -626,6 +671,7 @@ async function openReader(item) {
   els.readerAuthor.textContent = item.author || "작성자 미상";
   els.readerFileName.textContent = `원본 파일명: ${item.fileName || ""}`;
 
+  state.readerLoadingStartedAt = performance.now();
   showReaderLoading(item);
 
   let waitingProgress = 5;
@@ -686,6 +732,7 @@ async function openReader(item) {
 
     if (renderToken !== state.readerRenderToken) return;
 
+    unlockReaderScroll();
     els.readerBody.innerHTML =
       `<p class="reader-error">${escapeHtml(error?.message || "본문을 불러오지 못했습니다.")}</p>`;
     els.readerLoadingOverlay = null;
@@ -694,6 +741,7 @@ async function openReader(item) {
 }
 
 function closeReader() {
+  unlockReaderScroll();
   state.suspendReaderProgressSave = false;
   saveReaderProgress();
   state.readerRenderToken += 1;

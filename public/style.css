@@ -1871,3 +1871,20 @@ body.reader-open .page-scroll-top {
     padding: 18px 0;
   }
 }
+
+
+/* v6.17 - 810KB+ long-file loading lock */
+.reader.reader-loading-locked {
+  overflow: hidden !important;
+  overscroll-behavior: none;
+  touch-action: none;
+}
+
+.reader.reader-loading-locked .reader-loading-overlay {
+  cursor: wait;
+}
+
+.reader.reader-loading-locked .reader-scroll-top {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
