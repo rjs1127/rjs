@@ -127,7 +127,11 @@ els.syncButton.addEventListener("click", async () => {
       method: "POST",
       body: "{}",
     });
-    els.syncMessage.textContent = `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
+    const reconciled = Number(data.reconciledCount || 0);
+    els.syncMessage.textContent =
+      reconciled > 0
+        ? `동기화 완료: ${data.count.toLocaleString("ko-KR")}개 · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
+        : `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
     await loadAdmin();
   } catch (error) {
     els.syncMessage.textContent = error.message;

@@ -404,6 +404,43 @@ function applyOverrides(archive, overrides = {}) {
   };
 }
 
+
+function reconcileOverridesWithArchive(archive, overrides = {}) {
+  const nextOverrides = { ...overrides };
+  const reconciled = [];
+
+  for (const item of archive?.items || []) {
+    const override = nextOverrides[item.id];
+
+    // Drive 파일명이 현재 정상 형식으로 파싱되면 Drive 정보를 우선한다.
+    // 이전에 관리자 수동 수정값이 있어도 제거하여 KV 상태도 정리한다.
+    if (!item.parseFailed && override) {
+      const overrideTitle = String(override.title || "").trim();
+      const overrideAuthor = String(override.author || "").trim();
+
+      const differsFromDrive =
+        overrideTitle !== String(item.title || "").trim() ||
+        overrideAuthor !== String(item.author || "").trim();
+
+      delete nextOverrides[item.id];
+
+      reconciled.push({
+        id: item.id,
+        fileName: item.fileName,
+        title: item.title,
+        author: item.author,
+        removedOverride: true,
+        differedFromPreviousOverride: differsFromDrive,
+      });
+    }
+  }
+
+  return {
+    overrides: nextOverrides,
+    reconciled,
+  };
+}
+
 async function readSettings(kv) {
   const saved = await getJson(kv, SETTINGS_KEY, {});
   return { ...DEFAULT_SETTINGS, ...saved };
@@ -429,5 +466,6 @@ export {
   getJson,
   buildArchiveFromDrive,
   applyOverrides,
+  reconcileOverridesWithArchive,
   readSettings,
 };

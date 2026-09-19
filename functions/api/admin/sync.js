@@ -1,9 +1,12 @@
 import {
   ARCHIVE_CACHE_KEY,
+  OVERRIDES_KEY,
   jsonResponse,
   requireKv,
   requireAdmin,
+  getJson,
   buildArchiveFromDrive,
+  reconcileOverridesWithArchive,
 } from "../../_shared.js";
 
 export async function onRequestPost(context) {
@@ -11,13 +14,28 @@ export async function onRequestPost(context) {
     requireAdmin(context);
     const kv = requireKv(context.env);
 
-    const archive = await buildArchiveFromDrive(context.env);
-    await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
+    const [archive, existingOverrides] = await Promise.all([
+      buildArchiveFromDrive(context.env),
+      getJson(kv, OVERRIDES_KEY, {}),
+    ]);
+
+    const reconciliation = reconcileOverridesWithArchive(
+      archive,
+      existingOverrides
+    );
+
+    // 새 Drive 목록과 정리된 수동 수정값을 둘 다 KV에 반영한다.
+    await Promise.all([
+      kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive)),
+      kv.put(OVERRIDES_KEY, JSON.stringify(reconciliation.overrides)),
+    ]);
 
     return jsonResponse({
       ok: true,
       count: archive.count,
       syncedAt: archive.syncedAt,
+      reconciledCount: reconciliation.reconciled.length,
+      reconciled: reconciliation.reconciled,
     });
   } catch (error) {
     console.error(error);
