@@ -12,7 +12,6 @@ const PROTECTED_EXACT = new Set([
   ".gitignore",
   ".env",
   ".dev.vars",
-  "README.md",
 ]);
 
 const PROTECTED_PREFIXES = [

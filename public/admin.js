@@ -314,7 +314,6 @@ function checkDeployPath(path) {
     ".gitignore",
     ".env",
     ".dev.vars",
-    "README.md",
   ]);
 
   if (protectedExact.has(normalized)) {
