@@ -2,6 +2,42 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.37
+
+### TXT 다운로드를 Google Drive 직접 다운로드로 변경
+- 다운로드 버튼이 더 이상 Cloudflare `/api/content?download=1`을 거치지 않음
+- 각 TXT 파일의 Google Drive 파일 ID를 사용해 `drive.google.com/uc?export=download&id=...` 링크로 직접 연결
+- 리스트형 / 카드형 / 뷰어 상단 다운로드 버튼 UI는 그대로 유지
+- Google Drive가 확인 페이지를 띄우는 경우에도 아카이브 화면을 잃지 않도록 새 탭에서 열도록 처리
+
+### 서버 사용량 절감
+- TXT 다운로드 시 Cloudflare Function 실행 없음
+- 다운로드 시 KV / D1 접근 없음
+- 다운로드 파일 전송을 Cloudflare가 중계하지 않음
+- Google Drive에서 사용자 브라우저로 직접 전달
+- 기존 본문 읽기 `/api/content`는 이전 구조 그대로 유지
+
+### 다운로드 프록시 제거
+- v6.36에서 `functions/api/content.js`에 추가했던 `download=1` 분기 제거
+- 기존 본문 읽기/캐시용 API 코드로 복원
+
+## v6.36
+
+### TXT 원본 다운로드
+- Google Drive TXT 작품에 다운로드 아이콘 추가
+- 리스트형에서는 제목 영역 우측에 다운로드 아이콘 표시
+- 카드형에서는 우측 하단에 다운로드 아이콘 표시
+- 뷰어 상단에도 `다운로드` 버튼 추가
+- 다운로드 아이콘 클릭 시 본문 뷰어를 열지 않고 바로 TXT 파일 다운로드
+- 모바일에서는 아이콘 중심의 컴팩트 버튼으로 표시
+- 다크모드 전용 버튼 색상도 함께 적용
+
+### 다운로드 방식
+- 브라우저의 Google Drive 공개 권한에 직접 의존하지 않고 기존 서비스 계정 연결을 사용
+- `/api/content?download=1` 요청 시 아카이브 내부 TXT 파일인지 검증한 뒤 Google Drive 원본 파일을 내려받음
+- `Content-Disposition: attachment`로 원래 TXT 파일명 그대로 저장
+- 기존 본문 읽기/KV 캐시 로직에는 영향 없음
+
 ## v6.35
 
 ### 모달 배경 스크롤 차단

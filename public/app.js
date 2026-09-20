@@ -124,6 +124,7 @@ const els = {
   signupButton: document.getElementById("signupButton"),
   loginButton: document.getElementById("loginButton"),
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
+  readerDownloadButton: document.getElementById("readerDownloadButton"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
@@ -1167,6 +1168,34 @@ function getItemReadingBadge(item) {
   return "";
 }
 
+
+function getDownloadUrl(item) {
+  if (!item?.id) return "";
+
+  return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(item.id)}`;
+}
+
+function getDownloadButtonHtml(item, className = "item-download-button") {
+  const url = getDownloadUrl(item);
+  if (!url) return "";
+
+  return `
+    <a class="${className}"
+      href="${escapeHtml(url)}"
+      target="_blank"
+      rel="noopener noreferrer"
+      data-download-id="${escapeHtml(item.id)}"
+      aria-label="${escapeHtml(item.title || "TXT")} 다운로드"
+      title="TXT 다운로드">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 3.5v11"></path>
+        <path d="m7.75 10.5 4.25 4.25 4.25-4.25"></path>
+        <path d="M5 19.5h14"></path>
+      </svg>
+    </a>
+  `;
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
     <article class="content-card" tabindex="0" role="button"
@@ -1181,7 +1210,10 @@ function renderCards(items) {
       </div>
       <h3 class="card-title">${escapeHtml(item.title)}</h3>
       <p class="card-author">${escapeHtml(item.author)}</p>
-      <span class="card-arrow" aria-hidden="true">↗</span>
+      <div class="card-actions">
+        ${getDownloadButtonHtml(item, "item-download-button card-download-button")}
+        <span class="card-arrow" aria-hidden="true">↗</span>
+      </div>
     </article>
   `).join("");
 }
@@ -1213,7 +1245,10 @@ function renderList(items) {
             <span class="list-title-text">${escapeHtml(item.title)}</span>
             ${getItemReadingBadge(item)}
           </span>
-          ${getListBookmarkIndicator(item)}
+          <span class="list-title-actions">
+            ${getListBookmarkIndicator(item)}
+            ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
+          </span>
         </span>
       </td>
       <td>${escapeHtml(item.author)}</td>
@@ -1841,6 +1876,22 @@ function showResumePrompt(item) {
   }
 }
 
+
+function triggerItemDownload(item) {
+  if (!item) return;
+
+  const url = getDownloadUrl(item);
+  if (!url) return;
+
+  const link = document.createElement("a");
+  link.href = url;
+  link.target = "_blank";
+  link.rel = "noopener noreferrer";
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
 async function openReader(item) {
   if (!item) return;
 
@@ -2283,6 +2334,11 @@ els.logoutButton?.addEventListener("click", async () => {
   closeModal(els.accountModal);
 });
 
+
+els.readerDownloadButton?.addEventListener("click", () => {
+  triggerItemDownload(state.activeReaderItem);
+});
+
 els.readerBookmarkButton?.addEventListener("click", () => {
   const item = state.activeReaderItem;
   if (!item) return;
@@ -2577,11 +2633,21 @@ function findItemFromEvent(event) {
   return state.items.find((entry) => entry.id === target.dataset.id);
 }
 
-els.contentGrid.addEventListener("click", (event) => openReader(findItemFromEvent(event)));
-els.contentListBody.addEventListener("click", (event) => openReader(findItemFromEvent(event)));
+function handleContentOpenClick(event) {
+  if (event.target.closest("[data-download-id]")) {
+    event.stopPropagation();
+    return;
+  }
+
+  openReader(findItemFromEvent(event));
+}
+
+els.contentGrid.addEventListener("click", handleContentOpenClick);
+els.contentListBody.addEventListener("click", handleContentOpenClick);
 
 for (const container of [els.contentGrid, els.contentListBody]) {
   container.addEventListener("keydown", (event) => {
+    if (event.target.closest("[data-download-id]")) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     const item = findItemFromEvent(event);
     if (!item) return;
