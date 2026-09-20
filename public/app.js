@@ -1,3 +1,10 @@
+/* V7 PUBLIC CLIENT CONTRACT
+ * - Internal content type remains `연재물`; UI label is `연재`.
+ * - Filter changes never mutate another filter implicitly.
+ * - Reader has three visual states only: normal / loading-locked / reader-compact.
+ * - Future UI patches must edit the canonical V7 CSS sections instead of appending version overrides.
+ */
+
 const state = {
   items: [],
   combination: "전체",
@@ -148,8 +155,6 @@ const els = {
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
-  authLoginTab: document.getElementById("authLoginTab"),
-  authSignupTab: document.getElementById("authSignupTab"),
   authForm: document.getElementById("authForm"),
   authUserId: document.getElementById("authUserId"),
   authPassword: document.getElementById("authPassword"),

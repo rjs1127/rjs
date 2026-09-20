@@ -1,3 +1,127 @@
+# Google Drive Archive Site — V7 Stable Baseline
+
+> 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
+> v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
+
+## v7.0 — 안정화 기준본
+
+### 1. 관리자 구조 분리
+기존에는 `functions/admin.js` 하나의 거대한 문자열 안에 관리자 HTML/CSS/JS가 모두 들어 있었습니다.
+
+v7부터 역할을 명확하게 분리합니다.
+
+- `functions/admin.js`
+  - 관리자 로그인 여부 확인
+  - 로그인 HTML 또는 관리자 shell HTML 반환
+  - **화면 CSS/동작 JS를 직접 포함하지 않음**
+- `public/admin.css`
+  - 관리자 화면 디자인의 단일 소스
+- `public/admin-app.js`
+  - 관리자 화면 동작의 단일 소스
+- 관리자 API
+  - 기존처럼 `functions/api/admin/*`에서 서버 동작 담당
+
+`admin.css`와 `admin-app.js` 자체에는 비밀값이 없으며, 실제 데이터 조회/수정 권한은 기존 관리자 세션 + API에서 계속 검사합니다.
+
+### 2. CSS 누적 덮어쓰기 금지
+v6에서 가장 큰 UI 회귀 원인이었던
+
+`기본 CSS → v6.xx override → 다음 버전 override → !important 재override`
+
+방식을 중단합니다.
+
+v7 규칙:
+
+- 같은 컴포넌트의 새 버전 CSS 블록을 아래에 계속 추가하지 않음
+- `theme.css`의 `V7 CANONICAL UI OVERRIDES` 안의 해당 섹션을 직접 수정
+- `admin.css`의 `V7 ADMIN CANONICAL DESIGN` 안의 해당 섹션을 직접 수정
+- `!important`는 레거시 `style.css`와 충돌하는 불가피한 경우 외에는 사용하지 않음
+- Drive / POSTYPE 관리자 화면은 같은 색상·버튼·테이블 규칙 사용
+
+### 3. 고정 반응형 구간
+앞으로 breakpoint를 임의로 추가하지 않습니다.
+
+- 모바일: `<= 640px`
+- 태블릿: `641px ~ 1024px`
+- PC: `>= 1025px`
+
+태블릿은:
+- 상단 필터 전용 한 줄 toolbar
+- TXT 뷰어는 세로 독서형 최대폭 620px
+
+### 4. TXT 뷰어 상태 규칙
+뷰어 UI 상태는 세 개만 사용합니다.
+
+- `normal`
+- `reader-loading-locked`
+- `reader-compact`
+
+고정 규칙:
+- 모바일 다운로드 / 북마크 / 닫기 버튼 44px
+- compact 전환으로 닫기 버튼 크기·색상이 달라지지 않음
+- loading 중에만 제목 header를 축소하고 progress를 위쪽에 표시
+- 본문 로딩/chunk 렌더링 아키텍처는 변경하지 않음
+- compact 진입/해제에는 넓은 hysteresis를 사용해 스크롤 깜빡임 방지
+
+### 5. 필터 규칙
+- 작품형태: 화면 표시는 `단편 / 연재`
+- 내부 호환값은 `단편 / 연재물` 유지
+- 상태: `연재중 / 완결`
+- 필터 하나를 눌렀다고 다른 필터가 자동으로 바뀌지 않음
+- 특히 작품형태/상태 선택이 출처를 자동 변경하지 않음
+
+### 6. Drive 분류 규칙
+- 200KB 이하: 자동 `단편`
+- 200KB 초과: 자동 `연재`
+- 수동 작품형태 override는 별도 KV에 저장
+- 연재중/완결 상태 override도 별도 KV에 저장
+- Drive 다시 읽기를 해도 수동 override 유지
+
+### 7. POSTYPE 규칙
+사용자/관리자 화면에는 복잡한 연결 구조를 노출하지 않습니다.
+
+화면:
+- 작품형태: `단편 / 연재`
+- 상태: `연재중 / 완결`
+
+내부:
+- `post / series / manual`
+- 기존 `publishType`, `linkType`, `manualUrls` 호환 유지
+- `/series/`와 수동묶음 최근 발행일 로직 유지
+
+### 8. 배포 규칙
+- ZIP은 `public/`, `functions/`, `README.md`만 포함
+- `wrangler.toml`, `.env`, `.dev.vars`, secret/config 파일 절대 포함하지 않음
+- 관리자 ZIP uploader → GitHub commit → Cloudflare Pages 구조 유지
+- 배포 후 GitHub commit / Cloudflare Pages 상태 표시 유지
+
+### 9. V7 이후 패치 검증 체크리스트
+패치를 만들기 전에 반드시 아래 검사를 통과시킵니다.
+
+1. 변경 JS 전부 `node --check`
+2. 관리자 shell의 DOM ID ↔ `admin-app.js` 참조 검사
+3. 사용자 `index.html` DOM ID ↔ `app.js` 참조 검사
+4. HTML 중복 ID 검사
+5. CSS `{}` balance 검사
+6. API 변경 시 request payload / 변수 선언 / Sheet column 위치 확인
+7. 모바일 / 태블릿 / PC breakpoint가 기존 세 구간 밖에 새로 생기지 않았는지 확인
+8. 기존 기능을 위한 backend API를 임의로 삭제하지 않음
+9. README에 변경 이유와 영향 범위 기록
+
+### 10. 이번 ZIP이 통합하는 핵심 파일
+중간 배포 실패나 패치 누락의 영향을 줄이기 위해 v7.0만 예외적으로 현재 핵심 소스를 함께 포함합니다.
+
+- 사용자: `index.html`, `style.css`, `theme.css`, `app.js`
+- 관리자: `admin.js`, `admin.css`, `admin-app.js`
+- Drive: `archive.js`, `drive-items.js`
+- POSTYPE 등록/관리/동기화 API
+- 배포 상태 API
+- 누적 README
+
+설정/Secret/Cloudflare binding 파일은 포함하지 않습니다.
+
+---
+
 ## v6.106
 
 ### 모바일/태블릿 로딩 프로그래스 위치 재수정
@@ -2286,3 +2410,9 @@ POSTYPE 전용 필드:
 - `.gitignore`
 - 서비스 계정 / 토큰 / 인증정보 관련 파일
 - 기타 Cloudflare 배포 설정 파일
+
+## v7.1 — 모바일 뷰어 긴 제목 가림 현상 수정
+
+- 모바일 일반 뷰어에서 상단 액션 버튼(다운로드 / 북마크 / 닫기)을 제목 위의 독립 행으로 배치함
+- 긴 제목이 버튼 아래로 자연스럽게 내려와 겹치지 않도록 수정함
+- `reader-compact` / `reader-loading-locked` 상태는 기존 동작을 유지함

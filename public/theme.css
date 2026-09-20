@@ -991,249 +991,32 @@ html.theme-dark .resume-shortcut-button:hover {
   }
 }
 
+/* =====================================================================
+   V7 CANONICAL UI OVERRIDES
+   ---------------------------------------------------------------------
+   RULE: Do not append new version-specific overrides below this block.
+   Edit the relevant section here. Breakpoints are fixed:
+     mobile  <= 640px
+     tablet  641px - 1024px
+     desktop >= 1025px
+   ===================================================================== */
 
-/* =========================
-   v6.82 mobile list / reader loading polish
-   ========================= */
-
-/*
- * Mobile list rows:
- * the reading percentage badge lives inside .list-title-main while the
- * bookmark/download action is absolutely positioned at the right edge.
- * Reserve enough real space for the right-side action so they never overlap.
- */
-@media (max-width: 640px) {
-  .content-list td.list-title {
-    padding-right: 64px !important;
-  }
-
-  .content-list .list-title-main {
-    min-width: 0;
-  }
-
-  .content-list .reading-state-badge {
-    flex: 0 0 auto;
-    margin-right: 2px;
-  }
-
-  .content-list .list-title-actions {
-    right: 7px;
-    gap: 4px;
-    padding-left: 5px;
-  }
+/* ---------- Global light background ---------- */
+html.theme-light body {
+  background: #f6f3ee;
 }
 
-/*
- * Reader loading:
- * keep the progress UI close to the top of the content area on mobile.
- * The old .reader-loading + .rich-loading combination inherited a large
- * minimum height and margin, making the bar look stuck to the bottom.
- */
-@media (max-width: 640px) {
-  .reader-body {
-    padding-top: 22px !important;
-  }
-
-  .reader-body > .reader-loading.rich-loading {
-    width: calc(100% - 28px);
-    min-height: 0 !important;
-    margin: 18px auto 30px !important;
-    padding: 18px 18px 16px;
-    display: block;
-    border-radius: 16px;
-  }
-
-  .reader-loading-overlay {
-    top: 62px;
-    min-height: 0 !important;
-    padding: 20px 0 28px !important;
-    place-items: start center !important;
-  }
-
-  .reader-loading-overlay .rich-loading {
-    width: calc(100% - 28px);
-    min-height: 0 !important;
-    margin: 0 auto !important;
-    padding: 18px 18px 16px;
-    display: block;
-    border-radius: 16px;
-  }
-
-  .reader-loading .loading-copy,
-  .reader-loading-overlay .loading-copy {
-    margin-bottom: 14px;
-  }
-
-  .reader-loading .loading-copy strong,
-  .reader-loading-overlay .loading-copy strong {
-    font-size: 13px;
-    line-height: 1.35;
-  }
-
-  .reader-loading .loading-copy span,
-  .reader-loading-overlay .loading-copy span {
-    font-size: 10px;
-  }
-
-  .reader-progress {
-    height: 6px;
-  }
-
-  .reader-progress-label {
-    margin-top: 6px;
-    font-size: 9px;
-    line-height: 1;
-  }
+/* ---------- Content-type/status tags ---------- */
+.card-status-tag {
+  opacity: .86;
 }
 
-
-/* =========================
-   v6.83 reader close button + sort UI
-   ========================= */
-html.theme-light .reader-header-actions,
-html.theme-dark .reader-header-actions {
-  align-items: center;
-}
-
-html.theme-light .reader-download-button,
-html.theme-light .reader-bookmark-button,
-html.theme-light .reader-close,
-html.theme-dark .reader-download-button,
-html.theme-dark .reader-bookmark-button,
-html.theme-dark .reader-close {
-  min-width: 46px;
-  height: 46px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-}
-
-html.theme-light .reader-close,
-html.theme-dark .reader-close {
-  padding: 0;
-  font-size: 24px;
-  line-height: 1;
-  font-weight: 500;
-}
-
-@media (max-width: 640px) {
-  html.theme-light .reader-download-button,
-  html.theme-light .reader-bookmark-button,
-  html.theme-light .reader-close,
-  html.theme-dark .reader-download-button,
-  html.theme-dark .reader-bookmark-button,
-  html.theme-dark .reader-close {
-    width: 44px;
-    min-width: 44px;
-    height: 44px;
-  }
-
-  html.theme-light .reader-close,
-  html.theme-dark .reader-close {
-    font-size: 22px;
-  }
-}
-
-
-/* v6.84 content model separation */
-.card-publish-tag { opacity: .82; }
-@media (max-width: 640px) { #publishFilters { flex-wrap: wrap; } }
-
-
-/* v6.90 simplified content model */
-.card-status-tag { opacity: .86; }
-
-/* v6.91 mobile/tablet reader and POSTYPE list polish */
 .list-source-meta-mobile {
   display: none;
 }
 
-@media (max-width: 640px) {
-  .reader-body {
-    padding-top: 8px !important;
-  }
-
-  .reader-body > .reader-loading.rich-loading {
-    margin: 6px auto 18px !important;
-    padding: 14px 16px 13px !important;
-  }
-
-  .reader-loading-overlay {
-    top: 8px !important;
-    padding: 8px 0 20px !important;
-    place-items: start center !important;
-  }
-
-  .reader-loading-overlay .rich-loading {
-    margin-top: 0 !important;
-    padding: 14px 16px 13px !important;
-  }
-
-  .content-list .list-source-meta {
-    margin-top: 4px;
-    font-size: 10px;
-    line-height: 1.1;
-  }
-
-  .content-list .list-source-meta-desktop {
-    display: none;
-  }
-
-  .content-list .list-source-meta-mobile {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--theme-muted);
-    white-space: nowrap;
-  }
-
-  .content-list .update-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-width: 18px;
-    height: 13px;
-    padding: 0 3px;
-    border-radius: 999px;
-    border: 1px solid var(--theme-line);
-    font-size: 7px;
-    line-height: 1;
-    font-weight: 900;
-    letter-spacing: .02em;
-  }
-}
-
-@media (min-width: 641px) and (max-width: 1024px) {
-  .reader-overlay {
-    padding: 18px 12px !important;
-  }
-
-  .reader {
-    width: min(100%, 720px) !important;
-    max-width: 720px !important;
-    min-height: calc(100dvh - 36px) !important;
-    margin: 0 auto !important;
-  }
-
-  .reader-header {
-    padding: 38px 34px 28px !important;
-  }
-
-  .reader-body {
-    padding: 36px 38px 78px !important;
-    font-size: 17px !important;
-    line-height: 2.05 !important;
-  }
-}
-
-
-/* =========================
-   v6.98 unified filters / desktop controls
-   ========================= */
-
-/* Search filters keep one stable background.
-   Selection is shown by border/text instead of a filled background. */
+/* ---------- Filter states ----------
+   Selection keeps the same surface color; border/text show the selection. */
 html.theme-light #combinationFilters .chip,
 html.theme-light #contentTypeFilters .chip,
 html.theme-light #statusFilters .chip,
@@ -1254,32 +1037,33 @@ html.theme-dark #combinationFilters .chip.active,
 html.theme-dark #contentTypeFilters .chip.active,
 html.theme-dark #statusFilters .chip.active,
 html.theme-dark #sourceFilters .chip.active {
-  background: var(--theme-secondary-bg) !important;
-  color: var(--theme-text) !important;
-  border-color: var(--theme-text) !important;
+  background: var(--theme-secondary-bg);
+  color: var(--theme-text);
+  border-color: var(--theme-text);
   box-shadow: inset 0 0 0 1px var(--theme-text);
 }
 
-@media (min-width: 981px) {
+/* ---------- Desktop filter layout ---------- */
+@media (min-width: 1025px) {
   .controls-grid {
     grid-template-columns:
       minmax(220px, 1.45fr)
-      repeat(4, minmax(0, 1fr)) !important;
-    gap: 10px !important;
+      repeat(4, minmax(0, 1fr));
+    gap: 10px;
   }
 
   .control-card {
     min-width: 0;
-    min-height: 104px !important;
-    padding: 15px 14px !important;
+    min-height: 104px;
+    padding: 15px 14px;
   }
 
   .filter-label {
-    margin-bottom: 10px !important;
+    margin-bottom: 10px;
   }
 
   .control-card .chips {
-    gap: 6px !important;
+    gap: 6px;
   }
 
   .control-card .chip {
@@ -1289,127 +1073,25 @@ html.theme-dark #sourceFilters .chip.active {
   }
 
   .view-switch {
-    gap: 4px !important;
-    padding: 3px !important;
+    gap: 4px;
+    padding: 3px;
     max-width: 100%;
   }
 
   .view-button {
-    padding: 9px 9px !important;
+    padding: 9px;
     white-space: nowrap;
   }
 }
 
-
-/* =========================
-   v6.101 light background / tablet layout
-   ========================= */
-
-/* Light mode should always use the same warm page background.
-   Remove the white radial wash so filter changes never appear to
-   change the page background. */
-html.theme-light body {
-  background: #f6f3ee !important;
-}
-
-/* Tablet: keep the filter area in one compact horizontal row.
-   Each card stays narrow; chips scroll inside their own card only
-   if the device is narrower than the full row. */
-@media (min-width: 641px) and (max-width: 1024px) {
-  .controls-grid {
-    grid-template-columns:
-      minmax(180px, 1.35fr)
-      repeat(4, minmax(118px, .9fr)) !important;
-    gap: 6px !important;
-    align-items: stretch !important;
-    overflow-x: auto;
-    padding-bottom: 3px;
-    scrollbar-width: thin;
-  }
-
-  .control-card,
-  .control-card-wide {
-    min-width: 0 !important;
-    min-height: 78px !important;
-    padding: 10px 10px !important;
-    border-radius: 16px !important;
-  }
-
-  .filter-label {
-    margin-bottom: 7px !important;
-    font-size: 10px !important;
-  }
-
-  .control-card .chips {
-    flex-wrap: nowrap !important;
-    gap: 4px !important;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: thin;
-  }
-
-  .control-card .chip {
-    flex: 0 0 auto;
-    padding: 7px 8px !important;
-    font-size: 10px !important;
-    line-height: 1 !important;
-    white-space: nowrap;
-  }
-
-  .view-switch {
-    display: flex !important;
-    width: 100%;
-    max-width: none !important;
-    gap: 3px !important;
-    padding: 3px !important;
-  }
-
-  .view-button {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 7px 5px !important;
-    font-size: 10px !important;
-    line-height: 1 !important;
-    white-space: nowrap;
-  }
-
-  /* Tablet reader opens as a portrait reading panel even when
-     the physical screen is wide/landscape. */
-  .reader-overlay {
-    padding: 12px 8px !important;
-  }
-
-  .reader {
-    width: min(calc(100vw - 40px), 620px) !important;
-    max-width: 620px !important;
-    min-height: calc(100dvh - 24px) !important;
-    margin: 0 auto !important;
-    border-radius: 22px !important;
-  }
-
-  .reader-header {
-    padding: 34px 30px 24px !important;
-  }
-
-  .reader-body {
-    padding: 32px 34px 76px !important;
-    font-size: 17px !important;
-    line-height: 2.05 !important;
-  }
-}
-
-
-/* =========================
-   v6.104 tablet filter redesign
-   ========================= */
+/* ---------- Tablet: one compact filter bar, no horizontal scrolling ---------- */
 .tablet-filter-bar {
   display: none;
 }
 
 @media (min-width: 641px) and (max-width: 1024px) {
-  /* Replace the cramped five-card row with one compact toolbar. */
   #controlsGrid {
-    display: none !important;
+    display: none;
   }
 
   .tablet-filter-bar {
@@ -1429,7 +1111,6 @@ html.theme-light body {
     border-radius: 18px;
     background: var(--theme-surface);
     box-shadow: 0 7px 20px var(--theme-shadow);
-    overflow: visible;
   }
 
   .tablet-filter-field {
@@ -1508,10 +1189,29 @@ html.theme-light body {
     box-shadow: 0 2px 6px var(--theme-shadow);
   }
 
-  /* Keep the reading panel portrait-like on tablets. */
+  /* Portrait reading panel even on landscape tablets. */
+  .reader-overlay {
+    padding: 12px 8px;
+  }
+
   .reader {
-    width: min(calc(100vw - 36px), 620px) !important;
-    max-width: 620px !important;
+    width: min(calc(100vw - 36px), 620px);
+    max-width: 620px;
+    min-height: calc(100dvh - 24px);
+    margin: 0 auto;
+    border-radius: 22px;
+  }
+
+  .reader-header {
+    padding-left: 30px;
+    padding-right: 30px;
+  }
+
+  .reader-body {
+    padding-left: 34px;
+    padding-right: 34px;
+    font-size: 17px;
+    line-height: 2.05;
   }
 }
 
@@ -1540,176 +1240,255 @@ html.theme-light body {
   }
 }
 
-
-/* =========================
-   v6.105 reader loading / compact stability
-   ========================= */
-
-/* Keep all three reader actions physically identical in compact mode.
-   Old base CSS reduced only the close button to 34px. */
-.reader.reader-compact .reader-header-actions {
-  top: 13px !important;
-  right: 18px !important;
-  align-items: center !important;
+/* ---------- Reader actions ----------
+   Normal/compact must never change close-button size or surface color. */
+.reader-header-actions {
+  align-items: center;
 }
 
-.reader.reader-compact .reader-download-button,
-.reader.reader-compact .reader-bookmark-button,
-.reader.reader-compact .reader-close {
-  width: 44px !important;
-  min-width: 44px !important;
-  height: 44px !important;
-  min-height: 44px !important;
-  max-height: 44px !important;
-  box-sizing: border-box !important;
-  margin: 0 !important;
-}
-
-.reader.reader-compact .reader-close {
-  position: static !important;
-  padding: 0 !important;
-  font-size: 22px !important;
-  line-height: 1 !important;
-}
-
-/* Put the loading/progress card near the top of the reading area instead
-   of vertically centering it inside a tall shell. */
 @media (max-width: 640px) {
+  html.theme-light .reader-download-button,
+  html.theme-light .reader-bookmark-button,
+  html.theme-light .reader-close,
+  html.theme-dark .reader-download-button,
+  html.theme-dark .reader-bookmark-button,
+  html.theme-dark .reader-close,
+  .reader.reader-compact .reader-download-button,
+  .reader.reader-compact .reader-bookmark-button,
+  .reader.reader-compact .reader-close {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    min-height: 44px;
+    max-height: 44px;
+    box-sizing: border-box;
+  }
+
+  .reader-close,
+  .reader.reader-compact .reader-close {
+    position: static;
+    padding: 0;
+    font-size: 22px;
+    line-height: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 18px;
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header-actions {
+    position: static;
+    order: -1;
+    width: 100%;
+    margin: 0 0 2px;
+    justify-content: flex-end;
+    align-self: stretch;
+    gap: 8px;
+  }
+
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-meta-top {
+    flex-wrap: wrap;
+    margin-bottom: 10px;
+  }
+
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header h2 {
+    max-width: 100%;
+    font-size: clamp(23px, 6.6vw, 30px);
+    line-height: 1.25;
+  }
+
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-author {
+    margin-top: 10px;
+  }
+}
+
+html.theme-light .reader-close,
+html.theme-light .reader.reader-compact .reader-close,
+html.theme-dark .reader-close,
+html.theme-dark .reader.reader-compact .reader-close {
+  background: var(--theme-surface-soft);
+  color: var(--theme-secondary-text);
+  border-color: var(--theme-line);
+}
+
+.reader-close:hover,
+.reader.reader-compact .reader-close:hover {
+  background: var(--theme-hover);
+}
+
+.reader.reader-compact .reader-header-actions {
+  top: 13px;
+  right: 18px;
+  align-items: center;
+}
+
+/* ---------- Reader loading ----------
+   Loading is a dedicated state. The progress card stays directly below the
+   top action row; title/author header is temporarily collapsed only while
+   reader-loading-locked is active. */
+.reader-render-shell {
+  position: relative;
+}
+
+@media (max-width: 640px) {
+  .reader.reader-loading-locked .reader-header {
+    height: 64px;
+    min-height: 64px;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .reader.reader-loading-locked .reader-meta-top,
+  .reader.reader-loading-locked .reader-header h2,
+  .reader.reader-loading-locked .reader-author,
+  .reader.reader-loading-locked .reader-filename {
+    display: none;
+  }
+
+  .reader.reader-loading-locked .reader-header-actions {
+    top: 10px;
+    right: 12px;
+  }
+
   .reader.reader-loading-locked .reader-body {
-    padding-top: 6px !important;
+    padding-top: 0;
   }
 
   .reader-render-shell {
-    min-height: 0 !important;
+    min-height: 0;
   }
 
   .reader-loading-overlay {
-    top: 0 !important;
-    min-height: 0 !important;
-    padding: 5px 0 14px !important;
-    display: block !important;
+    top: 0;
+    min-height: 0;
+    padding: 2px 0 14px;
+    display: block;
   }
 
   .reader-loading-overlay .rich-loading,
   .reader-body > .reader-loading.rich-loading {
-    width: calc(100% - 24px) !important;
-    min-height: 0 !important;
-    margin: 4px auto 14px !important;
-    padding: 14px 16px 13px !important;
+    width: calc(100% - 24px);
+    min-height: 0;
+    margin: 2px auto 14px;
+    padding: 14px 16px 13px;
+    border-radius: 16px;
   }
 
   .reader-loading-overlay .loading-copy,
   .reader-body > .reader-loading.rich-loading .loading-copy {
-    margin-bottom: 12px !important;
+    margin-bottom: 12px;
+  }
+
+  .reader-progress {
+    height: 6px;
+  }
+
+  .reader-progress-label {
+    margin-top: 6px;
+    font-size: 9px;
+    line-height: 1;
   }
 }
 
 @media (min-width: 641px) and (max-width: 1024px) {
+  .reader.reader-loading-locked .reader-header {
+    height: 70px;
+    min-height: 70px;
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .reader.reader-loading-locked .reader-meta-top,
+  .reader.reader-loading-locked .reader-header h2,
+  .reader.reader-loading-locked .reader-author,
+  .reader.reader-loading-locked .reader-filename {
+    display: none;
+  }
+
+  .reader.reader-loading-locked .reader-header-actions {
+    top: 13px;
+    right: 16px;
+  }
+
   .reader.reader-loading-locked .reader-body {
-    padding-top: 12px !important;
+    padding-top: 2px;
   }
 
   .reader-render-shell {
-    min-height: 0 !important;
+    min-height: 0;
   }
 
   .reader-loading-overlay {
-    top: 0 !important;
-    min-height: 0 !important;
-    padding: 8px 0 16px !important;
-    place-items: start center !important;
+    top: 0;
+    min-height: 0;
+    padding: 8px 0 16px;
+    place-items: start center;
   }
 
   .reader-loading-overlay .rich-loading {
-    margin: 0 auto !important;
+    margin: 0 auto;
   }
 }
 
-
-/* =========================
-   v6.106 reader loading position / close color stability
-   ========================= */
-
-/* During loading, the normal reader header still reserved a tall title area.
-   Collapse only the loading-state header so the progress card sits directly
-   below the top action buttons. The full title header returns after unlock. */
+/* ---------- Mobile list ----------
+   Right action area is reserved; POSTYPE secondary line is compact. */
 @media (max-width: 640px) {
-  .reader.reader-loading-locked .reader-header {
-    height: 64px !important;
-    min-height: 64px !important;
-    padding: 0 !important;
-    border-bottom: 0 !important;
+  .content-list td.list-title {
+    padding-right: 64px;
   }
 
-  .reader.reader-loading-locked .reader-meta-top,
-  .reader.reader-loading-locked .reader-header h2,
-  .reader.reader-loading-locked .reader-author,
-  .reader.reader-loading-locked .reader-filename {
-    display: none !important;
+  .content-list .list-title-main {
+    min-width: 0;
   }
 
-  .reader.reader-loading-locked .reader-header-actions {
-    top: 10px !important;
-    right: 12px !important;
+  .content-list .reading-state-badge {
+    flex: 0 0 auto;
+    margin-right: 2px;
   }
 
-  .reader.reader-loading-locked .reader-body {
-    padding-top: 0 !important;
+  .content-list .list-title-actions {
+    right: 7px;
+    gap: 4px;
+    padding-left: 5px;
   }
 
-  .reader.reader-loading-locked .reader-loading-overlay {
-    top: 0 !important;
-    padding-top: 2px !important;
+  .content-list .list-source-meta {
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.1;
   }
 
-  .reader.reader-loading-locked .reader-loading-overlay .rich-loading {
-    margin-top: 2px !important;
-  }
-}
-
-@media (min-width: 641px) and (max-width: 1024px) {
-  .reader.reader-loading-locked .reader-header {
-    height: 70px !important;
-    min-height: 70px !important;
-    padding: 0 !important;
-    border-bottom: 0 !important;
+  .content-list .list-source-meta-desktop {
+    display: none;
   }
 
-  .reader.reader-loading-locked .reader-meta-top,
-  .reader.reader-loading-locked .reader-header h2,
-  .reader.reader-loading-locked .reader-author,
-  .reader.reader-loading-locked .reader-filename {
-    display: none !important;
+  .content-list .list-source-meta-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--theme-muted);
+    white-space: nowrap;
   }
 
-  .reader.reader-loading-locked .reader-header-actions {
-    top: 13px !important;
-    right: 16px !important;
+  .content-list .update-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 13px;
+    padding: 0 3px;
+    border: 1px solid var(--theme-line);
+    border-radius: 999px;
+    font-size: 7px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: .02em;
   }
-
-  .reader.reader-loading-locked .reader-body {
-    padding-top: 2px !important;
-  }
-}
-
-/* The legacy compact rule changed only the close button background to
-   rgba(255,255,255,.86). Give the close button one stable color in both
-   normal and compact modes so scrolling never changes its appearance. */
-html.theme-light .reader-close,
-html.theme-light .reader.reader-compact .reader-close {
-  background: var(--theme-surface-soft) !important;
-  color: var(--theme-secondary-text) !important;
-  border-color: var(--theme-line) !important;
-}
-
-html.theme-dark .reader-close,
-html.theme-dark .reader.reader-compact .reader-close {
-  background: var(--theme-surface-soft) !important;
-  color: var(--theme-secondary-text) !important;
-  border-color: var(--theme-line) !important;
-}
-
-.reader.reader-compact .reader-close:hover,
-.reader-close:hover {
-  background: var(--theme-hover) !important;
 }
