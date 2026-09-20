@@ -941,3 +941,52 @@ html.theme-dark .resume-shortcut-button:hover {
     height: 11px !important;
   }
 }
+
+
+/* =========================
+   v6.57 list action vertical centering
+   ========================= */
+
+/*
+ * POSTYPE rows can have a second metadata line under the title.
+ * Previously the action icons were centered only against the first title row,
+ * so they looked visually too high. Center them against the entire title cell.
+ */
+.content-list td.list-title {
+  position: relative;
+  padding-right: 42px;
+}
+
+.content-list .list-title-row {
+  display: block;
+  width: 100%;
+  min-width: 0;
+}
+
+.content-list .list-title-main {
+  width: 100%;
+  min-width: 0;
+}
+
+.content-list .list-title-actions {
+  position: absolute;
+  top: 50%;
+  right: 7px;
+  margin: 0;
+  transform: translateY(-50%);
+  z-index: 1;
+}
+
+.content-list .list-source-meta {
+  padding-right: 0;
+}
+
+@media (max-width: 640px) {
+  .content-list td.list-title {
+    padding-right: 32px !important;
+  }
+
+  .content-list .list-title-actions {
+    right: 5px;
+  }
+}
