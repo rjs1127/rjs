@@ -516,3 +516,142 @@ html.theme-dark #combinationFilters .chip.active {
     height: 10px;
   }
 }
+
+
+/* =========================
+   v6.53 mobile top compact
+   ========================= */
+@media (max-width: 640px) {
+  .site-header {
+    height: 54px;
+  }
+
+  .brand {
+    gap: 7px;
+  }
+
+  .brand-mark {
+    width: 28px;
+    height: 28px;
+    border-radius: 9px;
+  }
+
+  .cat-mark svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .brand-text {
+    font-size: 14px;
+  }
+
+  .hero {
+    padding-top: 18px;
+    padding-bottom: 18px;
+  }
+
+  .hero h1,
+  .hero-copy,
+  .hero .eyebrow {
+    display: none;
+  }
+
+  .search-box {
+    margin-top: 0;
+    min-height: 46px;
+    padding: 0 12px;
+    border-radius: 14px;
+  }
+
+  .search-box input {
+    padding: 11px 0;
+    font-size: 13px;
+  }
+
+  .search-icon {
+    font-size: 18px;
+  }
+
+  .controls {
+    padding-top: 0;
+    padding-bottom: 20px;
+  }
+
+  .controls-toolbar {
+    gap: 7px;
+    margin-bottom: 7px;
+  }
+
+  .mobile-filter-toggle,
+  .sort-control select {
+    min-height: 40px;
+    border-radius: 13px;
+  }
+
+  .mobile-filter-toggle {
+    padding: 7px 10px;
+  }
+
+  .sort-control select {
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+
+  .library-quick-actions {
+    gap: 6px;
+  }
+
+  .resume-shortcut-button {
+    min-height: 38px;
+    padding: 7px 10px;
+    border-radius: 13px;
+    font-size: 10px;
+  }
+
+  .resume-shortcut-icon {
+    width: 18px;
+    height: 18px;
+    font-size: 7px;
+  }
+
+  .quick-filter-button {
+    min-height: 38px;
+    padding: 7px 9px;
+    border-radius: 13px;
+    font-size: 10px;
+  }
+
+  .quick-filter-button svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  .content-section {
+    padding-top: 24px;
+  }
+
+  .section-head {
+    margin-bottom: 16px;
+  }
+}
+
+/* Give resume a little more hierarchy than the secondary filters. */
+html.theme-light .resume-shortcut-button {
+  background: #f3eee7;
+  border-color: #ddd2c3;
+  color: #2a2724;
+}
+
+html.theme-light .resume-shortcut-button:hover {
+  background: #ebe4da;
+}
+
+html.theme-dark .resume-shortcut-button {
+  background: #2f2a25;
+  border-color: #51483f;
+  color: #f4eee6;
+}
+
+html.theme-dark .resume-shortcut-button:hover {
+  background: #39332d;
+}
