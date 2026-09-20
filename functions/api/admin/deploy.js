@@ -119,19 +119,45 @@ function decodeBase64Utf8(value) {
   }
 }
 
-function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
+function getLatestReadmeVersionSectionServer(readmeText) {
   const text = String(readmeText || "").replace(/\r\n/g, "\n");
-  const versionMatch = text.match(/^##\s+(v[0-9]+(?:\.[0-9]+)*)\s*$/m);
-  const version = versionMatch ? versionMatch[1].trim() : "";
+  const headingPattern = /^##\s+(v(\d+)(?:\.(\d+))?(?:\.(\d+))?)(?:\s+.*)?$/gm;
+  const matches = [];
+  let match;
 
-  let section = text;
-
-  if (versionMatch) {
-    const start = versionMatch.index + versionMatch[0].length;
-    const tail = text.slice(start);
-    const next = tail.match(/^##\s+v[0-9]+(?:\.[0-9]+)*\s*$/m);
-    section = next ? tail.slice(0, next.index) : tail;
+  while ((match = headingPattern.exec(text))) {
+    matches.push({
+      version: match[1],
+      parts: [
+        Number(match[2] || 0),
+        Number(match[3] || 0),
+        Number(match[4] || 0),
+      ],
+      index: match.index,
+      headingLength: match[0].length,
+    });
   }
+
+  if (!matches.length) return { version: "", section: text };
+
+  matches.sort((a, b) => {
+    for (let i = 0; i < 3; i += 1) {
+      if (a.parts[i] !== b.parts[i]) return b.parts[i] - a.parts[i];
+    }
+    return b.index - a.index;
+  });
+
+  const latest = matches[0];
+  const sectionStart = latest.index + latest.headingLength;
+  const after = text.slice(sectionStart);
+  const nextHeading = after.match(/^##\s+v\d+(?:\.\d+)*(?:\s+.*)?$/m);
+  const section = nextHeading ? after.slice(0, nextHeading.index) : after;
+
+  return { version: latest.version, section };
+}
+
+function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
+  const { version, section } = getLatestReadmeVersionSectionServer(readmeText);
 
   let summary = section
     .split("\n")
@@ -158,7 +184,6 @@ function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
   if (summary) return `Archive update: ${summary}`;
   return `Archive update (${fileCount} files)`;
 }
-
 
 function normalizeCheckState(check) {
   const status = String(check?.status || "").toLowerCase();

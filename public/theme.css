@@ -1015,6 +1015,15 @@ html.theme-light body {
   display: none;
 }
 
+.source-badge-short {
+  display: none;
+}
+
+.source-badge-full {
+  display: inline;
+}
+
+
 /* ---------- Filter states ----------
    Selection keeps the same surface color; border/text show the selection. */
 html.theme-light #combinationFilters .chip,
@@ -1289,12 +1298,12 @@ html.theme-dark .reader.reader-compact .reader-close {
   .reader.reader-compact .reader-download-button,
   .reader.reader-compact .reader-bookmark-button,
   .reader.reader-compact .reader-close {
-    width: 44px;
-    min-width: 44px;
-    max-width: 44px;
-    height: 44px;
-    min-height: 44px;
-    max-height: 44px;
+    width: 40px;
+    min-width: 40px;
+    max-width: 40px;
+    height: 40px;
+    min-height: 40px;
+    max-height: 40px;
     padding: 0;
     box-sizing: border-box;
     display: inline-flex;
@@ -1317,20 +1326,20 @@ html.theme-dark .reader.reader-compact .reader-close {
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding-top: 18px;
-    padding-right: 18px;
-    padding-left: 18px;
+    gap: 7px;
+    padding-top: 12px;
+    padding-right: 14px;
+    padding-left: 14px;
   }
 
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header-actions {
     position: static;
     order: -1;
     width: 100%;
-    margin: 0 0 2px;
+    margin: 0;
     justify-content: flex-end;
     align-self: stretch;
-    gap: 8px;
+    gap: 6px;
   }
 
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-meta-top {
@@ -1358,6 +1367,37 @@ html.theme-dark .reader.reader-compact .reader-close {
   top: 13px;
   right: 18px;
   align-items: center;
+}
+
+
+@media (max-width: 640px) {
+  .reader.reader-compact .reader-header {
+    min-height: 60px;
+    padding: 10px 14px 9px;
+  }
+
+  .reader.reader-compact .reader-meta-top,
+  .reader.reader-compact .reader-author,
+  .reader.reader-compact .reader-filename {
+    display: none;
+  }
+
+  .reader.reader-compact .reader-header-actions {
+    top: 10px;
+    right: 12px;
+    gap: 6px;
+  }
+
+  .reader.reader-compact .reader-header h2 {
+    max-width: calc(100% - 136px);
+    margin: 0;
+    padding: 2px 0;
+    font-size: 14px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 /* ---------- Reader loading ----------
@@ -1471,8 +1511,48 @@ html.theme-dark .reader.reader-compact .reader-close {
 /* ---------- Mobile list ----------
    Right action area is reserved; POSTYPE secondary line is compact. */
 @media (max-width: 640px) {
+  .content-list {
+    width: 100%;
+    table-layout: fixed;
+  }
+
+  .content-list th:nth-child(1),
+  .content-list td:nth-child(1) { width: 12%; }
+
+  .content-list th:nth-child(2),
+  .content-list td:nth-child(2) { width: 14%; }
+
+  .content-list th:nth-child(3),
+  .content-list td:nth-child(3) { width: 50%; }
+
+  .content-list th:nth-child(4),
+  .content-list td:nth-child(4) { width: 24%; }
+
+  .content-list .list-title-heading {
+    gap: 4px;
+  }
+
+  .content-list .list-source-badge {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    padding: 0;
+    justify-content: center;
+    border-radius: 50%;
+    font-size: 8px;
+    letter-spacing: 0;
+  }
+
+  .content-list .list-source-badge .source-badge-full {
+    display: none;
+  }
+
+  .content-list .list-source-badge .source-badge-short {
+    display: inline;
+  }
+
   .content-list td.list-title {
-    padding-right: 64px;
+    padding-right: 54px;
   }
 
   .content-list .list-title-main {

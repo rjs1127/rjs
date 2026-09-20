@@ -8,6 +8,7 @@
 const els = {
   adminContent: document.getElementById("adminContent"),
   adminLogoutButton: document.getElementById("adminLogoutButton"),
+  adminVersion: document.getElementById("adminVersion"),
   driveTopTotal: document.getElementById("driveTopTotal"),
   driveTopSync: document.getElementById("driveTopSync"),
   driveTopShort: document.getElementById("driveTopShort"),
@@ -109,6 +110,7 @@ let deployBlocked = [];
 let deployStatusTimer = null;
 let activeDeployCommitSha = localStorage.getItem("archiveAdminLastDeploySha") || "";
 let activeDeployCommitUrl = localStorage.getItem("archiveAdminLastDeployUrl") || "";
+let pendingDeployVersion = "";
 let userAdminData = {
   summary: {},
   daily: [],
@@ -1248,27 +1250,49 @@ function bytesToBase64(bytes) {
 }
 
 
+function getLatestReadmeVersionSection(readmeText) {
+  const text = String(readmeText || "").replace(/\r\n/g, "\n");
+  const headingPattern = /^##\s+(v(\d+)(?:\.(\d+))?(?:\.(\d+))?)(?:\s+.*)?$/gm;
+  const matches = [];
+  let match;
+
+  while ((match = headingPattern.exec(text))) {
+    matches.push({
+      version: match[1],
+      parts: [
+        Number(match[2] || 0),
+        Number(match[3] || 0),
+        Number(match[4] || 0),
+      ],
+      index: match.index,
+      headingLength: match[0].length,
+    });
+  }
+
+  if (!matches.length) return { version: "", section: text };
+
+  matches.sort((a, b) => {
+    for (let i = 0; i < 3; i += 1) {
+      if (a.parts[i] !== b.parts[i]) return b.parts[i] - a.parts[i];
+    }
+    return b.index - a.index;
+  });
+
+  const latest = matches[0];
+  const sectionStart = latest.index + latest.headingLength;
+  const after = text.slice(sectionStart);
+  const nextHeading = after.match(/^##\s+v\d+(?:\.\d+)*(?:\s+.*)?$/m);
+  const section = nextHeading ? after.slice(0, nextHeading.index) : after;
+
+  return { version: latest.version, section };
+}
+
 function buildCommitMessageFromReadme(
   readmeText,
   fallbackFileCount = 0,
   zipFileName = ""
 ) {
-  const text = String(readmeText || "").replace(/\r\n/g, "\n");
-
-  const versionMatch = text.match(/^##\s+(v[0-9]+(?:\.[0-9]+)*)\s*$/m);
-  const version = versionMatch ? versionMatch[1].trim() : "";
-
-  let section = text;
-
-  if (versionMatch) {
-    const start = versionMatch.index + versionMatch[0].length;
-    const tail = text.slice(start);
-    const nextVersionMatch = tail.match(/^##\s+v[0-9]+(?:\.[0-9]+)*\s*$/m);
-
-    section = nextVersionMatch
-      ? tail.slice(0, nextVersionMatch.index)
-      : tail;
-  }
+  const { version, section } = getLatestReadmeVersionSection(readmeText);
 
   const bulletLines = section
     .split("\n")
@@ -1368,6 +1392,12 @@ async function inspectZip(file) {
     readmeText,
     allowed.length,
     file.name
+  );
+
+  const readmeVersion = getLatestReadmeVersionSection(readmeText).version;
+  const zipVersionMatch = String(file.name || "").match(/v[0-9]+(?:[_\.][0-9]+)*/i);
+  pendingDeployVersion = readmeVersion || (
+    zipVersionMatch ? zipVersionMatch[0].replaceAll("_", ".").toLowerCase() : ""
   );
 
   if (els.commitMessageInput) {
@@ -2116,6 +2146,33 @@ els.zipDropZone.addEventListener("drop", (event) => {
   handleZipFile(event.dataTransfer.files?.[0]);
 });
 
+async function loadVersionMetadata() {
+  if (!els.adminVersion) return null;
+
+  try {
+    const response = await fetch(`/version.json?ts=${Date.now()}`, {
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    const data = await response.json();
+    const version = String(data?.version || "").trim();
+    if (!/^v\d+(?:\.\d+)*$/i.test(version)) {
+      throw new Error("invalid version metadata");
+    }
+
+    els.adminVersion.textContent = `현재 버전 ${version}`;
+    if (pendingDeployVersion.toLowerCase() === version.toLowerCase()) {
+      pendingDeployVersion = "";
+    }
+    return version;
+  } catch (error) {
+    console.warn("현재 버전 확인 실패", error);
+    return null;
+  }
+}
+
 function setDeployStatusVisual(item, stateName) {
   if (!item) return;
   item.classList.remove("is-waiting", "is-building", "is-success", "is-failure");
@@ -2179,6 +2236,10 @@ function renderDeployStatus(data) {
     details.push("GitHub Checks에서 Cloudflare Pages 상태를 기다리는 중입니다.");
   }
   els.deployCloudflareStatusMeta.innerHTML = details.join(" · ");
+
+  if (cfState === "success") {
+    loadVersionMetadata();
+  }
 }
 
 function stopDeployStatusPolling() {
@@ -2248,6 +2309,9 @@ els.deployButton.addEventListener("click", async () => {
       `아래에서 Cloudflare Pages 빌드 상태를 자동으로 확인합니다.`;
 
     showDeployCommitCreated(result.commitSha, result.commitUrl);
+    if (pendingDeployVersion && els.adminVersion) {
+      els.adminVersion.textContent = `배포 중 ${pendingDeployVersion}`;
+    }
     refreshDeployStatus({ keepPolling: true });
 
     deployFiles = [];
@@ -2283,6 +2347,8 @@ document.addEventListener("click", (event) => {
   setActiveTab(button.dataset.sourceJump);
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
+loadVersionMetadata();
 
 if (activeDeployCommitSha) {
   refreshDeployStatus({ keepPolling: false });

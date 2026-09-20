@@ -695,9 +695,11 @@ function updateReaderBookmarkButton() {
   );
 
   els.readerBookmarkButton.classList.toggle("active", bookmarked);
-  els.readerBookmarkButton.querySelector("span").textContent =
-    bookmarked ? "★" : "☆";
+  els.readerBookmarkButton.setAttribute("aria-pressed", bookmarked ? "true" : "false");
   els.readerBookmarkButton.title = bookmarked ? "북마크 해제" : "북마크";
+
+  const label = els.readerBookmarkButton.querySelector(".reader-bookmark-label");
+  if (label) label.textContent = bookmarked ? "북마크됨" : "북마크";
 }
 
 async function recordRecentView(item) {
@@ -1389,7 +1391,9 @@ function getSourceLabel(item) {
 
 function getSourceBadgeHtml(item, className = "source-badge") {
   const source = item?.source === "postype" ? "postype" : "drive";
-  return `<span class="${className} ${source}">${getSourceLabel(item)}</span>`;
+  const fullLabel = getSourceLabel(item);
+  const shortLabel = source === "postype" ? "P" : "T";
+  return `<span class="${className} ${source}"><span class="source-badge-full">${fullLabel}</span><span class="source-badge-short" aria-hidden="true">${shortLabel}</span></span>`;
 }
 
 function getPostypeMetaHtml(item) {
