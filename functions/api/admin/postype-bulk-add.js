@@ -229,9 +229,9 @@ export async function onRequestPost(context) {
       const genre = normalize(raw?.genre);
       const author = normalize(raw?.author);
       const status = normalize(raw?.status);
-      const workLength = normalize(raw?.workLength || raw?.lengthType);
-      const lengthType = workLength;
       const publishType = normalize(raw?.publishType);
+      const workLength = "";
+      const lengthType = publishType === "다회차" ? "시리즈" : "단편";
       const linkType = normalize(raw?.linkType);
       const manualUrls = normalize(raw?.manualUrls);
       const latestPublishedDate = normalize(raw?.latestPublishedDate);
@@ -245,7 +245,6 @@ export async function onRequestPost(context) {
       if (!["완결", "연재"].includes(status)) {
         throw new Error(`${rowNo}행: 상태는 완결/연재 중 하나여야 합니다.`);
       }
-      if (!["단편", "장편"].includes(workLength)) throw new Error(`${rowNo}행: 분량은 단편/장편 중 하나여야 합니다.`);
       if (!["단일글", "다회차"].includes(publishType)) throw new Error(`${rowNo}행: 게시형태를 확인해 주세요.`);
       if (!["post", "series", "manual"].includes(linkType)) throw new Error(`${rowNo}행: 연결방식을 확인해 주세요.`);
       if (!isValidUrl(url)) throw new Error(`${rowNo}행: URL을 확인해 주세요.`);

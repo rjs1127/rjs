@@ -108,6 +108,9 @@ async function ensureLatestPublishedDateHeader(accessToken, values) {
   else if (latestIndex < 0) { headers.push("latestPublishedDate"); latestIndex = headers.length - 1; changed = true; }
   let workLengthIndex = headers.findIndex((header) => header.toLowerCase() === "worklength");
   if (workLengthIndex < 0) { headers.push("workLength"); workLengthIndex = headers.length - 1; changed = true; }
+  let publishTypeIndex = headers.findIndex((header) => header.toLowerCase() === "publishtype");
+  if (publishTypeIndex < 0) { headers.push("publishType"); publishTypeIndex = headers.length - 1; changed = true; }
+  const statusIndex = headers.findIndex((header) => header.toLowerCase() === "status");
   if (changed) {
     const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A1:AZ1`;
     const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
@@ -116,7 +119,7 @@ async function ensureLatestPublishedDateHeader(accessToken, values) {
     if (!response.ok) throw new Error(data?.error?.message || `POSTYPE 컬럼 구성 오류 (${response.status})`);
   }
   if (!values[0]) values[0] = []; values[0] = headers;
-  return { headers, latestPublishedDateColumn: latestIndex, workLengthColumn: workLengthIndex, added: changed, migrated: legacyIndex >= 0 };
+  return { headers, latestPublishedDateColumn: latestIndex, workLengthColumn: workLengthIndex, publishTypeColumn: publishTypeIndex, statusColumn: statusIndex, added: changed, migrated: legacyIndex >= 0 };
 }
 
 function comparableArchive(archive) {
@@ -203,8 +206,8 @@ function buildArchive(values, headers) {
       author: cell(row, headerIndex, "author"),
       status: cell(row, headerIndex, "status"),
       lengthType: cell(row, headerIndex, "lengthType"),
-      workLength: cell(row, headerIndex, "workLength") || (["단편", "장편"].includes(cell(row, headerIndex, "lengthType")) ? cell(row, headerIndex, "lengthType") : ""),
-      publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(url) ? "다회차" : "단일글"),
+      workLength: cell(row, headerIndex, "workLength"),
+      publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(url) || cell(row, headerIndex, "linkType") === "manual" ? "다회차" : "단일글"),
       linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(url) ? "series" : "post"),
       manualUrls: cell(row, headerIndex, "manualUrls"),
       latestPublishedDate: cell(row, headerIndex, "latestPublishedDate"),
@@ -257,6 +260,8 @@ export async function onRequestPost(context) {
     const latestPublishedDateColumn =
       headerInfo.latestPublishedDateColumn ?? headerIndex.get("latestpublisheddate");
     const workLengthColumn = headerInfo.workLengthColumn ?? headerIndex.get("worklength");
+    const publishTypeColumn = headerInfo.publishTypeColumn ?? headerIndex.get("publishtype");
+    const statusColumn = headerInfo.statusColumn ?? headerIndex.get("status");
 
     if (!Number.isInteger(latestPublishedDateColumn)) {
       return jsonResponse(
@@ -281,7 +286,8 @@ export async function onRequestPost(context) {
     for (const raw of requestedUpdates) {
       const id = normalize(raw?.id).toUpperCase();
       const latestPublishedDate = normalize(raw?.latestPublishedDate);
-      const workLength = normalize(raw?.workLength);
+      const publishType = normalize(raw?.publishType);
+      const status = normalize(raw?.status);
 
       if (!id) continue;
 
@@ -304,31 +310,31 @@ export async function onRequestPost(context) {
       }
 
       const currentDate = normalize(values[rowIndex]?.[latestPublishedDateColumn]);
-      const currentWorkLength = normalize(values[rowIndex]?.[workLengthColumn]);
-      const rowNumber = rowIndex + 1;
-      let rowChanged = false;
-
-      if (currentDate !== latestPublishedDate) {
+      const currentPublishType = Number.isInteger(publishTypeColumn) ? normalize(values[rowIndex]?.[publishTypeColumn]) : "";
+      if (currentPublishType !== publishType && Number.isInteger(publishTypeColumn)) {
         changedCells.push({
-          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(latestPublishedDateColumn)}${rowNumber}`,
+          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(publishTypeColumn)}${rowNumber}`,
           majorDimension: "ROWS",
-          values: [[latestPublishedDate]],
+          values: [[publishType]],
         });
-        values[rowIndex][latestPublishedDateColumn] = latestPublishedDate;
+        if (!values[rowIndex]) values[rowIndex] = [];
+        values[rowIndex][publishTypeColumn] = publishType;
         rowChanged = true;
       }
 
-      if (["", "단편", "장편"].includes(workLength) && currentWorkLength !== workLength) {
+      const currentStatus = Number.isInteger(statusColumn) ? normalize(values[rowIndex]?.[statusColumn]) : "";
+      if (currentStatus !== status && Number.isInteger(statusColumn)) {
         changedCells.push({
-          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(workLengthColumn)}${rowNumber}`,
+          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(statusColumn)}${rowNumber}`,
           majorDimension: "ROWS",
-          values: [[workLength]],
+          values: [[status]],
         });
-        values[rowIndex][workLengthColumn] = workLength;
+        if (!values[rowIndex]) values[rowIndex] = [];
+        values[rowIndex][statusColumn] = status;
         rowChanged = true;
       }
 
-      if (rowChanged) updates.push({ id, latestPublishedDate, workLength, rowNumber });
+      if (rowChanged) updates.push({ id, latestPublishedDate, publishType, status, rowNumber });
     }
 
     if (changedCells.length) {

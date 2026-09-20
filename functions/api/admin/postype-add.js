@@ -273,9 +273,9 @@ export async function onRequestPost(context) {
     const genre = normalize(body?.genre);
     const author = normalize(body?.author);
     const status = normalize(body?.status);
-    const workLength = normalize(body?.workLength || body?.lengthType);
-    const lengthType = workLength;
     const publishType = normalize(body?.publishType);
+    const workLength = "";
+    const lengthType = publishType === "다회차" ? "시리즈" : "단편";
     const linkType = normalize(body?.linkType);
     const manualUrls = normalize(body?.manualUrls);
     const latestPublishedDate = normalize(body?.latestPublishedDate);
@@ -302,9 +302,6 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "상태 값이 올바르지 않습니다." }, 400);
     }
 
-    if (!["단편", "장편"].includes(workLength)) {
-      return jsonResponse({ error: "분량은 단편/장편 중에서 선택해 주세요." }, 400);
-    }
     if (!["단일글", "다회차"].includes(publishType)) {
       return jsonResponse({ error: "게시형태 값이 올바르지 않습니다." }, 400);
     }

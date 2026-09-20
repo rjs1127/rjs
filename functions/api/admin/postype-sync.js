@@ -334,7 +334,7 @@ export async function onRequestPost(context) {
         }
       }
 
-      if (lengthType && !["단편", "시리즈"].includes(lengthType)) {
+      if (lengthType && !["단편", "시리즈", "장편"].includes(lengthType)) {
         errors.push(
           rowError(
             rowNumber,
@@ -367,6 +367,10 @@ export async function onRequestPost(context) {
         author,
         status,
         lengthType,
+        workLength: cell(row, headerIndex, "workLength"),
+        publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(itemUrl) || cell(row, headerIndex, "linkType") === "manual" ? "다회차" : "단일글"),
+        linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(itemUrl) ? "series" : "post"),
+        manualUrls: cell(row, headerIndex, "manualUrls"),
         latestPublishedDate,
         url: itemUrl,
 

@@ -1139,3 +1139,7 @@ html.theme-dark .reader-close {
 /* v6.84 content model separation */
 .card-publish-tag { opacity: .82; }
 @media (max-width: 640px) { #publishFilters { flex-wrap: wrap; } }
+
+
+/* v6.90 simplified content model */
+.card-status-tag { opacity: .86; }
