@@ -4267,3 +4267,95 @@ html.theme-dark .list-source-badge.drive {
     color: #161412;
   }
 }
+
+
+/* v6.46 - explicit light-theme reset */
+html.theme-light {
+  --bg: #f6f3ee;
+  --surface: #fffdf9;
+  --surface-strong: #ffffff;
+  --ink: #191816;
+  --muted: #77716a;
+  --line: #ddd7ce;
+  --line-soft: #ebe6df;
+  --accent: #2a2926;
+  --chip: #ebe6de;
+  --shadow: 0 18px 50px rgba(37, 33, 28, 0.08);
+  color-scheme: light;
+}
+
+html.theme-light body {
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.9), transparent 34%),
+    var(--bg);
+  color: var(--ink);
+}
+
+html.theme-light .site-header.compact-mode::before {
+  background: rgba(246,243,238,.92);
+  border-bottom-color: rgba(221,215,206,.9);
+}
+
+html.theme-light .compact-header-search,
+html.theme-light .search-box,
+html.theme-light .content-card,
+html.theme-light .content-list-wrap,
+html.theme-light .simple-modal,
+html.theme-light .account-preference-row {
+  background-color: var(--surface-strong);
+  color: var(--ink);
+}
+
+html.theme-light .content-list th {
+  background: rgba(255,255,255,.45);
+  color: var(--muted);
+}
+
+html.theme-light input,
+html.theme-light select,
+html.theme-light textarea {
+  color: var(--ink);
+  background-color: var(--surface-strong);
+  border-color: var(--line);
+}
+
+html.theme-light .reader,
+html.theme-light .reader-header {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+html.theme-light .reader-scroll-top {
+  background: rgba(255,253,249,.98);
+  color: var(--ink);
+}
+
+html.theme-light .ghost-button,
+html.theme-light .header-icon-button,
+html.theme-light .quick-filter-button,
+html.theme-light .resume-shortcut-button,
+html.theme-light .mobile-filter-toggle,
+html.theme-light .sort-control select,
+html.theme-light .chip,
+html.theme-light .view-switch,
+html.theme-light .view-button,
+html.theme-light .empty-reset-button,
+html.theme-light .library-clear-button,
+html.theme-light .library-entry,
+html.theme-light .library-search,
+html.theme-light .reader-resume,
+html.theme-light .reader-resume-actions button,
+html.theme-light .reader-bookmark-button,
+html.theme-light .modal-secondary-button {
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+html.theme-light .chip.active,
+html.theme-light .view-button.active,
+html.theme-light .quick-filter-button.active,
+html.theme-light .preference-toggle.active,
+html.theme-light .preference-segmented button.active {
+  background: var(--ink);
+  color: #fff;
+}

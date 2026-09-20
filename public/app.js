@@ -47,9 +47,20 @@ function getSavedReaderSpacing() {
 function applyUserPreferences() {
   const theme = getSavedTheme();
   const spacing = getSavedReaderSpacing();
+  const root = document.documentElement;
 
-  document.documentElement.classList.toggle("theme-dark", theme === "dark");
-  document.documentElement.dataset.readerSpacing = spacing;
+  if (theme === "dark") {
+    root.classList.add("theme-dark");
+    root.classList.remove("theme-light");
+    root.style.colorScheme = "dark";
+  } else {
+    root.classList.remove("theme-dark");
+    root.classList.add("theme-light");
+    root.style.colorScheme = "light";
+  }
+
+  root.dataset.theme = theme;
+  root.dataset.readerSpacing = spacing;
 
   if (els.darkModeToggle) {
     const enabled = theme === "dark";
