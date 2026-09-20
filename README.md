@@ -2,6 +2,23 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.75
+
+### `Invalid data[0]: Unable to parse range: 'POSTYPE'!2` 수정
+- `변경사항 시트 동기화`에서 `latestPublishedDate` 컬럼으로 마이그레이션된 이후에도 예전 컬럼명 `publishedDate`를 찾아 열 번호를 구하던 버그 수정
+- 열 번호가 `undefined`가 되면서 Google Sheets range가 `POSTYPE!2`처럼 컬럼 문자가 빠진 형태로 생성되던 것이 원인
+- 이제 `ensureLatestPublishedDateHeader()`가 반환한 실제 `latestPublishedDateColumn` 위치를 그대로 사용
+- 보조적으로 `latestPublishedDate` 헤더 인덱스를 다시 확인
+- 열 위치를 못 찾으면 잘못된 range를 보내지 않고 관리자에게 명확한 오류 반환
+
+### 관리자 버전
+- 관리자 헤더를 `현재 버전 v6.75`로 갱신
+
+### 영향 범위
+- POSTYPE 최근 발행일의 `변경사항 시트 동기화`만 수정
+- 시리즈 날짜 추출 로직(v6.74)은 그대로 유지
+- KV 변경 감지 및 실제 변경 시에만 write하는 구조도 유지
+
 ## v6.74
 
 ### 여러 시리즈에서 날짜가 계속 다르게 잡히는 문제 대응

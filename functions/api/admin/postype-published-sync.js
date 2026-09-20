@@ -335,7 +335,19 @@ export async function onRequestPost(context) {
     const headerIndex = buildHeaderIndex(headers);
 
     const idColumn = headerIndex.get("id");
-    const latestPublishedDateColumn = headerIndex.get("publisheddate");
+    const latestPublishedDateColumn =
+      headerInfo.latestPublishedDateColumn ??
+      headerIndex.get("latestpublisheddate");
+
+    if (!Number.isInteger(latestPublishedDateColumn)) {
+      return jsonResponse(
+        {
+          error:
+            "latestPublishedDate 컬럼 위치를 찾지 못했습니다. POSTYPE 시트 헤더를 확인해 주세요.",
+        },
+        400
+      );
+    }
 
     const rowById = new Map();
 
@@ -357,7 +369,7 @@ export async function onRequestPost(context) {
         return jsonResponse(
           {
             error:
-              `${id}: 발행일은 YYYY-MM-DD 형식으로 입력해 주세요.`,
+              `${id}: 최근 발행일은 YYYY-MM-DD 형식으로 입력해 주세요.`,
           },
           400
         );
