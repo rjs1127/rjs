@@ -639,18 +639,21 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
     );
 
   if (structuredDates.length) {
-    const top = structuredDates[0];
+    // POSTYPE의 시리즈 구조화 데이터는 회차 배열이 1화 → 최신화 순으로
+    // 들어오는 경우가 있어 첫 항목을 쓰면 정확히 1화 날짜가 잡힌다.
+    // 따라서 구조화 데이터에서는 "마지막 시리즈 포스트"를 최신화로 사용한다.
+    const latest = structuredDates.at(-1);
 
     return {
-      latestPublishedDate: top.date || "",
-      latestPostUrl: top.url || "",
+      latestPublishedDate: latest.date || "",
+      latestPostUrl: latest.url || "",
       checkedPostCount: 0,
       matchedSeriesPostCount: 1,
       discoveredPostCount: structuredDates.length,
       seriesPageCandidateCount: structuredDates.length,
       channelPageCandidateCount: 0,
       structuredCandidateCount: structuredDates.length,
-      strategy: "series-top-structured-post",
+      strategy: "series-last-structured-post",
     };
   }
 
@@ -660,6 +663,7 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
     extractCandidatePostUrls(seriesHtml, seriesUrl);
 
   let checkedPostCount = 0;
+  const matchedPosts = [];
 
   for (const url of seriesPageUrls) {
     if (checkedPostCount >= 12) break;
@@ -677,16 +681,31 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
 
     if (!publishedDate) continue;
 
+    matchedPosts.push({
+      url: page.url,
+      publishedDate,
+    });
+  }
+
+  // fallback 링크 목록도 유틸리티성 "첫 화 보기"가 앞에 끼는 경우가 있으므로
+  // 확인된 시리즈 포스트 중 실제 발행일이 가장 최근인 글을 사용한다.
+  matchedPosts.sort((a, b) =>
+    a.publishedDate.localeCompare(b.publishedDate)
+  );
+
+  const latestMatched = matchedPosts.at(-1);
+
+  if (latestMatched) {
     return {
-      latestPublishedDate: publishedDate,
-      latestPostUrl: page.url,
+      latestPublishedDate: latestMatched.publishedDate,
+      latestPostUrl: latestMatched.url,
       checkedPostCount,
-      matchedSeriesPostCount: 1,
+      matchedSeriesPostCount: matchedPosts.length,
       discoveredPostCount: seriesPageUrls.length,
       seriesPageCandidateCount: seriesPageUrls.length,
       channelPageCandidateCount: 0,
       structuredCandidateCount: 0,
-      strategy: "series-top-linked-post",
+      strategy: "series-linked-latest-date",
     };
   }
 
