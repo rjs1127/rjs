@@ -2,6 +2,60 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.41
+
+### POSTYPE 시트 → KV 동기화
+- 관리자 `운영` 탭의 `포스타입 시트 관리` 영역에 `포스타입 시트 동기화` 버튼 추가
+- POSTYPE 시트를 관리자 버튼을 눌렀을 때만 읽음
+- `enabled=Y` 행만 사이트용 데이터로 변환
+- `enabled=N` 행은 시트에는 유지하지만 KV 목록에서는 제외
+- 변환 결과를 `ARCHIVE_KV`의 `postype:index:v1`에 저장
+- 일반 사용자가 사이트를 볼 때 Google Sheets API를 호출하지 않음
+
+### Drive TXT와 공통 필드 정렬
+POSTYPE 저장 항목은 아래 공통 필드를 Drive TXT 구조에 맞춰 저장함.
+- `id`
+- `combination`
+- `lengthType`
+- `title`
+- `author`
+- `fileName`
+- `parseFailed`
+- `createdTime`
+- `modifiedTime`
+- `size`
+
+POSTYPE 전용 필드:
+- `source: "postype"`
+- `subCp1`
+- `subCp2`
+- `genre`
+- `status`
+- `url`
+
+### 시트 검증
+동기화 전에 아래 항목을 검사함.
+- 필수 컬럼 존재 여부
+- id 누락 및 중복
+- `enabled`가 `Y / N`인지
+- `lengthType`이 `단편 / 시리즈`인지
+- `status`가 `연재 / 완결`인지
+- 필수 값 누락 여부
+- URL 형식
+
+오류가 있으면 KV를 덮어쓰지 않고 관리자 화면에 오류를 표시함.
+
+### ID 순번 보강
+- `postype:id-sequence:v1` KV 카운터 추가
+- 앞으로 가장 큰 ID 행을 삭제하더라도 사용했던 번호를 다시 재사용하지 않도록 보강
+- ID 생성 및 시트 동기화는 관리자 조작 시에만 KV/Sheets 요청 발생
+
+### 아직 하지 않는 것
+- 메인 `/api/archive`에 POSTYPE 데이터 합치기
+- 메인 화면에 `TXT / POSTYPE` 출처 필터 표시
+- POSTYPE 카드 클릭 동작
+- POSTYPE 북마크 연결
+
 ## v6.40
 
 ### POSTYPE 관리자 영역 표시 오류 수정

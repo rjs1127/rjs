@@ -1,11 +1,13 @@
 import {
   jsonResponse,
+  requireKv,
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const POSTYPE_SPREADSHEET_ID = "1A6SL397yG59Yfs95x4SAlgqz5oVe26YMOw18gDw2fIw";
 const POSTYPE_SHEET_NAME = "POSTYPE";
+const POSTYPE_ID_SEQUENCE_KEY = "postype:id-sequence:v1";
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -55,6 +57,7 @@ function hasRowData(row, idColumn) {
 export async function onRequestPost(context) {
   try {
     await requireAdminSession(context);
+    const kv = requireKv(context.env);
 
     const accessToken = await getSheetsAccessToken(context.env);
     const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:Z`;
@@ -91,7 +94,12 @@ export async function onRequestPost(context) {
       throw error;
     }
 
-    let nextNumber = getNextNumber(values, idColumn);
+    const nextFromSheet = getNextNumber(values, idColumn);
+    const savedSequence = Number(
+      (await kv.get(POSTYPE_ID_SEQUENCE_KEY)) || 0
+    );
+    const highestExisting = nextFromSheet - 1;
+    let nextNumber = Math.max(highestExisting, savedSequence) + 1;
     const idColumnLetter = columnToA1(idColumn);
     const updates = [];
     const assigned = [];
@@ -146,6 +154,14 @@ export async function onRequestPost(context) {
           `Google Sheets API 쓰기 오류 (${writeResponse.status})`
         );
       }
+    }
+
+    const highestAssigned = assigned.length
+      ? Number(assigned[assigned.length - 1].id.slice(1))
+      : Math.max(highestExisting, savedSequence);
+
+    if (highestAssigned > savedSequence) {
+      await kv.put(POSTYPE_ID_SEQUENCE_KEY, String(highestAssigned));
     }
 
     return jsonResponse(
