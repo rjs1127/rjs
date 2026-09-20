@@ -4032,3 +4032,130 @@ html.theme-dark .list-source-badge.drive {
   background: #2d4568;
   color: #dbe9ff;
 }
+
+
+/* v6.43 - mobile list title-space optimization */
+.list-head-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  /* Keep the list compact while preserving a generous title column. */
+  .content-list {
+    min-width: 560px;
+  }
+
+  .content-list th,
+  .content-list td {
+    padding: 11px 7px;
+    font-size: 11px;
+  }
+
+  .content-list th {
+    font-size: 9px;
+  }
+
+  .content-list th:nth-child(1),
+  .content-list td:nth-child(1) {
+    width: 54px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .content-list th:nth-child(2),
+  .content-list td:nth-child(2) {
+    width: 62px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .content-list th:nth-child(4),
+  .content-list td:nth-child(4) {
+    width: 86px;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  .list-head-desktop {
+    display: none;
+  }
+
+  .list-head-mobile {
+    display: inline;
+  }
+
+  .list-title {
+    padding-left: 8px !important;
+    padding-right: 6px !important;
+  }
+
+  .list-title-row {
+    gap: 3px;
+  }
+
+  .list-title-main {
+    gap: 3px;
+  }
+
+  .list-title-heading {
+    gap: 4px;
+  }
+
+  /* TXT / POSTYPE text badge becomes a tiny T / P source icon on mobile. */
+  .list-source-badge {
+    width: 17px;
+    height: 17px;
+    min-width: 17px;
+    padding: 0;
+    border-radius: 50%;
+    display: inline-grid;
+    place-items: center;
+    font-size: 0;
+    letter-spacing: 0;
+  }
+
+  .list-source-badge.drive::before {
+    content: "T";
+    font-size: 8px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .list-source-badge.postype::before {
+    content: "P";
+    font-size: 8px;
+    font-weight: 900;
+    line-height: 1;
+  }
+
+  .list-title-actions {
+    gap: 2px;
+  }
+
+  .list-download-button.item-download-button {
+    width: 18px;
+    height: 18px;
+    min-width: 18px;
+  }
+
+  .list-download-button.item-download-button svg {
+    width: 9px;
+    height: 9px;
+  }
+
+  .list-bookmark-indicator {
+    width: 16px;
+    height: 16px;
+  }
+
+  .list-bookmark-indicator svg {
+    width: 10px;
+    height: 10px;
+  }
+
+  .list-source-meta {
+    margin-top: 3px;
+    font-size: 9px;
+    line-height: 1.35;
+  }
+}
