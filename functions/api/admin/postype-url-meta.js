@@ -558,9 +558,7 @@ function collectStructuredSeriesDates(html, seriesUrl, seriesId) {
     walk(root, false, 0);
   }
 
-  return results.sort((a, b) =>
-    a.date.localeCompare(b.date)
-  );
+  return results;
 }
 
 async function fetchHtml(url) {
@@ -624,12 +622,15 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       seriesPageCandidateCount: 0,
       channelPageCandidateCount: 0,
       structuredCandidateCount: 0,
-      strategy: "series-structured-plus-fallback",
+      strategy: "series-top-post",
     };
   }
 
-  // 1순위: 시리즈 페이지의 JSON/Next 데이터 안에서
-  // 현재 seriesId와 직접 연결된 포스트의 발행일을 찾는다.
+  // POSTYPE 시리즈 페이지는 회차가 최신순으로 노출된다는 전제에 맞춰
+  // "가장 위에 노출된 실제 시리즈 포스트 1개"만 사용한다.
+  //
+  // 1) 먼저 시리즈 페이지 안의 구조화 데이터에서 현재 seriesId에 속하는
+  //    포스트를 문서에 나온 순서 그대로 찾는다.
   const structuredDates =
     collectStructuredSeriesDates(
       seriesHtml,
@@ -638,85 +639,67 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
     );
 
   if (structuredDates.length) {
-    const latest = structuredDates.at(-1);
+    const top = structuredDates[0];
 
     return {
-      latestPublishedDate: latest.date,
-      latestPostUrl: latest.url || "",
+      latestPublishedDate: top.date || "",
+      latestPostUrl: top.url || "",
       checkedPostCount: 0,
-      matchedSeriesPostCount: structuredDates.length,
+      matchedSeriesPostCount: 1,
       discoveredPostCount: structuredDates.length,
-      seriesPageCandidateCount: 0,
+      seriesPageCandidateCount: structuredDates.length,
       channelPageCandidateCount: 0,
       structuredCandidateCount: structuredDates.length,
-      strategy: "series-structured-data",
+      strategy: "series-top-structured-post",
     };
   }
 
-  // 구조화 데이터에서 못 찾는 작품만 기존 직접 확인 방식으로 fallback.
+  // 2) 구조화 데이터에 날짜가 없으면 시리즈 페이지의 포스트 링크를
+  //    화면/HTML 순서대로 보고, 현재 seriesId 소속으로 확인되는 첫 글을 사용한다.
   const seriesPageUrls =
     extractCandidatePostUrls(seriesHtml, seriesUrl);
 
-  const channelUrl = getChannelUrl(seriesUrl);
-  const channelPage = channelUrl
-    ? await fetchHtml(channelUrl)
-    : null;
+  let checkedPostCount = 0;
 
-  const channelPageUrls =
-    channelPage?.ok
-      ? extractCandidatePostUrls(channelPage.html, seriesUrl)
-      : [];
+  for (const url of seriesPageUrls) {
+    if (checkedPostCount >= 12) break;
+    checkedPostCount += 1;
 
-  const postUrls = mergeUniqueUrls(
-    channelPageUrls,
-    seriesPageUrls
-  );
+    const page = await fetchHtml(url);
+    if (!page.ok) continue;
 
-  const targets = chooseCandidateSubset(postUrls);
+    if (!postBelongsToSeries(page.html, info.seriesId)) {
+      continue;
+    }
 
-  const results = await Promise.all(
-    targets.map(async (url) => {
-      const page = await fetchHtml(url);
-      if (!page.ok) return null;
+    const publishedDate =
+      extractSinglePostPublishedDate(page.html);
 
-      if (!postBelongsToSeries(page.html, info.seriesId)) {
-        return {
-          url: page.url,
-          matched: false,
-          publishedDate: "",
-        };
-      }
+    if (!publishedDate) continue;
 
-      const publishedDate =
-        extractSinglePostPublishedDate(page.html);
-
-      return {
-        url: page.url,
-        matched: true,
-        publishedDate,
-      };
-    })
-  );
-
-  const matched = results.filter((item) => item?.matched);
-  const dated = matched
-    .filter((item) => item.publishedDate)
-    .sort((a, b) =>
-      a.publishedDate.localeCompare(b.publishedDate)
-    );
+    return {
+      latestPublishedDate: publishedDate,
+      latestPostUrl: page.url,
+      checkedPostCount,
+      matchedSeriesPostCount: 1,
+      discoveredPostCount: seriesPageUrls.length,
+      seriesPageCandidateCount: seriesPageUrls.length,
+      channelPageCandidateCount: 0,
+      structuredCandidateCount: 0,
+      strategy: "series-top-linked-post",
+    };
+  }
 
   return {
-    latestPublishedDate:
-      dated.at(-1)?.publishedDate || "",
-    latestPostUrl:
-      dated.at(-1)?.url || "",
-    checkedPostCount: targets.length,
-    matchedSeriesPostCount: matched.length,
-    discoveredPostCount: postUrls.length,
+    latestPublishedDate: "",
+    latestPostUrl: "",
+    checkedPostCount,
+    matchedSeriesPostCount: 0,
+    discoveredPostCount: seriesPageUrls.length,
     seriesPageCandidateCount: seriesPageUrls.length,
-    channelPageCandidateCount: channelPageUrls.length,
+    channelPageCandidateCount: 0,
     structuredCandidateCount: 0,
-    strategy: "series-membership-fallback",
+    strategy: "series-top-post-not-found",
   };
 }
 
