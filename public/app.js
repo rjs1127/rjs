@@ -2251,6 +2251,8 @@ async function openReader(item) {
   if (els.readerPanel) els.readerPanel.scrollTop = 0;
 
   readerCompactActive = false;
+  window.cancelAnimationFrame(readerCompactFrame);
+  readerCompactFrame = 0;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   if (els.readerResume) els.readerResume.hidden = true;
@@ -3179,20 +3181,30 @@ document.addEventListener("keydown", (event) => {
 
 let readerProgressSaveTimer = 0;
 let readerCompactActive = false;
+let readerCompactFrame = 0;
 
 function syncReaderCompactMode(scrollTop) {
   if (!els.readerPanel) return;
 
-  // Header height itself changes when compact mode switches.
-  // Separate enter/exit thresholds prevent the scroll position from bouncing
-  // around one threshold and causing visible flicker.
-  if (!readerCompactActive && scrollTop >= 130) {
-    readerCompactActive = true;
-    els.readerPanel.classList.add("reader-compact");
-  } else if (readerCompactActive && scrollTop <= 55) {
-    readerCompactActive = false;
-    els.readerPanel.classList.remove("reader-compact");
-  }
+  // Compacting the sticky header changes its own height, which can change
+  // scrollTop again in the same frame. Use a wide hysteresis and apply the
+  // class only once per animation frame so the two modes cannot bounce.
+  const shouldCompact =
+    readerCompactActive
+      ? scrollTop > 6
+      : scrollTop >= 180;
+
+  if (shouldCompact === readerCompactActive) return;
+
+  readerCompactActive = shouldCompact;
+
+  window.cancelAnimationFrame(readerCompactFrame);
+  readerCompactFrame = window.requestAnimationFrame(() => {
+    els.readerPanel?.classList.toggle(
+      "reader-compact",
+      readerCompactActive
+    );
+  });
 }
 
 function updateReaderScrollUi() {

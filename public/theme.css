@@ -1539,3 +1539,88 @@ html.theme-light body {
     font-size: 8.5px;
   }
 }
+
+
+/* =========================
+   v6.105 reader loading / compact stability
+   ========================= */
+
+/* Keep all three reader actions physically identical in compact mode.
+   Old base CSS reduced only the close button to 34px. */
+.reader.reader-compact .reader-header-actions {
+  top: 13px !important;
+  right: 18px !important;
+  align-items: center !important;
+}
+
+.reader.reader-compact .reader-download-button,
+.reader.reader-compact .reader-bookmark-button,
+.reader.reader-compact .reader-close {
+  width: 44px !important;
+  min-width: 44px !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  max-height: 44px !important;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+}
+
+.reader.reader-compact .reader-close {
+  position: static !important;
+  padding: 0 !important;
+  font-size: 22px !important;
+  line-height: 1 !important;
+}
+
+/* Put the loading/progress card near the top of the reading area instead
+   of vertically centering it inside a tall shell. */
+@media (max-width: 640px) {
+  .reader.reader-loading-locked .reader-body {
+    padding-top: 6px !important;
+  }
+
+  .reader-render-shell {
+    min-height: 0 !important;
+  }
+
+  .reader-loading-overlay {
+    top: 0 !important;
+    min-height: 0 !important;
+    padding: 5px 0 14px !important;
+    display: block !important;
+  }
+
+  .reader-loading-overlay .rich-loading,
+  .reader-body > .reader-loading.rich-loading {
+    width: calc(100% - 24px) !important;
+    min-height: 0 !important;
+    margin: 4px auto 14px !important;
+    padding: 14px 16px 13px !important;
+  }
+
+  .reader-loading-overlay .loading-copy,
+  .reader-body > .reader-loading.rich-loading .loading-copy {
+    margin-bottom: 12px !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .reader.reader-loading-locked .reader-body {
+    padding-top: 12px !important;
+  }
+
+  .reader-render-shell {
+    min-height: 0 !important;
+  }
+
+  .reader-loading-overlay {
+    top: 0 !important;
+    min-height: 0 !important;
+    padding: 8px 0 16px !important;
+    place-items: start center !important;
+  }
+
+  .reader-loading-overlay .rich-loading {
+    margin: 0 auto !important;
+  }
+}
