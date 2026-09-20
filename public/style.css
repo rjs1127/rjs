@@ -3000,3 +3000,80 @@ body.reader-open .page-scroll-top {
     display: none;
   }
 }
+
+
+/* v6.31 - list bookmark indicator */
+.list-title-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+}
+
+.list-title-main {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.list-title-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.list-bookmark-indicator {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  color: var(--ink);
+}
+
+.list-bookmark-indicator svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: currentColor;
+  stroke-width: 1.2;
+}
+
+@media (max-width: 640px) {
+  .list-title-row {
+    gap: 5px;
+  }
+
+  .list-title-main {
+    gap: 4px;
+  }
+
+  .list-bookmark-indicator {
+    width: 18px;
+    height: 18px;
+  }
+
+  .list-bookmark-indicator svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* v6.31 - stabilize compact transitions */
+.reader-header {
+  transition:
+    padding .22s ease,
+    box-shadow .18s ease,
+    background .18s ease;
+}
+
+.site-header {
+  will-change: auto;
+}
+
+.site-header.compact-mode .compact-header-search {
+  animation: none;
+}

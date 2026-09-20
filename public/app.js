@@ -40,12 +40,14 @@ const els = {
   resultCount: document.getElementById("resultCount"),
   searchInput: document.getElementById("searchInput"),
   clearSearch: document.getElementById("clearSearch"),
+  heroSearchBox: document.getElementById("heroSearchBox"),
   siteHeader: document.getElementById("siteHeader"),
   compactHeaderSearch: document.getElementById("compactHeaderSearch"),
   compactSearchInput: document.getElementById("compactSearchInput"),
   compactClearSearch: document.getElementById("compactClearSearch"),
   brandText: document.getElementById("brandText"),
   siteFavicon: document.getElementById("siteFavicon"),
+  siteShortcutIcon: document.getElementById("siteShortcutIcon"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
   controlsGrid: document.getElementById("controlsGrid"),
@@ -738,9 +740,37 @@ function hideStatus() {
   els.status.hidden = true;
 }
 
+function getVersionedFaviconUrl(rawUrl, updatedAt = "") {
+  const fallback = "/favicon.svg";
+  const value = String(rawUrl || "").trim();
+
+  if (!value) return fallback;
+
+  // v6.30의 기본 data URI 값이 KV에 저장돼 있으면 정적 SVG로 자동 교체합니다.
+  if (
+    value.startsWith("data:image/svg+xml") &&
+    value.includes("viewBox%3D%220%200%2064%2064%22")
+  ) {
+    return fallback;
+  }
+
+  if (value.startsWith("data:image/")) return value;
+
+  const version = updatedAt
+    ? encodeURIComponent(String(updatedAt))
+    : "";
+
+  if (!version) return value;
+
+  return `${value}${value.includes("?") ? "&" : "?"}v=${version}`;
+}
+
 function applySettings(settings = {}) {
   const siteName = String(settings.siteName || "RJS BOOK").trim() || "RJS BOOK";
-  const faviconUrl = String(settings.faviconUrl || "").trim();
+  const faviconUrl = getVersionedFaviconUrl(
+    settings.faviconUrl,
+    settings.updatedAt
+  );
 
   document.title = siteName;
 
@@ -748,8 +778,8 @@ function applySettings(settings = {}) {
     els.brandText.textContent = siteName;
   }
 
-  if (els.siteFavicon && faviconUrl) {
-    els.siteFavicon.setAttribute("href", faviconUrl);
+  for (const link of [els.siteFavicon, els.siteShortcutIcon]) {
+    if (link) link.setAttribute("href", faviconUrl);
   }
 
   if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
@@ -966,6 +996,22 @@ function renderCards(items) {
   `).join("");
 }
 
+
+function getListBookmarkIndicator(item) {
+  if (!state.user || !item) return "";
+
+  const bookmarked = Boolean(getUserLibraryEntry(item.id)?.bookmarked);
+  if (!bookmarked) return "";
+
+  return `
+    <span class="list-bookmark-indicator" title="북마크됨" aria-label="북마크됨">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7A1.75 1.75 0 0 1 17.25 4.75v15.1l-5.25-3.3-5.25 3.3V4.75Z"></path>
+      </svg>
+    </span>
+  `;
+}
+
 function renderList(items) {
   els.contentListBody.innerHTML = items.map((item) => `
     <tr tabindex="0" data-id="${escapeHtml(item.id)}">
@@ -973,8 +1019,11 @@ function renderList(items) {
       <td>${escapeHtml(item.lengthType)}</td>
       <td class="list-title">
         <span class="list-title-row">
-          <span>${escapeHtml(item.title)}</span>
-          ${getItemReadingBadge(item)}
+          <span class="list-title-main">
+            <span class="list-title-text">${escapeHtml(item.title)}</span>
+            ${getItemReadingBadge(item)}
+          </span>
+          ${getListBookmarkIndicator(item)}
         </span>
       </td>
       <td>${escapeHtml(item.author)}</td>
@@ -1610,12 +1659,14 @@ async function openReader(item) {
   const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
+  mainHeaderCompactActive = false;
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
 
   if (els.readerPanel) els.readerPanel.scrollTop = 0;
 
+  readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   if (els.readerResume) els.readerResume.hidden = true;
@@ -1712,6 +1763,7 @@ function closeReader() {
   state.activeReaderItem = null;
   resetLargeReaderState();
   els.readerOverlay.hidden = true;
+  readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   document.body.classList.remove("reader-open");
@@ -2207,14 +2259,32 @@ function setSearchValue(value, source = "main") {
   render();
 }
 
+let mainHeaderCompactActive = false;
+
 function updateCompactHeader() {
-  if (!els.siteHeader) return;
+  if (!els.siteHeader || !els.heroSearchBox) return;
 
-  const compact =
-    window.scrollY > 130 &&
-    !document.body.classList.contains("reader-open");
+  if (document.body.classList.contains("reader-open")) {
+    mainHeaderCompactActive = false;
+    els.siteHeader.classList.remove("compact-mode");
+    return;
+  }
 
-  els.siteHeader.classList.toggle("compact-mode", compact);
+  const searchRect = els.heroSearchBox.getBoundingClientRect();
+
+  // Activate only after the original hero search box has essentially left
+  // the viewport. Use a wide exit threshold so the sticky header's own
+  // height change cannot immediately flip the state back.
+  if (!mainHeaderCompactActive && searchRect.bottom <= 8) {
+    mainHeaderCompactActive = true;
+    els.siteHeader.classList.add("compact-mode");
+    return;
+  }
+
+  if (mainHeaderCompactActive && searchRect.bottom >= 80) {
+    mainHeaderCompactActive = false;
+    els.siteHeader.classList.remove("compact-mode");
+  }
 }
 
 els.searchInput.addEventListener("input", (event) => {
@@ -2347,6 +2417,22 @@ document.addEventListener("keydown", (event) => {
 
 
 let readerProgressSaveTimer = 0;
+let readerCompactActive = false;
+
+function syncReaderCompactMode(scrollTop) {
+  if (!els.readerPanel) return;
+
+  // Header height itself changes when compact mode switches.
+  // Separate enter/exit thresholds prevent the scroll position from bouncing
+  // around one threshold and causing visible flicker.
+  if (!readerCompactActive && scrollTop >= 130) {
+    readerCompactActive = true;
+    els.readerPanel.classList.add("reader-compact");
+  } else if (readerCompactActive && scrollTop <= 55) {
+    readerCompactActive = false;
+    els.readerPanel.classList.remove("reader-compact");
+  }
+}
 
 function updateReaderScrollUi() {
   if (!els.readerPanel) return;
@@ -2368,10 +2454,7 @@ function updateReaderScrollUi() {
     }
   }, 240);
 
-  els.readerPanel.classList.toggle(
-    "reader-compact",
-    scrollTop > 90
-  );
+  syncReaderCompactMode(scrollTop);
 
   els.readerScrollTop?.classList.toggle(
     "visible",
