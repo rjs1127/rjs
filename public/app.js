@@ -40,6 +40,12 @@ const els = {
   resultCount: document.getElementById("resultCount"),
   searchInput: document.getElementById("searchInput"),
   clearSearch: document.getElementById("clearSearch"),
+  siteHeader: document.getElementById("siteHeader"),
+  compactHeaderSearch: document.getElementById("compactHeaderSearch"),
+  compactSearchInput: document.getElementById("compactSearchInput"),
+  compactClearSearch: document.getElementById("compactClearSearch"),
+  brandText: document.getElementById("brandText"),
+  siteFavicon: document.getElementById("siteFavicon"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
   controlsGrid: document.getElementById("controlsGrid"),
@@ -733,6 +739,19 @@ function hideStatus() {
 }
 
 function applySettings(settings = {}) {
+  const siteName = String(settings.siteName || "RJS BOOK").trim() || "RJS BOOK";
+  const faviconUrl = String(settings.faviconUrl || "").trim();
+
+  document.title = siteName;
+
+  if (els.brandText) {
+    els.brandText.textContent = siteName;
+  }
+
+  if (els.siteFavicon && faviconUrl) {
+    els.siteFavicon.setAttribute("href", faviconUrl);
+  }
+
   if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
   if (settings.title) els.heroTitle.textContent = settings.title;
 
@@ -1591,6 +1610,7 @@ async function openReader(item) {
   const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
+  els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
 
@@ -1697,6 +1717,7 @@ function closeReader() {
   document.body.classList.remove("reader-open");
   els.readerBody.textContent = "";
   updatePageScrollTopButton();
+  updateCompactHeader();
 }
 
 
@@ -1728,7 +1749,9 @@ els.resetFiltersButton?.addEventListener("click", () => {
   state.readingOnly = false;
 
   els.searchInput.value = "";
+  if (els.compactSearchInput) els.compactSearchInput.value = "";
   els.clearSearch.classList.remove("visible");
+  els.compactClearSearch?.classList.remove("visible");
 
   els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.combination === "전체");
@@ -2167,18 +2190,49 @@ for (const modal of [
   });
 }
 
-els.searchInput.addEventListener("input", (event) => {
-  state.search = event.target.value;
-  els.clearSearch.classList.toggle("visible", Boolean(state.search));
+
+function setSearchValue(value, source = "main") {
+  state.search = String(value || "");
+
+  if (source !== "main" && els.searchInput) {
+    els.searchInput.value = state.search;
+  }
+
+  if (source !== "compact" && els.compactSearchInput) {
+    els.compactSearchInput.value = state.search;
+  }
+
+  els.clearSearch?.classList.toggle("visible", Boolean(state.search));
+  els.compactClearSearch?.classList.toggle("visible", Boolean(state.search));
   render();
+}
+
+function updateCompactHeader() {
+  if (!els.siteHeader) return;
+
+  const compact =
+    window.scrollY > 130 &&
+    !document.body.classList.contains("reader-open");
+
+  els.siteHeader.classList.toggle("compact-mode", compact);
+}
+
+els.searchInput.addEventListener("input", (event) => {
+  setSearchValue(event.target.value, "main");
+});
+
+els.compactSearchInput?.addEventListener("input", (event) => {
+  setSearchValue(event.target.value, "compact");
 });
 
 els.clearSearch.addEventListener("click", () => {
-  state.search = "";
-  els.searchInput.value = "";
-  els.clearSearch.classList.remove("visible");
+  setSearchValue("", "main");
   els.searchInput.focus();
-  render();
+});
+
+els.compactClearSearch?.addEventListener("click", () => {
+  setSearchValue("", "compact");
+  els.compactSearchInput?.focus();
 });
 
 els.combinationFilters.addEventListener("click", (event) => {
@@ -2350,7 +2404,10 @@ function updatePageScrollTopButton() {
   els.pageScrollTop.classList.toggle("visible", shouldShow);
 }
 
-window.addEventListener("scroll", updatePageScrollTopButton, {
+window.addEventListener("scroll", () => {
+  updatePageScrollTopButton();
+  updateCompactHeader();
+}, {
   passive: true,
 });
 
@@ -2363,6 +2420,7 @@ els.pageScrollTop?.addEventListener("click", () => {
 
 
 updatePageScrollTopButton();
+updateCompactHeader();
 syncViewButtons();
 syncQuickFilterButtons();
 updateAccountUi();

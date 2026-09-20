@@ -8,9 +8,10 @@ const OVERRIDES_KEY = "archive:overrides:v1";
 const SETTINGS_KEY = "archive:settings:v1";
 
 const DEFAULT_SETTINGS = {
+  siteName: "RJS BOOK",
+  faviconUrl: "data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%2064%2064%22%3E%0A%3Crect%20width=%2264%22%20height=%2264%22%20rx=%2218%22%20fill=%22#191816%22/%3E%0A%3Cpath%20d=%22M16.6%2023.2%2013.4%2013.6l10.2%205.4A23.4%2023.4%200%200%201%2032%2017.4c3%200%205.8.6%208.4%201.6l10.2-5.4-3.2%209.6a18.4%2018.4%200%200%201%204%2011.4C51.4%2045%2042.8%2052.6%2032%2052.6S12.6%2045%2012.6%2034.6c0-4.4%201.4-8.2%204-11.4Z%22%20fill=%22#fff%22/%3E%0A%3Ccircle%20cx=%2224.6%22%20cy=%2232.4%22%20r=%222.3%22%20fill=%22#191816%22/%3E%0A%3Ccircle%20cx=%2239.4%22%20cy=%2232.4%22%20r=%222.3%22%20fill=%22#191816%22/%3E%0A%3Cpath%20d=%22M28.4%2040c2.4%202%204.8%202%207.2%200%22%20fill=%22none%22%20stroke=%22#191816%22%20stroke-width=%223%22%20stroke-linecap=%22round%22/%3E%0A%3C/svg%3E",
   eyebrow: "GOOGLE DRIVE ARCHIVE",
-  title: "내 콘텐츠를\n한곳에서 찾아보세요.",
-  subtitle: "인물조합과 분량으로 분류하고, 제목이나 작성자로 빠르게 검색할 수 있습니다."
+  title: "내 콘텐츠를\n한곳에서 찾아보세요."
 };
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {
