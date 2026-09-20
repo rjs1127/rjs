@@ -1123,9 +1123,13 @@ function getItemContentType(item) {
 }
 
 function getItemStatusLabel(item) {
-  if (!item || item.source !== "postype") return "";
+  if (!item) return "";
   const value = String(item.status || "").trim();
-  return value === "연재" ? "연재중" : value;
+
+  if (value === "연재") return "연재중";
+  if (value === "완결") return "완결";
+
+  return item.source === "postype" ? "" : "완결";
 }
 
 function formatArchiveDate(value) {
@@ -1206,7 +1210,7 @@ function getFilteredItems() {
     const itemStatusLabel = getItemStatusLabel(item);
     const matchesStatus =
       state.statusFilter === "전체" ||
-      (item.source === "postype" && itemStatusLabel === state.statusFilter);
+      itemStatusLabel === state.statusFilter;
     const itemSource = item.source || "drive";
     const matchesSource =
       state.source === "전체" || itemSource === state.source;
@@ -1435,7 +1439,7 @@ function renderCards(items) {
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
           <span class="card-tag card-publish-tag">${escapeHtml(getItemContentType(item))}</span>
-          ${item.source === "postype" ? `<span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>` : ""}
+          <span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>
         </div>
         ${getItemReadingBadge(item)}
       </div>
@@ -2955,10 +2959,6 @@ els.statusFilters?.addEventListener("click", (event) => {
     chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
   });
 
-  if (state.statusFilter !== "전체") {
-    state.source = "postype";
-    syncSourceFilterChips();
-  }
   render();
 });
 

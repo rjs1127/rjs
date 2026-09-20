@@ -1226,3 +1226,76 @@ html.theme-dark .reader-close {
     line-height: 2.05 !important;
   }
 }
+
+
+/* =========================
+   v6.98 unified filters / desktop controls
+   ========================= */
+
+/* Search filters keep one stable background.
+   Selection is shown by border/text instead of a filled background. */
+html.theme-light #combinationFilters .chip,
+html.theme-light #contentTypeFilters .chip,
+html.theme-light #statusFilters .chip,
+html.theme-light #sourceFilters .chip,
+html.theme-dark #combinationFilters .chip,
+html.theme-dark #contentTypeFilters .chip,
+html.theme-dark #statusFilters .chip,
+html.theme-dark #sourceFilters .chip {
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+}
+
+html.theme-light #combinationFilters .chip.active,
+html.theme-light #contentTypeFilters .chip.active,
+html.theme-light #statusFilters .chip.active,
+html.theme-light #sourceFilters .chip.active,
+html.theme-dark #combinationFilters .chip.active,
+html.theme-dark #contentTypeFilters .chip.active,
+html.theme-dark #statusFilters .chip.active,
+html.theme-dark #sourceFilters .chip.active {
+  background: var(--theme-secondary-bg) !important;
+  color: var(--theme-text) !important;
+  border-color: var(--theme-text) !important;
+  box-shadow: inset 0 0 0 1px var(--theme-text);
+}
+
+@media (min-width: 981px) {
+  .controls-grid {
+    grid-template-columns:
+      minmax(220px, 1.45fr)
+      repeat(4, minmax(0, 1fr)) !important;
+    gap: 10px !important;
+  }
+
+  .control-card {
+    min-width: 0;
+    min-height: 104px !important;
+    padding: 15px 14px !important;
+  }
+
+  .filter-label {
+    margin-bottom: 10px !important;
+  }
+
+  .control-card .chips {
+    gap: 6px !important;
+  }
+
+  .control-card .chip {
+    padding-left: 9px;
+    padding-right: 9px;
+    white-space: nowrap;
+  }
+
+  .view-switch {
+    gap: 4px !important;
+    padding: 3px !important;
+    max-width: 100%;
+  }
+
+  .view-button {
+    padding: 9px 9px !important;
+    white-space: nowrap;
+  }
+}

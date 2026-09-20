@@ -9,6 +9,8 @@ import { requireAdminSession } from "../../_admin_session.js";
 
 const DRIVE_CONTENT_TYPE_OVERRIDES_KEY =
   "archive:drive-content-type-overrides:v1";
+const DRIVE_STATUS_OVERRIDES_KEY =
+  "archive:drive-status-overrides:v1";
 const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
 
 function normalize(value) {
@@ -21,11 +23,19 @@ function autoContentType(item) {
     : "단편";
 }
 
-function toAdminItem(item, overrides) {
-  const manual = ["단편", "연재물"].includes(overrides?.[item.id])
-    ? overrides[item.id]
-    : "";
+function toAdminItem(item, typeOverrides, statusOverrides) {
+  const manualType =
+    ["단편", "연재물"].includes(typeOverrides?.[item.id])
+      ? typeOverrides[item.id]
+      : "";
   const auto = autoContentType(item);
+  const contentType = manualType || auto;
+
+  const manualStatus =
+    contentType === "연재물" &&
+    ["연재", "완결"].includes(statusOverrides?.[item.id])
+      ? statusOverrides[item.id]
+      : "";
 
   return {
     id: item.id,
@@ -37,8 +47,10 @@ function toAdminItem(item, overrides) {
     size: Number(item.size || 0),
     modifiedTime: item.modifiedTime || null,
     autoContentType: auto,
-    overrideContentType: manual,
-    contentType: manual || auto,
+    overrideContentType: manualType,
+    contentType,
+    overrideStatus: manualStatus,
+    status: contentType === "단편" ? "완결" : (manualStatus || "완결"),
   };
 }
 
@@ -53,14 +65,13 @@ export async function onRequestGet(context) {
       await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
     }
 
-    const overrides = await getJson(
-      kv,
-      DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
-      {}
-    );
+    const [typeOverrides, statusOverrides] = await Promise.all([
+      getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
+      getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
+    ]);
 
     const items = (archive?.items || [])
-      .map((item) => toAdminItem(item, overrides))
+      .map((item) => toAdminItem(item, typeOverrides, statusOverrides))
       .sort((a, b) => {
         const cp = String(a.combination).localeCompare(
           String(b.combination),
@@ -82,7 +93,12 @@ export async function onRequestGet(context) {
         thresholdBytes: DRIVE_SHORT_MAX_BYTES,
         thresholdKb: 200,
         count: items.length,
-        overrideCount: items.filter((item) => item.overrideContentType).length,
+        overrideCount: items.filter(
+          (item) => item.overrideContentType || item.overrideStatus
+        ).length,
+        statusOverrideCount: items.filter(
+          (item) => item.overrideStatus
+        ).length,
         mismatchCount: items.filter((item) => {
           const folderExpected =
             item.folderType === "장편"
@@ -123,31 +139,45 @@ export async function onRequestPost(context) {
       );
     }
 
-    const validIds = new Set(
-      (archive.items || []).map((item) => String(item.id || ""))
+    const archiveItems = archive.items || [];
+    const itemById = new Map(
+      archiveItems.map((item) => [String(item.id || ""), item])
     );
+    const validIds = new Set(itemById.keys());
 
-    const current = await getJson(
-      kv,
-      DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
-      {}
-    );
+    const [currentTypes, currentStatuses] = await Promise.all([
+      getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
+      getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
+    ]);
 
-    const next = {};
-    for (const [id, value] of Object.entries(current || {})) {
+    const nextTypes = {};
+    for (const [id, value] of Object.entries(currentTypes || {})) {
       if (
         validIds.has(id) &&
         ["단편", "연재물"].includes(normalize(value))
       ) {
-        next[id] = normalize(value);
+        nextTypes[id] = normalize(value);
+      }
+    }
+
+    const nextStatuses = {};
+    for (const [id, value] of Object.entries(currentStatuses || {})) {
+      if (
+        validIds.has(id) &&
+        ["연재", "완결"].includes(normalize(value))
+      ) {
+        nextStatuses[id] = normalize(value);
       }
     }
 
     let changedCount = 0;
+    let typeChanged = false;
+    let statusChanged = false;
 
     for (const raw of updates) {
       const id = normalize(raw?.id);
-      const value = normalize(raw?.contentType);
+      const typeValue = normalize(raw?.contentType);
+      const statusValue = normalize(raw?.status);
 
       if (!id || !validIds.has(id)) {
         return jsonResponse(
@@ -156,31 +186,71 @@ export async function onRequestPost(context) {
         );
       }
 
-      if (!["", "auto", "단편", "연재물"].includes(value)) {
+      if (!["", "auto", "단편", "연재물"].includes(typeValue)) {
         return jsonResponse(
           { error: `${id}: 작품형태는 자동/단편/연재물만 사용할 수 있습니다.` },
           400
         );
       }
 
-      const before = next[id] || "";
-      const after =
-        value === "" || value === "auto"
+      if (!["", "auto", "연재", "완결"].includes(statusValue)) {
+        return jsonResponse(
+          { error: `${id}: 상태는 자동/연재중/완결만 사용할 수 있습니다.` },
+          400
+        );
+      }
+
+      const beforeType = nextTypes[id] || "";
+      const afterType =
+        typeValue === "" || typeValue === "auto"
           ? ""
-          : value;
+          : typeValue;
 
-      if (before === after) continue;
+      if (beforeType !== afterType) {
+        if (afterType) nextTypes[id] = afterType;
+        else delete nextTypes[id];
 
-      if (after) next[id] = after;
-      else delete next[id];
+        changedCount += 1;
+        typeChanged = true;
+      }
 
-      changedCount += 1;
+      const sourceItem = itemById.get(id);
+      const resolvedContentType =
+        afterType ||
+        autoContentType(sourceItem);
+
+      const beforeStatus = nextStatuses[id] || "";
+      let afterStatus = "";
+
+      if (resolvedContentType === "연재물") {
+        afterStatus =
+          statusValue === "연재"
+            ? "연재"
+            : statusValue === "완결"
+              ? "완결"
+              : "";
+      }
+
+      if (beforeStatus !== afterStatus) {
+        if (afterStatus) nextStatuses[id] = afterStatus;
+        else delete nextStatuses[id];
+
+        changedCount += 1;
+        statusChanged = true;
+      }
     }
 
-    if (changedCount) {
+    if (typeChanged) {
       await kv.put(
         DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
-        JSON.stringify(next)
+        JSON.stringify(nextTypes)
+      );
+    }
+
+    if (statusChanged) {
+      await kv.put(
+        DRIVE_STATUS_OVERRIDES_KEY,
+        JSON.stringify(nextStatuses)
       );
     }
 
@@ -188,8 +258,13 @@ export async function onRequestPost(context) {
       {
         ok: true,
         changedCount,
-        overrideCount: Object.keys(next).length,
-        kvWritten: changedCount > 0,
+        overrideCount:
+          new Set([
+            ...Object.keys(nextTypes),
+            ...Object.keys(nextStatuses),
+          ]).size,
+        statusOverrideCount: Object.keys(nextStatuses).length,
+        kvWritten: typeChanged || statusChanged,
       },
       200,
       { "cache-control": "no-store" }
@@ -197,7 +272,7 @@ export async function onRequestPost(context) {
   } catch (error) {
     console.error(error);
     return jsonResponse(
-      { error: error?.message || "Drive 작품형태 저장에 실패했습니다." },
+      { error: error?.message || "Drive 작품형태/상태 저장에 실패했습니다." },
       error?.status || 500,
       { "cache-control": "no-store" }
     );

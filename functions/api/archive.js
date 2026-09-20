@@ -11,6 +11,7 @@ import {
 
 const POSTYPE_INDEX_KEY = "postype:index:v1";
 const DRIVE_CONTENT_TYPE_OVERRIDES_KEY = "archive:drive-content-type-overrides:v1";
+const DRIVE_STATUS_OVERRIDES_KEY = "archive:drive-status-overrides:v1";
 const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
 
 function getDriveAutoContentType(item) {
@@ -30,11 +31,18 @@ export async function onRequestGet(context) {
       await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
     }
 
-    const [overrides, settings, postypeArchive, driveTypeOverrides] = await Promise.all([
+    const [
+      overrides,
+      settings,
+      postypeArchive,
+      driveTypeOverrides,
+      driveStatusOverrides,
+    ] = await Promise.all([
       getJson(kv, OVERRIDES_KEY, {}),
       readSettings(kv),
       getJson(kv, POSTYPE_INDEX_KEY, null),
       getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
+      getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
     ]);
 
     const driveArchive = applyOverrides(archive, overrides);
@@ -44,12 +52,21 @@ export async function onRequestGet(context) {
         ? driveTypeOverrides[item.id]
         : "";
 
+      const contentType = manualContentType || autoContentType;
+      const manualStatus =
+        contentType === "연재물" &&
+        ["연재", "완결"].includes(driveStatusOverrides?.[item.id])
+          ? driveStatusOverrides[item.id]
+          : "";
+
       return {
         ...item,
         source: item.source || "drive",
         autoContentType,
-        contentType: manualContentType || autoContentType,
+        contentType,
         contentTypeOverride: manualContentType,
+        status: contentType === "단편" ? "완결" : (manualStatus || "완결"),
+        statusOverride: manualStatus,
       };
     });
 
