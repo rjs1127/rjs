@@ -1085,3 +1085,52 @@ html.theme-dark .resume-shortcut-button:hover {
     line-height: 1;
   }
 }
+
+
+/* =========================
+   v6.83 reader close button + sort UI
+   ========================= */
+html.theme-light .reader-header-actions,
+html.theme-dark .reader-header-actions {
+  align-items: center;
+}
+
+html.theme-light .reader-download-button,
+html.theme-light .reader-bookmark-button,
+html.theme-light .reader-close,
+html.theme-dark .reader-download-button,
+html.theme-dark .reader-bookmark-button,
+html.theme-dark .reader-close {
+  min-width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+html.theme-light .reader-close,
+html.theme-dark .reader-close {
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 500;
+}
+
+@media (max-width: 640px) {
+  html.theme-light .reader-download-button,
+  html.theme-light .reader-bookmark-button,
+  html.theme-light .reader-close,
+  html.theme-dark .reader-download-button,
+  html.theme-dark .reader-bookmark-button,
+  html.theme-dark .reader-close {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  html.theme-light .reader-close,
+  html.theme-dark .reader-close {
+    font-size: 22px;
+  }
+}

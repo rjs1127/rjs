@@ -1053,6 +1053,49 @@ function getSearchTokens(query = "") {
   return [...new Set([compact, ...rawTokens].filter(Boolean))];
 }
 
+function normalizeSortValue(value) {
+  if (value === "latest") return "registered";
+  return ["title", "author", "registered", "published"].includes(value)
+    ? value
+    : "title";
+}
+
+function syncSourceFilterChips() {
+  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.source === state.source);
+  });
+}
+
+function applySourceForSort() {
+  if (state.sort === "registered") {
+    state.source = "drive";
+  } else if (state.sort === "published") {
+    state.source = "postype";
+  }
+  syncSourceFilterChips();
+}
+
+function getRegisteredTimestamp(item) {
+  return Date.parse(
+    item?.createdTime ||
+    item?.modifiedTime ||
+    item?.updatedAt ||
+    item?.createdAt ||
+    ""
+  ) || 0;
+}
+
+function getPublishedTimestamp(item) {
+  return Date.parse(
+    item?.latestPublishedDate ||
+    item?.publishedDate ||
+    item?.publishedAt ||
+    item?.updatedAt ||
+    item?.createdAt ||
+    ""
+  ) || 0;
+}
+
 function sortItems(items) {
   const collator = new Intl.Collator("ko", {
     sensitivity: "base",
@@ -1072,8 +1115,15 @@ function sortItems(items) {
       return collator.compare(a.title || "", b.title || "");
     }
 
-    const aTime = Date.parse(a.createdTime || a.modifiedTime || "") || 0;
-    const bTime = Date.parse(b.createdTime || b.modifiedTime || "") || 0;
+    if (state.sort === "published") {
+      const aTime = getPublishedTimestamp(a);
+      const bTime = getPublishedTimestamp(b);
+      if (bTime !== aTime) return bTime - aTime;
+      return collator.compare(a.title || "", b.title || "");
+    }
+
+    const aTime = getRegisteredTimestamp(a);
+    const bTime = getRegisteredTimestamp(b);
     if (bTime !== aTime) return bTime - aTime;
 
     return collator.compare(a.title || "", b.title || "");
@@ -2199,13 +2249,24 @@ function closeReader() {
 }
 
 
-if (!["latest", "title", "author"].includes(state.sort)) {
-  state.sort = "latest";
+state.sort = normalizeSortValue(state.sort);
+localStorage.setItem("archiveSort", state.sort);
+
+if (els.sortSelect) {
+  els.sortSelect.innerHTML = `
+    <option value="title">제목순</option>
+    <option value="author">작가순</option>
+    <option value="registered">최근등록일</option>
+    <option value="published">최근발행일</option>
+  `;
+  els.sortSelect.value = state.sort;
 }
-els.sortSelect.value = state.sort;
+
+applySourceForSort();
 
 els.sortSelect.addEventListener("change", (event) => {
-  state.sort = event.target.value;
+  state.sort = normalizeSortValue(event.target.value);
+  applySourceForSort();
   localStorage.setItem("archiveSort", state.sort);
   render();
 });
