@@ -990,3 +990,98 @@ html.theme-dark .resume-shortcut-button:hover {
     right: 5px;
   }
 }
+
+
+/* =========================
+   v6.82 mobile list / reader loading polish
+   ========================= */
+
+/*
+ * Mobile list rows:
+ * the reading percentage badge lives inside .list-title-main while the
+ * bookmark/download action is absolutely positioned at the right edge.
+ * Reserve enough real space for the right-side action so they never overlap.
+ */
+@media (max-width: 640px) {
+  .content-list td.list-title {
+    padding-right: 64px !important;
+  }
+
+  .content-list .list-title-main {
+    min-width: 0;
+  }
+
+  .content-list .reading-state-badge {
+    flex: 0 0 auto;
+    margin-right: 2px;
+  }
+
+  .content-list .list-title-actions {
+    right: 7px;
+    gap: 4px;
+    padding-left: 5px;
+  }
+}
+
+/*
+ * Reader loading:
+ * keep the progress UI close to the top of the content area on mobile.
+ * The old .reader-loading + .rich-loading combination inherited a large
+ * minimum height and margin, making the bar look stuck to the bottom.
+ */
+@media (max-width: 640px) {
+  .reader-body {
+    padding-top: 22px !important;
+  }
+
+  .reader-body > .reader-loading.rich-loading {
+    width: calc(100% - 28px);
+    min-height: 0 !important;
+    margin: 18px auto 30px !important;
+    padding: 18px 18px 16px;
+    display: block;
+    border-radius: 16px;
+  }
+
+  .reader-loading-overlay {
+    top: 62px;
+    min-height: 0 !important;
+    padding: 20px 0 28px !important;
+    place-items: start center !important;
+  }
+
+  .reader-loading-overlay .rich-loading {
+    width: calc(100% - 28px);
+    min-height: 0 !important;
+    margin: 0 auto !important;
+    padding: 18px 18px 16px;
+    display: block;
+    border-radius: 16px;
+  }
+
+  .reader-loading .loading-copy,
+  .reader-loading-overlay .loading-copy {
+    margin-bottom: 14px;
+  }
+
+  .reader-loading .loading-copy strong,
+  .reader-loading-overlay .loading-copy strong {
+    font-size: 13px;
+    line-height: 1.35;
+  }
+
+  .reader-loading .loading-copy span,
+  .reader-loading-overlay .loading-copy span {
+    font-size: 10px;
+  }
+
+  .reader-progress {
+    height: 6px;
+  }
+
+  .reader-progress-label {
+    margin-top: 6px;
+    font-size: 9px;
+    line-height: 1;
+  }
+}
