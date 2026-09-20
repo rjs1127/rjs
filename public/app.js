@@ -122,6 +122,9 @@ const els = {
   controlsGrid: document.getElementById("controlsGrid"),
   filterToggleButton: document.getElementById("filterToggleButton"),
   filterSummary: document.getElementById("filterSummary"),
+  mobileFilterBackdrop: document.getElementById("mobileFilterBackdrop"),
+  mobileFilterResetButton: document.getElementById("mobileFilterResetButton"),
+  mobileFilterCloseButton: document.getElementById("mobileFilterCloseButton"),
   sortSelect: document.getElementById("sortSelect"),
   bookmarkOnlyButton: document.getElementById("bookmarkOnlyButton"),
   readingOnlyButton: document.getElementById("readingOnlyButton"),
@@ -1324,6 +1327,63 @@ function sortItems(items) {
 
     return collator.compare(a.title || "", b.title || "");
   });
+}
+
+function setMobileFiltersOpen(open) {
+  const next = Boolean(
+    open &&
+    window.matchMedia("(max-width: 640px)").matches
+  );
+
+  state.mobileFiltersOpen = next;
+  els.controlsGrid?.classList.toggle("mobile-open", next);
+  els.filterToggleButton?.setAttribute(
+    "aria-expanded",
+    next ? "true" : "false"
+  );
+
+  if (els.mobileFilterBackdrop) {
+    els.mobileFilterBackdrop.hidden = !next;
+    els.mobileFilterBackdrop.classList.toggle("open", next);
+  }
+
+  document.body.classList.toggle("mobile-filter-sheet-open", next);
+}
+
+function resetFilterState({ includeSearch = false } = {}) {
+  if (includeSearch) {
+    state.search = "";
+    els.searchInput.value = "";
+    if (els.compactSearchInput) els.compactSearchInput.value = "";
+    els.clearSearch.classList.remove("visible");
+    els.compactClearSearch?.classList.remove("visible");
+  }
+
+  state.combination = "전체";
+  state.contentType = "전체";
+  state.statusFilter = "전체";
+  state.source = "전체";
+  state.bookmarkOnly = false;
+  state.readingOnly = false;
+
+  els.combinationFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.combination === "전체");
+  });
+
+  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.contentType === "전체");
+  });
+
+  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.statusFilter === "전체");
+  });
+
+  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.source === "전체");
+  });
+
+  syncQuickFilterButtons();
+  render();
 }
 
 function updateFilterSummary() {
@@ -2551,12 +2611,34 @@ els.sortSelect.addEventListener("change", (event) => {
 });
 
 els.filterToggleButton?.addEventListener("click", () => {
-  state.mobileFiltersOpen = !state.mobileFiltersOpen;
-  els.controlsGrid?.classList.toggle("mobile-open", state.mobileFiltersOpen);
-  els.filterToggleButton.setAttribute(
-    "aria-expanded",
-    state.mobileFiltersOpen ? "true" : "false"
-  );
+  setMobileFiltersOpen(!state.mobileFiltersOpen);
+});
+
+els.mobileFilterCloseButton?.addEventListener("click", () => {
+  setMobileFiltersOpen(false);
+});
+
+els.mobileFilterBackdrop?.addEventListener("click", () => {
+  setMobileFiltersOpen(false);
+});
+
+els.mobileFilterResetButton?.addEventListener("click", () => {
+  resetFilterState();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && state.mobileFiltersOpen) {
+    setMobileFiltersOpen(false);
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (
+    state.mobileFiltersOpen &&
+    !window.matchMedia("(max-width: 640px)").matches
+  ) {
+    setMobileFiltersOpen(false);
+  }
 });
 
 els.status?.addEventListener("click", (event) => {
@@ -2565,37 +2647,7 @@ els.status?.addEventListener("click", (event) => {
 });
 
 els.resetFiltersButton?.addEventListener("click", () => {
-  state.search = "";
-  state.combination = "전체";
-  state.contentType = "전체";
-  state.statusFilter = "전체";
-  state.source = "전체";
-  state.bookmarkOnly = false;
-  state.readingOnly = false;
-
-  els.searchInput.value = "";
-  if (els.compactSearchInput) els.compactSearchInput.value = "";
-  els.clearSearch.classList.remove("visible");
-  els.compactClearSearch?.classList.remove("visible");
-
-  els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.combination === "전체");
-  });
-
-  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.contentType === "전체");
-  });
-
-  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.statusFilter === "전체");
-  });
-
-  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.source === "전체");
-  });
-
-  syncQuickFilterButtons();
-  render();
+  resetFilterState({ includeSearch: true });
 });
 
 els.readerBody?.addEventListener("click", (event) => {

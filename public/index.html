@@ -9,7 +9,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=78" />
+  <link rel="stylesheet" href="/theme.css?v=79" />
 </head>
 <body>
   <div class="app-shell">
@@ -148,7 +148,17 @@
           </div>
         </div>
 
+        <div id="mobileFilterBackdrop" class="mobile-filter-backdrop" hidden></div>
+
         <div id="controlsGrid" class="controls-grid">
+          <div class="mobile-filter-sheet-head">
+            <strong>필터</strong>
+            <div class="mobile-filter-sheet-actions">
+              <button id="mobileFilterResetButton" class="mobile-filter-reset" type="button">초기화</button>
+              <button id="mobileFilterCloseButton" class="mobile-filter-close" type="button" aria-label="필터 닫기">×</button>
+            </div>
+          </div>
+
           <div class="control-card control-card-wide">
             <span class="filter-label">CP</span>
             <div id="combinationFilters" class="chips"></div>
@@ -540,6 +550,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=78" defer></script>
+  <script src="/app.js?v=79" defer></script>
 </body>
 </html>
