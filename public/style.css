@@ -3955,3 +3955,80 @@ html.theme-dark .reader-download-button:hover {
   border-color: #6a6259;
   color: #fffaf2;
 }
+
+
+/* v6.42 - TXT + POSTYPE unified archive */
+@media (min-width: 981px) {
+  .controls-grid {
+    grid-template-columns:
+      minmax(0, 2fr)
+      minmax(190px, 1fr)
+      minmax(190px, 1fr)
+      minmax(190px, 1fr);
+  }
+}
+
+.source-badge.postype,
+.list-source-badge.postype {
+  background: #efe8ff;
+  color: #64429a;
+}
+
+.source-badge.drive,
+.list-source-badge.drive {
+  background: #e8f0ff;
+  color: #315a9c;
+}
+
+.list-source-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  border-radius: 999px;
+  padding: 4px 7px;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .02em;
+}
+
+.list-title-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+}
+
+.card-source-meta,
+.list-source-meta {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.card-source-meta {
+  margin: 7px 34px 0 0;
+}
+
+.list-source-meta {
+  display: block;
+  margin-top: 5px;
+  font-weight: 600;
+}
+
+.content-card.postype-item .card-arrow,
+.content-list tr.postype-item .list-title-text {
+  color: inherit;
+}
+
+html.theme-dark .source-badge.postype,
+html.theme-dark .list-source-badge.postype {
+  background: #44345f;
+  color: #eadcff;
+}
+
+html.theme-dark .source-badge.drive,
+html.theme-dark .list-source-badge.drive {
+  background: #2d4568;
+  color: #dbe9ff;
+}

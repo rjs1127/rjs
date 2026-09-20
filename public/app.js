@@ -2,6 +2,7 @@ const state = {
   items: [],
   combination: "전체",
   length: "전체",
+  source: "전체",
   search: "",
   sort: localStorage.getItem("archiveSort") || "title",
   view: localStorage.getItem("archiveViewV2") || "list",
@@ -85,6 +86,7 @@ const els = {
   siteAppleTouchIcon: document.getElementById("siteAppleTouchIcon"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
+  sourceFilters: document.getElementById("sourceFilters"),
   controlsGrid: document.getElementById("controlsGrid"),
   filterToggleButton: document.getElementById("filterToggleButton"),
   filterSummary: document.getElementById("filterSummary"),
@@ -1070,6 +1072,9 @@ function updateFilterSummary() {
   const parts = [];
   if (state.combination !== "전체") parts.push(state.combination);
   if (state.length !== "전체") parts.push(state.length);
+  if (state.source !== "전체") {
+    parts.push(state.source === "postype" ? "POSTYPE" : "TXT");
+  }
   if (state.bookmarkOnly) parts.push("북마크");
   if (state.readingOnly) parts.push("읽는 중");
   if (state.view === "card") parts.push("카드형");
@@ -1085,9 +1090,14 @@ function getFilteredItems() {
       state.combination === "전체" || item.combination === state.combination;
     const matchesLength =
       state.length === "전체" || item.lengthType === state.length;
+    const itemSource = item.source || "drive";
+    const matchesSource =
+      state.source === "전체" || itemSource === state.source;
 
     const haystack = normalizeSearchText(
-      `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
+      `${item.title || ""} ${item.author || ""} ${item.fileName || ""} ` +
+      `${item.combination || ""} ${item.subCp1 || ""} ${item.subCp2 || ""} ` +
+      `${item.genre || ""} ${item.status || ""}`
     );
 
     const matchesSearch =
@@ -1112,6 +1122,7 @@ function getFilteredItems() {
     return (
       matchesCombination &&
       matchesLength &&
+      matchesSource &&
       matchesSearch &&
       matchesBookmark &&
       matchesReading
@@ -1151,7 +1162,7 @@ function render() {
 
 
 function getItemReadingBadge(item) {
-  if (!state.user || !item) return "";
+  if (!state.user || !item || item.source === "postype") return "";
 
   const entry = getUserLibraryEntry(item.id);
   if (!entry) return "";
@@ -1170,7 +1181,7 @@ function getItemReadingBadge(item) {
 
 
 function getDownloadUrl(item) {
-  if (!item?.id) return "";
+  if (!item?.id || item.source === "postype") return "";
 
   return `https://drive.google.com/uc?export=download&id=${encodeURIComponent(item.id)}`;
 }
@@ -1196,13 +1207,38 @@ function getDownloadButtonHtml(item, className = "item-download-button") {
   `;
 }
 
+function getSourceLabel(item) {
+  return item?.source === "postype" ? "POSTYPE" : "TXT";
+}
+
+function getSourceBadgeHtml(item, className = "source-badge") {
+  const source = item?.source === "postype" ? "postype" : "drive";
+  return `<span class="${className} ${source}">${getSourceLabel(item)}</span>`;
+}
+
+function getPostypeMetaHtml(item) {
+  if (item?.source !== "postype") return "";
+
+  const parts = [
+    item.genre,
+    item.status,
+    item.subCp1 ? `서브 ${item.subCp1}` : "",
+    item.subCp2 ? `서브 ${item.subCp2}` : "",
+  ].filter(Boolean);
+
+  if (!parts.length) return "";
+  return `<p class="card-source-meta">${escapeHtml(parts.join(" · "))}</p>`;
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
-    <article class="content-card" tabindex="0" role="button"
+    <article class="content-card ${item.source === "postype" ? "postype-item" : "drive-item"}"
+      tabindex="0" role="button"
       data-id="${escapeHtml(item.id)}"
-      aria-label="${escapeHtml(item.title)} 본문 열기">
+      aria-label="${escapeHtml(item.title)} ${item.source === "postype" ? "포스타입에서 열기" : "본문 열기"}">
       <div class="card-topline">
         <div class="card-tags">
+          ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag">${escapeHtml(item.combination)}</span>
           <span class="card-tag">${escapeHtml(item.lengthType)}</span>
         </div>
@@ -1210,6 +1246,7 @@ function renderCards(items) {
       </div>
       <h3 class="card-title">${escapeHtml(item.title)}</h3>
       <p class="card-author">${escapeHtml(item.author)}</p>
+      ${getPostypeMetaHtml(item)}
       <div class="card-actions">
         ${getDownloadButtonHtml(item, "item-download-button card-download-button")}
         <span class="card-arrow" aria-hidden="true">↗</span>
@@ -1218,9 +1255,8 @@ function renderCards(items) {
   `).join("");
 }
 
-
 function getListBookmarkIndicator(item) {
-  if (!state.user || !item) return "";
+  if (!state.user || !item || item.source === "postype") return "";
 
   const bookmarked = Boolean(getUserLibraryEntry(item.id)?.bookmarked);
   if (!bookmarked) return "";
@@ -1236,13 +1272,17 @@ function getListBookmarkIndicator(item) {
 
 function renderList(items) {
   els.contentListBody.innerHTML = items.map((item) => `
-    <tr tabindex="0" data-id="${escapeHtml(item.id)}">
+    <tr tabindex="0" data-id="${escapeHtml(item.id)}"
+      class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
       <td>${escapeHtml(item.lengthType)}</td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
-            <span class="list-title-text">${escapeHtml(item.title)}</span>
+            <span class="list-title-heading">
+              ${getSourceBadgeHtml(item, "list-source-badge")}
+              <span class="list-title-text">${escapeHtml(item.title)}</span>
+            </span>
             ${getItemReadingBadge(item)}
           </span>
           <span class="list-title-actions">
@@ -1250,6 +1290,15 @@ function renderList(items) {
             ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
           </span>
         </span>
+        ${
+          item.source === "postype"
+            ? `<span class="list-source-meta">${escapeHtml(
+                [item.genre, item.status, item.subCp1, item.subCp2]
+                  .filter(Boolean)
+                  .join(" · ")
+              )}</span>`
+            : ""
+        }
       </td>
       <td>${escapeHtml(item.author)}</td>
     </tr>
@@ -2038,6 +2087,7 @@ els.resetFiltersButton?.addEventListener("click", () => {
   state.search = "";
   state.combination = "전체";
   state.length = "전체";
+  state.source = "전체";
   state.bookmarkOnly = false;
   state.readingOnly = false;
 
@@ -2052,6 +2102,10 @@ els.resetFiltersButton?.addEventListener("click", () => {
 
   els.lengthFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.length === "전체");
+  });
+
+  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.source === "전체");
   });
 
   syncQuickFilterButtons();
@@ -2627,10 +2681,33 @@ els.lengthFilters.addEventListener("click", (event) => {
   render();
 });
 
+els.sourceFilters?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-source]");
+  if (!button) return;
+
+  state.source = button.dataset.source;
+  els.sourceFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.source === state.source);
+  });
+  render();
+});
+
 function findItemFromEvent(event) {
   const target = event.target.closest("[data-id]");
   if (!target) return null;
   return state.items.find((entry) => entry.id === target.dataset.id);
+}
+
+function openContentItem(item) {
+  if (!item) return;
+
+  if (item.source === "postype") {
+    if (!item.url) return;
+    window.open(item.url, "_blank", "noopener,noreferrer");
+    return;
+  }
+
+  openReader(item);
 }
 
 function handleContentOpenClick(event) {
@@ -2639,7 +2716,7 @@ function handleContentOpenClick(event) {
     return;
   }
 
-  openReader(findItemFromEvent(event));
+  openContentItem(findItemFromEvent(event));
 }
 
 els.contentGrid.addEventListener("click", handleContentOpenClick);
@@ -2652,7 +2729,7 @@ for (const container of [els.contentGrid, els.contentListBody]) {
     const item = findItemFromEvent(event);
     if (!item) return;
     event.preventDefault();
-    openReader(item);
+    openContentItem(item);
   });
 }
 

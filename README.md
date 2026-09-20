@@ -2,6 +2,33 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.42
+
+### 메인 목록에 TXT + POSTYPE 통합
+- `/api/archive`가 기존 Drive TXT KV와 `postype:index:v1`을 합쳐 한 번에 반환
+- 기존 Drive 항목에는 `source: "drive"`를 자동 부여
+- POSTYPE 항목은 `source: "postype"`로 유지
+- 두 출처의 `combination` 값을 합쳐 인물조합 필터 생성
+- 전체 콘텐츠 수 역시 TXT + POSTYPE 합산으로 표시
+
+### 메인 필터
+- 출처 필터 추가: `전체 / TXT / POSTYPE`
+- 분량 필터를 `분량/형태`로 변경
+- `단편 / 장편 / 시리즈` 지원
+- POSTYPE의 제목·작가뿐 아니라 조합, subCp, 장르, 연재상태도 검색 대상에 포함
+
+### 항목 동작 분리
+- TXT 클릭: 기존 리더를 그대로 열며 기존 이어보기/읽음/다운로드 구조 유지
+- POSTYPE 클릭: 시트에 입력된 `url`을 새 탭으로 직접 열기
+- POSTYPE에는 TXT 다운로드 버튼을 표시하지 않음
+- POSTYPE에는 TXT 리더 진행률/읽음 배지를 적용하지 않음
+- 이번 버전에서는 POSTYPE 북마크를 연결하지 않음
+
+### 표시
+- 카드와 리스트에 `TXT / POSTYPE` 출처 배지 표시
+- POSTYPE 항목에는 장르·상태·서브 CP 정보를 보조 정보로 표시
+- 다크모드용 출처 배지 색상 포함
+
 ## v6.41
 
 ### POSTYPE 시트 → KV 동기화
