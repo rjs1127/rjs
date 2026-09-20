@@ -125,6 +125,44 @@ function findJsonLdValue(nodes, keys) {
   return "";
 }
 
+
+function normalizePublishedDate(value) {
+  const text = normalize(value);
+  if (!text) return "";
+
+  const direct = text.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (direct) return `${direct[1]}-${direct[2]}-${direct[3]}`;
+
+  const timestamp = Date.parse(text);
+  if (!Number.isFinite(timestamp)) return "";
+
+  const date = new Date(timestamp);
+  return [
+    date.getUTCFullYear(),
+    String(date.getUTCMonth() + 1).padStart(2, "0"),
+    String(date.getUTCDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+function findEmbeddedPublishedDate(html) {
+  const patterns = [
+    /"datePublished"\s*:\s*"([^"]+)"/i,
+    /"publishedAt"\s*:\s*"([^"]+)"/i,
+    /"published_at"\s*:\s*"([^"]+)"/i,
+    /"publishedDate"\s*:\s*"([^"]+)"/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) {
+      const value = normalizePublishedDate(match[1]);
+      if (value) return value;
+    }
+  }
+
+  return "";
+}
+
 function findEmbeddedAuthor(html) {
   const patterns = [
     /"author"\s*:\s*\{[^{}]{0,500}?"name"\s*:\s*"([^"]+)"/i,
@@ -161,9 +199,17 @@ function extractMetadata(html) {
     findJsonLdValue(jsonLd, ["author", "creator"]) ||
     findEmbeddedAuthor(html);
 
+  const publishedDate = normalizePublishedDate(
+    getMetaContent(html, "article:published_time") ||
+      getMetaContent(html, "date", "name") ||
+      findJsonLdValue(jsonLd, ["datePublished"]) ||
+      findEmbeddedPublishedDate(html)
+  );
+
   return {
     title: normalize(title),
     author: normalize(author),
+    publishedDate,
   };
 }
 
@@ -234,7 +280,12 @@ export async function onRequestPost(context) {
         url: response.url,
         title: metadata.title,
         author: metadata.author,
-        found: Boolean(metadata.title || metadata.author),
+        publishedDate: metadata.publishedDate,
+        found: Boolean(
+          metadata.title ||
+          metadata.author ||
+          metadata.publishedDate
+        ),
       },
       200,
       { "cache-control": "no-store" }

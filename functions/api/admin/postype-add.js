@@ -22,6 +22,7 @@ const REQUIRED_HEADERS = [
   "author",
   "status",
   "lengthType",
+  "publishedDate",
   "url",
   "enabled",
 ];
@@ -54,6 +55,76 @@ function isValidUrl(value) {
   } catch {
     return false;
   }
+}
+
+
+function columnLetter(index) {
+  let value = Number(index) + 1;
+  let result = "";
+
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    result = String.fromCharCode(65 + remainder) + result;
+    value = Math.floor((value - 1) / 26);
+  }
+
+  return result;
+}
+
+async function ensurePublishedDateHeader(accessToken, values) {
+  const headers = (values[0] || []).map(normalize);
+  const existingIndex = headers.findIndex(
+    (header) => header.toLowerCase() === "publisheddate"
+  );
+
+  if (existingIndex >= 0) {
+    return {
+      headers,
+      publishedDateColumn: existingIndex,
+      added: false,
+    };
+  }
+
+  const columnIndex = headers.length;
+  const cellRange =
+    `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+    `${columnLetter(columnIndex)}1`;
+
+  const updateUrl =
+    `https://sheets.googleapis.com/v4/spreadsheets/` +
+    `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
+    `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
+
+  const response = await fetch(updateUrl, {
+    method: "PUT",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      majorDimension: "ROWS",
+      values: [["publishedDate"]],
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error?.message ||
+      `publishedDate 컬럼 생성 오류 (${response.status})`
+    );
+  }
+
+  headers.push("publishedDate");
+  if (!values[0]) values[0] = [];
+  values[0][columnIndex] = "publishedDate";
+
+  return {
+    headers,
+    publishedDateColumn: columnIndex,
+    added: true,
+  };
 }
 
 async function getAllowedCombinations(kv) {
@@ -149,6 +220,7 @@ function buildArchive(values, headers) {
       author: cell(row, headerIndex, "author"),
       status,
       lengthType,
+      publishedDate: cell(row, headerIndex, "publishedDate"),
       url,
 
       fileName: null,
@@ -208,6 +280,7 @@ export async function onRequestPost(context) {
     const author = normalize(body?.author);
     const status = normalize(body?.status);
     const lengthType = normalize(body?.lengthType);
+    const publishedDate = normalize(body?.publishedDate);
     const itemUrl = normalize(body?.url);
 
     const allowedCombinations = await getAllowedCombinations(kv);
@@ -248,7 +321,8 @@ export async function onRequestPost(context) {
 
     const accessToken = await getSheetsAccessToken(context.env);
     const values = await readSheet(accessToken);
-    const headers = (values[0] || []).map(normalize);
+    const headerInfo = await ensurePublishedDateHeader(accessToken, values);
+    const headers = headerInfo.headers;
     const headerIndex = buildHeaderIndex(headers);
 
     const missingHeaders = REQUIRED_HEADERS.filter(
@@ -285,6 +359,7 @@ export async function onRequestPost(context) {
       author,
       status,
       lengthType,
+      publishedDate,
       url: itemUrl,
       enabled: "Y",
     };
