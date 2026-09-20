@@ -2,7 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const MAX_HTML_BYTES = 2_000_000;
-const MAX_SERIES_POST_CHECKS = 24;
+const MAX_SERIES_POST_CHECKS = 36;
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -328,6 +328,241 @@ function mergeUniqueUrls(...groups) {
   return result;
 }
 
+
+function readJsonScripts(html) {
+  const results = [];
+
+  const scriptPattern =
+    /<script[^>]*type\s*=\s*["'](?:application\/json|application\/ld\+json)["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+  let match;
+  while ((match = scriptPattern.exec(html))) {
+    const raw = match[1]?.trim();
+    if (!raw) continue;
+    try {
+      results.push(JSON.parse(raw));
+    } catch {}
+  }
+
+  const nextDataMatch = html.match(
+    /<script[^>]*id\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i
+  );
+
+  if (nextDataMatch?.[1]) {
+    try {
+      results.push(JSON.parse(nextDataMatch[1]));
+    } catch {}
+  }
+
+  return results;
+}
+
+function valueMatchesSeriesId(value, seriesId) {
+  if (value === null || value === undefined) return false;
+
+  if (Array.isArray(value)) {
+    return value.some((item) =>
+      valueMatchesSeriesId(item, seriesId)
+    );
+  }
+
+  if (typeof value === "object") {
+    const idCandidates = [
+      value.id,
+      value.seriesId,
+      value.series_id,
+    ];
+
+    if (
+      idCandidates.some(
+        (candidate) => String(candidate ?? "") === String(seriesId)
+      )
+    ) {
+      return true;
+    }
+
+    return false;
+  }
+
+  return String(value) === String(seriesId);
+}
+
+function objectHasTargetSeries(node, seriesId) {
+  if (!node || typeof node !== "object") return false;
+
+  const directKeys = [
+    "seriesId",
+    "series_id",
+    "seriesIds",
+    "series_ids",
+  ];
+
+  for (const key of directKeys) {
+    if (
+      Object.prototype.hasOwnProperty.call(node, key) &&
+      valueMatchesSeriesId(node[key], seriesId)
+    ) {
+      return true;
+    }
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(node, "series") &&
+    valueMatchesSeriesId(node.series, seriesId)
+  ) {
+    return true;
+  }
+
+  if (
+    Object.prototype.hasOwnProperty.call(node, "seriesInfo") &&
+    valueMatchesSeriesId(node.seriesInfo, seriesId)
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+function extractPostIdentity(node, baseUrl) {
+  if (!node || typeof node !== "object") {
+    return { url: "", id: "", title: "" };
+  }
+
+  const rawUrl =
+    normalize(node.url) ||
+    normalize(node.href) ||
+    normalize(node.link) ||
+    normalize(node.permalink) ||
+    normalize(node.canonicalUrl);
+
+  let url = "";
+  if (rawUrl) {
+    try {
+      url = new URL(rawUrl, baseUrl).toString();
+    } catch {}
+  }
+
+  const id =
+    normalize(node.postId) ||
+    normalize(node.post_id) ||
+    normalize(node.contentId) ||
+    normalize(node.content_id) ||
+    (
+      /\/post\/(\d+)/i.test(url)
+        ? (url.match(/\/post\/(\d+)/i)?.[1] || "")
+        : ""
+    );
+
+  const title =
+    normalize(node.title) ||
+    normalize(node.headline) ||
+    normalize(node.name);
+
+  return { url, id, title };
+}
+
+function extractNodeDate(node) {
+  if (!node || typeof node !== "object") return "";
+
+  const keys = [
+    "datePublished",
+    "publishedAt",
+    "published_at",
+    "publishedDate",
+    "published_date",
+    "createdAt",
+    "created_at",
+    "uploadDate",
+  ];
+
+  for (const key of keys) {
+    const date = normalizeDate(node[key]);
+    if (date) return date;
+  }
+
+  return "";
+}
+
+function collectStructuredSeriesDates(html, seriesUrl, seriesId) {
+  const roots = readJsonScripts(html);
+  const results = [];
+  const seen = new Set();
+
+  function walk(node, inheritedSeriesMatch = false, depth = 0) {
+    if (!node || depth > 40) return;
+
+    if (Array.isArray(node)) {
+      for (const item of node) {
+        walk(item, inheritedSeriesMatch, depth + 1);
+      }
+      return;
+    }
+
+    if (typeof node !== "object") return;
+
+    const localSeriesMatch =
+      inheritedSeriesMatch ||
+      objectHasTargetSeries(node, seriesId);
+
+    const identity = extractPostIdentity(node, seriesUrl);
+    const date = extractNodeDate(node);
+
+    const postLike =
+      Boolean(identity.id) ||
+      /\/post\/\d+/i.test(identity.url) ||
+      Boolean(
+        identity.title &&
+        date &&
+        (
+          Object.prototype.hasOwnProperty.call(node, "postId") ||
+          Object.prototype.hasOwnProperty.call(node, "post_id") ||
+          Object.prototype.hasOwnProperty.call(node, "datePublished") ||
+          Object.prototype.hasOwnProperty.call(node, "publishedAt") ||
+          Object.prototype.hasOwnProperty.call(node, "published_at")
+        )
+      );
+
+    if (localSeriesMatch && postLike && date) {
+      const key =
+        `${identity.id}|${identity.url}|${identity.title}|${date}`;
+
+      if (!seen.has(key)) {
+        seen.add(key);
+        results.push({
+          date,
+          url: identity.url,
+          id: identity.id,
+          title: identity.title,
+          source: "structured-series-data",
+        });
+      }
+    }
+
+    for (const [key, value] of Object.entries(node)) {
+      if (value && typeof value === "object") {
+        // series 자체의 정보가 아닌 추천/관련 콘텐츠 영역으로 내려갈 때
+        // inherited match가 무조건 퍼지는 것을 줄이기 위해 명백한 추천 키는 끊는다.
+        const breakInheritance =
+          /recommend|related|similar|suggest|popular|advert/i.test(key);
+
+        walk(
+          value,
+          breakInheritance ? false : localSeriesMatch,
+          depth + 1
+        );
+      }
+    }
+  }
+
+  for (const root of roots) {
+    walk(root, false, 0);
+  }
+
+  return results.sort((a, b) =>
+    a.date.localeCompare(b.date)
+  );
+}
+
 async function fetchHtml(url) {
   const response = await fetch(url, {
     method: "GET",
@@ -388,15 +623,40 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       discoveredPostCount: 0,
       seriesPageCandidateCount: 0,
       channelPageCandidateCount: 0,
-      strategy: "series-plus-channel-membership-verified",
+      structuredCandidateCount: 0,
+      strategy: "series-structured-plus-fallback",
     };
   }
 
+  // 1순위: 시리즈 페이지의 JSON/Next 데이터 안에서
+  // 현재 seriesId와 직접 연결된 포스트의 발행일을 찾는다.
+  const structuredDates =
+    collectStructuredSeriesDates(
+      seriesHtml,
+      seriesUrl,
+      info.seriesId
+    );
+
+  if (structuredDates.length) {
+    const latest = structuredDates.at(-1);
+
+    return {
+      latestPublishedDate: latest.date,
+      latestPostUrl: latest.url || "",
+      checkedPostCount: 0,
+      matchedSeriesPostCount: structuredDates.length,
+      discoveredPostCount: structuredDates.length,
+      seriesPageCandidateCount: 0,
+      channelPageCandidateCount: 0,
+      structuredCandidateCount: structuredDates.length,
+      strategy: "series-structured-data",
+    };
+  }
+
+  // 구조화 데이터에서 못 찾는 작품만 기존 직접 확인 방식으로 fallback.
   const seriesPageUrls =
     extractCandidatePostUrls(seriesHtml, seriesUrl);
 
-  // POSTYPE 시리즈 페이지의 서버 HTML이 최신 회차를 포함하지 않는 경우가 있어
-  // 같은 채널의 활동 페이지도 함께 읽고 최신 포스트 후보를 보강한다.
   const channelUrl = getChannelUrl(seriesUrl);
   const channelPage = channelUrl
     ? await fetchHtml(channelUrl)
@@ -407,8 +667,6 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       ? extractCandidatePostUrls(channelPage.html, seriesUrl)
       : [];
 
-  // 채널 페이지는 보통 최근 포스트 순으로 노출되므로 채널 후보를 먼저 둔다.
-  // 실제 시리즈 소속 여부는 각 포스트를 직접 열어 seriesId로 다시 검증한다.
   const postUrls = mergeUniqueUrls(
     channelPageUrls,
     seriesPageUrls
@@ -457,7 +715,8 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
     discoveredPostCount: postUrls.length,
     seriesPageCandidateCount: seriesPageUrls.length,
     channelPageCandidateCount: channelPageUrls.length,
-    strategy: "series-plus-channel-membership-verified",
+    structuredCandidateCount: 0,
+    strategy: "series-membership-fallback",
   };
 }
 
@@ -534,6 +793,7 @@ export async function onRequestPost(context) {
     let discoveredPostCount = 0;
     let seriesPageCandidateCount = 0;
     let channelPageCandidateCount = 0;
+    let structuredCandidateCount = 0;
     let strategy = "single-post-meta";
 
     if (seriesMode) {
@@ -549,6 +809,7 @@ export async function onRequestPost(context) {
       discoveredPostCount = resolved.discoveredPostCount;
       seriesPageCandidateCount = resolved.seriesPageCandidateCount || 0;
       channelPageCandidateCount = resolved.channelPageCandidateCount || 0;
+      structuredCandidateCount = resolved.structuredCandidateCount || 0;
       strategy = resolved.strategy;
     } else {
       latestPublishedDate =
@@ -568,6 +829,7 @@ export async function onRequestPost(context) {
         discoveredPostCount,
         seriesPageCandidateCount,
         channelPageCandidateCount,
+        structuredCandidateCount,
         strategy,
         mode: seriesMode ? "series" : "post",
         found: Boolean(
