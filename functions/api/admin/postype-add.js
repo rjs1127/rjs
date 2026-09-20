@@ -1,4 +1,5 @@
 import {
+  ARCHIVE_CACHE_KEY,
   jsonResponse,
   requireKv,
   getJson,
@@ -53,6 +54,18 @@ function isValidUrl(value) {
   } catch {
     return false;
   }
+}
+
+async function getAllowedCombinations(kv) {
+  const archive = await getJson(kv, ARCHIVE_CACHE_KEY, null);
+  const values = new Set();
+
+  for (const item of archive?.items || []) {
+    const combination = normalize(item?.combination);
+    if (combination) values.add(combination);
+  }
+
+  return [...values];
 }
 
 function getHighestSheetId(values, idColumn) {
@@ -197,16 +210,13 @@ export async function onRequestPost(context) {
     const lengthType = normalize(body?.lengthType);
     const itemUrl = normalize(body?.url);
 
-    if (!["AB", "CB", "ABC"].includes(combination)) {
-      return jsonResponse({ error: "CP 값이 올바르지 않습니다." }, 400);
-    }
+    const allowedCombinations = await getAllowedCombinations(kv);
 
-    if (subCp1 && !["AB", "CB", "ABC"].includes(subCp1)) {
-      return jsonResponse({ error: "서브 CP 1 값이 올바르지 않습니다." }, 400);
-    }
-
-    if (subCp2 && !["AB", "CB", "ABC"].includes(subCp2)) {
-      return jsonResponse({ error: "서브 CP 2 값이 올바르지 않습니다." }, 400);
+    if (!combination || !allowedCombinations.includes(combination)) {
+      return jsonResponse(
+        { error: "CP는 현재 Google Drive에 등록된 CP 폴더 값 중에서 선택해 주세요." },
+        400
+      );
     }
 
     if (!title) {
