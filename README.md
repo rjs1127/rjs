@@ -1,3 +1,15 @@
+## v6.88
+
+### Cloudflare Pages Functions 빌드 오류 수정
+- v6.87 `functions/admin.js`의 거대한 `ADMIN_HTML` 문자열 안에 실제 줄바꿈 2개가 섞여 Cloudflare esbuild가 `Unterminated string literal`로 실패하던 문제 수정
+- 문제 위치: `populatePostypeCpOptions()`의 마지막 CP 선택값 복원 구간
+- 실제 줄바꿈을 `\n` 이스케이프 문자열로 복원하여 인라인 관리자 HTML 형식에 맞춤
+- v6.87에 포함한 v6.84 통합 기능(분량/게시형태/연결방식/수동묶음) 및 v6.85~v6.86 기능은 그대로 유지
+
+### 관리자 버전
+- `현재 버전 v6.88`
+
+
 ## v6.87
 
 ### v6.84 전체 기능 누락 보정 · 통합 재배포
