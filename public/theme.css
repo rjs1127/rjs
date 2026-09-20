@@ -1,0 +1,377 @@
+/*
+ * RJS BOOK theme layer
+ * v6.51
+ *
+ * style.css  : layout / sizing / component structure
+ * theme.css  : light/dark colors and state contrast
+ *
+ * This file is intentionally loaded AFTER style.css.
+ */
+
+/* =========================
+   Shared theme tokens
+   ========================= */
+html.theme-light {
+  color-scheme: light;
+
+  --theme-page: #f6f3ee;
+  --theme-surface: #fffdf9;
+  --theme-surface-strong: #ffffff;
+  --theme-surface-soft: #f8f4ed;
+  --theme-text: #191816;
+  --theme-muted: #77716a;
+  --theme-line: #ddd7ce;
+  --theme-line-soft: #ebe6df;
+  --theme-hover: #f3eee7;
+
+  --theme-primary-bg: #191816;
+  --theme-primary-text: #ffffff;
+  --theme-secondary-bg: #ffffff;
+  --theme-secondary-text: #191816;
+
+  --theme-overlay: rgba(20, 18, 16, .55);
+  --theme-shadow: rgba(37, 33, 28, .08);
+}
+
+html.theme-dark {
+  color-scheme: dark;
+
+  --theme-page: #171614;
+  --theme-surface: #211f1c;
+  --theme-surface-strong: #2a2724;
+  --theme-surface-soft: #27231f;
+  --theme-text: #f2ede6;
+  --theme-muted: #aaa39a;
+  --theme-line: #4d4841;
+  --theme-line-soft: #39352f;
+  --theme-hover: #38342f;
+
+  --theme-primary-bg: #eee8df;
+  --theme-primary-text: #171614;
+  --theme-secondary-bg: #2a2724;
+  --theme-secondary-text: #f2ede6;
+
+  --theme-overlay: rgba(4, 4, 4, .72);
+  --theme-shadow: rgba(0, 0, 0, .28);
+}
+
+/* =========================
+   Page / header / search
+   ========================= */
+html.theme-light body,
+html.theme-dark body {
+  color: var(--theme-text);
+}
+
+html.theme-light body {
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.9), transparent 34%),
+    var(--theme-page);
+}
+
+html.theme-dark body {
+  background:
+    radial-gradient(circle at top right, rgba(255,255,255,.025), transparent 34%),
+    var(--theme-page);
+}
+
+html.theme-light .site-header.compact-mode::before,
+html.theme-dark .site-header.compact-mode::before {
+  border-bottom-color: var(--theme-line);
+}
+
+html.theme-light .site-header.compact-mode::before {
+  background: rgba(246,243,238,.94);
+}
+
+html.theme-dark .site-header.compact-mode::before {
+  background: rgba(23,22,20,.94);
+}
+
+html.theme-light .search-box,
+html.theme-light .compact-header-search,
+html.theme-dark .search-box,
+html.theme-dark .compact-header-search {
+  background: var(--theme-surface-strong);
+  border-color: var(--theme-line);
+  color: var(--theme-text);
+}
+
+html.theme-light input,
+html.theme-light select,
+html.theme-light textarea,
+html.theme-dark input,
+html.theme-dark select,
+html.theme-dark textarea {
+  background: var(--theme-surface-strong);
+  color: var(--theme-text);
+  border-color: var(--theme-line);
+}
+
+html.theme-light input::placeholder,
+html.theme-light textarea::placeholder,
+html.theme-dark input::placeholder,
+html.theme-dark textarea::placeholder {
+  color: var(--theme-muted);
+}
+
+/* =========================
+   Filter / toolbar surfaces
+   ========================= */
+html.theme-light .control-card,
+html.theme-dark .control-card {
+  background: var(--theme-surface);
+  border-color: var(--theme-line);
+}
+
+html.theme-light .filter-label,
+html.theme-dark .filter-label,
+html.theme-light .filter-summary,
+html.theme-dark .filter-summary {
+  color: var(--theme-muted);
+}
+
+html.theme-light .chip,
+html.theme-light .view-switch,
+html.theme-light .view-button,
+html.theme-light .mobile-filter-toggle,
+html.theme-light .quick-filter-button,
+html.theme-light .resume-shortcut-button,
+html.theme-dark .chip,
+html.theme-dark .view-switch,
+html.theme-dark .view-button,
+html.theme-dark .mobile-filter-toggle,
+html.theme-dark .quick-filter-button,
+html.theme-dark .resume-shortcut-button {
+  border-color: var(--theme-line);
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+}
+
+html.theme-light .chip:hover,
+html.theme-light .view-button:hover,
+html.theme-light .quick-filter-button:hover,
+html.theme-light .resume-shortcut-button:hover,
+html.theme-dark .chip:hover,
+html.theme-dark .view-button:hover,
+html.theme-dark .quick-filter-button:hover,
+html.theme-dark .resume-shortcut-button:hover {
+  background: var(--theme-hover);
+  color: var(--theme-text);
+}
+
+html.theme-light .chip.active,
+html.theme-light .view-button.active,
+html.theme-light .quick-filter-button.active,
+html.theme-dark .chip.active,
+html.theme-dark .view-button.active,
+html.theme-dark .quick-filter-button.active {
+  background: var(--theme-primary-bg);
+  border-color: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+}
+
+/* =========================
+   Content list / cards
+   ========================= */
+html.theme-light .content-card,
+html.theme-light .content-list-wrap,
+html.theme-dark .content-card,
+html.theme-dark .content-list-wrap {
+  background: var(--theme-surface);
+  border-color: var(--theme-line-soft);
+  color: var(--theme-text);
+}
+
+html.theme-light .content-card:hover,
+html.theme-dark .content-card:hover,
+html.theme-light .content-list tbody tr:hover,
+html.theme-dark .content-list tbody tr:hover {
+  background: var(--theme-hover);
+}
+
+html.theme-light .content-list th,
+html.theme-dark .content-list th {
+  background: var(--theme-surface-soft);
+  color: var(--theme-muted);
+  border-bottom-color: var(--theme-line-soft);
+}
+
+html.theme-light .content-list td,
+html.theme-dark .content-list td {
+  border-bottom-color: var(--theme-line-soft);
+}
+
+html.theme-light .list-title,
+html.theme-dark .list-title {
+  color: var(--theme-text);
+}
+
+/* =========================
+   Reader
+   ========================= */
+html.theme-light .reader,
+html.theme-light .reader-header,
+html.theme-dark .reader,
+html.theme-dark .reader-header {
+  background: var(--theme-surface);
+  color: var(--theme-text);
+}
+
+html.theme-light .reader-overlay,
+html.theme-dark .reader-overlay {
+  background: var(--theme-overlay);
+}
+
+html.theme-light .reader-body,
+html.theme-dark .reader-body {
+  color: var(--theme-text);
+}
+
+html.theme-light .reader-author,
+html.theme-light .reader-filename,
+html.theme-dark .reader-author,
+html.theme-dark .reader-filename {
+  color: var(--theme-muted);
+}
+
+html.theme-light .reader-loading-overlay {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(255,253,249,.985) 0%,
+      rgba(255,253,249,.97) 74%,
+      rgba(255,253,249,.84) 100%
+    );
+}
+
+html.theme-dark .reader-loading-overlay {
+  background:
+    linear-gradient(
+      to bottom,
+      rgba(33,31,28,.985) 0%,
+      rgba(33,31,28,.97) 74%,
+      rgba(33,31,28,.86) 100%
+    );
+}
+
+/* Resume box */
+html.theme-light .reader-resume,
+html.theme-dark .reader-resume {
+  background: var(--theme-surface-soft);
+  border-color: var(--theme-line);
+  color: var(--theme-text);
+  box-shadow: 0 8px 20px var(--theme-shadow);
+}
+
+html.theme-light .reader-resume strong,
+html.theme-dark .reader-resume strong {
+  color: var(--theme-text);
+}
+
+html.theme-light .reader-resume span,
+html.theme-dark .reader-resume span {
+  color: var(--theme-muted);
+}
+
+/* Secondary resume button */
+html.theme-light .reader-resume-actions button,
+html.theme-dark .reader-resume-actions button {
+  background: var(--theme-secondary-bg);
+  border-color: var(--theme-line);
+  color: var(--theme-secondary-text);
+}
+
+/* Primary "이어보기" button — explicit per theme to prevent black-on-black */
+html.theme-light .reader-resume-actions button:first-child,
+html.theme-dark .reader-resume-actions button:first-child {
+  background: var(--theme-primary-bg);
+  border-color: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+}
+
+html.theme-light .reader-resume-actions button:hover,
+html.theme-dark .reader-resume-actions button:hover {
+  filter: brightness(.97);
+}
+
+html.theme-light .reader-bookmark-button,
+html.theme-light .reader-download-button,
+html.theme-light .reader-close,
+html.theme-dark .reader-bookmark-button,
+html.theme-dark .reader-download-button,
+html.theme-dark .reader-close {
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+  border-color: var(--theme-line);
+}
+
+html.theme-light .reader-bookmark-button.active,
+html.theme-dark .reader-bookmark-button.active {
+  background: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+  border-color: var(--theme-primary-bg);
+}
+
+/* =========================
+   Modal / account / library
+   ========================= */
+html.theme-light .simple-modal,
+html.theme-dark .simple-modal {
+  background: var(--theme-surface);
+  color: var(--theme-text);
+  border-color: var(--theme-line);
+}
+
+html.theme-light .simple-modal-close,
+html.theme-dark .simple-modal-close,
+html.theme-light .library-entry,
+html.theme-dark .library-entry,
+html.theme-light .library-search,
+html.theme-dark .library-search,
+html.theme-light .account-preference-row,
+html.theme-dark .account-preference-row,
+html.theme-light .preference-segmented,
+html.theme-dark .preference-segmented {
+  background: var(--theme-surface-strong);
+  color: var(--theme-text);
+  border-color: var(--theme-line);
+}
+
+html.theme-light .modal-primary-button,
+html.theme-dark .modal-primary-button,
+html.theme-light .preference-toggle.active,
+html.theme-dark .preference-toggle.active,
+html.theme-light .preference-segmented button.active,
+html.theme-dark .preference-segmented button.active {
+  background: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+  border-color: var(--theme-primary-bg);
+}
+
+html.theme-light .modal-secondary-button,
+html.theme-dark .modal-secondary-button,
+html.theme-light .preference-segmented button,
+html.theme-dark .preference-segmented button {
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+  border-color: var(--theme-line);
+}
+
+/* =========================
+   Scroll / utility buttons
+   ========================= */
+html.theme-light .page-scroll-top,
+html.theme-light .reader-scroll-top,
+html.theme-dark .page-scroll-top,
+html.theme-dark .reader-scroll-top {
+  background: var(--theme-surface-strong);
+  color: var(--theme-text);
+  border-color: var(--theme-line);
+}
+
+/* Do not override intentional semantic badges:
+   - card CP pink badge
+   - TXT / POSTYPE source badges
+   - warning / edited status badges
+*/
