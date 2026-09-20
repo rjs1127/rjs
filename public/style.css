@@ -4517,3 +4517,37 @@ html.theme-dark #combinationFilters .chip.active {
   border-color: #6f9bc8;
   color: #152333;
 }
+
+
+/* v6.49 - keep top CP filter colors unchanged; card CP tag only gets pink palette */
+#combinationFilters .chip,
+#combinationFilters .chip:hover,
+#combinationFilters .chip.active,
+html.theme-dark #combinationFilters .chip,
+html.theme-dark #combinationFilters .chip:hover,
+html.theme-dark #combinationFilters .chip.active {
+  background: revert;
+  border-color: revert;
+  color: revert;
+}
+
+/* Card view CP badge only */
+.card-cp-tag {
+  background: #f9e7ef;
+  color: #9b4f72;
+}
+
+.content-card:hover .card-cp-tag {
+  background: #f5dce7;
+  color: #874260;
+}
+
+html.theme-dark .card-cp-tag {
+  background: #5a3245;
+  color: #ffdce9;
+}
+
+html.theme-dark .content-card:hover .card-cp-tag {
+  background: #6a3a51;
+  color: #fff0f5;
+}

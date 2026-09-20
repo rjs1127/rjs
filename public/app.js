@@ -1250,8 +1250,8 @@ function renderCards(items) {
       <div class="card-topline">
         <div class="card-tags">
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
-          <span class="card-tag">${escapeHtml(item.combination)}</span>
-          <span class="card-tag">${escapeHtml(item.lengthType)}</span>
+          <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
+          <span class="card-tag card-length-tag">${escapeHtml(item.lengthType)}</span>
         </div>
         ${getItemReadingBadge(item)}
       </div>
