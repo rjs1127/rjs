@@ -772,3 +772,172 @@ html.theme-dark .resume-shortcut-button:hover {
     font-size: 7px;
   }
 }
+
+
+/* =========================
+   v6.56 TXT / POSTYPE action icon final alignment
+   ========================= */
+
+/* Card action container owns the position.
+   Child buttons must never position themselves independently. */
+.content-card .card-actions {
+  right: 16px;
+  bottom: 14px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.content-card .card-actions > .card-download-button.item-download-button,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button {
+  position: relative !important;
+  right: auto !important;
+  bottom: auto !important;
+  inset: auto !important;
+
+  display: inline-grid !important;
+  place-items: center;
+  flex: 0 0 28px;
+
+  width: 28px !important;
+  height: 28px !important;
+  min-width: 28px !important;
+  min-height: 28px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+
+  box-sizing: border-box;
+  border: 1px solid var(--theme-line) !important;
+  border-radius: 50% !important;
+  background: var(--theme-secondary-bg) !important;
+  color: var(--theme-secondary-text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  line-height: 1;
+}
+
+.content-card .card-actions > .card-download-button.item-download-button svg,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button svg {
+  display: block;
+  width: 14px !important;
+  height: 14px !important;
+  margin: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button.active {
+  background: var(--theme-primary-bg) !important;
+  border-color: var(--theme-primary-bg) !important;
+  color: var(--theme-primary-text) !important;
+}
+
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button.active svg {
+  fill: currentColor;
+}
+
+/* List action buttons share exactly the same box model. */
+.content-list .list-title-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.content-list .list-title-actions > .list-download-button.item-download-button,
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button {
+  position: relative !important;
+  right: auto !important;
+  bottom: auto !important;
+  inset: auto !important;
+
+  display: inline-grid !important;
+  place-items: center;
+  flex: 0 0 22px;
+
+  width: 22px !important;
+  height: 22px !important;
+  min-width: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  margin: 0 !important;
+
+  box-sizing: border-box;
+  border: 1px solid var(--theme-line) !important;
+  border-radius: 50% !important;
+  background: var(--theme-secondary-bg) !important;
+  color: var(--theme-secondary-text) !important;
+  box-shadow: none !important;
+  transform: none !important;
+  line-height: 1;
+}
+
+.content-list .list-title-actions > .list-download-button.item-download-button svg,
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button svg {
+  display: block;
+  width: 12px !important;
+  height: 12px !important;
+  margin: 0;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8 !important;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button.active {
+  background: var(--theme-primary-bg) !important;
+  border-color: var(--theme-primary-bg) !important;
+  color: var(--theme-primary-text) !important;
+}
+
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button.active svg {
+  fill: currentColor;
+}
+
+/* Downloaded TXT keeps the check mark, but the parent circle remains
+   exactly the same size and position as the POSTYPE bookmark circle. */
+.item-download-button.downloaded {
+  border-color: var(--theme-primary-bg) !important;
+  color: var(--theme-primary-bg) !important;
+}
+
+@media (max-width: 640px) {
+  .content-card .card-actions {
+    right: 14px;
+    bottom: 13px;
+    gap: 6px;
+  }
+
+  .content-card .card-actions > .card-download-button.item-download-button,
+  .content-card .card-actions > .card-postype-bookmark.postype-bookmark-button {
+    flex-basis: 26px;
+    width: 26px !important;
+    height: 26px !important;
+    min-width: 26px !important;
+    min-height: 26px !important;
+  }
+
+  .content-card .card-actions > .card-download-button.item-download-button svg,
+  .content-card .card-actions > .card-postype-bookmark.postype-bookmark-button svg {
+    width: 13px !important;
+    height: 13px !important;
+  }
+
+  .content-list .list-title-actions > .list-download-button.item-download-button,
+  .content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button {
+    flex-basis: 20px;
+    width: 20px !important;
+    height: 20px !important;
+    min-width: 20px !important;
+    min-height: 20px !important;
+  }
+
+  .content-list .list-title-actions > .list-download-button.item-download-button svg,
+  .content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button svg {
+    width: 11px !important;
+    height: 11px !important;
+  }
+}
