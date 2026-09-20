@@ -86,109 +86,35 @@ function columnLetter(index) {
   return result;
 }
 
-async function ensureLatestPublishedDateHeader(accessToken, values) {
+async function ensurePostypeSchemaHeaders(accessToken, values) {
   const headers = (values[0] || []).map(normalize);
-  const latestIndex = headers.findIndex(
-    (header) => header.toLowerCase() === "latestpublisheddate"
-  );
+  const original = [...headers];
+  const legacyIndex = headers.findIndex((header) => header.toLowerCase() === "publisheddate");
+  const latestIndex = headers.findIndex((header) => header.toLowerCase() === "latestpublisheddate");
 
-  if (latestIndex >= 0) {
-    return {
-      headers,
-      latestPublishedDateColumn: latestIndex,
-      added: false,
-      migrated: false,
-    };
+  if (latestIndex < 0 && legacyIndex >= 0) headers[legacyIndex] = "latestPublishedDate";
+  else if (latestIndex < 0) headers.push("latestPublishedDate");
+
+  for (const name of ["workLength", "publishType", "linkType", "manualUrls"]) {
+    if (!headers.some((header) => header.toLowerCase() === name.toLowerCase())) headers.push(name);
   }
 
-  const legacyIndex = headers.findIndex(
-    (header) => header.toLowerCase() === "publisheddate"
-  );
-
-  if (legacyIndex >= 0) {
-    const cellRange =
-      `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
-      `${columnLetter(legacyIndex)}1`;
-
-    const updateUrl =
-      `https://sheets.googleapis.com/v4/spreadsheets/` +
-      `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
-      `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
-
+  const changed = headers.length !== original.length || headers.some((value, index) => value !== original[index]);
+  if (changed) {
+    const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A1:AZ1`;
+    const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
     const response = await fetch(updateUrl, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        majorDimension: "ROWS",
-        values: [["latestPublishedDate"]],
-      }),
+      headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ majorDimension: "ROWS", values: [headers] }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error?.message ||
-        `latestPublishedDate 컬럼명 변경 오류 (${response.status})`
-      );
-    }
-
-    headers[legacyIndex] = "latestPublishedDate";
-    if (!values[0]) values[0] = [];
-    values[0][legacyIndex] = "latestPublishedDate";
-
-    return {
-      headers,
-      latestPublishedDateColumn: legacyIndex,
-      added: false,
-      migrated: true,
-    };
+    if (!response.ok) throw new Error(data?.error?.message || `POSTYPE 컬럼 자동 구성 오류 (${response.status})`);
   }
 
-  const columnIndex = headers.length;
-  const cellRange =
-    `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
-    `${columnLetter(columnIndex)}1`;
-
-  const updateUrl =
-    `https://sheets.googleapis.com/v4/spreadsheets/` +
-    `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
-    `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
-
-  const response = await fetch(updateUrl, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      majorDimension: "ROWS",
-      values: [["latestPublishedDate"]],
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      `latestPublishedDate 컬럼 생성 오류 (${response.status})`
-    );
-  }
-
-  headers.push("latestPublishedDate");
   if (!values[0]) values[0] = [];
-  values[0][columnIndex] = "latestPublishedDate";
-
-  return {
-    headers,
-    latestPublishedDateColumn: columnIndex,
-    added: true,
-    migrated: false,
-  };
+  values[0] = headers;
+  return { headers, changed };
 }
 
 async function getAllowedCombinations(kv) {
@@ -284,6 +210,10 @@ function buildArchive(values, headers) {
       author: cell(row, headerIndex, "author"),
       status,
       lengthType,
+      workLength: cell(row, headerIndex, "workLength") || (["단편", "장편"].includes(lengthType) ? lengthType : ""),
+      publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(url) ? "다회차" : "단일글"),
+      linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(url) ? "series" : "post"),
+      manualUrls: cell(row, headerIndex, "manualUrls"),
       latestPublishedDate: cell(row, headerIndex, "latestPublishedDate"),
       url,
 
@@ -343,7 +273,11 @@ export async function onRequestPost(context) {
     const genre = normalize(body?.genre);
     const author = normalize(body?.author);
     const status = normalize(body?.status);
-    const lengthType = normalize(body?.lengthType);
+    const workLength = normalize(body?.workLength || body?.lengthType);
+    const lengthType = workLength;
+    const publishType = normalize(body?.publishType);
+    const linkType = normalize(body?.linkType);
+    const manualUrls = normalize(body?.manualUrls);
     const latestPublishedDate = normalize(body?.latestPublishedDate);
     const itemUrl = normalize(body?.url);
 
@@ -368,22 +302,21 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "상태 값이 올바르지 않습니다." }, 400);
     }
 
-    if (!["단편", "시리즈"].includes(lengthType)) {
-      return jsonResponse({ error: "분량/형태 값이 올바르지 않습니다." }, 400);
+    if (!["단편", "장편"].includes(workLength)) {
+      return jsonResponse({ error: "분량은 단편/장편 중에서 선택해 주세요." }, 400);
     }
-
-    if (lengthType === "단편" && status !== "완결") {
-      return jsonResponse(
-        { error: "단편은 상태를 완결로 등록해 주세요." },
-        400
-      );
+    if (!["단일글", "다회차"].includes(publishType)) {
+      return jsonResponse({ error: "게시형태 값이 올바르지 않습니다." }, 400);
+    }
+    if (!["post", "series", "manual"].includes(linkType)) {
+      return jsonResponse({ error: "연결방식 값이 올바르지 않습니다." }, 400);
     }
 
     if (!isValidUrl(itemUrl)) {
       return jsonResponse({ error: "포스타입 링크를 확인해 주세요." }, 400);
     }
 
-    if (lengthType === "시리즈" && !isPostypeSeriesUrl(itemUrl)) {
+    if (linkType === "series" && !isPostypeSeriesUrl(itemUrl)) {
       return jsonResponse(
         { error: "시리즈는 POSTYPE 시리즈 페이지 URL(/series/...)을 입력해 주세요." },
         400
@@ -392,7 +325,7 @@ export async function onRequestPost(context) {
 
     const accessToken = await getSheetsAccessToken(context.env);
     const values = await readSheet(accessToken);
-    const headerInfo = await ensureLatestPublishedDateHeader(accessToken, values);
+    const headerInfo = await ensurePostypeSchemaHeaders(accessToken, values);
     const headers = headerInfo.headers;
     const headerIndex = buildHeaderIndex(headers);
 
@@ -430,6 +363,10 @@ export async function onRequestPost(context) {
       author,
       status,
       lengthType,
+      workLength,
+      publishType,
+      linkType,
+      manualUrls,
       latestPublishedDate,
       url: itemUrl,
       enabled: "Y",

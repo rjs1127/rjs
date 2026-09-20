@@ -1134,3 +1134,8 @@ html.theme-dark .reader-close {
     font-size: 22px;
   }
 }
+
+
+/* v6.84 content model separation */
+.card-publish-tag { opacity: .82; }
+@media (max-width: 640px) { #publishFilters { flex-wrap: wrap; } }

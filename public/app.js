@@ -2,6 +2,7 @@ const state = {
   items: [],
   combination: "전체",
   length: "전체",
+  publish: "전체",
   source: "전체",
   search: "",
   sort: localStorage.getItem("archiveSort") || "title",
@@ -97,6 +98,7 @@ const els = {
   siteAppleTouchIcon: document.getElementById("siteAppleTouchIcon"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
+  publishFilters: document.getElementById("publishFilters"),
   sourceFilters: document.getElementById("sourceFilters"),
   controlsGrid: document.getElementById("controlsGrid"),
   filterToggleButton: document.getElementById("filterToggleButton"),
@@ -1096,6 +1098,35 @@ function getPublishedTimestamp(item) {
   ) || 0;
 }
 
+function getItemWorkLength(item) {
+  if (!item) return "";
+  const explicit = String(item.workLength || "").trim();
+  if (["단편", "장편"].includes(explicit)) return explicit;
+  const legacy = String(item.lengthType || "").trim();
+  return ["단편", "장편"].includes(legacy) ? legacy : "";
+}
+
+function getItemLinkType(item) {
+  if (!item || item.source !== "postype") return "";
+  const explicit = String(item.linkType || "").trim();
+  if (["post", "series", "manual"].includes(explicit)) return explicit;
+  return /\/series\/\d+(?:[/?#]|$)/i.test(String(item.url || "")) ? "series" : "post";
+}
+
+function getItemPublishType(item) {
+  if (!item || item.source !== "postype") return "";
+  const explicit = String(item.publishType || "").trim();
+  if (["단일글", "다회차"].includes(explicit)) return explicit;
+  return ["series", "manual"].includes(getItemLinkType(item)) ? "다회차" : "단일글";
+}
+
+function formatArchiveDate(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  if (!match) return text;
+  return `${match[1]}.${String(match[2]).padStart(2, "0")}.${String(match[3]).padStart(2, "0")}`;
+}
+
 function sortItems(items) {
   const collator = new Intl.Collator("ko", {
     sensitivity: "base",
@@ -1136,6 +1167,7 @@ function updateFilterSummary() {
   const parts = [];
   if (state.combination !== "전체") parts.push(state.combination);
   if (state.length !== "전체") parts.push(state.length);
+  if (state.publish !== "전체") parts.push(state.publish);
   if (state.source !== "전체") {
     parts.push(state.source === "postype" ? "POSTYPE" : "TXT");
   }
@@ -1152,8 +1184,12 @@ function getFilteredItems() {
   const filtered = state.items.filter((item) => {
     const matchesCombination =
       state.combination === "전체" || item.combination === state.combination;
+    const itemWorkLength = getItemWorkLength(item);
     const matchesLength =
-      state.length === "전체" || item.lengthType === state.length;
+      state.length === "전체" || itemWorkLength === state.length;
+    const itemPublishType = getItemPublishType(item);
+    const matchesPublish =
+      state.publish === "전체" || itemPublishType === state.publish;
     const itemSource = item.source || "drive";
     const matchesSource =
       state.source === "전체" || itemSource === state.source;
@@ -1186,6 +1222,7 @@ function getFilteredItems() {
     return (
       matchesCombination &&
       matchesLength &&
+      matchesPublish &&
       matchesSource &&
       matchesSearch &&
       matchesBookmark &&
@@ -1295,6 +1332,7 @@ function getPostypeMetaHtml(item) {
     item.status,
     item.subCp1 ? `서브 ${item.subCp1}` : "",
     item.subCp2 ? `서브 ${item.subCp2}` : "",
+    item.latestPublishedDate ? `최근발행 ${formatArchiveDate(item.latestPublishedDate)}` : "",
   ].filter(Boolean);
 
   if (!parts.length) return "";
@@ -1379,7 +1417,8 @@ function renderCards(items) {
         <div class="card-tags">
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
-          <span class="card-tag card-length-tag">${escapeHtml(item.lengthType)}</span>
+          <span class="card-tag card-length-tag">${escapeHtml(getItemWorkLength(item) || "미분류")}</span>
+          ${item.source === "postype" ? `<span class="card-tag card-publish-tag">${escapeHtml(getItemPublishType(item))}</span>` : ""}
         </div>
         ${getItemReadingBadge(item)}
       </div>
@@ -1424,7 +1463,7 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
       class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
-      <td>${escapeHtml(item.lengthType)}</td>
+      <td>${escapeHtml(getItemWorkLength(item) || (item.source === "postype" ? "미분류" : item.lengthType || ""))}</td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
@@ -1442,7 +1481,14 @@ function renderList(items) {
         ${
           item.source === "postype"
             ? `<span class="list-source-meta">${escapeHtml(
-                [item.genre, item.status, item.subCp1, item.subCp2]
+                [
+                  getItemPublishType(item),
+                  item.genre,
+                  item.status,
+                  item.subCp1,
+                  item.subCp2,
+                  item.latestPublishedDate ? `최근발행 ${formatArchiveDate(item.latestPublishedDate)}` : "",
+                ]
                   .filter(Boolean)
                   .join(" · ")
               )}</span>`
@@ -2284,6 +2330,7 @@ els.resetFiltersButton?.addEventListener("click", () => {
   state.search = "";
   state.combination = "전체";
   state.length = "전체";
+  state.publish = "전체";
   state.source = "전체";
   state.bookmarkOnly = false;
   state.readingOnly = false;
@@ -2299,6 +2346,10 @@ els.resetFiltersButton?.addEventListener("click", () => {
 
   els.lengthFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.length === "전체");
+  });
+
+  els.publishFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.publish === "전체");
   });
 
   els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
@@ -2875,6 +2926,21 @@ els.lengthFilters.addEventListener("click", (event) => {
   els.lengthFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.length === state.length);
   });
+  render();
+});
+
+els.publishFilters?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-publish]");
+  if (!button) return;
+
+  state.publish = button.dataset.publish;
+  els.publishFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.publish === state.publish);
+  });
+  if (state.publish !== "전체") {
+    state.source = "postype";
+    syncSourceFilterChips();
+  }
   render();
 });
 

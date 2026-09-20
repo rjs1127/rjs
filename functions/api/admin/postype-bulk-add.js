@@ -77,109 +77,35 @@ function columnLetter(index) {
   return result;
 }
 
-async function ensureLatestPublishedDateHeader(accessToken, values) {
+async function ensurePostypeSchemaHeaders(accessToken, values) {
   const headers = (values[0] || []).map(normalize);
-  const latestIndex = headers.findIndex(
-    (header) => header.toLowerCase() === "latestpublisheddate"
-  );
+  const original = [...headers];
+  const legacyIndex = headers.findIndex((header) => header.toLowerCase() === "publisheddate");
+  const latestIndex = headers.findIndex((header) => header.toLowerCase() === "latestpublisheddate");
 
-  if (latestIndex >= 0) {
-    return {
-      headers,
-      latestPublishedDateColumn: latestIndex,
-      added: false,
-      migrated: false,
-    };
+  if (latestIndex < 0 && legacyIndex >= 0) headers[legacyIndex] = "latestPublishedDate";
+  else if (latestIndex < 0) headers.push("latestPublishedDate");
+
+  for (const name of ["workLength", "publishType", "linkType", "manualUrls"]) {
+    if (!headers.some((header) => header.toLowerCase() === name.toLowerCase())) headers.push(name);
   }
 
-  const legacyIndex = headers.findIndex(
-    (header) => header.toLowerCase() === "publisheddate"
-  );
-
-  if (legacyIndex >= 0) {
-    const cellRange =
-      `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
-      `${columnLetter(legacyIndex)}1`;
-
-    const updateUrl =
-      `https://sheets.googleapis.com/v4/spreadsheets/` +
-      `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
-      `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
-
+  const changed = headers.length !== original.length || headers.some((value, index) => value !== original[index]);
+  if (changed) {
+    const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A1:AZ1`;
+    const updateUrl = `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/${encodeURIComponent(range)}?valueInputOption=RAW`;
     const response = await fetch(updateUrl, {
       method: "PUT",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        majorDimension: "ROWS",
-        values: [["latestPublishedDate"]],
-      }),
+      headers: { Authorization: `Bearer ${accessToken}`, "content-type": "application/json" },
+      body: JSON.stringify({ majorDimension: "ROWS", values: [headers] }),
     });
-
     const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(
-        data?.error?.message ||
-        `latestPublishedDate 컬럼명 변경 오류 (${response.status})`
-      );
-    }
-
-    headers[legacyIndex] = "latestPublishedDate";
-    if (!values[0]) values[0] = [];
-    values[0][legacyIndex] = "latestPublishedDate";
-
-    return {
-      headers,
-      latestPublishedDateColumn: legacyIndex,
-      added: false,
-      migrated: true,
-    };
+    if (!response.ok) throw new Error(data?.error?.message || `POSTYPE 컬럼 자동 구성 오류 (${response.status})`);
   }
 
-  const columnIndex = headers.length;
-  const cellRange =
-    `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
-    `${columnLetter(columnIndex)}1`;
-
-  const updateUrl =
-    `https://sheets.googleapis.com/v4/spreadsheets/` +
-    `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
-    `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
-
-  const response = await fetch(updateUrl, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      majorDimension: "ROWS",
-      values: [["latestPublishedDate"]],
-    }),
-  });
-
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error?.message ||
-      `latestPublishedDate 컬럼 생성 오류 (${response.status})`
-    );
-  }
-
-  headers.push("latestPublishedDate");
   if (!values[0]) values[0] = [];
-  values[0][columnIndex] = "latestPublishedDate";
-
-  return {
-    headers,
-    latestPublishedDateColumn: columnIndex,
-    added: true,
-    migrated: false,
-  };
+  values[0] = headers;
+  return { headers, changed };
 }
 
 async function getAllowedCombinations(kv) {
@@ -253,6 +179,10 @@ function buildArchive(values, headers) {
       author: cell(row, headerIndex, "author"),
       status: cell(row, headerIndex, "status"),
       lengthType: cell(row, headerIndex, "lengthType"),
+      workLength: cell(row, headerIndex, "workLength") || (["단편", "장편"].includes(cell(row, headerIndex, "lengthType")) ? cell(row, headerIndex, "lengthType") : ""),
+      publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(url) ? "다회차" : "단일글"),
+      linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(url) ? "series" : "post"),
+      manualUrls: cell(row, headerIndex, "manualUrls"),
       latestPublishedDate: cell(row, headerIndex, "latestPublishedDate"),
       url: cell(row, headerIndex, "url"),
       fileName: null,
@@ -299,7 +229,11 @@ export async function onRequestPost(context) {
       const genre = normalize(raw?.genre);
       const author = normalize(raw?.author);
       const status = normalize(raw?.status);
-      const lengthType = normalize(raw?.lengthType);
+      const workLength = normalize(raw?.workLength || raw?.lengthType);
+      const lengthType = workLength;
+      const publishType = normalize(raw?.publishType);
+      const linkType = normalize(raw?.linkType);
+      const manualUrls = normalize(raw?.manualUrls);
       const latestPublishedDate = normalize(raw?.latestPublishedDate);
       const url = normalize(raw?.url);
 
@@ -311,14 +245,11 @@ export async function onRequestPost(context) {
       if (!["완결", "연재"].includes(status)) {
         throw new Error(`${rowNo}행: 상태는 완결/연재 중 하나여야 합니다.`);
       }
-      if (!["단편", "시리즈"].includes(lengthType)) {
-        throw new Error(`${rowNo}행: 분량/형태는 단편/시리즈 중 하나여야 합니다.`);
-      }
-      if (lengthType === "단편" && status !== "완결") {
-        throw new Error(`${rowNo}행: 단편은 완결로 등록해 주세요.`);
-      }
+      if (!["단편", "장편"].includes(workLength)) throw new Error(`${rowNo}행: 분량은 단편/장편 중 하나여야 합니다.`);
+      if (!["단일글", "다회차"].includes(publishType)) throw new Error(`${rowNo}행: 게시형태를 확인해 주세요.`);
+      if (!["post", "series", "manual"].includes(linkType)) throw new Error(`${rowNo}행: 연결방식을 확인해 주세요.`);
       if (!isValidUrl(url)) throw new Error(`${rowNo}행: URL을 확인해 주세요.`);
-      if (lengthType === "시리즈" && !isPostypeSeriesUrl(url)) {
+      if (linkType === "series" && !isPostypeSeriesUrl(url)) {
         throw new Error(`${rowNo}행: 시리즈는 POSTYPE 시리즈 페이지 URL(/series/...)을 입력해 주세요.`);
       }
 
@@ -331,6 +262,10 @@ export async function onRequestPost(context) {
         author,
         status,
         lengthType,
+        workLength,
+        publishType,
+        linkType,
+        manualUrls,
         latestPublishedDate,
         url,
       };
@@ -338,7 +273,7 @@ export async function onRequestPost(context) {
 
     const accessToken = await getSheetsAccessToken(context.env);
     const values = await readSheet(accessToken);
-    const headerInfo = await ensureLatestPublishedDateHeader(accessToken, values);
+    const headerInfo = await ensurePostypeSchemaHeaders(accessToken, values);
     const headers = headerInfo.headers;
     const headerIndex = buildHeaderIndex(headers);
     const missing = REQUIRED_HEADERS.filter((name) => !headerIndex.has(name.toLowerCase()));

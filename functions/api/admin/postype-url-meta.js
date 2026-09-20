@@ -842,6 +842,7 @@ export async function onRequestPost(context) {
     const body = await context.request.json();
     const inputUrl = normalize(body?.url);
     const requestedLengthType = normalize(body?.lengthType);
+    const requestedLinkType = normalize(body?.linkType);
 
     if (!isPostypeUrl(inputUrl)) {
       return jsonResponse(
@@ -875,8 +876,9 @@ export async function onRequestPost(context) {
     }
 
     const seriesMode =
+      requestedLinkType === "series" ||
       requestedLengthType === "시리즈" ||
-      isSeriesUrl(page.url);
+      (requestedLinkType !== "post" && isSeriesUrl(page.url));
 
     const baseMetadata = extractBaseMetadata(page.html);
 
