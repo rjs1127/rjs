@@ -105,6 +105,49 @@
           </label>
         </div>
 
+
+        <div id="tabletFilterBar" class="tablet-filter-bar" aria-label="태블릿 필터">
+          <label class="tablet-filter-field tablet-filter-cp">
+            <span>CP</span>
+            <select id="tabletCombinationSelect" aria-label="CP"></select>
+          </label>
+
+          <label class="tablet-filter-field">
+            <span>작품형태</span>
+            <select id="tabletContentTypeSelect" aria-label="작품형태">
+              <option value="전체">전체</option>
+              <option value="단편">단편</option>
+              <option value="연재물">연재</option>
+            </select>
+          </label>
+
+          <label class="tablet-filter-field">
+            <span>상태</span>
+            <select id="tabletStatusSelect" aria-label="상태">
+              <option value="전체">전체</option>
+              <option value="연재중">연재중</option>
+              <option value="완결">완결</option>
+            </select>
+          </label>
+
+          <label class="tablet-filter-field">
+            <span>출처</span>
+            <select id="tabletSourceSelect" aria-label="출처">
+              <option value="전체">전체</option>
+              <option value="drive">TXT</option>
+              <option value="postype">POSTYPE</option>
+            </select>
+          </label>
+
+          <div class="tablet-filter-field tablet-view-field">
+            <span>보기 방식</span>
+            <div class="tablet-view-switch">
+              <button type="button" data-tablet-view="list">리스트</button>
+              <button type="button" data-tablet-view="card">카드</button>
+            </div>
+          </div>
+        </div>
+
         <div id="controlsGrid" class="controls-grid">
           <div class="control-card control-card-wide">
             <span class="filter-label">CP</span>
@@ -116,7 +159,7 @@
             <div id="contentTypeFilters" class="chips">
               <button class="chip active" type="button" data-content-type="전체">전체</button>
               <button class="chip" type="button" data-content-type="단편">단편</button>
-              <button class="chip" type="button" data-content-type="연재물">연재물</button>
+              <button class="chip" type="button" data-content-type="연재물">연재</button>
             </div>
           </div>
 

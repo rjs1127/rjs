@@ -100,6 +100,11 @@ const els = {
   contentTypeFilters: document.getElementById("contentTypeFilters"),
   statusFilters: document.getElementById("statusFilters"),
   sourceFilters: document.getElementById("sourceFilters"),
+  tabletFilterBar: document.getElementById("tabletFilterBar"),
+  tabletCombinationSelect: document.getElementById("tabletCombinationSelect"),
+  tabletContentTypeSelect: document.getElementById("tabletContentTypeSelect"),
+  tabletStatusSelect: document.getElementById("tabletStatusSelect"),
+  tabletSourceSelect: document.getElementById("tabletSourceSelect"),
   controlsGrid: document.getElementById("controlsGrid"),
   filterToggleButton: document.getElementById("filterToggleButton"),
   filterSummary: document.getElementById("filterSummary"),
@@ -1033,6 +1038,16 @@ function buildCombinationFilters(combinations) {
           type="button" data-combination="${escapeHtml(value)}">${escapeHtml(value)}</button>`
     )
     .join("");
+
+  if (els.tabletCombinationSelect) {
+    els.tabletCombinationSelect.innerHTML = values
+      .map(
+        (value) =>
+          `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`
+      )
+      .join("");
+    els.tabletCombinationSelect.value = state.combination;
+  }
 }
 
 function normalizeSearchText(value = "") {
@@ -1122,6 +1137,10 @@ function getItemContentType(item) {
   return ["series", "manual"].includes(getItemLinkType(item)) ? "연재물" : "단편";
 }
 
+function getContentTypeDisplayLabel(value) {
+  return value === "연재물" ? "연재" : value;
+}
+
 function getItemStatusLabel(item) {
   if (!item) return "";
   const value = String(item.status || "").trim();
@@ -1185,7 +1204,7 @@ function updateFilterSummary() {
 
   const parts = [];
   if (state.combination !== "전체") parts.push(state.combination);
-  if (state.contentType !== "전체") parts.push(state.contentType);
+  if (state.contentType !== "전체") parts.push(getContentTypeDisplayLabel(state.contentType));
   if (state.statusFilter !== "전체") parts.push(state.statusFilter);
   if (state.source !== "전체") {
     parts.push(state.source === "postype" ? "POSTYPE" : "TXT");
@@ -1254,7 +1273,30 @@ function getFilteredItems() {
   return sortItems(filtered);
 }
 
+function syncTabletFilterBar() {
+  if (els.tabletCombinationSelect) {
+    els.tabletCombinationSelect.value = state.combination;
+  }
+  if (els.tabletContentTypeSelect) {
+    els.tabletContentTypeSelect.value = state.contentType;
+  }
+  if (els.tabletStatusSelect) {
+    els.tabletStatusSelect.value = state.statusFilter;
+  }
+  if (els.tabletSourceSelect) {
+    els.tabletSourceSelect.value = state.source;
+  }
+
+  els.tabletFilterBar?.querySelectorAll("[data-tablet-view]").forEach((button) => {
+    button.classList.toggle(
+      "active",
+      button.dataset.tabletView === state.view
+    );
+  });
+}
+
 function render() {
+  syncTabletFilterBar();
   const items = getFilteredItems();
   updateFilterSummary();
   els.resultCount.textContent = `총 ${items.length.toLocaleString("ko-KR")}개`;
@@ -1438,7 +1480,7 @@ function renderCards(items) {
         <div class="card-tags">
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
-          <span class="card-tag card-publish-tag">${escapeHtml(getItemContentType(item))}</span>
+          <span class="card-tag card-publish-tag">${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>
           <span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>
         </div>
         ${getItemReadingBadge(item)}
@@ -1484,7 +1526,7 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
       class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
-      <td>${escapeHtml(getItemContentType(item))}</td>
+      <td>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
@@ -2925,6 +2967,42 @@ els.clearSearch.addEventListener("click", () => {
 els.compactClearSearch?.addEventListener("click", () => {
   setSearchValue("", "compact");
   els.compactSearchInput?.focus();
+});
+
+els.tabletCombinationSelect?.addEventListener("change", (event) => {
+  state.combination = event.target.value;
+  els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.combination === state.combination);
+  });
+  render();
+});
+
+els.tabletContentTypeSelect?.addEventListener("change", (event) => {
+  state.contentType = event.target.value;
+  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
+  });
+  render();
+});
+
+els.tabletStatusSelect?.addEventListener("change", (event) => {
+  state.statusFilter = event.target.value;
+  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
+  });
+  render();
+});
+
+els.tabletSourceSelect?.addEventListener("change", (event) => {
+  state.source = event.target.value;
+  syncSourceFilterChips();
+  render();
+});
+
+els.tabletFilterBar?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-tablet-view]");
+  if (!button) return;
+  setView(button.dataset.tabletView);
 });
 
 els.combinationFilters.addEventListener("click", (event) => {
