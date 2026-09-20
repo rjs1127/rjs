@@ -2,7 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const MAX_HTML_BYTES = 2_000_000;
-const MAX_SERIES_POST_CHECKS = 6;
+const MAX_SERIES_POST_CHECKS = 18;
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -15,6 +15,9 @@ function decodeHtml(value) {
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
+    .replace(/\\u002F/gi, "/")
+    .replace(/\\u003A/gi, ":")
+    .replace(/\\\//g, "/")
     .replace(/&#(\d+);/g, (_, code) => {
       try { return String.fromCodePoint(Number(code)); } catch { return _; }
     })
@@ -38,12 +41,23 @@ function isPostypeUrl(value) {
   }
 }
 
-function isSeriesUrl(value) {
+function parseSeriesInfo(value) {
   try {
-    return /\/series\/\d+(?:\/|$)/i.test(new URL(value).pathname);
+    const url = new URL(value);
+    const match = url.pathname.match(/\/@([^/]+)\/series\/(\d+)/i);
+    if (!match) return null;
+    return {
+      handle: match[1],
+      seriesId: match[2],
+      origin: url.origin,
+    };
   } catch {
-    return false;
+    return null;
   }
+}
+
+function isSeriesUrl(value) {
+  return Boolean(parseSeriesInfo(value));
 }
 
 function getMetaContent(html, key, attr = "property") {
@@ -216,32 +230,81 @@ function extractSinglePostPublishedDate(html) {
   return "";
 }
 
-function extractSeriesPostUrls(html, baseUrl) {
-  const urls = [];
+function postBelongsToSeries(html, seriesId) {
+  const decoded = decodeHtml(html);
+
+  const patterns = [
+    new RegExp(`/series/${seriesId}(?:["'/?#]|$)`, "i"),
+    new RegExp(`"seriesId"\\s*:\\s*"?${seriesId}"?`, "i"),
+    new RegExp(`"series_id"\\s*:\\s*"?${seriesId}"?`, "i"),
+    new RegExp(`"series"\\s*:\\s*\\{[^{}]{0,1200}"id"\\s*:\\s*"?${seriesId}"?`, "i"),
+  ];
+
+  return patterns.some((pattern) => pattern.test(decoded));
+}
+
+function extractCandidatePostUrls(html, seriesUrl) {
+  const info = parseSeriesInfo(seriesUrl);
+  if (!info) return [];
+
+  const decoded = decodeHtml(html);
+  const candidates = [];
   const seen = new Set();
-  const hrefPattern = /href\s*=\s*["']([^"']+)["']/gi;
-  let match;
 
-  while ((match = hrefPattern.exec(html))) {
-    const raw = decodeHtml(match[1]);
-    if (!raw || !/\/post\/\d+/i.test(raw)) continue;
+  const add = (value) => {
+    if (!value) return;
 
-    let absolute;
+    let url;
     try {
-      absolute = new URL(raw, baseUrl).toString();
+      url = new URL(value, seriesUrl);
     } catch {
-      continue;
+      return;
     }
 
-    if (!isPostypeUrl(absolute)) continue;
+    if (!isPostypeUrl(url.toString())) return;
 
-    const canonical = absolute.split("#")[0];
-    if (seen.has(canonical)) continue;
+    const postMatch = url.pathname.match(/\/(?:@[^/]+\/)?post\/(\d+)/i);
+    if (!postMatch) return;
+
+    // 시리즈 URL의 채널 핸들을 기준으로 canonical URL을 다시 만든다.
+    // JSON 안에 /post/ID만 있는 경우도 이 방식으로 처리 가능.
+    const postId = postMatch[1];
+    const canonical =
+      `${info.origin}/@${info.handle}/post/${postId}`;
+
+    if (seen.has(canonical)) return;
     seen.add(canonical);
-    urls.push(canonical);
+    candidates.push(canonical);
+  };
+
+  // 1) href 링크
+  const hrefPattern = /href\s*=\s*["']([^"']+)["']/gi;
+  let match;
+  while ((match = hrefPattern.exec(decoded))) {
+    add(match[1]);
   }
 
-  return urls;
+  // 2) JSON / 스크립트 안에 들어 있는 전체 URL
+  const fullUrlPattern =
+    /https?:\/\/(?:www\.)?postype\.com\/@[^"'\\\s<]+\/post\/\d+/gi;
+  while ((match = fullUrlPattern.exec(decoded))) {
+    add(match[0]);
+  }
+
+  // 3) JSON 안의 상대 경로 /@handle/post/ID
+  const relativePattern = /\/@[^"'\\\s<]+\/post\/\d+/gi;
+  while ((match = relativePattern.exec(decoded))) {
+    add(match[0]);
+  }
+
+  // 4) 가장 중요한 fallback:
+  // 페이지 내부에 "/post/12345" 형태로만 들어 있는 포스트 ID도 수집.
+  const idPattern = /\/post\/(\d+)/gi;
+  while ((match = idPattern.exec(decoded))) {
+    add(`/@${info.handle}/post/${match[1]}`);
+  }
+
+  return candidates;
 }
 
 async function fetchHtml(url) {
@@ -280,44 +343,79 @@ async function fetchHtml(url) {
   };
 }
 
-async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
-  const postUrls = extractSeriesPostUrls(seriesHtml, seriesUrl);
+function chooseCandidateSubset(urls) {
+  if (urls.length <= MAX_SERIES_POST_CHECKS) return urls;
 
-  if (!postUrls.length) {
+  // SSR/Next 데이터에서 실제 시리즈 글이 앞 또는 뒤에 몰리는 경우를 모두 고려.
+  const headCount = Math.ceil(MAX_SERIES_POST_CHECKS / 2);
+  const tailCount = MAX_SERIES_POST_CHECKS - headCount;
+
+  return [
+    ...urls.slice(0, headCount),
+    ...urls.slice(-tailCount),
+  ].filter((value, index, array) => array.indexOf(value) === index);
+}
+
+async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
+  const info = parseSeriesInfo(seriesUrl);
+  if (!info) {
     return {
       latestPublishedDate: "",
       latestPostUrl: "",
       checkedPostCount: 0,
+      matchedSeriesPostCount: 0,
       discoveredPostCount: 0,
-      strategy: "linked-post-pages",
+      strategy: "series-membership-verified",
     };
   }
 
-  // '첫 화 보기' 같은 링크가 앞쪽에 섞일 수 있으므로 여러 실제 포스트를 직접 확인한다.
-  const targets = postUrls.slice(0, MAX_SERIES_POST_CHECKS);
+  const postUrls = extractCandidatePostUrls(seriesHtml, seriesUrl);
+  const targets = chooseCandidateSubset(postUrls);
 
   const results = await Promise.all(
     targets.map(async (url) => {
       const page = await fetchHtml(url);
       if (!page.ok) return null;
 
-      const publishedDate = extractSinglePostPublishedDate(page.html);
-      if (!publishedDate) return null;
+      // 핵심: 같은 채널의 다른 글이 아니라
+      // 현재 seriesId를 실제로 포함하고 있는 포스트만 인정한다.
+      if (!postBelongsToSeries(page.html, info.seriesId)) {
+        return {
+          url: page.url,
+          matched: false,
+          publishedDate: "",
+        };
+      }
 
-      return { url: page.url, publishedDate };
+      const publishedDate = extractSinglePostPublishedDate(page.html);
+      if (!publishedDate) {
+        return {
+          url: page.url,
+          matched: true,
+          publishedDate: "",
+        };
+      }
+
+      return {
+        url: page.url,
+        matched: true,
+        publishedDate,
+      };
     })
   );
 
-  const valid = results
-    .filter(Boolean)
+  const matched = results.filter((item) => item?.matched);
+  const dated = matched
+    .filter((item) => item.publishedDate)
     .sort((a, b) => a.publishedDate.localeCompare(b.publishedDate));
 
   return {
-    latestPublishedDate: valid.at(-1)?.publishedDate || "",
-    latestPostUrl: valid.at(-1)?.url || "",
+    latestPublishedDate: dated.at(-1)?.publishedDate || "",
+    latestPostUrl: dated.at(-1)?.url || "",
     checkedPostCount: targets.length,
+    matchedSeriesPostCount: matched.length,
     discoveredPostCount: postUrls.length,
-    strategy: "linked-post-pages",
+    strategy: "series-membership-verified",
   };
 }
 
@@ -390,6 +488,7 @@ export async function onRequestPost(context) {
     let latestPublishedDate = "";
     let latestPostUrl = "";
     let checkedPostCount = 0;
+    let matchedSeriesPostCount = 0;
     let discoveredPostCount = 0;
     let strategy = "single-post-meta";
 
@@ -402,6 +501,7 @@ export async function onRequestPost(context) {
       latestPublishedDate = resolved.latestPublishedDate;
       latestPostUrl = resolved.latestPostUrl;
       checkedPostCount = resolved.checkedPostCount;
+      matchedSeriesPostCount = resolved.matchedSeriesPostCount;
       discoveredPostCount = resolved.discoveredPostCount;
       strategy = resolved.strategy;
     } else {
@@ -418,6 +518,7 @@ export async function onRequestPost(context) {
         latestPublishedDate,
         latestPostUrl,
         checkedPostCount,
+        matchedSeriesPostCount,
         discoveredPostCount,
         strategy,
         mode: seriesMode ? "series" : "post",
