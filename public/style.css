@@ -4551,3 +4551,59 @@ html.theme-dark .content-card:hover .card-cp-tag {
   background: #6a3a51;
   color: #fff0f5;
 }
+
+
+/* v6.50 - mobile quick-action buttons wrap instead of clipping */
+@media (max-width: 640px) {
+  .controls-toolbar {
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .library-quick-actions {
+    width: 100%;
+    margin-left: 0;
+    overflow: visible;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding-bottom: 0;
+  }
+
+  .resume-shortcut-button {
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .quick-filter-button {
+    flex: 1 1 calc(50% - 3px);
+    min-width: 0;
+    justify-content: center;
+    padding: 7px 8px;
+    font-size: 10px;
+    gap: 5px;
+  }
+
+  .quick-filter-button svg,
+  .resume-shortcut-icon {
+    width: 15px;
+    height: 15px;
+    flex: 0 0 auto;
+  }
+
+  .quick-filter-button .quick-filter-count {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .quick-filter-button span,
+  .resume-shortcut-button span {
+    min-width: 0;
+  }
+
+  .sort-control {
+    width: 100%;
+    min-width: 0;
+  }
+}
