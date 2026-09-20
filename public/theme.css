@@ -1299,3 +1299,101 @@ html.theme-dark #sourceFilters .chip.active {
     white-space: nowrap;
   }
 }
+
+
+/* =========================
+   v6.101 light background / tablet layout
+   ========================= */
+
+/* Light mode should always use the same warm page background.
+   Remove the white radial wash so filter changes never appear to
+   change the page background. */
+html.theme-light body {
+  background: #f6f3ee !important;
+}
+
+/* Tablet: keep the filter area in one compact horizontal row.
+   Each card stays narrow; chips scroll inside their own card only
+   if the device is narrower than the full row. */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .controls-grid {
+    grid-template-columns:
+      minmax(180px, 1.35fr)
+      repeat(4, minmax(118px, .9fr)) !important;
+    gap: 6px !important;
+    align-items: stretch !important;
+    overflow-x: auto;
+    padding-bottom: 3px;
+    scrollbar-width: thin;
+  }
+
+  .control-card,
+  .control-card-wide {
+    min-width: 0 !important;
+    min-height: 78px !important;
+    padding: 10px 10px !important;
+    border-radius: 16px !important;
+  }
+
+  .filter-label {
+    margin-bottom: 7px !important;
+    font-size: 10px !important;
+  }
+
+  .control-card .chips {
+    flex-wrap: nowrap !important;
+    gap: 4px !important;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+
+  .control-card .chip {
+    flex: 0 0 auto;
+    padding: 7px 8px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+
+  .view-switch {
+    display: flex !important;
+    width: 100%;
+    max-width: none !important;
+    gap: 3px !important;
+    padding: 3px !important;
+  }
+
+  .view-button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 7px 5px !important;
+    font-size: 10px !important;
+    line-height: 1 !important;
+    white-space: nowrap;
+  }
+
+  /* Tablet reader opens as a portrait reading panel even when
+     the physical screen is wide/landscape. */
+  .reader-overlay {
+    padding: 12px 8px !important;
+  }
+
+  .reader {
+    width: min(calc(100vw - 40px), 620px) !important;
+    max-width: 620px !important;
+    min-height: calc(100dvh - 24px) !important;
+    margin: 0 auto !important;
+    border-radius: 22px !important;
+  }
+
+  .reader-header {
+    padding: 34px 30px 24px !important;
+  }
+
+  .reader-body {
+    padding: 32px 34px 76px !important;
+    font-size: 17px !important;
+    line-height: 2.05 !important;
+  }
+}
