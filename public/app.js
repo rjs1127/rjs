@@ -41,10 +41,11 @@ const state = {
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
 const LARGE_FILE_MIN_LOADING_VISIBLE_MS = 1700;
-const READER_READ_THRESHOLD_PERCENT = 95;
 const READER_REMOTE_SYNC_INTERVAL_MS = 60 * 1000;
 const READER_MIN_MEANINGFUL_SCROLL_PX = 24;
+const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 10; // 0.1% 단위 저장
+const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
@@ -507,15 +508,23 @@ function updateAccountUi() {
 }
 
 function normalizeLibraryRow(row) {
+  const progressPercent = Number(row.progress_percent || 0);
+  const rawReadAt = row.read_at == null ? null : Number(row.read_at);
+  const legacyReadNeedsClear = Boolean(
+    rawReadAt &&
+    progressPercent < READER_LEGACY_READ_VALID_PERCENT
+  );
+
   return {
     fileId: row.file_id,
-    progressPercent: Number(row.progress_percent || 0),
+    progressPercent,
     scrollTop: row.scroll_top == null ? null : Number(row.scroll_top),
     chunkIndex: row.chunk_index == null ? null : Number(row.chunk_index),
     chunkRatio: row.chunk_ratio == null ? null : Number(row.chunk_ratio),
     bookmarked: Boolean(row.bookmarked),
     viewedAt: row.viewed_at == null ? null : Number(row.viewed_at),
-    readAt: row.read_at == null ? null : Number(row.read_at),
+    readAt: legacyReadNeedsClear ? null : rawReadAt,
+    legacyReadNeedsClear,
     downloadedAt:
       row.downloaded_at == null ? null : Number(row.downloaded_at),
     updatedAt: row.updated_at == null ? null : Number(row.updated_at),
@@ -566,7 +575,6 @@ function getLatestReadingItem() {
     const progress = Number(entry?.progressPercent || 0);
     if (
       progress <= 0 ||
-      progress >= READER_READ_THRESHOLD_PERCENT ||
       entry?.readAt
     ) continue;
 
@@ -601,7 +609,7 @@ function updateResumeShortcut() {
 
   const percent = Math.max(
     1,
-    Math.min(94, Math.round(Number(latest.entry.progressPercent || 0)))
+    Math.min(99, Math.max(1, Math.floor(Number(latest.entry.progressPercent || 0))))
   );
 
   const title = latest.item.title || "제목 미상";
@@ -687,6 +695,7 @@ function updateUserLibraryEntry(fileId, patch) {
     bookmarked: false,
     viewedAt: null,
     readAt: null,
+    legacyReadNeedsClear: false,
     downloadedAt: null,
     updatedAt: null,
   };
@@ -745,11 +754,43 @@ function normalizeReaderProgressPercent(value) {
 function getReaderProgressDisplayPercent(value) {
   const raw = Number(value || 0);
   if (raw <= 0) return 0;
-  if (raw >= READER_READ_THRESHOLD_PERCENT) return 100;
-  return Math.max(1, Math.min(94, Math.round(raw)));
+  return Math.max(1, Math.min(99, Math.floor(raw)));
+}
+
+function isReaderAtActualEnd(item) {
+  if (!item || !els.readerPanel) return false;
+
+  const panel = els.readerPanel;
+  const maxScroll = Math.max(
+    0,
+    panel.scrollHeight - panel.clientHeight
+  );
+  const scrollTop = Math.max(0, panel.scrollTop);
+
+  // Do not mark a work as read merely by opening a one-screen document.
+  if (scrollTop < READER_MIN_MEANINGFUL_SCROLL_PX) return false;
+
+  const distanceToBottom = Math.max(0, maxScroll - scrollTop);
+  if (distanceToBottom > READER_END_DISTANCE_PX) return false;
+
+  // A long TXT is only complete when the real final virtual chunk is
+  // already rendered. Reaching the bottom of an intermediate chunk is
+  // not considered "read".
+  if (isLargeReaderFile(item) && state.largeReaderChunks) {
+    if (
+      state.largeReaderRenderedCount <
+      state.largeReaderChunks.length
+    ) {
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function buildProgressPayload(item, saved) {
+  const entry = getUserLibraryEntry(item.id);
+
   return {
     action: "progress",
     fileId: item.id,
@@ -758,6 +799,11 @@ function buildProgressPayload(item, saved) {
     scrollTop: saved.scrollTop ?? null,
     chunkIndex: saved.chunkIndex ?? null,
     chunkRatio: saved.chunkRatio ?? null,
+    read: Boolean(saved.read),
+    clearLegacyRead: Boolean(
+      entry?.legacyReadNeedsClear &&
+      !saved.read
+    ),
   };
 }
 
@@ -771,10 +817,11 @@ function shouldSyncProgressNow(fileId, saved) {
   const previousPercent = Number(previous.progressPercent || 0);
   if (previousPercent <= 0 && nextPercent > 0) return true;
 
-  if (
-    nextPercent >= READER_READ_THRESHOLD_PERCENT &&
-    !previous.readAt
-  ) {
+  if (saved?.read && !previous.readAt) {
+    return true;
+  }
+
+  if (getUserLibraryEntry(fileId)?.legacyReadNeedsClear) {
     return true;
   }
 
@@ -792,10 +839,11 @@ function shouldPersistProgress(fileId, saved) {
   const nextPercent = Number(saved?.percent || 0);
   const previousPercent = Number(previous.progressPercent || 0);
 
-  if (
-    nextPercent >= READER_READ_THRESHOLD_PERCENT &&
-    !previous.readAt
-  ) return true;
+  if (saved?.read && !previous.readAt) return true;
+
+  if (getUserLibraryEntry(fileId)?.legacyReadNeedsClear) {
+    return true;
+  }
 
   if (Math.abs(nextPercent - previousPercent) >= 0.1) return true;
 
@@ -833,15 +881,17 @@ async function persistProgress(item, saved) {
 
   const payload = buildProgressPayload(item, saved);
 
+  const currentEntry = getUserLibraryEntry(item.id);
+  const nextReadAt = payload.read
+    ? (currentEntry?.readAt || Date.now())
+    : (currentEntry?.readAt || null);
+
   updateUserLibraryEntry(item.id, {
     progressPercent: payload.percent,
     scrollTop: payload.scrollTop,
     chunkIndex: payload.chunkIndex,
     chunkRatio: payload.chunkRatio,
-    readAt:
-      payload.percent >= READER_READ_THRESHOLD_PERCENT
-        ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
-        : getUserLibraryEntry(item.id)?.readAt || null,
+    readAt: nextReadAt,
     updatedAt: Date.now(),
   });
 
@@ -851,15 +901,17 @@ async function persistProgress(item, saved) {
       body: JSON.stringify(payload),
     });
     state.remoteProgressSyncedAt.set(item.id, Date.now());
+    const savedEntry = getUserLibraryEntry(item.id);
+    updateUserLibraryEntry(item.id, {
+      legacyReadNeedsClear: false,
+    });
+
     state.remoteProgressState.set(item.id, {
       progressPercent: payload.percent,
       scrollTop: payload.scrollTop,
       chunkIndex: payload.chunkIndex,
       chunkRatio: payload.chunkRatio,
-      readAt:
-        payload.percent >= READER_READ_THRESHOLD_PERCENT
-          ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
-          : getUserLibraryEntry(item.id)?.readAt || null,
+      readAt: savedEntry?.readAt || null,
     });
     updateResumeShortcut();
     if (state.items.length) render();
@@ -1324,7 +1376,6 @@ function getFilteredItems() {
       !state.readingOnly ||
       (
         progress > 0 &&
-        progress < READER_READ_THRESHOLD_PERCENT &&
         !libraryEntry?.readAt
       );
 
@@ -1405,10 +1456,7 @@ function getItemReadingBadge(item) {
   }
 
   const rawPercent = Number(entry.progressPercent || 0);
-  if (
-    rawPercent > 0 &&
-    rawPercent < READER_READ_THRESHOLD_PERCENT
-  ) {
+  if (rawPercent > 0) {
     const percent = getReaderProgressDisplayPercent(rawPercent);
     return `<span class="reading-state-badge progress">${percent}%</span>`;
   }
@@ -1657,8 +1705,7 @@ function getReaderProgress(id) {
   if (
     !entry ||
     entry.readAt ||
-    entry.progressPercent <= 0 ||
-    entry.progressPercent >= READER_READ_THRESHOLD_PERCENT
+    entry.progressPercent <= 0
   ) {
     return null;
   }
@@ -1767,15 +1814,26 @@ function saveReaderProgress() {
     };
   }
 
+  saved.read = isReaderAtActualEnd(item);
+
+  // Percentage is descriptive only. "Read" is determined by actual end
+  // reach, not by a percentage threshold.
+  if (saved.read) {
+    saved.percent = 100;
+  } else if (saved.percent >= 100) {
+    saved.percent = 99.9;
+  }
+
+  const currentEntry = getUserLibraryEntry(item.id);
+
   updateUserLibraryEntry(item.id, {
     progressPercent: saved.percent,
     scrollTop: saved.mode === "scroll" ? saved.scrollTop : null,
     chunkIndex: saved.mode === "chunk" ? saved.chunkIndex : null,
     chunkRatio: saved.mode === "chunk" ? saved.chunkRatio : null,
-    readAt:
-      saved.percent >= READER_READ_THRESHOLD_PERCENT
-        ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
-        : getUserLibraryEntry(item.id)?.readAt || null,
+    readAt: saved.read
+      ? (currentEntry?.readAt || Date.now())
+      : (currentEntry?.readAt || null),
     updatedAt: Date.now(),
   });
 
@@ -2266,8 +2324,7 @@ function showResumePrompt(item) {
 
   if (
     !saved ||
-    Number(saved.percent || 0) <= 0 ||
-    saved.percent >= READER_READ_THRESHOLD_PERCENT
+    Number(saved.percent || 0) <= 0
   ) {
     els.readerResume.hidden = true;
     return;

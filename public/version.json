@@ -1,5 +1,5 @@
 {
-  "version": "v7.5",
+  "version": "v7.6",
   "releasedAt": "2026-09-21",
-  "label": "reader-progress-reliability"
+  "label": "actual-end-read-progress"
 }

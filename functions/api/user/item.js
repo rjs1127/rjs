@@ -109,7 +109,9 @@ export async function onRequestPost(context) {
       const chunkRatio = Number.isFinite(Number(body?.chunkRatio))
         ? Math.max(0, Math.min(1, Number(body.chunkRatio)))
         : null;
-      const readAt = percent >= 95 ? now : null;
+      const markRead = body?.read === true;
+      const clearLegacyRead = body?.clearLegacyRead === true;
+      const readAt = markRead ? now : null;
 
       await auth.db.prepare(`
         INSERT INTO user_items(
@@ -130,6 +132,7 @@ export async function onRequestPost(context) {
           chunk_ratio = excluded.chunk_ratio,
           read_at = CASE
             WHEN excluded.read_at IS NOT NULL THEN excluded.read_at
+            WHEN ? = 1 THEN NULL
             ELSE user_items.read_at
           END,
           updated_at = excluded.updated_at
@@ -141,13 +144,15 @@ export async function onRequestPost(context) {
         mode === "chunk" ? chunkIndex : null,
         mode === "chunk" ? chunkRatio : null,
         readAt,
-        now
+        now,
+        clearLegacyRead ? 1 : 0
       ).run();
 
       return jsonResponse({
         ok: true,
         progressPercent: percent,
-        read: Boolean(readAt),
+        read: markRead,
+        legacyReadCleared: clearLegacyRead && !markRead,
       });
     }
 
