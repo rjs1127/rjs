@@ -1214,11 +1214,9 @@ function syncSourceFilterChips() {
 }
 
 function applySourceForSort() {
-  if (state.sort === "registered") {
-    state.source = "drive";
-  } else if (state.sort === "published") {
-    state.source = "postype";
-  }
+  // Sorting and filtering are independent controls.
+  // A saved sort value must never restore/change the source filter
+  // after the user has reset filters or refreshed the page.
   syncSourceFilterChips();
 }
 
@@ -2638,6 +2636,38 @@ window.addEventListener("resize", () => {
     !window.matchMedia("(max-width: 640px)").matches
   ) {
     setMobileFiltersOpen(false);
+  }
+});
+
+window.addEventListener("pageshow", () => {
+  // Browser form restoration must not override the JS filter state.
+  syncSourceFilterChips();
+
+  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle(
+      "active",
+      chip.dataset.contentType === state.contentType
+    );
+  });
+
+  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
+    chip.classList.toggle(
+      "active",
+      chip.dataset.statusFilter === state.statusFilter
+    );
+  });
+
+  if (els.tabletCombinationSelect) {
+    els.tabletCombinationSelect.value = state.combination;
+  }
+  if (els.tabletContentTypeSelect) {
+    els.tabletContentTypeSelect.value = state.contentType;
+  }
+  if (els.tabletStatusSelect) {
+    els.tabletStatusSelect.value = state.statusFilter;
+  }
+  if (els.tabletSourceSelect) {
+    els.tabletSourceSelect.value = state.source;
   }
 });
 

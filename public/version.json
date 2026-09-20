@@ -1,5 +1,5 @@
 {
-  "version": "v7.9",
+  "version": "v7.10",
   "releasedAt": "2026-09-21",
-  "label": "mobile-filter-bottom-sheet-reset"
+  "label": "filter-reset-refresh-fix"
 }
