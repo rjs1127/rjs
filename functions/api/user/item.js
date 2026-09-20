@@ -1,5 +1,9 @@
 import { jsonResponse } from "../../_shared.js";
-import { requireUser, userErrorResponse } from "../../_user.js";
+import {
+  requireUser,
+  ensureDownloadTrackingSchema,
+  userErrorResponse,
+} from "../../_user.js";
 
 export async function onRequestPost(context) {
   try {
@@ -34,6 +38,29 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "파일 ID가 없습니다." }, 400);
     }
 
+    if (action === "download") {
+      await ensureDownloadTrackingSchema(auth.db);
+
+      await auth.db.prepare(`
+        INSERT INTO user_items(
+          user_id,
+          file_id,
+          downloaded_at,
+          updated_at
+        )
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT(user_id, file_id) DO UPDATE SET
+          downloaded_at = excluded.downloaded_at,
+          updated_at = excluded.updated_at
+        WHERE user_items.downloaded_at IS NULL
+      `).bind(auth.userId, fileId, now, now).run();
+
+      return jsonResponse({
+        ok: true,
+        downloadedAt: now,
+      });
+    }
+
     if (action === "remove_recent") {
       await auth.db.prepare(`
         UPDATE user_items
@@ -65,7 +92,6 @@ export async function onRequestPost(context) {
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           bookmarked = excluded.bookmarked,
           updated_at = excluded.updated_at
-        WHERE user_items.bookmarked IS NOT excluded.bookmarked
       `).bind(auth.userId, fileId, bookmarked, now).run();
 
       return jsonResponse({ ok: true, bookmarked: Boolean(bookmarked) });
@@ -107,12 +133,6 @@ export async function onRequestPost(context) {
             ELSE user_items.read_at
           END,
           updated_at = excluded.updated_at
-        WHERE
-          ABS(COALESCE(user_items.progress_percent, 0) - COALESCE(excluded.progress_percent, 0)) >= 0.5
-          OR COALESCE(user_items.scroll_top, -1) != COALESCE(excluded.scroll_top, -1)
-          OR COALESCE(user_items.chunk_index, -1) != COALESCE(excluded.chunk_index, -1)
-          OR ABS(COALESCE(user_items.chunk_ratio, -1) - COALESCE(excluded.chunk_ratio, -1)) >= 0.01
-          OR (excluded.read_at IS NOT NULL AND user_items.read_at IS NULL)
       `).bind(
         auth.userId,
         fileId,

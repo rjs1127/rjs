@@ -495,6 +495,8 @@ function normalizeLibraryRow(row) {
     bookmarked: Boolean(row.bookmarked),
     viewedAt: row.viewed_at == null ? null : Number(row.viewed_at),
     readAt: row.read_at == null ? null : Number(row.read_at),
+    downloadedAt:
+      row.downloaded_at == null ? null : Number(row.downloaded_at),
     updatedAt: row.updated_at == null ? null : Number(row.updated_at),
   };
 }
@@ -659,6 +661,7 @@ function updateUserLibraryEntry(fileId, patch) {
     bookmarked: false,
     viewedAt: null,
     readAt: null,
+    downloadedAt: null,
     updatedAt: null,
   };
 
@@ -1201,19 +1204,26 @@ function getDownloadButtonHtml(item, className = "item-download-button") {
   const url = getDownloadUrl(item);
   if (!url) return "";
 
+  const downloaded = Boolean(
+    state.user && getUserLibraryEntry(item.id)?.downloadedAt
+  );
+
   return `
-    <a class="${className}"
+    <a class="${className} ${downloaded ? "downloaded" : ""}"
       href="${escapeHtml(url)}"
       target="_blank"
       rel="noopener noreferrer"
       data-download-id="${escapeHtml(item.id)}"
-      aria-label="${escapeHtml(item.title || "TXT")} 다운로드"
-      title="TXT 다운로드">
+      aria-label="${escapeHtml(item.title || "TXT")} ${
+        downloaded ? "다운로드함 · 다시 다운로드" : "다운로드"
+      }"
+      title="${downloaded ? "다운로드함 · 다시 다운로드" : "TXT 다운로드"}">
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <path d="M12 3.5v11"></path>
         <path d="m7.75 10.5 4.25 4.25 4.25-4.25"></path>
         <path d="M5 19.5h14"></path>
       </svg>
+      ${downloaded ? '<span class="downloaded-check" aria-hidden="true">✓</span>' : ""}
     </a>
   `;
 }
@@ -2015,11 +2025,48 @@ function showResumePrompt(item) {
 }
 
 
+async function recordTxtDownload(item) {
+  if (!state.user || !item || item.source === "postype") return;
+
+  const existing = getUserLibraryEntry(item.id);
+  if (existing?.downloadedAt) return;
+
+  const downloadedAt = Date.now();
+
+  updateUserLibraryEntry(item.id, {
+    downloadedAt,
+    updatedAt: downloadedAt,
+  });
+
+  // Update the mark immediately. The server write happens only on first
+  // download for this logged-in user/item pair.
+  render();
+
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "download",
+        fileId: item.id,
+      }),
+    });
+  } catch (error) {
+    console.warn("다운로드 기록 저장 실패", error);
+
+    updateUserLibraryEntry(item.id, {
+      downloadedAt: null,
+    });
+    render();
+  }
+}
+
 function triggerItemDownload(item) {
   if (!item) return;
 
   const url = getDownloadUrl(item);
   if (!url) return;
+
+  recordTxtDownload(item);
 
   const link = document.createElement("a");
   link.href = url;
@@ -2812,8 +2859,14 @@ function handleContentOpenClick(event) {
     return;
   }
 
-  if (event.target.closest("[data-download-id]")) {
+  const downloadButton = event.target.closest("[data-download-id]");
+  if (downloadButton) {
     event.stopPropagation();
+
+    const item = state.items.find(
+      (entry) => entry.id === downloadButton.dataset.downloadId
+    );
+    recordTxtDownload(item);
     return;
   }
 

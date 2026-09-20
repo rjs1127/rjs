@@ -1,9 +1,14 @@
 import { jsonResponse } from "../../_shared.js";
-import { requireUser, userErrorResponse } from "../../_user.js";
+import {
+  requireUser,
+  ensureDownloadTrackingSchema,
+  userErrorResponse,
+} from "../../_user.js";
 
 export async function onRequestGet(context) {
   try {
     const auth = await requireUser(context);
+    await ensureDownloadTrackingSchema(auth.db);
 
     const result = await auth.db.prepare(`
       SELECT
@@ -15,6 +20,7 @@ export async function onRequestGet(context) {
         bookmarked,
         viewed_at,
         read_at,
+        downloaded_at,
         updated_at
       FROM user_items
       WHERE user_id = ?

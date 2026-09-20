@@ -731,3 +731,44 @@ html.theme-dark .resume-shortcut-button:hover {
     height: 13px;
   }
 }
+
+
+/* =========================
+   v6.55 downloaded TXT state
+   ========================= */
+.item-download-button {
+  position: relative;
+}
+
+.item-download-button.downloaded {
+  border-color: var(--theme-primary-bg);
+  color: var(--theme-primary-bg);
+}
+
+.item-download-button.downloaded .downloaded-check {
+  position: absolute;
+  right: -4px;
+  bottom: -4px;
+  display: grid;
+  place-items: center;
+  width: 13px;
+  height: 13px;
+  border: 2px solid var(--theme-surface);
+  border-radius: 50%;
+  background: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+  font-size: 8px;
+  font-weight: 900;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
+@media (max-width: 640px) {
+  .item-download-button.downloaded .downloaded-check {
+    right: -3px;
+    bottom: -3px;
+    width: 12px;
+    height: 12px;
+    font-size: 7px;
+  }
+}

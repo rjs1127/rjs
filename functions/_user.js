@@ -13,6 +13,34 @@ function requireUserDb(env) {
 
 let schemaReadyPromise = null;
 
+let downloadSchemaReadyPromise = null;
+
+async function ensureDownloadTrackingSchema(db) {
+  if (downloadSchemaReadyPromise) return downloadSchemaReadyPromise;
+
+  downloadSchemaReadyPromise = (async () => {
+    const info = await db.prepare(
+      "PRAGMA table_info(user_items)"
+    ).all();
+
+    const columns = Array.isArray(info?.results) ? info.results : [];
+    const hasDownloadedAt = columns.some(
+      (column) => String(column?.name || "") === "downloaded_at"
+    );
+
+    if (!hasDownloadedAt) {
+      await db.prepare(
+        "ALTER TABLE user_items ADD COLUMN downloaded_at INTEGER"
+      ).run();
+    }
+  })().catch((error) => {
+    downloadSchemaReadyPromise = null;
+    throw error;
+  });
+
+  return downloadSchemaReadyPromise;
+}
+
 async function ensureUserSchema(db) {
   if (schemaReadyPromise) return schemaReadyPromise;
 
@@ -216,6 +244,7 @@ function userErrorResponse(error) {
 export {
   requireUserDb,
   ensureUserSchema,
+  ensureDownloadTrackingSchema,
   normalizeUserId,
   validateCredentials,
   randomHex,
