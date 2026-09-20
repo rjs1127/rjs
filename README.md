@@ -1,3 +1,25 @@
+## v6.81
+
+### 시리즈 제목·작가 자동 불러오기 수정
+- 시리즈 URL 등록 시 HTML `<title>`을 그대로 쓰지 않고 POSTYPE 실제 시리즈 API 응답을 우선 사용
+- 제목은 최신 회차 제목이나 `시리즈명 - 채널명` 형태가 아니라 `feedItem.series.title`만 사용
+- 따라서 채널 이름이 제목 뒤에 붙지 않음
+- 작가는 `feedItem.profile.nickname`을 우선 사용하고, 없으면 `feedItem.author.profile.nickname` 사용
+- 시리즈 최근 발행일은 v6.78과 동일하게 API 최신순 첫 포스트의 `publishedAt` 사용
+
+### CP 드롭다운 수정
+- v6.80에서 단건 폼을 제거한 뒤 `populatePostypeCpOptions()`가 단건 CP select가 없으면 바로 종료해 버려 일괄/통합 등록 행이 계속 `CP 불러오는 중…`으로 남던 문제 수정
+- 이제 단건 select 존재 여부와 관계없이 기존 Google Drive CP 폴더 목록을 통합 등록 행의 드롭다운에 채움
+- 새로 추가하는 행에도 이미 불러온 CP 옵션 그대로 적용
+
+### 관리자 버전
+- `현재 버전 v6.81`
+
+### 영향 범위
+- 관리자 작품 등록 UI 및 POSTYPE URL 메타데이터 조회만 수정
+- Sheet/KV 구조와 사용자 페이지 동작은 변경 없음
+
+
 ## v6.80
 
 ### 작품 등록 화면 통합

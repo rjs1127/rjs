@@ -719,7 +719,13 @@ async function fetchSeriesPostsApi(seriesUrl) {
     latestPublishedDate,
     latestPostUrl,
     postId,
-    title: normalize(item.title),
+    // 시리즈 등록 시 작품 제목은 최신 회차 제목이 아니라 series.title 사용
+    seriesTitle: normalize(item?.series?.title),
+    // 작가는 채널명이 아니라 POSTYPE 프로필 닉네임 사용
+    authorName:
+      normalize(item?.profile?.nickname) ||
+      normalize(item?.author?.profile?.nickname),
+    latestPostTitle: normalize(item.title),
     apiPostCount: content.length,
     strategy: "series-api-first-post",
   };
@@ -757,6 +763,8 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       channelPageCandidateCount: 0,
       structuredCandidateCount: 0,
       apiPostCount: apiResult.apiPostCount,
+      seriesTitle: apiResult.seriesTitle || "",
+      authorName: apiResult.authorName || "",
       strategy: apiResult.strategy,
     };
   }
@@ -899,6 +907,15 @@ export async function onRequestPost(context) {
       structuredCandidateCount = resolved.structuredCandidateCount || 0;
       apiPostCount = resolved.apiPostCount || 0;
       strategy = resolved.strategy;
+
+      // 시리즈는 POSTYPE 실제 series API 값을 우선 사용.
+      // series.title은 순수 시리즈 제목이라 채널명 suffix가 붙지 않는다.
+      if (resolved.seriesTitle) {
+        baseMetadata.title = resolved.seriesTitle;
+      }
+      if (resolved.authorName) {
+        baseMetadata.author = resolved.authorName;
+      }
     } else {
       latestPublishedDate =
         extractSinglePostPublishedDate(page.html);
