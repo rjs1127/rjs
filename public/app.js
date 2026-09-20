@@ -1241,6 +1241,74 @@ function getPostypeMetaHtml(item) {
   return `<p class="card-source-meta">${escapeHtml(parts.join(" · "))}</p>`;
 }
 
+function getPostypeBookmarkButtonHtml(item, className = "postype-bookmark-button") {
+  if (item?.source !== "postype") return "";
+
+  const bookmarked = Boolean(
+    state.user && getUserLibraryEntry(item.id)?.bookmarked
+  );
+
+  return `
+    <button
+      class="${className} ${bookmarked ? "active" : ""}"
+      type="button"
+      data-postype-bookmark="${escapeHtml(item.id)}"
+      aria-label="${bookmarked ? "북마크 해제" : "북마크"}"
+      title="${bookmarked ? "북마크 해제" : "북마크"}"
+      aria-pressed="${bookmarked ? "true" : "false"}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7A1.75 1.75 0 0 1 17.25 4.75v15.1l-5.25-3.3-5.25 3.3V4.75Z"></path>
+      </svg>
+    </button>
+  `;
+}
+
+async function togglePostypeBookmark(item) {
+  if (!item || item.source !== "postype") return;
+
+  if (!state.user) {
+    openAuthModal(
+      "login",
+      "포스타입 작품을 북마크하려면 로그인해 주세요."
+    );
+    return;
+  }
+
+  const fileId = item.id;
+  const nextValue = !getUserLibraryEntry(fileId)?.bookmarked;
+
+  updateUserLibraryEntry(fileId, {
+    bookmarked: nextValue,
+    updatedAt: Date.now(),
+  });
+
+  render();
+  if (!els.libraryModal?.hidden) renderUserLibraryModal();
+
+  const previousTimer = state.bookmarkSaveTimers.get(fileId);
+  if (previousTimer) window.clearTimeout(previousTimer);
+
+  const timer = window.setTimeout(async () => {
+    state.bookmarkSaveTimers.delete(fileId);
+    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
+
+    try {
+      await userApi("/api/user/item", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "bookmark",
+          fileId,
+          bookmarked: finalValue,
+        }),
+      });
+    } catch (error) {
+      console.warn("포스타입 북마크 저장 실패", error);
+    }
+  }, 300);
+
+  state.bookmarkSaveTimers.set(fileId, timer);
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
     <article class="content-card ${item.source === "postype" ? "postype-item" : "drive-item"}"
@@ -1259,6 +1327,7 @@ function renderCards(items) {
       <p class="card-author">${escapeHtml(item.author)}</p>
       ${getPostypeMetaHtml(item)}
       <div class="card-actions">
+        ${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}
         ${getDownloadButtonHtml(item, "item-download-button card-download-button")}
         <span class="card-arrow" aria-hidden="true">↗</span>
       </div>
@@ -1267,7 +1336,16 @@ function renderCards(items) {
 }
 
 function getListBookmarkIndicator(item) {
-  if (!state.user || !item || item.source === "postype") return "";
+  if (!item) return "";
+
+  if (item.source === "postype") {
+    return getPostypeBookmarkButtonHtml(
+      item,
+      "postype-bookmark-button list-postype-bookmark"
+    );
+  }
+
+  if (!state.user) return "";
 
   const bookmarked = Boolean(getUserLibraryEntry(item.id)?.bookmarked);
   if (!bookmarked) return "";
@@ -2545,7 +2623,7 @@ els.libraryModalList?.addEventListener("click", async (event) => {
   if (!item) return;
 
   closeModal(els.libraryModal);
-  openReader(item);
+  openContentItem(item);
 });
 
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
@@ -2722,6 +2800,18 @@ function openContentItem(item) {
 }
 
 function handleContentOpenClick(event) {
+  const postypeBookmarkButton = event.target.closest("[data-postype-bookmark]");
+  if (postypeBookmarkButton) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const item = state.items.find(
+      (entry) => entry.id === postypeBookmarkButton.dataset.postypeBookmark
+    );
+    togglePostypeBookmark(item);
+    return;
+  }
+
   if (event.target.closest("[data-download-id]")) {
     event.stopPropagation();
     return;
@@ -2735,7 +2825,10 @@ els.contentListBody.addEventListener("click", handleContentOpenClick);
 
 for (const container of [els.contentGrid, els.contentListBody]) {
   container.addEventListener("keydown", (event) => {
-    if (event.target.closest("[data-download-id]")) return;
+    if (
+      event.target.closest("[data-download-id]") ||
+      event.target.closest("[data-postype-bookmark]")
+    ) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     const item = findItemFromEvent(event);
     if (!item) return;
