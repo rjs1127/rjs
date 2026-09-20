@@ -655,3 +655,79 @@ html.theme-dark .resume-shortcut-button {
 html.theme-dark .resume-shortcut-button:hover {
   background: #39332d;
 }
+
+
+/* =========================
+   v6.54 action icon size unify
+   ========================= */
+
+/* List view: TXT download / POSTYPE bookmark use the same visual box. */
+.list-download-button.item-download-button,
+.list-postype-bookmark.postype-bookmark-button {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.list-download-button.item-download-button svg,
+.list-postype-bookmark.postype-bookmark-button svg {
+  width: 12px;
+  height: 12px;
+}
+
+/* Card view: TXT download / POSTYPE bookmark use the same visual box. */
+.card-download-button.item-download-button,
+.card-postype-bookmark.postype-bookmark-button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.card-download-button.item-download-button svg,
+.card-postype-bookmark.postype-bookmark-button svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Keep icon stroke weight visually consistent. */
+.list-download-button.item-download-button svg,
+.card-download-button.item-download-button svg,
+.list-postype-bookmark.postype-bookmark-button svg,
+.card-postype-bookmark.postype-bookmark-button svg {
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Mobile: preserve the same relative size between source actions. */
+@media (max-width: 640px) {
+  .list-download-button.item-download-button,
+  .list-postype-bookmark.postype-bookmark-button {
+    width: 20px;
+    height: 20px;
+    min-width: 20px;
+  }
+
+  .list-download-button.item-download-button svg,
+  .list-postype-bookmark.postype-bookmark-button svg {
+    width: 11px;
+    height: 11px;
+  }
+
+  .card-download-button.item-download-button,
+  .card-postype-bookmark.postype-bookmark-button {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+  }
+
+  .card-download-button.item-download-button svg,
+  .card-postype-bookmark.postype-bookmark-button svg {
+    width: 13px;
+    height: 13px;
+  }
+}
