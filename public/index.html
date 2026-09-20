@@ -252,10 +252,17 @@
             <span class="reader-download-label">다운로드</span>
           </button>
           <button id="readerBookmarkButton" class="reader-bookmark-button" type="button" aria-label="북마크">
-            <span aria-hidden="true">☆</span>
+            <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 3.8 14.45 8.76l5.48.8-3.96 3.86.94 5.45L12 16.3l-4.91 2.57.94-5.45-3.96-3.86 5.48-.8L12 3.8Z"></path>
+            </svg>
             <span class="reader-bookmark-label">북마크</span>
           </button>
-          <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">×</button>
+          <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">
+            <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6.5 6.5 17.5 17.5"></path>
+              <path d="M17.5 6.5 6.5 17.5"></path>
+            </svg>
+          </button>
         </div>
         <h2 id="readerTitle"></h2>
         <p id="readerAuthor" class="reader-author"></p>

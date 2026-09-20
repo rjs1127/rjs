@@ -1246,6 +1246,39 @@ html.theme-dark #sourceFilters .chip.active {
   align-items: center;
 }
 
+/* All top reader actions use one icon language and one circular surface. */
+.reader-download-button,
+.reader-bookmark-button,
+.reader-close {
+  border-radius: 50%;
+}
+
+.reader-download-button svg,
+.reader-bookmark-button .reader-action-icon,
+.reader-close .reader-action-icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+html.theme-light .reader-download-button,
+html.theme-light .reader-bookmark-button,
+html.theme-light .reader-close,
+html.theme-dark .reader-download-button,
+html.theme-dark .reader-bookmark-button,
+html.theme-dark .reader-close,
+html.theme-light .reader.reader-compact .reader-close,
+html.theme-dark .reader.reader-compact .reader-close {
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+  border-color: var(--theme-line);
+}
+
 @media (max-width: 640px) {
   html.theme-light .reader-download-button,
   html.theme-light .reader-bookmark-button,
@@ -1258,10 +1291,17 @@ html.theme-dark #sourceFilters .chip.active {
   .reader.reader-compact .reader-close {
     width: 44px;
     min-width: 44px;
+    max-width: 44px;
     height: 44px;
     min-height: 44px;
     max-height: 44px;
+    padding: 0;
     box-sizing: border-box;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0;
+    border-radius: 50%;
   }
 
   .reader-close,
@@ -1307,15 +1347,6 @@ html.theme-dark #sourceFilters .chip.active {
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-author {
     margin-top: 10px;
   }
-}
-
-html.theme-light .reader-close,
-html.theme-light .reader.reader-compact .reader-close,
-html.theme-dark .reader-close,
-html.theme-dark .reader.reader-compact .reader-close {
-  background: var(--theme-surface-soft);
-  color: var(--theme-secondary-text);
-  border-color: var(--theme-line);
 }
 
 .reader-close:hover,
