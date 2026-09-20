@@ -4159,3 +4159,67 @@ html.theme-dark .list-source-badge.drive {
     line-height: 1.35;
   }
 }
+
+
+/* v6.44 - mobile list width correction */
+@media (max-width: 640px) {
+  .content-list-wrap {
+    overflow-x: hidden;
+  }
+
+  .content-list {
+    width: 100%;
+    min-width: 0;
+    table-layout: fixed;
+  }
+
+  .content-list th,
+  .content-list td {
+    box-sizing: border-box;
+  }
+
+  .content-list th:nth-child(1),
+  .content-list td:nth-child(1) {
+    width: 12%;
+  }
+
+  .content-list th:nth-child(2),
+  .content-list td:nth-child(2) {
+    width: 14%;
+  }
+
+  .content-list th:nth-child(3),
+  .content-list td:nth-child(3) {
+    width: 50%;
+  }
+
+  .content-list th:nth-child(4),
+  .content-list td:nth-child(4) {
+    width: 24%;
+  }
+
+  .content-list td:nth-child(1),
+  .content-list td:nth-child(2),
+  .content-list td:nth-child(4) {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .list-title {
+    min-width: 0;
+  }
+
+  .list-title-row,
+  .list-title-main,
+  .list-title-heading {
+    min-width: 0;
+  }
+
+  .list-title-text {
+    display: block;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+}
