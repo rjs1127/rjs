@@ -168,6 +168,8 @@ function buildArchive(values, headers) {
     }
     if (enabled !== "Y") throw new Error(`enabled 값 오류: ${id}`);
 
+    const url = cell(row, headerIndex, "url");
+
     items.push({
       id,
       source: "postype",
@@ -184,7 +186,7 @@ function buildArchive(values, headers) {
       linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(url) ? "series" : "post"),
       manualUrls: cell(row, headerIndex, "manualUrls"),
       latestPublishedDate: cell(row, headerIndex, "latestPublishedDate"),
-      url: cell(row, headerIndex, "url"),
+      url,
       fileName: null,
       parseFailed: false,
       createdTime: null,

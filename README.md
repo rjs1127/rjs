@@ -1,3 +1,19 @@
+## v6.94
+
+### POSTYPE 일괄등록 `url is not defined` 오류 수정
+- `POST /api/admin/postype-bulk-add`에서 시트 추가 자체는 진행되지만, 등록 후 POSTYPE KV 아카이브를 다시 만드는 단계에서 `url` 변수를 선언하지 않아 500이 발생하던 문제 수정
+- 각 Sheet 행의 `url` 값을 먼저 읽은 뒤 `publishType`, `linkType`, 최종 `url` 필드에서 동일 변수를 사용하도록 정리
+- `/series/` URL의 기존 자동 판별 로직은 그대로 유지
+- 일반 포스트 / 시리즈 / 수동묶음 등록 구조는 변경하지 않음
+
+### 확인
+- `postype-bulk-add.js` 문법검사 통과
+- 같은 계열의 `postype-add.js`, `postype-published-sync.js`는 해당 아카이브 재생성 구간에서 이미 `url`을 선언하고 있는 것도 함께 확인
+
+### 관리자 버전
+- `현재 버전 v6.94`
+
+
 ## v6.93
 
 ### Drive TXT 작품형태 자동 분류
