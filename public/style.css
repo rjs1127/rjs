@@ -4439,3 +4439,81 @@ html.theme-light .preference-segmented button.active {
     padding-bottom: 7px;
   }
 }
+
+
+/* v6.48 - desktop filter width rebalance + CP color distinction */
+@media (min-width: 981px) {
+  .controls-grid {
+    grid-template-columns:
+      minmax(210px, 1.05fr)
+      minmax(270px, 1.30fr)
+      minmax(220px, 1.05fr)
+      minmax(170px, .78fr);
+    gap: 10px;
+  }
+
+  /* Keep the option groups visually on one line on desktop. */
+  #combinationFilters,
+  #lengthFilters,
+  #sourceFilters {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  #combinationFilters .chip,
+  #lengthFilters .chip,
+  #sourceFilters .chip {
+    white-space: nowrap;
+    flex: 0 0 auto;
+  }
+
+  /* CP occupies less horizontal space than the other filter groups. */
+  #combinationFilters .chip {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  /* Give length/source a touch more room so all controls stay on one line. */
+  #lengthFilters .chip,
+  #sourceFilters .chip {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+}
+
+/* CP filter gets its own palette so it is not confused with length/type. */
+#combinationFilters .chip {
+  background: #eef4ff;
+  border-color: #d8e5f7;
+  color: #48627f;
+}
+
+#combinationFilters .chip:hover {
+  background: #e2ecfa;
+  border-color: #c7d9ef;
+  color: #324d6b;
+}
+
+#combinationFilters .chip.active {
+  background: #446a94;
+  border-color: #446a94;
+  color: #fff;
+}
+
+html.theme-dark #combinationFilters .chip {
+  background: #253447;
+  border-color: #3a506a;
+  color: #d7e7f7;
+}
+
+html.theme-dark #combinationFilters .chip:hover {
+  background: #2e435b;
+  border-color: #526f8f;
+  color: #fff;
+}
+
+html.theme-dark #combinationFilters .chip.active {
+  background: #6f9bc8;
+  border-color: #6f9bc8;
+  color: #152333;
+}
