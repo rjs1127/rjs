@@ -1143,3 +1143,86 @@ html.theme-dark .reader-close {
 
 /* v6.90 simplified content model */
 .card-status-tag { opacity: .86; }
+
+/* v6.91 mobile/tablet reader and POSTYPE list polish */
+.list-source-meta-mobile {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .reader-body {
+    padding-top: 8px !important;
+  }
+
+  .reader-body > .reader-loading.rich-loading {
+    margin: 6px auto 18px !important;
+    padding: 14px 16px 13px !important;
+  }
+
+  .reader-loading-overlay {
+    top: 8px !important;
+    padding: 8px 0 20px !important;
+    place-items: start center !important;
+  }
+
+  .reader-loading-overlay .rich-loading {
+    margin-top: 0 !important;
+    padding: 14px 16px 13px !important;
+  }
+
+  .content-list .list-source-meta {
+    margin-top: 4px;
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  .content-list .list-source-meta-desktop {
+    display: none;
+  }
+
+  .content-list .list-source-meta-mobile {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--theme-muted);
+    white-space: nowrap;
+  }
+
+  .content-list .update-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 13px;
+    padding: 0 3px;
+    border-radius: 999px;
+    border: 1px solid var(--theme-line);
+    font-size: 7px;
+    line-height: 1;
+    font-weight: 900;
+    letter-spacing: .02em;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .reader-overlay {
+    padding: 18px 12px !important;
+  }
+
+  .reader {
+    width: min(100%, 720px) !important;
+    max-width: 720px !important;
+    min-height: calc(100dvh - 36px) !important;
+    margin: 0 auto !important;
+  }
+
+  .reader-header {
+    padding: 38px 34px 28px !important;
+  }
+
+  .reader-body {
+    padding: 36px 38px 78px !important;
+    font-size: 17px !important;
+    line-height: 2.05 !important;
+  }
+}

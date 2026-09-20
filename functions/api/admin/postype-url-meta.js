@@ -91,10 +91,55 @@ function getTitleTag(html) {
   return match?.[1] ? decodeHtml(match[1]) : "";
 }
 
-function cleanTitle(value) {
-  return normalize(value)
+function escapeRegExp(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function stripKnownTitleSuffix(title, suffixes = []) {
+  let result = normalize(title);
+  for (const suffix of suffixes) {
+    const cleanSuffix = normalize(suffix);
+    if (!cleanSuffix || cleanSuffix.toLowerCase() === "postype") continue;
+    const pattern = new RegExp(`\\s*[:|\\-–—]\\s*${escapeRegExp(cleanSuffix)}\\s*$`, "i");
+    const next = result.replace(pattern, "").trim();
+    if (next && next !== result) result = next;
+  }
+  return result;
+}
+
+function stripGenericChannelSuffix(title) {
+  const value = normalize(title);
+  const match = value.match(/^(.{2,160}?)\s+:\s+([^:]{1,40})$/);
+  if (!match) return value;
+  const suffix = normalize(match[2]);
+  if (!suffix || /[.!?。！？]$/.test(suffix)) return value;
+  return normalize(match[1]);
+}
+
+function cleanTitle(value, suffixes = []) {
+  const withoutPostype = normalize(value)
     .replace(/\s*[|\-–—:]\s*포스타입\s*$/i, "")
     .trim();
+
+  const withoutKnownSuffix = stripKnownTitleSuffix(withoutPostype, suffixes);
+  return stripGenericChannelSuffix(withoutKnownSuffix);
+}
+
+function findEmbeddedChannelName(html) {
+  const decoded = decodeHtml(html);
+  const patterns = [
+    /"channelName"\s*:\s*"([^"]+)"/i,
+    /"channel_name"\s*:\s*"([^"]+)"/i,
+    /"blogName"\s*:\s*"([^"]+)"/i,
+    /"blog_name"\s*:\s*"([^"]+)"/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = decoded.match(pattern);
+    if (match?.[1]) return decodeHtml(match[1]);
+  }
+
+  return "";
 }
 
 function readJsonLd(html) {
@@ -817,17 +862,22 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
 function extractBaseMetadata(html) {
   const jsonLd = readJsonLd(html);
 
-  const title = cleanTitle(
+  const rawTitle =
     getMetaContent(html, "og:title") ||
-      getMetaContent(html, "twitter:title", "name") ||
-      findJsonLdValue(jsonLd, ["headline", "name"]) ||
-      getTitleTag(html)
-  );
+    getMetaContent(html, "twitter:title", "name") ||
+    findJsonLdValue(jsonLd, ["headline", "name"]) ||
+    getTitleTag(html);
 
   const author =
     getMetaContent(html, "author", "name") ||
     findJsonLdValue(jsonLd, ["author", "creator"]) ||
     findEmbeddedAuthor(html);
+
+  const channelName =
+    getMetaContent(html, "og:site_name") ||
+    findEmbeddedChannelName(html);
+
+  const title = cleanTitle(rawTitle, [author, channelName]);
 
   return {
     title: normalize(title),

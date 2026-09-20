@@ -1126,6 +1126,13 @@ function formatArchiveDate(value) {
   return `${match[1]}.${String(match[2]).padStart(2, "0")}.${String(match[3]).padStart(2, "0")}`;
 }
 
+function formatCompactArchiveDate(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})/);
+  if (!match) return text;
+  return `${String(match[1]).slice(2)}${String(match[2]).padStart(2, "0")}${String(match[3]).padStart(2, "0")}`;
+}
+
 function sortItems(items) {
   const collator = new Intl.Collator("ko", {
     sensitivity: "base",
@@ -1480,7 +1487,7 @@ function renderList(items) {
         </span>
         ${
           item.source === "postype"
-            ? `<span class="list-source-meta">${escapeHtml(
+            ? `<span class="list-source-meta"><span class="list-source-meta-desktop">${escapeHtml(
                 [
                   getItemStatusLabel(item),
                   item.genre,
@@ -1490,7 +1497,7 @@ function renderList(items) {
                 ]
                   .filter(Boolean)
                   .join(" · ")
-              )}</span>`
+              )}</span>${item.latestPublishedDate ? `<span class="list-source-meta-mobile"><span class="update-icon" aria-hidden="true">UP</span><span>${escapeHtml(formatCompactArchiveDate(item.latestPublishedDate))}</span></span>` : ""}</span>`
             : ""
         }
       </td>
