@@ -210,12 +210,155 @@ async function userApi(path, options = {}) {
   return data;
 }
 
+let modalScrollLocked = false;
+let modalPageScrollY = 0;
+let modalLastFocusedElement = null;
+
+function getSimpleModals() {
+  return [
+    els.authModal,
+    els.signupModal,
+    els.helpModal,
+    els.libraryModal,
+    els.accountModal,
+  ].filter(Boolean);
+}
+
+function getOpenSimpleModal() {
+  return getSimpleModals().find((modal) => !modal.hidden) || null;
+}
+
+function setBackgroundInert(inert) {
+  const targets = [
+    document.querySelector(".app-shell"),
+    els.pageScrollTop,
+    els.readerOverlay,
+  ].filter(Boolean);
+
+  targets.forEach((target) => {
+    if ("inert" in target) {
+      target.inert = Boolean(inert);
+    }
+
+    if (inert) {
+      target.setAttribute("aria-hidden", "true");
+    } else {
+      target.removeAttribute("aria-hidden");
+    }
+  });
+}
+
+function lockPageForModal() {
+  if (modalScrollLocked) return;
+
+  modalScrollLocked = true;
+  modalPageScrollY = window.scrollY || window.pageYOffset || 0;
+  modalLastFocusedElement =
+    document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null;
+
+  const scrollbarGap =
+    Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+
+  document.documentElement.classList.add("simple-modal-open");
+  document.body.classList.add("simple-modal-open");
+
+  document.body.style.position = "fixed";
+  document.body.style.top = `-${modalPageScrollY}px`;
+  document.body.style.left = "0";
+  document.body.style.right = "0";
+  document.body.style.width = "100%";
+
+  if (scrollbarGap > 0) {
+    document.body.style.paddingRight = `${scrollbarGap}px`;
+  }
+
+  setBackgroundInert(true);
+}
+
+function unlockPageForModal() {
+  if (!modalScrollLocked || getOpenSimpleModal()) return;
+
+  modalScrollLocked = false;
+
+  document.documentElement.classList.remove("simple-modal-open");
+  document.body.classList.remove("simple-modal-open");
+
+  document.body.style.position = "";
+  document.body.style.top = "";
+  document.body.style.left = "";
+  document.body.style.right = "";
+  document.body.style.width = "";
+  document.body.style.paddingRight = "";
+
+  setBackgroundInert(false);
+
+  window.scrollTo({
+    top: modalPageScrollY,
+    left: 0,
+    behavior: "auto",
+  });
+
+  if (
+    modalLastFocusedElement &&
+    document.contains(modalLastFocusedElement)
+  ) {
+    window.setTimeout(() => {
+      try {
+        modalLastFocusedElement.focus({ preventScroll: true });
+      } catch {
+        modalLastFocusedElement.focus();
+      }
+    }, 0);
+  }
+
+  modalLastFocusedElement = null;
+}
+
+function focusModal(modal) {
+  if (!modal) return;
+
+  const preferred = modal.querySelector(
+    '[autofocus], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+  );
+
+  if (preferred instanceof HTMLElement) {
+    window.setTimeout(() => {
+      try {
+        preferred.focus({ preventScroll: true });
+      } catch {
+        preferred.focus();
+      }
+    }, 0);
+  }
+}
+
 function closeModal(modal) {
-  if (modal) modal.hidden = true;
+  if (!modal) return;
+
+  modal.hidden = true;
+
+  if (!getOpenSimpleModal()) {
+    unlockPageForModal();
+  }
 }
 
 function openModal(modal) {
-  if (modal) modal.hidden = false;
+  if (!modal) return;
+
+  const alreadyOpen = getOpenSimpleModal();
+
+  if (!alreadyOpen) {
+    lockPageForModal();
+  }
+
+  getSimpleModals().forEach((candidate) => {
+    candidate.hidden = candidate !== modal;
+  });
+
+  modal.hidden = false;
+  focusModal(modal);
 }
 
 function setAuthMessage(message = "", isError = false) {
@@ -2014,7 +2157,6 @@ els.helpButton?.addEventListener("click", () => {
 });
 
 els.helpLoginButton?.addEventListener("click", () => {
-  closeModal(els.helpModal);
   openAuthModal("login");
 });
 
@@ -2029,12 +2171,10 @@ els.recentLibraryButton?.addEventListener("click", () => {
 
 
 els.authGoSignupButton?.addEventListener("click", () => {
-  closeModal(els.authModal);
   openSignupModal();
 });
 
 els.signupGoLoginButton?.addEventListener("click", () => {
-  closeModal(els.signupModal);
   openAuthModal("login");
 });
 
@@ -2305,6 +2445,47 @@ for (const modal of [
   });
 }
 
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Tab") return;
+
+  const modalOverlay = getOpenSimpleModal();
+  if (!modalOverlay) return;
+
+  const dialog = modalOverlay.querySelector(".simple-modal");
+  if (!dialog) return;
+
+  const focusable = Array.from(
+    dialog.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )
+  ).filter((element) => {
+    if (!(element instanceof HTMLElement)) return false;
+    if (element.hidden) return false;
+    if (element.closest("[hidden]")) return false;
+    return element.getClientRects().length > 0;
+  });
+
+  if (!focusable.length) {
+    event.preventDefault();
+    return;
+  }
+
+  const first = focusable[0];
+  const last = focusable[focusable.length - 1];
+  const active = document.activeElement;
+
+  if (event.shiftKey && active === first) {
+    event.preventDefault();
+    last.focus();
+  } else if (!event.shiftKey && active === last) {
+    event.preventDefault();
+    first.focus();
+  } else if (!dialog.contains(active)) {
+    event.preventDefault();
+    first.focus();
+  }
+});
+
 
 function setSearchValue(value, source = "main") {
   state.search = String(value || "");
@@ -2461,13 +2642,7 @@ els.readerOverlay.addEventListener("click", (event) => {
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
 
-  const openSimpleModal = [
-    els.authModal,
-    els.signupModal,
-    els.helpModal,
-    els.libraryModal,
-    els.accountModal,
-  ].find((modal) => modal && !modal.hidden);
+  const openSimpleModal = getOpenSimpleModal();
 
   if (openSimpleModal) {
     closeModal(openSimpleModal);

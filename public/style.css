@@ -3746,3 +3746,94 @@ html.theme-dark .quick-filter-button.active {
   border-color: #eee8df;
   color: #171614;
 }
+
+
+/* v6.35 - modal background scroll lock / interaction isolation */
+html.simple-modal-open,
+body.simple-modal-open {
+  overscroll-behavior: none;
+}
+
+body.simple-modal-open {
+  overflow: hidden !important;
+}
+
+.simple-modal-overlay {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
+}
+
+.simple-modal {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-gutter: stable;
+}
+
+/* Prevent accidental selection/click-through feeling behind a modal. */
+body.simple-modal-open .app-shell,
+body.simple-modal-open #readerOverlay {
+  user-select: none;
+}
+
+/* Keyboard accessibility */
+.simple-modal :focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 3px;
+}
+
+.simple-modal-close:focus-visible,
+.modal-primary-button:focus-visible,
+.modal-secondary-button:focus-visible,
+.auth-secondary-link:focus-visible,
+.library-clear-button:focus-visible,
+.preference-toggle:focus-visible,
+.preference-segmented button:focus-visible {
+  outline-offset: 2px;
+}
+
+/* Slightly safer modal sizing on mobile browsers with dynamic toolbars. */
+@media (max-width: 640px) {
+  .simple-modal-overlay {
+    padding:
+      max(12px, env(safe-area-inset-top))
+      12px
+      max(12px, env(safe-area-inset-bottom));
+  }
+
+  .simple-modal {
+    max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
+
+/* Keep modal scrollbar subtle in both themes. */
+.simple-modal {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(110,102,94,.28) transparent;
+}
+
+.simple-modal::-webkit-scrollbar {
+  width: 8px;
+}
+
+.simple-modal::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.simple-modal::-webkit-scrollbar-thumb {
+  background: rgba(110,102,94,.24);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+
+html.theme-dark .simple-modal {
+  scrollbar-color: rgba(215,208,198,.28) transparent;
+}
+
+html.theme-dark .simple-modal::-webkit-scrollbar-thumb {
+  background: rgba(215,208,198,.24);
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
