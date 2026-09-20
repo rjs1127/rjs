@@ -37,6 +37,8 @@ const state = {
   bookmarkOnly: false,
   readingOnly: false,
   resumeShortcutItemId: "",
+  visibleItemLimit: 40,
+  paginationSignature: "",
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -46,6 +48,7 @@ const READER_MIN_MEANINGFUL_SCROLL_PX = 24;
 const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 10; // 0.1% 단위 저장
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
+const CONTENT_PAGE_SIZE = 40;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
@@ -99,6 +102,10 @@ const els = {
   contentListBody: document.getElementById("contentListBody"),
   emptyState: document.getElementById("emptyState"),
   resultCount: document.getElementById("resultCount"),
+  loadMoreWrap: document.getElementById("loadMoreWrap"),
+  loadMoreButton: document.getElementById("loadMoreButton"),
+  loadMoreLabel: document.getElementById("loadMoreLabel"),
+  loadMoreProgress: document.getElementById("loadMoreProgress"),
   searchInput: document.getElementById("searchInput"),
   clearSearch: document.getElementById("clearSearch"),
   heroSearchBox: document.getElementById("heroSearchBox"),
@@ -1479,15 +1486,58 @@ function syncTabletFilterBar() {
   });
 }
 
+function getContentPaginationSignature() {
+  return JSON.stringify({
+    combination: state.combination,
+    contentType: state.contentType,
+    statusFilter: state.statusFilter,
+    source: state.source,
+    search: state.search,
+    sort: state.sort,
+    bookmarkOnly: state.bookmarkOnly,
+    readingOnly: state.readingOnly,
+  });
+}
+
+function syncLoadMoreUi(totalCount, shownCount) {
+  if (!els.loadMoreWrap || !els.loadMoreButton) return;
+
+  const hasMore = shownCount < totalCount;
+  els.loadMoreWrap.hidden = !hasMore;
+
+  if (!hasMore) return;
+
+  const remaining = totalCount - shownCount;
+  const nextCount = Math.min(CONTENT_PAGE_SIZE, remaining);
+
+  if (els.loadMoreLabel) {
+    els.loadMoreLabel.textContent = `더보기 ${nextCount.toLocaleString("ko-KR")}개`;
+  }
+  if (els.loadMoreProgress) {
+    els.loadMoreProgress.textContent =
+      `${shownCount.toLocaleString("ko-KR")} / ${totalCount.toLocaleString("ko-KR")}`;
+  }
+}
+
 function render() {
   syncTabletFilterBar();
+
   const items = getFilteredItems();
+  const paginationSignature = getContentPaginationSignature();
+
+  if (state.paginationSignature !== paginationSignature) {
+    state.paginationSignature = paginationSignature;
+    state.visibleItemLimit = CONTENT_PAGE_SIZE;
+  }
+
+  const visibleItems = items.slice(0, state.visibleItemLimit);
   updateFilterSummary();
   els.resultCount.textContent = `총 ${items.length.toLocaleString("ko-KR")}개`;
 
   if (!items.length) {
     els.contentGrid.hidden = true;
     els.contentListWrap.hidden = true;
+    els.loadMoreWrap.hidden = true;
     els.emptyState.hidden = false;
     syncViewButtons();
     return;
@@ -1496,15 +1546,16 @@ function render() {
   els.emptyState.hidden = true;
 
   if (state.view === "list") {
-    renderList(items);
+    renderList(visibleItems);
     els.contentGrid.hidden = true;
     els.contentListWrap.hidden = false;
   } else {
-    renderCards(items);
+    renderCards(visibleItems);
     els.contentGrid.hidden = false;
     els.contentListWrap.hidden = true;
   }
 
+  syncLoadMoreUi(items.length, visibleItems.length);
   syncViewButtons();
 }
 
@@ -3371,6 +3422,11 @@ function handleContentOpenClick(event) {
 
 els.contentGrid.addEventListener("click", handleContentOpenClick);
 els.contentListBody.addEventListener("click", handleContentOpenClick);
+
+els.loadMoreButton?.addEventListener("click", () => {
+  state.visibleItemLimit += CONTENT_PAGE_SIZE;
+  render();
+});
 
 for (const container of [els.contentGrid, els.contentListBody]) {
   container.addEventListener("keydown", (event) => {
