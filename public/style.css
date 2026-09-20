@@ -4359,3 +4359,83 @@ html.theme-light .preference-segmented button.active {
   background: var(--ink);
   color: #fff;
 }
+
+
+/* v6.47 - desktop filter compact layout */
+@media (min-width: 981px) {
+  .controls {
+    padding-top: 4px;
+    padding-bottom: 38px;
+  }
+
+  .controls-toolbar {
+    margin-bottom: 12px;
+  }
+
+  .controls-grid {
+    grid-template-columns:
+      minmax(0, 1.75fr)
+      minmax(155px, .72fr)
+      minmax(155px, .72fr)
+      minmax(165px, .78fr);
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .control-card {
+    min-height: 88px;
+    padding: 14px 16px;
+    border-radius: 17px;
+  }
+
+  .control-card-wide {
+    min-width: 0;
+  }
+
+  .filter-label {
+    margin-bottom: 9px;
+    font-size: 11px;
+  }
+
+  .chips {
+    gap: 7px;
+  }
+
+  .chip {
+    min-height: 30px;
+    padding: 7px 11px;
+    font-size: 11px;
+  }
+
+  .view-switch {
+    gap: 4px;
+    padding: 3px;
+    border-radius: 11px;
+  }
+
+  .view-button {
+    padding: 7px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+  }
+
+  .sort-control {
+    gap: 7px;
+  }
+
+  .sort-control select {
+    min-height: 34px;
+    padding: 7px 30px 7px 10px;
+  }
+
+  .library-quick-actions {
+    gap: 7px;
+  }
+
+  .quick-filter-button,
+  .resume-shortcut-button {
+    min-height: 34px;
+    padding-top: 7px;
+    padding-bottom: 7px;
+  }
+}
