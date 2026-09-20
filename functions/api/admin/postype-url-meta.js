@@ -610,6 +610,121 @@ function chooseCandidateSubset(urls) {
   ].filter((value, index, array) => array.indexOf(value) === index);
 }
 
+
+function formatPostypeUnixDate(value) {
+  const raw = Number(value);
+  if (!Number.isFinite(raw) || raw <= 0) return "";
+
+  // POSTYPE API의 publishedAt은 Unix seconds.
+  // 한국 서비스 화면과 날짜 경계를 맞추기 위해 KST(+09:00) 기준 YYYY-MM-DD로 변환한다.
+  const milliseconds = raw > 1_000_000_000_000
+    ? raw
+    : raw * 1000;
+
+  const kst = new Date(milliseconds + (9 * 60 * 60 * 1000));
+  if (Number.isNaN(kst.getTime())) return "";
+
+  return kst.toISOString().slice(0, 10);
+}
+
+async function fetchSeriesPostsApi(seriesUrl) {
+  const info = parseSeriesInfo(seriesUrl);
+  if (!info) {
+    return {
+      ok: false,
+      latestPublishedDate: "",
+      latestPostUrl: "",
+      postId: "",
+      title: "",
+      apiPostCount: 0,
+      strategy: "series-api-invalid-url",
+    };
+  }
+
+  const apiUrl =
+    `https://api.postype.com/api/v1/series/${encodeURIComponent(info.seriesId)}/posts` +
+    `?sort=publishedAt,desc&sort=createdAt,desc&page=0`;
+
+  const response = await fetch(apiUrl, {
+    method: "GET",
+    headers: {
+      accept: "application/json",
+      "user-agent": "Mozilla/5.0 ArchiveAdmin/1.0",
+    },
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      latestPublishedDate: "",
+      latestPostUrl: "",
+      postId: "",
+      title: "",
+      apiPostCount: 0,
+      status: response.status,
+      strategy: "series-api-http-error",
+    };
+  }
+
+  const data = await response.json();
+  const content = Array.isArray(data?.content) ? data.content : [];
+
+  // API 자체가 publishedAt DESC, createdAt DESC로 정렬되어 있으므로
+  // 현재 시리즈에 속한 "첫 번째 POST"만 사용한다.
+  const latestEntry = content.find((entry) => {
+    if (entry?.type !== "POST") return false;
+
+    const item = entry?.feedItem;
+    if (!item) return false;
+
+    return String(item?.series?.seriesId ?? "") === String(info.seriesId);
+  });
+
+  const item = latestEntry?.feedItem;
+  if (!item) {
+    return {
+      ok: false,
+      latestPublishedDate: "",
+      latestPostUrl: "",
+      postId: "",
+      title: "",
+      apiPostCount: content.length,
+      strategy: "series-api-empty",
+    };
+  }
+
+  const latestPublishedDate =
+    formatPostypeUnixDate(item.publishedAt);
+
+  if (!latestPublishedDate) {
+    return {
+      ok: false,
+      latestPublishedDate: "",
+      latestPostUrl: "",
+      postId: normalize(item.postId),
+      title: normalize(item.title),
+      apiPostCount: content.length,
+      strategy: "series-api-no-published-date",
+    };
+  }
+
+  const postId = normalize(item.postId);
+  const latestPostUrl = postId
+    ? `${info.origin}/@${info.handle}/post/${postId}`
+    : "";
+
+  return {
+    ok: true,
+    latestPublishedDate,
+    latestPostUrl,
+    postId,
+    title: normalize(item.title),
+    apiPostCount: content.length,
+    strategy: "series-api-first-post",
+  };
+}
+
 async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
   const info = parseSeriesInfo(seriesUrl);
   if (!info) {
@@ -622,15 +737,31 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       seriesPageCandidateCount: 0,
       channelPageCandidateCount: 0,
       structuredCandidateCount: 0,
-      strategy: "series-top-post",
+      apiPostCount: 0,
+      strategy: "series-invalid-url",
     };
   }
 
-  // POSTYPE 시리즈 페이지는 회차가 최신순으로 노출된다는 전제에 맞춰
-  // "가장 위에 노출된 실제 시리즈 포스트 1개"만 사용한다.
-  //
-  // 1) 먼저 시리즈 페이지 안의 구조화 데이터에서 현재 seriesId에 속하는
-  //    포스트를 문서에 나온 순서 그대로 찾는다.
+  // 1순위: POSTYPE 웹앱이 실제 시리즈 목록에 사용하는 공식 API.
+  // 요청 자체가 최신 발행일 내림차순이므로 content[0]에 해당하는 첫 POST가 최신화다.
+  const apiResult = await fetchSeriesPostsApi(seriesUrl);
+
+  if (apiResult.ok) {
+    return {
+      latestPublishedDate: apiResult.latestPublishedDate,
+      latestPostUrl: apiResult.latestPostUrl,
+      checkedPostCount: 0,
+      matchedSeriesPostCount: 1,
+      discoveredPostCount: apiResult.apiPostCount,
+      seriesPageCandidateCount: 0,
+      channelPageCandidateCount: 0,
+      structuredCandidateCount: 0,
+      apiPostCount: apiResult.apiPostCount,
+      strategy: apiResult.strategy,
+    };
+  }
+
+  // API가 일시적으로 막히거나 응답이 비어 있을 때만 기존 HTML 방식으로 fallback.
   const structuredDates =
     collectStructuredSeriesDates(
       seriesHtml,
@@ -639,86 +770,39 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
     );
 
   if (structuredDates.length) {
-    // POSTYPE의 시리즈 구조화 데이터는 회차 배열이 1화 → 최신화 순으로
-    // 들어오는 경우가 있어 첫 항목을 쓰면 정확히 1화 날짜가 잡힌다.
-    // 따라서 구조화 데이터에서는 "마지막 시리즈 포스트"를 최신화로 사용한다.
-    const latest = structuredDates.at(-1);
+    const dated = [...structuredDates]
+      .filter((item) => item?.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
 
-    return {
-      latestPublishedDate: latest.date || "",
-      latestPostUrl: latest.url || "",
-      checkedPostCount: 0,
-      matchedSeriesPostCount: 1,
-      discoveredPostCount: structuredDates.length,
-      seriesPageCandidateCount: structuredDates.length,
-      channelPageCandidateCount: 0,
-      structuredCandidateCount: structuredDates.length,
-      strategy: "series-last-structured-post",
-    };
-  }
+    const latest = dated.at(-1);
 
-  // 2) 구조화 데이터에 날짜가 없으면 시리즈 페이지의 포스트 링크를
-  //    화면/HTML 순서대로 보고, 현재 seriesId 소속으로 확인되는 첫 글을 사용한다.
-  const seriesPageUrls =
-    extractCandidatePostUrls(seriesHtml, seriesUrl);
-
-  let checkedPostCount = 0;
-  const matchedPosts = [];
-
-  for (const url of seriesPageUrls) {
-    if (checkedPostCount >= 12) break;
-    checkedPostCount += 1;
-
-    const page = await fetchHtml(url);
-    if (!page.ok) continue;
-
-    if (!postBelongsToSeries(page.html, info.seriesId)) {
-      continue;
+    if (latest) {
+      return {
+        latestPublishedDate: latest.date || "",
+        latestPostUrl: latest.url || "",
+        checkedPostCount: 0,
+        matchedSeriesPostCount: dated.length,
+        discoveredPostCount: structuredDates.length,
+        seriesPageCandidateCount: structuredDates.length,
+        channelPageCandidateCount: 0,
+        structuredCandidateCount: structuredDates.length,
+        apiPostCount: apiResult.apiPostCount || 0,
+        strategy: "series-html-fallback",
+      };
     }
-
-    const publishedDate =
-      extractSinglePostPublishedDate(page.html);
-
-    if (!publishedDate) continue;
-
-    matchedPosts.push({
-      url: page.url,
-      publishedDate,
-    });
-  }
-
-  // fallback 링크 목록도 유틸리티성 "첫 화 보기"가 앞에 끼는 경우가 있으므로
-  // 확인된 시리즈 포스트 중 실제 발행일이 가장 최근인 글을 사용한다.
-  matchedPosts.sort((a, b) =>
-    a.publishedDate.localeCompare(b.publishedDate)
-  );
-
-  const latestMatched = matchedPosts.at(-1);
-
-  if (latestMatched) {
-    return {
-      latestPublishedDate: latestMatched.publishedDate,
-      latestPostUrl: latestMatched.url,
-      checkedPostCount,
-      matchedSeriesPostCount: matchedPosts.length,
-      discoveredPostCount: seriesPageUrls.length,
-      seriesPageCandidateCount: seriesPageUrls.length,
-      channelPageCandidateCount: 0,
-      structuredCandidateCount: 0,
-      strategy: "series-linked-latest-date",
-    };
   }
 
   return {
     latestPublishedDate: "",
     latestPostUrl: "",
-    checkedPostCount,
+    checkedPostCount: 0,
     matchedSeriesPostCount: 0,
-    discoveredPostCount: seriesPageUrls.length,
-    seriesPageCandidateCount: seriesPageUrls.length,
+    discoveredPostCount: 0,
+    seriesPageCandidateCount: 0,
     channelPageCandidateCount: 0,
     structuredCandidateCount: 0,
-    strategy: "series-top-post-not-found",
+    apiPostCount: apiResult.apiPostCount || 0,
+    strategy: apiResult.strategy || "series-api-failed",
   };
 }
 
@@ -796,6 +880,7 @@ export async function onRequestPost(context) {
     let seriesPageCandidateCount = 0;
     let channelPageCandidateCount = 0;
     let structuredCandidateCount = 0;
+    let apiPostCount = 0;
     let strategy = "single-post-meta";
 
     if (seriesMode) {
@@ -812,6 +897,7 @@ export async function onRequestPost(context) {
       seriesPageCandidateCount = resolved.seriesPageCandidateCount || 0;
       channelPageCandidateCount = resolved.channelPageCandidateCount || 0;
       structuredCandidateCount = resolved.structuredCandidateCount || 0;
+      apiPostCount = resolved.apiPostCount || 0;
       strategy = resolved.strategy;
     } else {
       latestPublishedDate =
@@ -832,6 +918,7 @@ export async function onRequestPost(context) {
         seriesPageCandidateCount,
         channelPageCandidateCount,
         structuredCandidateCount,
+        apiPostCount,
         strategy,
         mode: seriesMode ? "series" : "post",
         found: Boolean(

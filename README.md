@@ -2,6 +2,36 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.78
+
+### POSTYPE 시리즈 실제 API 사용
+- 브라우저 Network에서 POSTYPE가 실제 시리즈 회차 목록을 불러오는 API 확인
+- 형식: `https://api.postype.com/api/v1/series/{seriesId}/posts?sort=publishedAt,desc&sort=createdAt,desc&page=0`
+- 기존 HTML/JSON 구조 추측 방식은 1순위에서 제거
+- 이제 시리즈 최근 발행일은 POSTYPE 웹앱과 동일한 회차 목록 API를 직접 사용
+
+### 최신화 판정
+1. 입력된 `/series/{seriesId}` URL에서 `seriesId` 추출
+2. POSTYPE 시리즈 posts API 호출
+3. API가 이미 `publishedAt DESC`, `createdAt DESC`로 정렬하므로 현재 시리즈의 첫 번째 `POST` 항목 사용
+4. 해당 `feedItem.publishedAt` Unix timestamp를 최근 발행일로 변환
+5. 한국 서비스 날짜 경계에 맞춰 KST(+09:00) 기준 `YYYY-MM-DD`로 저장
+6. 더 이상 1화/마지막 배열/HTML 링크 순서를 추측하지 않음
+
+### fallback
+- API가 일시적으로 실패하거나 회차가 비어 있을 때만 기존 시리즈 HTML 구조화 데이터 방식 사용
+- 정상적인 경우 `strategy = series-api-first-post`
+
+### 진단
+- 응답에 `apiPostCount` 추가
+- API에서 받은 현재 페이지의 회차 수 확인 가능
+- 관리자 헤더를 `현재 버전 v6.78`로 갱신
+
+### 영향 범위
+- 시리즈 최근 발행일 조회만 변경
+- 단편 조회, Sheet 동기화(v6.75), KV 변경 감지 로직은 그대로 유지
+- 일반 사용자 페이지에는 추가 API 호출 없음
+
 ## v6.77
 
 ### 시리즈가 1화 날짜를 가져오는 문제 수정
