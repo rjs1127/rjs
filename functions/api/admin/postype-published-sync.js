@@ -301,6 +301,20 @@ export async function onRequestPost(context) {
         );
       }
 
+      if (!["단일글", "다회차"].includes(publishType)) {
+        return jsonResponse(
+          { error: `${id}: 작품형태 값을 확인해 주세요.` },
+          400
+        );
+      }
+
+      if (!["연재", "완결"].includes(status)) {
+        return jsonResponse(
+          { error: `${id}: 상태 값을 확인해 주세요.` },
+          400
+        );
+      }
+
       const rowIndex = rowById.get(id);
       if (rowIndex === undefined) {
         return jsonResponse(
@@ -309,32 +323,73 @@ export async function onRequestPost(context) {
         );
       }
 
-      const currentDate = normalize(values[rowIndex]?.[latestPublishedDateColumn]);
-      const currentPublishType = Number.isInteger(publishTypeColumn) ? normalize(values[rowIndex]?.[publishTypeColumn]) : "";
-      if (currentPublishType !== publishType && Number.isInteger(publishTypeColumn)) {
+      const rowNumber = rowIndex + 1;
+      let rowChanged = false;
+
+      if (!values[rowIndex]) values[rowIndex] = [];
+
+      const currentDate =
+        normalize(values[rowIndex]?.[latestPublishedDateColumn]);
+
+      if (currentDate !== latestPublishedDate) {
         changedCells.push({
-          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(publishTypeColumn)}${rowNumber}`,
+          range:
+            `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+            `${columnLetter(latestPublishedDateColumn)}${rowNumber}`,
           majorDimension: "ROWS",
-          values: [[publishType]],
+          values: [[latestPublishedDate]],
         });
-        if (!values[rowIndex]) values[rowIndex] = [];
-        values[rowIndex][publishTypeColumn] = publishType;
+
+        values[rowIndex][latestPublishedDateColumn] =
+          latestPublishedDate;
         rowChanged = true;
       }
 
-      const currentStatus = Number.isInteger(statusColumn) ? normalize(values[rowIndex]?.[statusColumn]) : "";
-      if (currentStatus !== status && Number.isInteger(statusColumn)) {
-        changedCells.push({
-          range: `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${columnLetter(statusColumn)}${rowNumber}`,
-          majorDimension: "ROWS",
-          values: [[status]],
-        });
-        if (!values[rowIndex]) values[rowIndex] = [];
-        values[rowIndex][statusColumn] = status;
-        rowChanged = true;
+      if (Number.isInteger(publishTypeColumn)) {
+        const currentPublishType =
+          normalize(values[rowIndex]?.[publishTypeColumn]);
+
+        if (currentPublishType !== publishType) {
+          changedCells.push({
+            range:
+              `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+              `${columnLetter(publishTypeColumn)}${rowNumber}`,
+            majorDimension: "ROWS",
+            values: [[publishType]],
+          });
+
+          values[rowIndex][publishTypeColumn] = publishType;
+          rowChanged = true;
+        }
       }
 
-      if (rowChanged) updates.push({ id, latestPublishedDate, publishType, status, rowNumber });
+      if (Number.isInteger(statusColumn)) {
+        const currentStatus =
+          normalize(values[rowIndex]?.[statusColumn]);
+
+        if (currentStatus !== status) {
+          changedCells.push({
+            range:
+              `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+              `${columnLetter(statusColumn)}${rowNumber}`,
+            majorDimension: "ROWS",
+            values: [[status]],
+          });
+
+          values[rowIndex][statusColumn] = status;
+          rowChanged = true;
+        }
+      }
+
+      if (rowChanged) {
+        updates.push({
+          id,
+          latestPublishedDate,
+          publishType,
+          status,
+          rowNumber,
+        });
+      }
     }
 
     if (changedCells.length) {
