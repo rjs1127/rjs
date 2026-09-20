@@ -2,6 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const MAX_HTML_BYTES = 2_000_000;
+const MAX_SERIES_POST_CHECKS = 6;
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -48,9 +49,16 @@ function isSeriesUrl(value) {
 function getMetaContent(html, key, attr = "property") {
   const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const patterns = [
-    new RegExp(`<meta[^>]*${attr}\\s*=\\s*["']${escaped}["'][^>]*content\\s*=\\s*["']([^"']*)["'][^>]*>`, "i"),
-    new RegExp(`<meta[^>]*content\\s*=\\s*["']([^"']*)["'][^>]*${attr}\\s*=\\s*["']${escaped}["'][^>]*>`, "i"),
+    new RegExp(
+      `<meta[^>]*${attr}\\s*=\\s*["']${escaped}["'][^>]*content\\s*=\\s*["']([^"']*)["'][^>]*>`,
+      "i"
+    ),
+    new RegExp(
+      `<meta[^>]*content\\s*=\\s*["']([^"']*)["'][^>]*${attr}\\s*=\\s*["']${escaped}["'][^>]*>`,
+      "i"
+    ),
   ];
+
   for (const pattern of patterns) {
     const match = html.match(pattern);
     if (match?.[1]) return decodeHtml(match[1]);
@@ -71,7 +79,9 @@ function cleanTitle(value) {
 
 function readJsonLd(html) {
   const results = [];
-  const pattern = /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  const pattern =
+    /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
   let match;
   while ((match = pattern.exec(html))) {
     const raw = match[1]?.trim();
@@ -87,21 +97,55 @@ function readJsonLd(html) {
 
 function findJsonLdValue(nodes, keys) {
   const queue = [...nodes];
+
   while (queue.length) {
     const node = queue.shift();
     if (!node || typeof node !== "object") continue;
+
     for (const key of keys) {
       const value = node[key];
-      if (typeof value === "string" && normalize(value)) return decodeHtml(value);
-      if (value && typeof value === "object" && typeof value.name === "string" && normalize(value.name)) {
+
+      if (typeof value === "string" && normalize(value)) {
+        return decodeHtml(value);
+      }
+
+      if (
+        value &&
+        typeof value === "object" &&
+        typeof value.name === "string" &&
+        normalize(value.name)
+      ) {
         return decodeHtml(value.name);
       }
     }
+
     for (const value of Object.values(node)) {
       if (Array.isArray(value)) queue.push(...value);
       else if (value && typeof value === "object") queue.push(value);
     }
   }
+
+  return "";
+}
+
+function findEmbeddedAuthor(html) {
+  const patterns = [
+    /"author"\s*:\s*\{[^{}]{0,500}?"name"\s*:\s*"([^"]+)"/i,
+    /"creator"\s*:\s*\{[^{}]{0,500}?"name"\s*:\s*"([^"]+)"/i,
+    /"nickname"\s*:\s*"([^"]+)"/i,
+  ];
+
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (!match?.[1]) continue;
+
+    try {
+      return decodeHtml(JSON.parse(`"${match[1]}"`));
+    } catch {
+      return decodeHtml(match[1]);
+    }
+  }
+
   return "";
 }
 
@@ -114,245 +158,177 @@ function normalizeDate(value) {
     const year = Number(direct[1]);
     const month = Number(direct[2]);
     const day = Number(direct[3]);
-    if (year >= 2010 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-      return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+
+    if (
+      year >= 2010 &&
+      year <= 2100 &&
+      month >= 1 &&
+      month <= 12 &&
+      day >= 1 &&
+      day <= 31
+    ) {
+      return [
+        String(year),
+        String(month).padStart(2, "0"),
+        String(day).padStart(2, "0"),
+      ].join("-");
     }
   }
 
   const timestamp = Date.parse(text);
   if (!Number.isFinite(timestamp)) return "";
+
   const date = new Date(timestamp);
   const year = date.getUTCFullYear();
   if (year < 2010 || year > 2100) return "";
+
   return [
-    year,
+    String(year),
     String(date.getUTCMonth() + 1).padStart(2, "0"),
     String(date.getUTCDate()).padStart(2, "0"),
   ].join("-");
 }
 
-function collectDatesFromObject(node, results, context = {}) {
-  if (!node || typeof node !== "object") return;
+function extractSinglePostPublishedDate(html) {
+  const jsonLd = readJsonLd(html);
 
-  const localUrl =
-    normalize(node.url) ||
-    normalize(node.href) ||
-    normalize(node.link) ||
-    normalize(node.permalink) ||
-    normalize(node.canonicalUrl);
+  const primary =
+    getMetaContent(html, "article:published_time") ||
+    findJsonLdValue(jsonLd, ["datePublished"]) ||
+    getMetaContent(html, "date", "name");
 
-  const localType =
-    normalize(node["@type"]) ||
-    normalize(node.type) ||
-    normalize(node.__typename);
+  const normalized = normalizeDate(primary);
+  if (normalized) return normalized;
 
-  const title =
-    normalize(node.headline) ||
-    normalize(node.title) ||
-    normalize(node.name);
-
-  const postLike =
-    /\/post\/\d+/i.test(localUrl) ||
-    /(article|post|episode|content)/i.test(localType) ||
-    Boolean(title && (
-      node.datePublished ||
-      node.publishedAt ||
-      node.published_at ||
-      node.createdAt ||
-      node.created_at
-    ));
-
-  if (postLike) {
-    const rawDates = [
-      node.datePublished,
-      node.publishedAt,
-      node.published_at,
-      node.createdAt,
-      node.created_at,
-      node.uploadDate,
-    ];
-
-    for (const raw of rawDates) {
-      const date = normalizeDate(raw);
-      if (date) {
-        results.push({
-          date,
-          url: localUrl,
-          title,
-          source: "object",
-        });
-      }
-    }
-  }
-
-  for (const value of Object.values(node)) {
-    if (Array.isArray(value)) {
-      for (const item of value) {
-        if (item && typeof item === "object") {
-          collectDatesFromObject(item, results, context);
-        }
-      }
-    } else if (value && typeof value === "object") {
-      collectDatesFromObject(value, results, context);
-    }
-  }
-}
-
-function collectEmbeddedJsonObjects(html) {
-  const objects = [];
-
-  const jsonLdPattern =
-    /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
-
-  let match;
-  while ((match = jsonLdPattern.exec(html))) {
-    const raw = match[1]?.trim();
-    if (!raw) continue;
-    try {
-      objects.push(JSON.parse(raw));
-    } catch {}
-  }
-
-  const nextDataMatch = html.match(
-    /<script[^>]*id\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i
-  );
-  if (nextDataMatch?.[1]) {
-    try {
-      objects.push(JSON.parse(nextDataMatch[1]));
-    } catch {}
-  }
-
-  return objects;
-}
-
-function collectEpisodeCardDates(html) {
-  const results = [];
-
-  // POSTYPE 회차 링크 주변만 좁게 잘라 날짜를 찾는다.
-  const linkPattern = /href\s*=\s*["']([^"']*\/post\/\d+[^"']*)["']/gi;
-  let match;
-
-  while ((match = linkPattern.exec(html))) {
-    const url = decodeHtml(match[1]);
-    const from = Math.max(0, match.index - 1400);
-    const to = Math.min(html.length, match.index + 2400);
-    const fragment = html.slice(from, to);
-
-    const dateCandidates = [];
-
-    const datetimePattern =
-      /<time[^>]*datetime\s*=\s*["']([^"']+)["'][^>]*>/gi;
-    let timeMatch;
-    while ((timeMatch = datetimePattern.exec(fragment))) {
-      const date = normalizeDate(timeMatch[1]);
-      if (date) dateCandidates.push(date);
-    }
-
-    const jsonPattern =
-      /"(?:datePublished|publishedAt|published_at|createdAt|created_at)"\s*:\s*"([^"]+)"/gi;
-    let jsonMatch;
-    while ((jsonMatch = jsonPattern.exec(fragment))) {
-      const date = normalizeDate(jsonMatch[1]);
-      if (date) dateCandidates.push(date);
-    }
-
-    const visiblePattern =
-      /\b(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*\.?\s*(?:일)?\b/g;
-    let visibleMatch;
-    while ((visibleMatch = visiblePattern.exec(fragment))) {
-      const date = normalizeDate(
-        `${visibleMatch[1]}-${visibleMatch[2]}-${visibleMatch[3]}`
-      );
-      if (date) dateCandidates.push(date);
-    }
-
-    // 회차 카드 주변에 날짜가 여러 개면 링크에 가장 가까운 데이터만 쓰는 게 안전하다.
-    if (dateCandidates.length) {
-      results.push({
-        date: dateCandidates[0],
-        url,
-        source: "episode-card",
-      });
-    }
-  }
-
-  return results;
-}
-
-function chooseLatestEpisodeDate(html, jsonLd) {
-  const candidates = [];
-
-  const embeddedObjects = [
-    ...jsonLd,
-    ...collectEmbeddedJsonObjects(html),
-  ];
-
-  for (const object of embeddedObjects) {
-    if (Array.isArray(object)) {
-      for (const item of object) {
-        collectDatesFromObject(item, candidates);
-      }
-    } else {
-      collectDatesFromObject(object, candidates);
-    }
-  }
-
-  candidates.push(...collectEpisodeCardDates(html));
-
-  const unique = new Map();
-
-  for (const item of candidates) {
-    if (!item?.date) continue;
-
-    // 시리즈 페이지 자체 생성일/수정일처럼 회차와 관계없는 날짜를 배제하려고
-    // post 링크 또는 post-like 객체에서 얻은 값만 남긴다.
-    const key = `${item.date}|${item.url || ""}|${item.title || ""}`;
-    if (!unique.has(key)) unique.set(key, item);
-  }
-
-  const filtered = [...unique.values()].filter((item) => {
-    if (item.url && /\/post\/\d+/i.test(item.url)) return true;
-    return item.source === "object" && Boolean(item.title);
-  });
-
-  if (!filtered.length) return {
-    date: "",
-    candidateCount: 0,
-  };
-
-  filtered.sort((a, b) => a.date.localeCompare(b.date));
-
-  return {
-    date: filtered[filtered.length - 1].date,
-    candidateCount: filtered.length,
-  };
-}
-
-function findEmbeddedAuthor(html) {
   const patterns = [
-    /"author"\s*:\s*\{[^{}]{0,500}?"name"\s*:\s*"([^"]+)"/i,
-    /"creator"\s*:\s*\{[^{}]{0,500}?"name"\s*:\s*"([^"]+)"/i,
-    /"nickname"\s*:\s*"([^"]+)"/i,
+    /"datePublished"\s*:\s*"([^"]+)"/i,
+    /"publishedAt"\s*:\s*"([^"]+)"/i,
+    /"published_at"\s*:\s*"([^"]+)"/i,
+    /<time[^>]*datetime\s*=\s*["']([^"']+)["'][^>]*>/i,
   ];
+
   for (const pattern of patterns) {
     const match = html.match(pattern);
-    if (match?.[1]) {
-      try { return decodeHtml(JSON.parse(`"${match[1]}"`)); }
-      catch { return decodeHtml(match[1]); }
-    }
+    const date = normalizeDate(match?.[1]);
+    if (date) return date;
   }
+
   return "";
 }
 
-function extractMetadata(html, pageUrl, requestedLengthType) {
+function extractSeriesPostUrls(html, baseUrl) {
+  const urls = [];
+  const seen = new Set();
+  const hrefPattern = /href\s*=\s*["']([^"']+)["']/gi;
+  let match;
+
+  while ((match = hrefPattern.exec(html))) {
+    const raw = decodeHtml(match[1]);
+    if (!raw || !/\/post\/\d+/i.test(raw)) continue;
+
+    let absolute;
+    try {
+      absolute = new URL(raw, baseUrl).toString();
+    } catch {
+      continue;
+    }
+
+    if (!isPostypeUrl(absolute)) continue;
+
+    const canonical = absolute.split("#")[0];
+    if (seen.has(canonical)) continue;
+    seen.add(canonical);
+    urls.push(canonical);
+  }
+
+  return urls;
+}
+
+async function fetchHtml(url) {
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      accept: "text/html,application/xhtml+xml",
+      "user-agent": "Mozilla/5.0 ArchiveAdmin/1.0",
+    },
+    redirect: "follow",
+  });
+
+  if (!response.ok) {
+    return { ok: false, status: response.status, url: response.url || url, html: "" };
+  }
+
+  if (!isPostypeUrl(response.url)) {
+    return { ok: false, status: 400, url: response.url || url, html: "" };
+  }
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.toLowerCase().includes("text/html")) {
+    return { ok: false, status: 415, url: response.url || url, html: "" };
+  }
+
+  const buffer = await response.arrayBuffer();
+  if (buffer.byteLength > MAX_HTML_BYTES) {
+    return { ok: false, status: 413, url: response.url || url, html: "" };
+  }
+
+  return {
+    ok: true,
+    status: response.status,
+    url: response.url,
+    html: new TextDecoder("utf-8").decode(buffer),
+  };
+}
+
+async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
+  const postUrls = extractSeriesPostUrls(seriesHtml, seriesUrl);
+
+  if (!postUrls.length) {
+    return {
+      latestPublishedDate: "",
+      latestPostUrl: "",
+      checkedPostCount: 0,
+      discoveredPostCount: 0,
+      strategy: "linked-post-pages",
+    };
+  }
+
+  // '첫 화 보기' 같은 링크가 앞쪽에 섞일 수 있으므로 여러 실제 포스트를 직접 확인한다.
+  const targets = postUrls.slice(0, MAX_SERIES_POST_CHECKS);
+
+  const results = await Promise.all(
+    targets.map(async (url) => {
+      const page = await fetchHtml(url);
+      if (!page.ok) return null;
+
+      const publishedDate = extractSinglePostPublishedDate(page.html);
+      if (!publishedDate) return null;
+
+      return { url: page.url, publishedDate };
+    })
+  );
+
+  const valid = results
+    .filter(Boolean)
+    .sort((a, b) => a.publishedDate.localeCompare(b.publishedDate));
+
+  return {
+    latestPublishedDate: valid.at(-1)?.publishedDate || "",
+    latestPostUrl: valid.at(-1)?.url || "",
+    checkedPostCount: targets.length,
+    discoveredPostCount: postUrls.length,
+    strategy: "linked-post-pages",
+  };
+}
+
+function extractBaseMetadata(html) {
   const jsonLd = readJsonLd(html);
-  const seriesMode = requestedLengthType === "시리즈" || isSeriesUrl(pageUrl);
 
   const title = cleanTitle(
     getMetaContent(html, "og:title") ||
-    getMetaContent(html, "twitter:title", "name") ||
-    findJsonLdValue(jsonLd, ["headline", "name"]) ||
-    getTitleTag(html)
+      getMetaContent(html, "twitter:title", "name") ||
+      findJsonLdValue(jsonLd, ["headline", "name"]) ||
+      getTitleTag(html)
   );
 
   const author =
@@ -360,32 +336,9 @@ function extractMetadata(html, pageUrl, requestedLengthType) {
     findJsonLdValue(jsonLd, ["author", "creator"]) ||
     findEmbeddedAuthor(html);
 
-  let latestPublishedDate = "";
-
-  let seriesCandidateCount = 0;
-
-  if (seriesMode) {
-    const latestEpisode = chooseLatestEpisodeDate(html, jsonLd);
-    latestPublishedDate = latestEpisode.date;
-    seriesCandidateCount = latestEpisode.candidateCount;
-  } else {
-    latestPublishedDate = normalizeDate(
-      getMetaContent(html, "article:published_time") ||
-      getMetaContent(html, "date", "name") ||
-      findJsonLdValue(jsonLd, ["datePublished"])
-    );
-    if (!latestPublishedDate) {
-      const latestEpisode = chooseLatestEpisodeDate(html, jsonLd);
-      latestPublishedDate = latestEpisode.date;
-    }
-  }
-
   return {
     title: normalize(title),
     author: normalize(author),
-    latestPublishedDate,
-    mode: seriesMode ? "series" : "post",
-    seriesCandidateCount,
   };
 }
 
@@ -413,70 +366,80 @@ export async function onRequestPost(context) {
       );
     }
 
-    const response = await fetch(inputUrl, {
-      method: "GET",
-      headers: {
-        accept: "text/html,application/xhtml+xml",
-        "user-agent": "Mozilla/5.0 ArchiveAdmin/1.0",
-      },
-      redirect: "follow",
-    });
+    const page = await fetchHtml(inputUrl);
 
-    if (!response.ok) {
+    if (!page.ok) {
+      const message =
+        page.status === 413
+          ? "페이지가 너무 커서 자동 정보를 읽지 않았습니다."
+          : "포스타입 페이지를 불러오지 못했습니다.";
+
       return jsonResponse(
-        { error: `포스타입 페이지를 불러오지 못했습니다. (${response.status})` },
+        { error: `${message} (${page.status})` },
         400,
         { "cache-control": "no-store" }
       );
     }
 
-    if (!isPostypeUrl(response.url)) {
-      return jsonResponse(
-        { error: "포스타입 외부 주소로 이동된 URL은 처리하지 않습니다." },
-        400,
-        { "cache-control": "no-store" }
-      );
-    }
+    const seriesMode =
+      requestedLengthType === "시리즈" ||
+      isSeriesUrl(page.url);
 
-    const contentType = response.headers.get("content-type") || "";
-    if (!contentType.toLowerCase().includes("text/html")) {
-      return jsonResponse(
-        { error: "HTML 포스타입 페이지 URL을 입력해 주세요." },
-        400,
-        { "cache-control": "no-store" }
-      );
-    }
+    const baseMetadata = extractBaseMetadata(page.html);
 
-    const buffer = await response.arrayBuffer();
-    if (buffer.byteLength > MAX_HTML_BYTES) {
-      return jsonResponse(
-        { error: "페이지가 너무 커서 자동 정보를 읽지 않았습니다. 직접 입력해 주세요." },
-        400,
-        { "cache-control": "no-store" }
-      );
-    }
+    let latestPublishedDate = "";
+    let latestPostUrl = "";
+    let checkedPostCount = 0;
+    let discoveredPostCount = 0;
+    let strategy = "single-post-meta";
 
-    const html = new TextDecoder("utf-8").decode(buffer);
-    const metadata = extractMetadata(html, response.url, requestedLengthType);
+    if (seriesMode) {
+      const resolved = await resolveSeriesLatestPublishedDate(
+        page.html,
+        page.url
+      );
+
+      latestPublishedDate = resolved.latestPublishedDate;
+      latestPostUrl = resolved.latestPostUrl;
+      checkedPostCount = resolved.checkedPostCount;
+      discoveredPostCount = resolved.discoveredPostCount;
+      strategy = resolved.strategy;
+    } else {
+      latestPublishedDate =
+        extractSinglePostPublishedDate(page.html);
+    }
 
     return jsonResponse(
       {
         ok: true,
-        url: response.url,
-        title: metadata.title,
-        author: metadata.author,
-        latestPublishedDate: metadata.latestPublishedDate,
-        mode: metadata.mode,
-        seriesCandidateCount: metadata.seriesCandidateCount || 0,
-        found: Boolean(metadata.title || metadata.author || metadata.latestPublishedDate),
+        url: page.url,
+        title: baseMetadata.title,
+        author: baseMetadata.author,
+        latestPublishedDate,
+        latestPostUrl,
+        checkedPostCount,
+        discoveredPostCount,
+        strategy,
+        mode: seriesMode ? "series" : "post",
+        found: Boolean(
+          baseMetadata.title ||
+          baseMetadata.author ||
+          latestPublishedDate
+        ),
       },
       200,
       { "cache-control": "no-store" }
     );
   } catch (error) {
     console.error(error);
+
     return jsonResponse(
-      { ok: false, error: error?.message || "포스타입 URL 정보를 불러오지 못했습니다." },
+      {
+        ok: false,
+        error:
+          error?.message ||
+          "포스타입 URL 정보를 불러오지 못했습니다.",
+      },
       error?.status || 500,
       { "cache-control": "no-store" }
     );
