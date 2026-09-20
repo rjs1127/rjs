@@ -2,6 +2,64 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.67
+
+### 시리즈 대표 URL을 시리즈 페이지로 통일
+- `단편`은 해당 POSTYPE 포스트 URL 저장
+- `시리즈`는 1화/최신화 개별 포스트 URL 대신 POSTYPE 시리즈 페이지 URL(`/series/...`) 저장
+- 신규 단건/일괄 등록에서 `시리즈` 선택 시 시리즈 페이지 URL인지 검증
+- 시리즈 링크가 대표 URL로 고정되므로 새 회차가 추가되어도 저장 URL을 바꿀 필요 없음
+
+### 시리즈 최근 발행일 자동 확인
+- URL 정보 확인 API에 `lengthType`을 전달
+- 단편은 해당 포스트의 발행일을 `latestPublishedDate`로 사용
+- 시리즈는 시리즈 페이지에 공개된 회차 날짜 후보를 확인해 가장 최근 날짜를 `latestPublishedDate`로 사용
+- JSON-LD 날짜, 공개 데이터의 `publishedAt/createdAt`, `<time datetime>`, 화면에 노출된 날짜 형식을 보조적으로 확인
+- 관리자 `포스타입` 탭의 행별/일괄 최근 발행일 불러오기에도 동일 기준 적용
+
+### 등록 UI
+- 단건 등록 안내에 `단편=포스트 URL / 시리즈=시리즈 페이지 URL` 명시
+- 일괄등록 URL 열에도 시리즈 링크 기준 표시
+
+### v6.66 필드명 보정
+- 일부 내부 코드에 잘못 중복된 `latestLatestPublishedDate`가 생길 수 있던 문제 수정
+- Sheet/KV/API 필드명을 모두 `latestPublishedDate`로 통일
+- 기존 `publishedDate` 컬럼을 `latestPublishedDate`로 자동 마이그레이션하는 기존 동작은 유지
+
+### 변경 감지
+- 최근 발행일을 불러와도 즉시 Google Sheet에 쓰지 않음
+- `변경사항 시트 동기화`에서 기존 값과 달라진 날짜만 batch update
+- KV도 실제 데이터가 달라진 경우에만 1회 갱신
+
+## v6.66
+
+### 발행일 의미를 `latestPublishedDate`로 변경
+- POSTYPE 날짜 컬럼명을 `publishedDate` → `latestPublishedDate`로 변경
+- 저장 형식은 기존과 동일하게 `YYYY-MM-DD`
+- 의미를 다음처럼 통일:
+  - 단편: 해당 글의 실제 발행일
+  - 시리즈 + 연재: 현재 최신화 발행일
+  - 시리즈 + 완결: 마지막 화 발행일
+- 관리자 화면 표기도 `최근 발행일`로 변경
+
+### 기존 컬럼 자동 마이그레이션
+- 이미 v6.65에서 `publishedDate` 컬럼이 생성되어 있어도 새 컬럼을 중복 추가하지 않음
+- 기존 `publishedDate` 헤더만 `latestPublishedDate`로 자동 변경
+- 기존에 입력된 날짜 값은 그대로 유지
+- 두 컬럼이 모두 없는 경우에만 `latestPublishedDate`를 새로 생성
+
+### URL 메타데이터
+- POSTYPE URL에서 불러온 날짜도 `latestPublishedDate`로 취급
+- 단편 URL이면 해당 글 발행일을 그대로 사용
+- 시리즈는 `최신화 URL`을 넣었을 때 해당 최신화 발행일을 정확히 가져올 수 있음
+- 현재는 시리즈 페이지에서 최신화를 자동 탐색하는 방식은 사용하지 않으므로, 시리즈 행의 URL이 최신화인지 확인 필요
+
+### 변경 감지 동기화
+- 최근 발행일 수정도 기존과 동일하게 원본 시트 값과 비교
+- 변경된 셀만 Google Sheet에 batch update
+- 이후 KV 전체 데이터와 비교하여 실제 내용이 달라진 경우에만 `postype:index:v1` 1회 갱신
+- 변경이 없으면 Sheets write / KV write를 불필요하게 반복하지 않음
+
 ## v6.65
 
 ### POSTYPE 발행일 컬럼 추가

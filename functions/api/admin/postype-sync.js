@@ -20,7 +20,7 @@ const REQUIRED_HEADERS = [
   "author",
   "status",
   "lengthType",
-  "publishedDate",
+  "latestPublishedDate",
   "url",
   "enabled",
 ];
@@ -74,17 +74,65 @@ function columnLetter(index) {
   return result;
 }
 
-async function ensurePublishedDateHeader(accessToken, values) {
+async function ensureLatestPublishedDateHeader(accessToken, values) {
   const headers = (values[0] || []).map(normalize);
-  const existingIndex = headers.findIndex(
+  const latestIndex = headers.findIndex(
+    (header) => header.toLowerCase() === "latestpublisheddate"
+  );
+
+  if (latestIndex >= 0) {
+    return {
+      headers,
+      latestPublishedDateColumn: latestIndex,
+      added: false,
+      migrated: false,
+    };
+  }
+
+  const legacyIndex = headers.findIndex(
     (header) => header.toLowerCase() === "publisheddate"
   );
 
-  if (existingIndex >= 0) {
+  if (legacyIndex >= 0) {
+    const cellRange =
+      `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+      `${columnLetter(legacyIndex)}1`;
+
+    const updateUrl =
+      `https://sheets.googleapis.com/v4/spreadsheets/` +
+      `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
+      `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
+
+    const response = await fetch(updateUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        majorDimension: "ROWS",
+        values: [["latestPublishedDate"]],
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        `latestPublishedDate 컬럼명 변경 오류 (${response.status})`
+      );
+    }
+
+    headers[legacyIndex] = "latestPublishedDate";
+    if (!values[0]) values[0] = [];
+    values[0][legacyIndex] = "latestPublishedDate";
+
     return {
       headers,
-      publishedDateColumn: existingIndex,
+      latestPublishedDateColumn: legacyIndex,
       added: false,
+      migrated: true,
     };
   }
 
@@ -106,7 +154,7 @@ async function ensurePublishedDateHeader(accessToken, values) {
     },
     body: JSON.stringify({
       majorDimension: "ROWS",
-      values: [["publishedDate"]],
+      values: [["latestPublishedDate"]],
     }),
   });
 
@@ -115,18 +163,19 @@ async function ensurePublishedDateHeader(accessToken, values) {
   if (!response.ok) {
     throw new Error(
       data?.error?.message ||
-      `publishedDate 컬럼 생성 오류 (${response.status})`
+      `latestPublishedDate 컬럼 생성 오류 (${response.status})`
     );
   }
 
-  headers.push("publishedDate");
+  headers.push("latestPublishedDate");
   if (!values[0]) values[0] = [];
-  values[0][columnIndex] = "publishedDate";
+  values[0][columnIndex] = "latestPublishedDate";
 
   return {
     headers,
-    publishedDateColumn: columnIndex,
+    latestPublishedDateColumn: columnIndex,
     added: true,
+    migrated: false,
   };
 }
 
@@ -184,7 +233,7 @@ export async function onRequestPost(context) {
     }
 
     const values = Array.isArray(data?.values) ? data.values : [];
-    const headerInfo = await ensurePublishedDateHeader(accessToken, values);
+    const headerInfo = await ensureLatestPublishedDateHeader(accessToken, values);
     const headers = headerInfo.headers;
     const headerIndex = buildHeaderIndex(headers);
 
@@ -267,7 +316,7 @@ export async function onRequestPost(context) {
       const author = cell(row, headerIndex, "author");
       const status = cell(row, headerIndex, "status");
       const lengthType = cell(row, headerIndex, "lengthType");
-      const publishedDate = cell(row, headerIndex, "publishedDate");
+      const latestPublishedDate = cell(row, headerIndex, "latestPublishedDate");
       const itemUrl = cell(row, headerIndex, "url");
 
       const requiredValues = {
@@ -318,7 +367,7 @@ export async function onRequestPost(context) {
         author,
         status,
         lengthType,
-        publishedDate,
+        latestPublishedDate,
         url: itemUrl,
 
         // Drive TXT와 공통 구조를 맞추기 위한 기본 필드.

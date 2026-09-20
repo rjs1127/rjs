@@ -20,7 +20,7 @@ const REQUIRED_HEADERS = [
   "author",
   "status",
   "lengthType",
-  "publishedDate",
+  "latestPublishedDate",
   "url",
   "enabled",
 ];
@@ -61,7 +61,7 @@ function columnLetter(index) {
   return result;
 }
 
-function isValidPublishedDate(value) {
+function isValidLatestPublishedDate(value) {
   return value === "" || /^\d{4}-\d{2}-\d{2}$/.test(value);
 }
 
@@ -99,17 +99,65 @@ async function readSheet(accessToken) {
   return Array.isArray(data?.values) ? data.values : [];
 }
 
-async function ensurePublishedDateHeader(accessToken, values) {
+async function ensureLatestPublishedDateHeader(accessToken, values) {
   const headers = (values[0] || []).map(normalize);
-  const existingIndex = headers.findIndex(
+  const latestIndex = headers.findIndex(
+    (header) => header.toLowerCase() === "latestpublisheddate"
+  );
+
+  if (latestIndex >= 0) {
+    return {
+      headers,
+      latestPublishedDateColumn: latestIndex,
+      added: false,
+      migrated: false,
+    };
+  }
+
+  const legacyIndex = headers.findIndex(
     (header) => header.toLowerCase() === "publisheddate"
   );
 
-  if (existingIndex >= 0) {
+  if (legacyIndex >= 0) {
+    const cellRange =
+      `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
+      `${columnLetter(legacyIndex)}1`;
+
+    const updateUrl =
+      `https://sheets.googleapis.com/v4/spreadsheets/` +
+      `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
+      `${encodeURIComponent(cellRange)}?valueInputOption=RAW`;
+
+    const response = await fetch(updateUrl, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        majorDimension: "ROWS",
+        values: [["latestPublishedDate"]],
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(
+        data?.error?.message ||
+        `latestPublishedDate 컬럼명 변경 오류 (${response.status})`
+      );
+    }
+
+    headers[legacyIndex] = "latestPublishedDate";
+    if (!values[0]) values[0] = [];
+    values[0][legacyIndex] = "latestPublishedDate";
+
     return {
       headers,
-      publishedDateColumn: existingIndex,
+      latestPublishedDateColumn: legacyIndex,
       added: false,
+      migrated: true,
     };
   }
 
@@ -131,7 +179,7 @@ async function ensurePublishedDateHeader(accessToken, values) {
     },
     body: JSON.stringify({
       majorDimension: "ROWS",
-      values: [["publishedDate"]],
+      values: [["latestPublishedDate"]],
     }),
   });
 
@@ -140,18 +188,19 @@ async function ensurePublishedDateHeader(accessToken, values) {
   if (!response.ok) {
     throw new Error(
       data?.error?.message ||
-      `publishedDate 컬럼 생성 오류 (${response.status})`
+      `latestPublishedDate 컬럼 생성 오류 (${response.status})`
     );
   }
 
-  headers.push("publishedDate");
+  headers.push("latestPublishedDate");
   if (!values[0]) values[0] = [];
-  values[0][columnIndex] = "publishedDate";
+  values[0][columnIndex] = "latestPublishedDate";
 
   return {
     headers,
-    publishedDateColumn: columnIndex,
+    latestPublishedDateColumn: columnIndex,
     added: true,
+    migrated: false,
   };
 }
 
@@ -239,7 +288,7 @@ function buildArchive(values, headers) {
       author: cell(row, headerIndex, "author"),
       status: cell(row, headerIndex, "status"),
       lengthType: cell(row, headerIndex, "lengthType"),
-      publishedDate: cell(row, headerIndex, "publishedDate"),
+      latestPublishedDate: cell(row, headerIndex, "latestPublishedDate"),
       url,
       fileName: null,
       parseFailed: false,
@@ -278,7 +327,7 @@ export async function onRequestPost(context) {
 
     const accessToken = await getSheetsAccessToken(context.env);
     const values = await readSheet(accessToken);
-    const headerInfo = await ensurePublishedDateHeader(
+    const headerInfo = await ensureLatestPublishedDateHeader(
       accessToken,
       values
     );
@@ -286,7 +335,7 @@ export async function onRequestPost(context) {
     const headerIndex = buildHeaderIndex(headers);
 
     const idColumn = headerIndex.get("id");
-    const publishedDateColumn = headerIndex.get("publisheddate");
+    const latestPublishedDateColumn = headerIndex.get("publisheddate");
 
     const rowById = new Map();
 
@@ -300,11 +349,11 @@ export async function onRequestPost(context) {
 
     for (const raw of requestedUpdates) {
       const id = normalize(raw?.id).toUpperCase();
-      const publishedDate = normalize(raw?.publishedDate);
+      const latestPublishedDate = normalize(raw?.latestPublishedDate);
 
       if (!id) continue;
 
-      if (!isValidPublishedDate(publishedDate)) {
+      if (!isValidLatestPublishedDate(latestPublishedDate)) {
         return jsonResponse(
           {
             error:
@@ -323,28 +372,28 @@ export async function onRequestPost(context) {
       }
 
       const current = normalize(
-        values[rowIndex]?.[publishedDateColumn]
+        values[rowIndex]?.[latestPublishedDateColumn]
       );
 
-      if (current === publishedDate) continue;
+      if (current === latestPublishedDate) continue;
 
       const rowNumber = rowIndex + 1;
       const range =
         `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!` +
-        `${columnLetter(publishedDateColumn)}${rowNumber}`;
+        `${columnLetter(latestPublishedDateColumn)}${rowNumber}`;
 
       changedCells.push({
         range,
         majorDimension: "ROWS",
-        values: [[publishedDate]],
+        values: [[latestPublishedDate]],
       });
 
       if (!values[rowIndex]) values[rowIndex] = [];
-      values[rowIndex][publishedDateColumn] = publishedDate;
+      values[rowIndex][latestPublishedDateColumn] = latestPublishedDate;
 
       updates.push({
         id,
-        publishedDate,
+        latestPublishedDate,
         rowNumber,
       });
     }
