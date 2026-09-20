@@ -2,7 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const MAX_HTML_BYTES = 2_000_000;
-const MAX_SERIES_POST_CHECKS = 18;
+const MAX_SERIES_POST_CHECKS = 24;
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -58,6 +58,12 @@ function parseSeriesInfo(value) {
 
 function isSeriesUrl(value) {
   return Boolean(parseSeriesInfo(value));
+}
+
+function getChannelUrl(seriesUrl) {
+  const info = parseSeriesInfo(seriesUrl);
+  if (!info) return "";
+  return `${info.origin}/@${info.handle}`;
 }
 
 function getMetaContent(html, key, attr = "property") {
@@ -307,6 +313,21 @@ function extractCandidatePostUrls(html, seriesUrl) {
   return candidates;
 }
 
+function mergeUniqueUrls(...groups) {
+  const result = [];
+  const seen = new Set();
+
+  for (const group of groups) {
+    for (const value of group || []) {
+      if (!value || seen.has(value)) continue;
+      seen.add(value);
+      result.push(value);
+    }
+  }
+
+  return result;
+}
+
 async function fetchHtml(url) {
   const response = await fetch(url, {
     method: "GET",
@@ -365,11 +386,34 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       checkedPostCount: 0,
       matchedSeriesPostCount: 0,
       discoveredPostCount: 0,
-      strategy: "series-membership-verified",
+      seriesPageCandidateCount: 0,
+      channelPageCandidateCount: 0,
+      strategy: "series-plus-channel-membership-verified",
     };
   }
 
-  const postUrls = extractCandidatePostUrls(seriesHtml, seriesUrl);
+  const seriesPageUrls =
+    extractCandidatePostUrls(seriesHtml, seriesUrl);
+
+  // POSTYPE 시리즈 페이지의 서버 HTML이 최신 회차를 포함하지 않는 경우가 있어
+  // 같은 채널의 활동 페이지도 함께 읽고 최신 포스트 후보를 보강한다.
+  const channelUrl = getChannelUrl(seriesUrl);
+  const channelPage = channelUrl
+    ? await fetchHtml(channelUrl)
+    : null;
+
+  const channelPageUrls =
+    channelPage?.ok
+      ? extractCandidatePostUrls(channelPage.html, seriesUrl)
+      : [];
+
+  // 채널 페이지는 보통 최근 포스트 순으로 노출되므로 채널 후보를 먼저 둔다.
+  // 실제 시리즈 소속 여부는 각 포스트를 직접 열어 seriesId로 다시 검증한다.
+  const postUrls = mergeUniqueUrls(
+    channelPageUrls,
+    seriesPageUrls
+  );
+
   const targets = chooseCandidateSubset(postUrls);
 
   const results = await Promise.all(
@@ -377,8 +421,6 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
       const page = await fetchHtml(url);
       if (!page.ok) return null;
 
-      // 핵심: 같은 채널의 다른 글이 아니라
-      // 현재 seriesId를 실제로 포함하고 있는 포스트만 인정한다.
       if (!postBelongsToSeries(page.html, info.seriesId)) {
         return {
           url: page.url,
@@ -387,14 +429,8 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
         };
       }
 
-      const publishedDate = extractSinglePostPublishedDate(page.html);
-      if (!publishedDate) {
-        return {
-          url: page.url,
-          matched: true,
-          publishedDate: "",
-        };
-      }
+      const publishedDate =
+        extractSinglePostPublishedDate(page.html);
 
       return {
         url: page.url,
@@ -407,15 +443,21 @@ async function resolveSeriesLatestPublishedDate(seriesHtml, seriesUrl) {
   const matched = results.filter((item) => item?.matched);
   const dated = matched
     .filter((item) => item.publishedDate)
-    .sort((a, b) => a.publishedDate.localeCompare(b.publishedDate));
+    .sort((a, b) =>
+      a.publishedDate.localeCompare(b.publishedDate)
+    );
 
   return {
-    latestPublishedDate: dated.at(-1)?.publishedDate || "",
-    latestPostUrl: dated.at(-1)?.url || "",
+    latestPublishedDate:
+      dated.at(-1)?.publishedDate || "",
+    latestPostUrl:
+      dated.at(-1)?.url || "",
     checkedPostCount: targets.length,
     matchedSeriesPostCount: matched.length,
     discoveredPostCount: postUrls.length,
-    strategy: "series-membership-verified",
+    seriesPageCandidateCount: seriesPageUrls.length,
+    channelPageCandidateCount: channelPageUrls.length,
+    strategy: "series-plus-channel-membership-verified",
   };
 }
 
@@ -490,6 +532,8 @@ export async function onRequestPost(context) {
     let checkedPostCount = 0;
     let matchedSeriesPostCount = 0;
     let discoveredPostCount = 0;
+    let seriesPageCandidateCount = 0;
+    let channelPageCandidateCount = 0;
     let strategy = "single-post-meta";
 
     if (seriesMode) {
@@ -503,6 +547,8 @@ export async function onRequestPost(context) {
       checkedPostCount = resolved.checkedPostCount;
       matchedSeriesPostCount = resolved.matchedSeriesPostCount;
       discoveredPostCount = resolved.discoveredPostCount;
+      seriesPageCandidateCount = resolved.seriesPageCandidateCount || 0;
+      channelPageCandidateCount = resolved.channelPageCandidateCount || 0;
       strategy = resolved.strategy;
     } else {
       latestPublishedDate =
@@ -520,6 +566,8 @@ export async function onRequestPost(context) {
         checkedPostCount,
         matchedSeriesPostCount,
         discoveredPostCount,
+        seriesPageCandidateCount,
+        channelPageCandidateCount,
         strategy,
         mode: seriesMode ? "series" : "post",
         found: Boolean(
