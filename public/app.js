@@ -113,6 +113,7 @@ const els = {
   compactHeaderSearch: document.getElementById("compactHeaderSearch"),
   compactSearchInput: document.getElementById("compactSearchInput"),
   compactClearSearch: document.getElementById("compactClearSearch"),
+  compactFilterButton: document.getElementById("compactFilterButton"),
   brandText: document.getElementById("brandText"),
   siteFavicon: document.getElementById("siteFavicon"),
   siteShortcutIcon: document.getElementById("siteShortcutIcon"),
@@ -1346,6 +1347,10 @@ function setMobileFiltersOpen(open) {
     "aria-expanded",
     next ? "true" : "false"
   );
+  els.compactFilterButton?.setAttribute(
+    "aria-expanded",
+    next ? "true" : "false"
+  );
 
   if (els.mobileFilterBackdrop) {
     els.mobileFilterBackdrop.hidden = !next;
@@ -1406,6 +1411,21 @@ function updateFilterSummary() {
   if (state.view === "card") parts.push("카드형");
 
   els.filterSummary.textContent = parts.length ? parts.join(" · ") : "전체";
+
+  const hasActiveFilters = Boolean(
+    state.combination !== "전체" ||
+    state.contentType !== "전체" ||
+    state.statusFilter !== "전체" ||
+    state.source !== "전체" ||
+    state.bookmarkOnly ||
+    state.readingOnly
+  );
+
+  els.compactFilterButton?.classList.toggle("active", hasActiveFilters);
+  els.compactFilterButton?.setAttribute(
+    "aria-label",
+    hasActiveFilters ? "필터 열기, 필터 적용됨" : "필터 열기"
+  );
 }
 
 function getFilteredItems() {
@@ -2661,6 +2681,10 @@ els.sortSelect.addEventListener("change", (event) => {
 
 els.filterToggleButton?.addEventListener("click", () => {
   setMobileFiltersOpen(!state.mobileFiltersOpen);
+});
+
+els.compactFilterButton?.addEventListener("click", () => {
+  setMobileFiltersOpen(true);
 });
 
 els.mobileFilterCloseButton?.addEventListener("click", () => {

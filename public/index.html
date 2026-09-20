@@ -9,7 +9,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=711" />
+  <link rel="stylesheet" href="/theme.css?v=712" />
 </head>
 <body>
   <div class="app-shell">
@@ -29,6 +29,13 @@
         <span class="compact-search-icon" aria-hidden="true">⌕</span>
         <input id="compactSearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
         <button id="compactClearSearch" class="compact-clear-search" type="button" aria-label="검색어 지우기">×</button>
+        <button id="compactFilterButton" class="compact-filter-button" type="button" aria-label="필터 열기" aria-expanded="false" title="필터">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16"></path>
+            <path d="M7 12h10"></path>
+            <path d="M10 18h4"></path>
+          </svg>
+        </button>
       </div>
       <div class="header-actions">
         <button id="bookmarkLibraryButton" class="header-icon-button" type="button" aria-label="북마크" title="북마크">
@@ -248,7 +255,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.11</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.12</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -557,6 +564,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=711" defer></script>
+  <script src="/app.js?v=712" defer></script>
 </body>
 </html>

@@ -1248,6 +1248,78 @@ html.theme-dark .mobile-filter-close {
   border-color: #5a534a;
 }
 
+/* ---------- Mobile compact-header filter button ---------- */
+.compact-filter-button {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .site-header.compact-mode .compact-header-search {
+    grid-template-columns: auto minmax(0, 1fr) auto auto;
+    gap: 5px;
+    padding-right: 4px;
+  }
+
+  .site-header.compact-mode .compact-filter-button {
+    appearance: none;
+    width: 28px;
+    min-width: 28px;
+    height: 28px;
+    display: inline-grid;
+    place-items: center;
+    box-sizing: border-box;
+    padding: 0;
+    border: 1px solid var(--theme-line);
+    border-radius: 50%;
+    background: var(--theme-surface-soft);
+    color: var(--theme-secondary-text);
+    cursor: pointer;
+  }
+
+  .site-header.compact-mode .compact-filter-button svg {
+    width: 13px;
+    height: 13px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .site-header.compact-mode .compact-filter-button:hover,
+  .site-header.compact-mode .compact-filter-button:focus-visible {
+    background: var(--theme-hover);
+    color: var(--theme-text);
+    outline: none;
+  }
+
+  html.theme-light .site-header.compact-mode .compact-filter-button.active {
+    background: var(--theme-primary-bg);
+    border-color: var(--theme-primary-bg);
+    color: var(--theme-primary-text);
+  }
+
+  html.theme-dark .site-header.compact-mode .compact-filter-button.active {
+    background: #d9c9ae;
+    border-color: #d9c9ae;
+    color: #171614;
+  }
+
+  .site-header.compact-mode .compact-filter-button[aria-expanded="true"] {
+    box-shadow: 0 0 0 2px rgba(140, 126, 106, .16);
+  }
+}
+
+@media (max-width: 390px) {
+  .site-header.compact-mode .compact-search-icon {
+    display: none;
+  }
+
+  .site-header.compact-mode .compact-header-search {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+}
+
 /* ---------- Mobile filter bottom sheet ----------
    Opening filters must not push the content list downward. */
 .mobile-filter-sheet-head,
