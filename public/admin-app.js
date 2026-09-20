@@ -101,6 +101,23 @@ const els = {
   userTableBody: document.getElementById("userTableBody"),
   userEmpty: document.getElementById("userEmpty"),
   userMessage: document.getElementById("userMessage"),
+  resourceRefreshButton: document.getElementById("resourceRefreshButton"),
+  resourcePreciseButton: document.getElementById("resourcePreciseButton"),
+  resourceKvState: document.getElementById("resourceKvState"),
+  resourceKvMeta: document.getElementById("resourceKvMeta"),
+  resourceD1State: document.getElementById("resourceD1State"),
+  resourceD1Meta: document.getElementById("resourceD1Meta"),
+  resourceR2State: document.getElementById("resourceR2State"),
+  resourceR2Meta: document.getElementById("resourceR2Meta"),
+  resourceFunctionsState: document.getElementById("resourceFunctionsState"),
+  resourceMeasurementNotice: document.getElementById("resourceMeasurementNotice"),
+  resourceKvTotal: document.getElementById("resourceKvTotal"),
+  resourceKvBreakdown: document.getElementById("resourceKvBreakdown"),
+  resourceD1Total: document.getElementById("resourceD1Total"),
+  resourceD1Breakdown: document.getElementById("resourceD1Breakdown"),
+  resourceOperationBody: document.getElementById("resourceOperationBody"),
+  resourceFunctionsNote: document.getElementById("resourceFunctionsNote"),
+  resourceMessage: document.getElementById("resourceMessage"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
   panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
 };
@@ -127,6 +144,8 @@ let driveAdminLoaded = false;
 const DRIVE_ADMIN_PAGE_SIZE = 30;
 let driveAdminPage = 1;
 let driveAdminFilter = "all";
+let resourceUsageLoaded = false;
+let resourceUsageData = null;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -219,6 +238,17 @@ function setActiveTab(name) {
       if (els.postypeListMessage) {
         els.postypeListMessage.hidden = false;
         els.postypeListMessage.textContent = error.message || "POSTYPE 목록을 불러오지 못했습니다.";
+      }
+    });
+  }
+
+  if (name === "resources" && !resourceUsageLoaded) {
+    loadResourceUsage(false).catch((error) => {
+      console.error(error);
+      if (els.resourceMessage) {
+        els.resourceMessage.hidden = false;
+        els.resourceMessage.textContent =
+          error.message || "리소스 현황을 불러오지 못했습니다.";
       }
     });
   }
@@ -412,6 +442,179 @@ async function loadUserAdminData(showMessage = false) {
   if (showMessage && els.userMessage) {
     els.userMessage.hidden = false;
     els.userMessage.textContent = "유저 정보를 새로 불러왔습니다.";
+  }
+}
+
+function formatResourceBytes(value) {
+  if (value == null || !Number.isFinite(Number(value))) return "측정 안 함";
+
+  const bytes = Number(value);
+  if (bytes < 1024) return `${bytes.toLocaleString("ko-KR")} B`;
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toLocaleString("ko-KR", {
+      maximumFractionDigits: 1,
+    })} KB`;
+  }
+  if (bytes < 1024 * 1024 * 1024) {
+    return `${(bytes / 1024 / 1024).toLocaleString("ko-KR", {
+      maximumFractionDigits: 2,
+    })} MB`;
+  }
+  return `${(bytes / 1024 / 1024 / 1024).toLocaleString("ko-KR", {
+    maximumFractionDigits: 2,
+  })} GB`;
+}
+
+function renderResourceUsage(data) {
+  resourceUsageData = data;
+  resourceUsageLoaded = true;
+
+  const kv = data?.kv || {};
+  const d1 = data?.d1 || {};
+  const r2 = data?.r2 || {};
+
+  els.resourceKvState.textContent = kv.bound
+    ? `${Number(kv.keyCount || 0).toLocaleString("ko-KR")} keys`
+    : "미연결";
+  els.resourceKvMeta.textContent = kv.bound
+    ? `본문 캐시 ${Number(kv.bodyCacheKeyCount || 0).toLocaleString("ko-KR")}개 · ${
+        kv.measuredBytes == null
+          ? "용량 미측정"
+          : formatResourceBytes(kv.measuredBytes)
+      }`
+    : "ARCHIVE_KV binding 없음";
+
+  els.resourceD1State.textContent = d1.bound
+    ? `${Number(d1.totalRows || 0).toLocaleString("ko-KR")} rows`
+    : "미연결";
+  els.resourceD1Meta.textContent = d1.bound
+    ? `${Number(d1.tableCount || 0).toLocaleString("ko-KR")} tables · ${
+        d1.bytes == null
+          ? "DB 파일크기 미지원"
+          : formatResourceBytes(d1.bytes)
+      }`
+    : "USER_DB binding 없음";
+
+  els.resourceR2State.textContent = r2.bound
+    ? `${Number(r2.objectCount || 0).toLocaleString("ko-KR")} objects`
+    : "미사용";
+  els.resourceR2Meta.textContent = r2.bound
+    ? `${formatResourceBytes(r2.bytes || 0)} · 현재 코드에서는 R2 미사용`
+    : "ARCHIVE_BODY 미연결 · 현재 코드에서는 R2 미사용";
+
+  els.resourceFunctionsState.textContent = "Analytics 미연결";
+
+  els.resourceKvTotal.textContent = kv.bound
+    ? `${Number(kv.keyCount || 0).toLocaleString("ko-KR")} keys${
+        kv.measuredBytes == null
+          ? ""
+          : ` · ${formatResourceBytes(kv.measuredBytes)}`
+      }`
+    : "-";
+
+  els.resourceD1Total.textContent = d1.bound
+    ? `${Number(d1.totalRows || 0).toLocaleString("ko-KR")} rows`
+    : "-";
+
+  const categories = Array.isArray(kv.categories)
+    ? kv.categories
+    : [];
+
+  els.resourceKvBreakdown.innerHTML = categories.length
+    ? categories.map((row) => `
+        <div class="resource-breakdown-row">
+          <div>
+            <strong>${escapeHtml(row.label || "-")}</strong>
+            <span>${escapeHtml(row.purpose || "")}</span>
+          </div>
+          <div class="resource-breakdown-value">
+            <b>${Number(row.keyCount || 0).toLocaleString("ko-KR")} key</b>
+            <small>${
+              row.bytes == null
+                ? "용량 미측정"
+                : escapeHtml(formatResourceBytes(row.bytes))
+            }</small>
+          </div>
+        </div>
+      `).join("")
+    : `<div class="resource-empty">저장된 KV key가 없습니다.</div>`;
+
+  const tables = Array.isArray(d1.tables)
+    ? d1.tables
+    : [];
+
+  els.resourceD1Breakdown.innerHTML = tables.length
+    ? tables.map((row) => `
+        <div class="resource-breakdown-row">
+          <div>
+            <strong>${escapeHtml(row.label || row.name || "-")}</strong>
+            <span>${escapeHtml(row.purpose || "")}</span>
+          </div>
+          <div class="resource-breakdown-value">
+            <b>${Number(row.count || 0).toLocaleString("ko-KR")} row</b>
+            <small>${escapeHtml(row.name || "")}</small>
+          </div>
+        </div>
+      `).join("")
+    : `<div class="resource-empty">D1 table 정보가 없습니다.</div>`;
+
+  const profiles = Array.isArray(data?.operationProfile)
+    ? data.operationProfile
+    : [];
+
+  els.resourceOperationBody.innerHTML = profiles.map((row) => `
+    <tr>
+      <td><strong>${escapeHtml(row.action || "-")}</strong></td>
+      <td>${escapeHtml(row.kv || "-")}</td>
+      <td>${escapeHtml(row.d1 || "-")}</td>
+      <td>${escapeHtml(row.external || "-")}</td>
+    </tr>
+  `).join("");
+
+  els.resourceFunctionsNote.textContent =
+    data?.functions?.note ||
+    "Cloudflare Analytics API를 연결하지 않아 실제 일일 quota 사용량은 앱 안에서 조회하지 않습니다.";
+
+  if (data?.measurement === "precise") {
+    els.resourceMeasurementNotice.classList.add("is-precise");
+    els.resourceMeasurementNotice.textContent =
+      `KV 정밀 측정 완료 · 현재 ${Number(kv.keyCount || 0).toLocaleString("ko-KR")}개 key를 읽어 총 ${formatResourceBytes(kv.measuredBytes || 0)}를 계산했습니다.`;
+  } else {
+    els.resourceMeasurementNotice.classList.remove("is-precise");
+    els.resourceMeasurementNotice.textContent =
+      `빠른 조회 완료 · KV key ${Number(kv.keyCount || 0).toLocaleString("ko-KR")}개. 정확한 byte 측정은 현재 key 수만큼 KV get이 발생하므로 필요할 때만 정밀 측정을 실행하세요.`;
+  }
+}
+
+async function loadResourceUsage(precise = false) {
+  const refreshButton = els.resourceRefreshButton;
+  const preciseButton = els.resourcePreciseButton;
+
+  if (refreshButton) refreshButton.disabled = true;
+  if (preciseButton) preciseButton.disabled = true;
+
+  if (els.resourceMessage) {
+    els.resourceMessage.hidden = false;
+    els.resourceMessage.textContent = precise
+      ? "KV 값을 읽어 실제 저장 byte를 계산하고 있습니다…"
+      : "리소스 상태를 확인하고 있습니다…";
+  }
+
+  try {
+    const data = await api(
+      `/api/admin/resources${precise ? "?precise=1" : ""}`
+    );
+
+    renderResourceUsage(data);
+
+    if (els.resourceMessage) {
+      els.resourceMessage.hidden = true;
+    }
+
+    return data;
+  } finally {
+    if (refreshButton) refreshButton.disabled = false;
+    if (preciseButton) preciseButton.disabled = false;
   }
 }
 
@@ -1516,6 +1719,35 @@ els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
 });
 
+
+els.resourceRefreshButton?.addEventListener("click", async () => {
+  try {
+    await loadResourceUsage(false);
+  } catch (error) {
+    console.error(error);
+    els.resourceMessage.hidden = false;
+    els.resourceMessage.textContent =
+      error.message || "리소스 현황을 새로고침하지 못했습니다.";
+  }
+});
+
+els.resourcePreciseButton?.addEventListener("click", async () => {
+  const keyCount = Number(resourceUsageData?.kv?.keyCount || 0);
+  const message = keyCount > 0
+    ? `정밀 측정은 현재 KV key ${keyCount.toLocaleString("ko-KR")}개를 각각 읽어 byte를 계산합니다.\n이 측정 자체가 약 ${keyCount.toLocaleString("ko-KR")}회의 KV get을 사용합니다. 실행할까요?`
+    : "KV 저장 byte를 정밀 측정할까요?";
+
+  if (!window.confirm(message)) return;
+
+  try {
+    await loadResourceUsage(true);
+  } catch (error) {
+    console.error(error);
+    els.resourceMessage.hidden = false;
+    els.resourceMessage.textContent =
+      error.message || "KV 정밀 측정에 실패했습니다.";
+  }
+});
 
 els.dashboardRefreshButton?.addEventListener("click", async () => {
   els.dashboardRefreshButton.disabled = true;

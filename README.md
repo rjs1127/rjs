@@ -3,6 +3,53 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.13 — 관리자 리소스 사용 현황 대시보드
+
+### 관리자 `리소스` 탭
+- 관리자 페이지에 `리소스` 탭 추가
+- 현재 앱이 실제로 사용하는 Cloudflare binding 상태를 한 화면에서 확인
+  - KV `ARCHIVE_KV`
+  - D1 `USER_DB`
+  - R2 `ARCHIVE_BODY`
+  - Workers / Pages Functions Analytics 연결 상태
+- Google Drive / Google Sheets가 언제 호출되는지도 기능별 사용 구조에 표시
+
+### KV 현황
+- 현재 namespace의 전체 key 수 표시
+- TXT 본문 `body:*` cache key 수 별도 표시
+- Drive 목록 / POSTYPE index / 작품형태·상태 override / 사이트 설정 / 본문 cache 등 용도별 key 개수 분류
+- 기본 `빠른 새로고침`은 key 목록만 확인하여 불필요한 value read를 만들지 않음
+- `KV 용량 정밀 측정` 버튼을 따로 제공
+  - 실행 전에 현재 key 수만큼 KV get이 발생한다는 확인창 표시
+  - 사용자가 명시적으로 실행한 경우에만 각 value를 읽어 실제 byte 합계 계산
+  - 정밀 측정 자체가 소비하는 KV read 수를 관리자에게 명확히 고지
+
+### D1 현황
+- 사용자 계정 / 로그인 세션 / 개인 독서 기록 / 방문 원본 / 방문 집계 / 일별 집계 / 시스템 메타 table별 row 수 표시
+- 전체 app-managed row 수 표시
+- D1 환경에서 `PRAGMA page_count/page_size`를 제공하는 경우 현재 DB 파일 크기도 계산
+- 사용자 ID나 독서기록 원문은 리소스 화면에 노출하지 않고 row 개수만 조회
+
+### R2 현황
+- `ARCHIVE_BODY` binding이 없으면 `미사용`으로 표시
+- binding이 아직 남아 있으면 object 수와 byte 합계 표시
+- 현재 운영 TXT 본문 코드는 R2를 사용하지 않는다는 점을 명시하여 레거시 binding/객체 여부를 확인 가능
+
+### 실제 일일 quota 사용량
+- 현재 앱 binding만으로는 Cloudflare 계정의 `오늘 Workers 호출수 / KV read·write / D1 rows read·written / CPU` Analytics를 정확히 가져올 수 없음을 관리자 화면에 명시
+- 실제 Cloudflare Analytics까지 관리자에 표시하려면 별도 Cloudflare Analytics API credential 연결이 필요
+- 정확한 사용량을 보기 위해 요청마다 별도 계측 write를 추가하는 방식은 리소스를 더 소비하므로 이번 버전에는 도입하지 않음
+
+### 기능별 사용 구조
+- 콘텐츠 목록 열기
+- TXT 본문 KV cache hit
+- TXT 본문 KV cache miss
+- 이어보기/북마크/읽음 저장
+- Drive 다시 읽기
+- POSTYPE 동기화
+각 동작이 KV / D1 / Google Drive·Sheets를 어떻게 사용하는지 표로 표시
+
+
 ## v7.12 — 모바일 컴팩트 헤더 필터 아이콘
 
 ### 모바일 컴팩트모드
