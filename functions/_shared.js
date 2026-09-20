@@ -9,7 +9,7 @@ const SETTINGS_KEY = "archive:settings:v1";
 
 const DEFAULT_SETTINGS = {
   siteName: "RJS BOOK",
-  faviconUrl: "/favicon.svg",
+  faviconUrl: "",
   eyebrow: "GOOGLE DRIVE ARCHIVE",
   title: "내 콘텐츠를\n한곳에서 찾아보세요."
 };

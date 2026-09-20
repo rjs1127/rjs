@@ -31,6 +31,40 @@ const state = {
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
 const LARGE_FILE_MIN_LOADING_VISIBLE_MS = 1700;
 
+const UI_THEME_KEY = "rjsBookThemeV1";
+const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
+
+function getSavedTheme() {
+  return localStorage.getItem(UI_THEME_KEY) === "dark" ? "dark" : "light";
+}
+
+function getSavedReaderSpacing() {
+  const value = localStorage.getItem(READER_SPACING_KEY);
+  return ["compact", "normal", "wide"].includes(value) ? value : "normal";
+}
+
+function applyUserPreferences() {
+  const theme = getSavedTheme();
+  const spacing = getSavedReaderSpacing();
+
+  document.documentElement.classList.toggle("theme-dark", theme === "dark");
+  document.documentElement.dataset.readerSpacing = spacing;
+
+  if (els.darkModeToggle) {
+    const enabled = theme === "dark";
+    els.darkModeToggle.textContent = enabled ? "ON" : "OFF";
+    els.darkModeToggle.classList.toggle("active", enabled);
+    els.darkModeToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+  }
+
+  els.readerSpacingButtons?.forEach((button) => {
+    const active = button.dataset.readerSpacing === spacing;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+
 const els = {
   status: document.getElementById("status"),
   contentGrid: document.getElementById("contentGrid"),
@@ -48,6 +82,7 @@ const els = {
   brandText: document.getElementById("brandText"),
   siteFavicon: document.getElementById("siteFavicon"),
   siteShortcutIcon: document.getElementById("siteShortcutIcon"),
+  siteAppleTouchIcon: document.getElementById("siteAppleTouchIcon"),
   combinationFilters: document.getElementById("combinationFilters"),
   lengthFilters: document.getElementById("lengthFilters"),
   controlsGrid: document.getElementById("controlsGrid"),
@@ -122,6 +157,8 @@ const els = {
   libraryModalList: document.getElementById("libraryModalList"),
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
+  darkModeToggle: document.getElementById("darkModeToggle"),
+  readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
   logoutButton: document.getElementById("logoutButton"),
 };
 
@@ -741,17 +778,17 @@ function hideStatus() {
 }
 
 function getVersionedFaviconUrl(rawUrl, updatedAt = "") {
-  const fallback = "/favicon.svg";
   const value = String(rawUrl || "").trim();
 
-  if (!value) return fallback;
-
-  // v6.30의 기본 data URI 값이 KV에 저장돼 있으면 정적 SVG로 자동 교체합니다.
+  // Treat previous bundled defaults as "use the current bundled favicon".
   if (
-    value.startsWith("data:image/svg+xml") &&
-    value.includes("viewBox%3D%220%200%2064%2064%22")
+    !value ||
+    value === "/favicon.svg" ||
+    value === "/favicon.ico" ||
+    value === "/favicon-32.png" ||
+    value.startsWith("data:image/svg+xml")
   ) {
-    return fallback;
+    return "";
   }
 
   if (value.startsWith("data:image/")) return value;
@@ -778,8 +815,18 @@ function applySettings(settings = {}) {
     els.brandText.textContent = siteName;
   }
 
-  for (const link of [els.siteFavicon, els.siteShortcutIcon]) {
-    if (link) link.setAttribute("href", faviconUrl);
+  if (faviconUrl) {
+    for (const link of [
+      els.siteFavicon,
+      els.siteShortcutIcon,
+      els.siteAppleTouchIcon,
+    ]) {
+      if (link) link.setAttribute("href", faviconUrl);
+    }
+  } else {
+    els.siteFavicon?.setAttribute("href", "/favicon-32.png?v=632");
+    els.siteShortcutIcon?.setAttribute("href", "/favicon.ico?v=632");
+    els.siteAppleTouchIcon?.setAttribute("href", "/apple-touch-icon.png?v=632");
   }
 
   if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
@@ -1931,6 +1978,22 @@ els.readerResume?.addEventListener("click", async (event) => {
 
 
 
+
+els.darkModeToggle?.addEventListener("click", () => {
+  const nextTheme = getSavedTheme() === "dark" ? "light" : "dark";
+  localStorage.setItem(UI_THEME_KEY, nextTheme);
+  applyUserPreferences();
+});
+
+els.readerSpacingButtons?.forEach((button) => {
+  button.addEventListener("click", () => {
+    const spacing = button.dataset.readerSpacing;
+    if (!["compact", "normal", "wide"].includes(spacing)) return;
+    localStorage.setItem(READER_SPACING_KEY, spacing);
+    applyUserPreferences();
+  });
+});
+
 els.loginButton?.addEventListener("click", () => {
   if (state.user) {
     els.accountModalUser.textContent =
@@ -2502,6 +2565,7 @@ els.pageScrollTop?.addEventListener("click", () => {
 });
 
 
+applyUserPreferences();
 updatePageScrollTopButton();
 updateCompactHeader();
 syncViewButtons();

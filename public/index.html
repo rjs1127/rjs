@@ -5,8 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#f6f3ee" />
   <title>RJS BOOK</title>
-  <link id="siteFavicon" rel="icon" href="/favicon.svg" />
-  <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.svg" />
+  <link id="siteFavicon" rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png?v=632" />
+  <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
+  <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
@@ -382,6 +383,29 @@
       <p class="simple-modal-kicker">ACCOUNT</p>
       <h2 id="accountModalTitle">로그인 정보</h2>
       <p id="accountModalUser" class="simple-modal-description"></p>
+
+      <div class="account-preferences">
+        <div class="account-preference-row">
+          <div>
+            <strong>다크모드</strong>
+            <span>사이트와 뷰어를 어둡게 표시합니다.</span>
+          </div>
+          <button id="darkModeToggle" class="preference-toggle" type="button" aria-pressed="false">OFF</button>
+        </div>
+
+        <div class="account-preference-row account-preference-row-stack">
+          <div>
+            <strong>본문 간격</strong>
+            <span>뷰어에서 읽기 편한 간격을 선택합니다.</span>
+          </div>
+          <div class="preference-segmented" role="group" aria-label="본문 간격">
+            <button type="button" data-reader-spacing="compact">좁게</button>
+            <button type="button" data-reader-spacing="normal">기본</button>
+            <button type="button" data-reader-spacing="wide">넓게</button>
+          </div>
+        </div>
+      </div>
+
       <button id="logoutButton" class="modal-secondary-button" type="button">로그아웃</button>
     </section>
   </div>
