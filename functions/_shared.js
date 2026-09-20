@@ -9,7 +9,7 @@ const SETTINGS_KEY = "archive:settings:v1";
 
 const DEFAULT_SETTINGS = {
   siteName: "RJS BOOK",
-  faviconUrl: "",
+  faviconUrl: "/favicon.svg",
   eyebrow: "GOOGLE DRIVE ARCHIVE",
   title: "내 콘텐츠를\n한곳에서 찾아보세요."
 };
@@ -95,7 +95,7 @@ function getServiceAccount(env) {
   return account;
 }
 
-async function getAccessToken(env) {
+async function getGoogleAccessToken(env, scope) {
   const account = getServiceAccount(env);
   const now = Math.floor(Date.now() / 1000);
 
@@ -104,7 +104,7 @@ async function getAccessToken(env) {
 
   const claims = {
     iss: account.client_email,
-    scope: DRIVE_SCOPE,
+    scope: scope || DRIVE_SCOPE,
     aud: TOKEN_URL,
     iat: now,
     exp: now + 3600,
@@ -150,6 +150,17 @@ async function getAccessToken(env) {
   }
 
   return tokenData.access_token;
+}
+
+async function getAccessToken(env) {
+  return getGoogleAccessToken(env, DRIVE_SCOPE);
+}
+
+async function getSheetsAccessToken(env) {
+  return getGoogleAccessToken(
+    env,
+    "https://www.googleapis.com/auth/spreadsheets"
+  );
 }
 
 async function driveFetch(accessToken, path, init = {}) {
@@ -554,6 +565,7 @@ export {
   requireKv,
   requireAdmin,
   getAccessToken,
+  getSheetsAccessToken,
   driveFetch,
   listFolder,
   getFileMeta,

@@ -2,6 +2,27 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.38
+
+### POSTYPE Google Sheet 읽기 1차 테스트
+- Google Sheet ID `1A6SL397yG59Yfs95x4SAlgqz5oVe26YMOw18gDw2fIw` 연결
+- 대상 시트 탭 `POSTYPE` 연결
+- 관리자 로그인 상태에서 `/api/admin/postype-test`를 열면 시트의 헤더와 데이터 행을 JSON으로 반환
+- 현재 단계에서는 테스트용 읽기만 수행하며 KV / D1 / 기존 아카이브 데이터에는 저장하지 않음
+- 시트에 입력한 실제 컬럼명을 그대로 JSON key로 변환하여 반환하므로 컬럼 구조 확인 가능
+
+### Google OAuth 범위 분리
+- 기존 Google Drive 본문/동기화 기능은 기존 `drive.readonly` 범위를 그대로 사용
+- Google Sheets 호출에만 `spreadsheets` 범위의 별도 액세스 토큰을 사용
+- 기존 `GOOGLE_SERVICE_ACCOUNT_JSON`을 그대로 재사용하며 새 Secret은 필요 없음
+
+### 다음 단계
+- 읽기 테스트 성공 후 컬럼 검증 및 정규화
+- 빈 `id` 자동 생성 및 Sheet 재기록
+- 관리자 `POSTYPE 시트 동기화` 버튼
+- KV에 `postype:index:v1` 저장
+- TXT + POSTYPE 통합 탐색
+
 ## v6.37
 
 ### TXT 다운로드를 Google Drive 직접 다운로드로 변경
