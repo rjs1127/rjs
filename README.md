@@ -2,6 +2,14 @@
 
 이 README는 패치 버전별 변경사항을 누적 기록합니다.
 
+## v6.70
+
+### Cloudflare Pages Functions 빌드 오류 수정
+- v6.69 `functions/admin.js`의 인라인 `ADMIN_HTML` 문자열 안에 실제 줄바꿈이 섞여 `Unterminated string literal`이 발생하던 문제 수정
+- 관리자 POSTYPE 최근 발행일 메시지 구간의 줄바꿈/따옴표를 인라인 HTML 문자열 형식에 맞게 다시 이스케이프
+- 기능 변경 없음
+- 관리자 헤더 `현재 버전 v6.69` 표시는 이번 배포 확인을 위해 `현재 버전 v6.70`으로 갱신
+
 ## v6.69
 
 ### 시리즈 최근 발행일 확인 방식 재수정
