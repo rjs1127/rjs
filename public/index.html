@@ -9,7 +9,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=77" />
+  <link rel="stylesheet" href="/theme.css?v=78" />
 </head>
 <body>
   <div class="app-shell">
@@ -231,10 +231,17 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.7</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.8</span>
+      <span class="site-footer-divider" aria-hidden="true">·</span>
+      <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="privacyButton" class="site-footer-link" type="button">개인정보 안내</button>
     </footer>
+  </div>
+
+
+  <div id="networkStatusBanner" class="network-status-banner" role="status" aria-live="polite" hidden>
+    오프라인 상태입니다. 새 콘텐츠와 계정 기록 동기화가 제한됩니다.
   </div>
 
   <button id="pageScrollTop" class="page-scroll-top" type="button" aria-label="페이지 맨 위로 이동" title="맨 위로">
@@ -533,6 +540,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=77" defer></script>
+  <script src="/app.js?v=78" defer></script>
 </body>
 </html>

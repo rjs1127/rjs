@@ -183,8 +183,10 @@ const els = {
   helpModal: document.getElementById("helpModal"),
   helpLoginButton: document.getElementById("helpLoginButton"),
   publicVersion: document.getElementById("publicVersion"),
+  copyIssueInfoButton: document.getElementById("copyIssueInfoButton"),
   privacyButton: document.getElementById("privacyButton"),
   privacyModal: document.getElementById("privacyModal"),
+  networkStatusBanner: document.getElementById("networkStatusBanner"),
   libraryModal: document.getElementById("libraryModal"),
   libraryModalTitle: document.getElementById("libraryModalTitle"),
   libraryModalDescription: document.getElementById("libraryModalDescription"),
@@ -1058,7 +1060,7 @@ function showStatus(message, isError = false) {
   els.status.hidden = false;
   els.status.classList.toggle("error", isError);
   els.status.innerHTML = isError
-    ? `<p>${escapeHtml(message)}</p>`
+    ? `<div class="inline-error-state"><p>${escapeHtml(message)}</p><button class="inline-retry-button" type="button" data-archive-retry>다시 시도</button></div>`
     : `<div class="spinner" aria-hidden="true"></div><p>${escapeHtml(message)}</p>`;
   els.contentGrid.hidden = true;
   els.contentListWrap.hidden = true;
@@ -2491,8 +2493,11 @@ async function openReader(item) {
     if (renderToken !== state.readerRenderToken) return;
 
     unlockReaderScroll();
-    els.readerBody.innerHTML =
-      `<p class="reader-error">${escapeHtml(error?.message || "본문을 불러오지 못했습니다.")}</p>`;
+    els.readerBody.innerHTML = `
+      <div class="reader-error-state">
+        <p class="reader-error">${escapeHtml(error?.message || "본문을 불러오지 못했습니다.")}</p>
+        <button class="inline-retry-button" type="button" data-reader-retry>다시 시도</button>
+      </div>`;
     els.readerLoadingOverlay = null;
     els.readerContent = null;
   }
@@ -2554,6 +2559,11 @@ els.filterToggleButton?.addEventListener("click", () => {
   );
 });
 
+els.status?.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-archive-retry]")) return;
+  loadArchive(true);
+});
+
 els.resetFiltersButton?.addEventListener("click", () => {
   state.search = "";
   state.combination = "전체";
@@ -2586,6 +2596,12 @@ els.resetFiltersButton?.addEventListener("click", () => {
 
   syncQuickFilterButtons();
   render();
+});
+
+els.readerBody?.addEventListener("click", (event) => {
+  if (!event.target.closest("[data-reader-retry]")) return;
+  const item = state.activeReaderItem;
+  if (item) openReader(item);
 });
 
 els.readerResume?.addEventListener("click", async (event) => {
@@ -2735,6 +2751,10 @@ els.signupButton?.addEventListener("click", () => {
 
 els.helpButton?.addEventListener("click", () => {
   openModal(els.helpModal);
+});
+
+els.copyIssueInfoButton?.addEventListener("click", () => {
+  copyIssueReportInfo(els.copyIssueInfoButton);
 });
 
 els.privacyButton?.addEventListener("click", () => {
@@ -3496,6 +3516,87 @@ els.pageScrollTop?.addEventListener("click", () => {
 });
 
 
+function getIssueReportText() {
+  const activeItem = state.activeReaderItem;
+  const activeEntry = activeItem ? getUserLibraryEntry(activeItem.id) : null;
+  const version = String(els.publicVersion?.textContent || "unknown").trim();
+  const platform = String(
+    navigator.userAgentData?.platform || navigator.platform || "unknown"
+  );
+  const viewport = `${window.innerWidth}x${window.innerHeight}`;
+  const screenSize = `${window.screen?.width || 0}x${window.screen?.height || 0}`;
+  const dpr = Number(window.devicePixelRatio || 1);
+  const page = `${window.location.pathname}${window.location.search}`;
+  const progress = activeEntry?.progressPercent == null
+    ? "-"
+    : `${Number(activeEntry.progressPercent).toFixed(1)}%`;
+
+  return [
+    "[RJS BOOK 베타 문제 신고 정보]",
+    `버전: ${version}`,
+    `시간: ${new Date().toLocaleString("ko-KR")}`,
+    `온라인: ${navigator.onLine ? "예" : "아니오"}`,
+    `로그인: ${state.user ? "예" : "아니오"}`,
+    `페이지: ${page}`,
+    `화면: viewport ${viewport} / screen ${screenSize} / DPR ${dpr}`,
+    `플랫폼: ${platform}`,
+    `브라우저 UA: ${navigator.userAgent}`,
+    `보기: ${state.view} / 정렬: ${state.sort}`,
+    `필터: CP=${state.combination}, 형태=${state.contentType}, 상태=${state.statusFilter}, 출처=${state.source}`,
+    `검색어: ${state.search || "-"}`,
+    activeItem
+      ? `열린 작품: ${activeItem.title || "제목 미상"} / ID=${activeItem.id} / 출처=${activeItem.source || "drive"} / 진도=${progress}`
+      : "열린 작품: 없음",
+  ].join("\n");
+}
+
+async function copyTextToClipboard(text) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement("textarea");
+  textarea.value = text;
+  textarea.setAttribute("readonly", "");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  textarea.style.pointerEvents = "none";
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  const copied = document.execCommand("copy");
+  textarea.remove();
+  if (!copied) throw new Error("clipboard copy failed");
+}
+
+function flashButtonLabel(button, label, duration = 1600) {
+  if (!button) return;
+  const original = button.textContent;
+  button.textContent = label;
+  button.disabled = true;
+
+  window.setTimeout(() => {
+    button.textContent = original;
+    button.disabled = false;
+  }, duration);
+}
+
+async function copyIssueReportInfo(button = els.copyIssueInfoButton) {
+  try {
+    await copyTextToClipboard(getIssueReportText());
+    flashButtonLabel(button, "복사 완료 ✓");
+  } catch (error) {
+    console.error("문제 신고 정보 복사 실패", error);
+    flashButtonLabel(button, "복사 실패");
+  }
+}
+
+function updateNetworkStatus() {
+  if (!els.networkStatusBanner) return;
+  els.networkStatusBanner.hidden = navigator.onLine;
+}
+
 async function loadPublicVersion() {
   if (!els.publicVersion) return;
 
@@ -3517,6 +3618,9 @@ async function loadPublicVersion() {
 }
 
 applyUserPreferences();
+updateNetworkStatus();
+window.addEventListener("online", updateNetworkStatus);
+window.addEventListener("offline", updateNetworkStatus);
 updatePageScrollTopButton();
 updateCompactHeader();
 syncViewButtons();

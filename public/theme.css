@@ -1101,6 +1101,92 @@ html.theme-light body {
   }
 }
 
+/* ---------- Beta utility: report / retry / network ---------- */
+.site-footer-link:disabled {
+  cursor: default;
+  opacity: 1;
+}
+
+.network-status-banner {
+  position: fixed;
+  z-index: 80;
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: min(calc(100vw - 32px), 520px);
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border: 1px solid var(--theme-line);
+  border-radius: 999px;
+  background: var(--theme-surface-strong);
+  color: var(--theme-secondary-text);
+  box-shadow: 0 8px 24px var(--theme-shadow);
+  font-size: 10px;
+  line-height: 1.35;
+  font-weight: 750;
+  text-align: center;
+}
+
+.network-status-banner[hidden] {
+  display: none;
+}
+
+.inline-error-state,
+.reader-error-state {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: center;
+}
+
+.inline-error-state p,
+.reader-error-state p {
+  margin: 0;
+}
+
+.inline-retry-button {
+  appearance: none;
+  min-height: 34px;
+  box-sizing: border-box;
+  padding: 0 13px;
+  border: 1px solid var(--theme-line);
+  border-radius: 10px;
+  background: var(--theme-surface-strong);
+  color: var(--theme-text);
+  font: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.inline-retry-button:hover,
+.inline-retry-button:focus-visible {
+  background: var(--theme-hover);
+  outline: none;
+}
+
+.reader-error-state {
+  min-height: 240px;
+  align-content: center;
+  padding: 24px 0;
+}
+
+@media (max-width: 640px) {
+  .network-status-banner {
+    bottom: max(10px, env(safe-area-inset-bottom));
+    max-width: calc(100vw - 24px);
+    padding: 7px 10px;
+    font-size: 9px;
+    border-radius: 12px;
+  }
+
+  .reader-error-state {
+    min-height: 180px;
+  }
+}
+
 /* ---------- Content-type/status tags ---------- */
 .card-status-tag {
   opacity: .86;
