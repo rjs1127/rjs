@@ -1373,6 +1373,7 @@ html.theme-dark .reader.reader-compact .reader-close {
 @media (max-width: 640px) {
   .reader.reader-compact .reader-header {
     min-height: 60px;
+    height: auto;
     padding: 10px 14px 9px;
   }
 
@@ -1391,12 +1392,14 @@ html.theme-dark .reader.reader-compact .reader-close {
   .reader.reader-compact .reader-header h2 {
     max-width: calc(100% - 136px);
     margin: 0;
-    padding: 2px 0;
-    font-size: 14px;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    padding: 1px 0;
+    font-size: 11px;
+    line-height: 1.32;
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
   }
 }
 
@@ -1505,6 +1508,50 @@ html.theme-dark .reader.reader-compact .reader-close {
 
   .reader-loading-overlay .rich-loading {
     margin: 0 auto;
+  }
+}
+
+/* ---------- Mobile personal shortcuts ----------
+   Long resume titles must never push bookmark/read filters off-screen. */
+@media (max-width: 640px) {
+  .library-quick-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    gap: 6px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .library-quick-actions .resume-shortcut-button {
+    grid-column: 1 / -1;
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    justify-content: flex-start;
+    overflow: hidden;
+  }
+
+  .library-quick-actions #resumeShortcutText {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .library-quick-actions .quick-filter-button {
+    width: 100%;
+    min-width: 0;
+    justify-content: center;
+  }
+
+  .library-quick-actions .quick-filter-button > span {
+    overflow: visible;
+    text-overflow: clip;
+    white-space: nowrap;
   }
 }
 
