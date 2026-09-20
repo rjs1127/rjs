@@ -1,6 +1,7 @@
 import {
   jsonResponse,
   requireKv,
+  getJson,
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -60,6 +61,24 @@ function isValidUrl(value) {
 
 function rowError(rowNumber, message) {
   return `행 ${rowNumber}: ${message}`;
+}
+
+
+function comparableArchive(archive) {
+  if (!archive || typeof archive !== "object") return null;
+
+  return {
+    source: "postype",
+    count: Number(archive.count || 0),
+    totalRows: Number(archive.totalRows || 0),
+    disabledCount: Number(archive.disabledCount || 0),
+    items: Array.isArray(archive.items) ? archive.items : [],
+  };
+}
+
+function archivesEqual(left, right) {
+  return JSON.stringify(comparableArchive(left)) ===
+    JSON.stringify(comparableArchive(right));
 }
 
 export async function onRequestPost(context) {
@@ -258,13 +277,28 @@ export async function onRequestPost(context) {
       items: enabledItems,
     };
 
-    await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
+    const existingArchive = await getJson(
+      kv,
+      POSTYPE_INDEX_KEY,
+      null
+    );
+
+    const changed = !archivesEqual(existingArchive, archive);
+    let effectiveSyncedAt = existingArchive?.syncedAt || syncedAt;
+
+    if (changed) {
+      await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
+      effectiveSyncedAt = syncedAt;
+    }
 
     return jsonResponse(
       {
         ok: true,
         key: POSTYPE_INDEX_KEY,
-        syncedAt,
+        changed,
+        kvWritten: changed,
+        syncedAt: effectiveSyncedAt,
+        checkedAt: syncedAt,
         count: archive.count,
         totalRows: archive.totalRows,
         disabledCount: archive.disabledCount,
