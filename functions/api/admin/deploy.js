@@ -159,6 +159,130 @@ function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
   return `Archive update (${fileCount} files)`;
 }
 
+
+function normalizeCheckState(check) {
+  const status = String(check?.status || "").toLowerCase();
+  const conclusion = String(check?.conclusion || "").toLowerCase();
+
+  if (status && status !== "completed") return "building";
+  if (["success", "neutral", "skipped"].includes(conclusion)) return "success";
+  if (["failure", "cancelled", "timed_out", "action_required", "startup_failure", "stale"].includes(conclusion)) return "failure";
+  return "waiting";
+}
+
+function looksLikeCloudflare(value) {
+  return /cloudflare|pages/i.test(String(value || ""));
+}
+
+function findCloudflareCheck(checkRuns = [], contexts = []) {
+  const check = checkRuns.find((item) =>
+    looksLikeCloudflare(item?.name) ||
+    looksLikeCloudflare(item?.app?.name) ||
+    looksLikeCloudflare(item?.details_url)
+  );
+
+  if (check) {
+    return {
+      name: check.name || check.app?.name || "Cloudflare Pages",
+      state: normalizeCheckState(check),
+      status: check.status || "",
+      conclusion: check.conclusion || "",
+      detailsUrl: check.details_url || "",
+    };
+  }
+
+  const context = contexts.find((item) =>
+    looksLikeCloudflare(item?.context) ||
+    looksLikeCloudflare(item?.description) ||
+    looksLikeCloudflare(item?.target_url)
+  );
+
+  if (context) {
+    const rawState = String(context.state || "").toLowerCase();
+
+    return {
+      name: context.context || "Cloudflare Pages",
+      state:
+        rawState === "success" ? "success" :
+        ["failure", "error"].includes(rawState) ? "failure" :
+        rawState === "pending" ? "building" :
+        "waiting",
+      status: rawState,
+      conclusion: rawState,
+      detailsUrl: context.target_url || "",
+    };
+  }
+
+  return {
+    name: "Cloudflare Pages",
+    state: "waiting",
+    status: "",
+    conclusion: "",
+    detailsUrl: "",
+  };
+}
+
+export async function onRequestGet(context) {
+  try {
+    await requireAdminSession(context);
+
+    const token = context.env.GITHUB_TOKEN;
+    if (!token) {
+      throw new Error("Cloudflare Secret 'GITHUB_TOKEN'이 설정되지 않았습니다.");
+    }
+
+    const url = new URL(context.request.url);
+    const sha = String(url.searchParams.get("sha") || "").trim();
+
+    if (!/^[0-9a-f]{7,40}$/i.test(sha)) {
+      return jsonResponse({ error: "확인할 GitHub commit SHA가 올바르지 않습니다." }, 400);
+    }
+
+    const [checkData, combinedStatus] = await Promise.all([
+      gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits/${encodeURIComponent(sha)}/check-runs?per_page=100`,
+        { headers: { Accept: "application/vnd.github+json" } }
+      ).catch(() => ({ check_runs: [] })),
+      gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits/${encodeURIComponent(sha)}/status`
+      ).catch(() => ({ statuses: [], state: "pending" })),
+    ]);
+
+    const checkRuns = Array.isArray(checkData?.check_runs)
+      ? checkData.check_runs
+      : [];
+    const contexts = Array.isArray(combinedStatus?.statuses)
+      ? combinedStatus.statuses
+      : [];
+
+    const cloudflare = findCloudflareCheck(checkRuns, contexts);
+
+    return jsonResponse(
+      {
+        ok: true,
+        commitSha: sha,
+        commitUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/commit/${sha}`,
+        githubState: combinedStatus?.state || "pending",
+        cloudflare,
+        checkedAt: new Date().toISOString(),
+      },
+      200,
+      { "cache-control": "no-store" }
+    );
+  } catch (error) {
+    console.error(error);
+
+    return jsonResponse(
+      { error: error?.message || "배포 상태를 확인하지 못했습니다." },
+      error?.status && error.status >= 400 && error.status < 600
+        ? error.status
+        : 500
+    );
+  }
+}
+
 export async function onRequestPost(context) {
   try {
     await requireAdminSession(context);

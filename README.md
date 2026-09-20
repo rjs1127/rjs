@@ -1,3 +1,28 @@
+## v6.89
+
+### 관리자 배포 상태 모니터링
+- 관리자 `배포` 탭에서 ZIP 배포 후 GitHub 커밋 생성 여부와 Cloudflare Pages 빌드 상태를 별도 카드로 표시
+- GitHub 커밋 성공 시 `커밋 완료`와 짧은 SHA, 커밋 바로가기 표시
+- Cloudflare Pages 상태는 GitHub Checks / commit status를 이용해 자동 확인
+- 별도 Cloudflare API Token/Secret 추가 없이 기존 `GITHUB_TOKEN`만 사용
+
+### Cloudflare Pages 상태 표시
+- 커밋 직후: `배포 시작 대기`
+- Cloudflare check가 queued/in_progress: `Building`
+- check 성공: `배포 완료`
+- check 실패/취소/타임아웃: `배포 실패`
+- 가능한 경우 `상세/로그 확인 ↗` 링크 제공
+- 배포 진행 중에는 약 3.5초 간격으로 자동 갱신하고 성공/실패 시 자동 중지
+
+### 최근 배포 상태 복원
+- 마지막 배포 commit SHA/URL을 관리자 브라우저 localStorage에 저장
+- 배포 후 다른 탭으로 이동하거나 관리자 페이지를 다시 열어도 마지막 커밋 상태를 다시 확인 가능
+- `상태 새로고침` 버튼으로 수동 확인 가능
+
+### 관리자 버전
+- `현재 버전 v6.89`
+
+
 ## v6.88
 
 ### Cloudflare Pages Functions 빌드 오류 수정
