@@ -1006,6 +1006,101 @@ html.theme-light body {
   background: #f6f3ee;
 }
 
+/* ---------- Public footer / privacy ---------- */
+.site-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 28px 12px 34px;
+  color: var(--theme-muted);
+  font-size: 9px;
+  line-height: 1.2;
+}
+
+.site-footer-version,
+.site-footer-link,
+.site-footer-divider {
+  opacity: .72;
+}
+
+.site-footer-version {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .02em;
+}
+
+.site-footer-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  padding: 2px 0;
+  font: inherit;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.site-footer-link:hover,
+.site-footer-link:focus-visible {
+  opacity: 1;
+  color: var(--theme-text);
+  text-decoration: underline;
+  outline: none;
+}
+
+.privacy-modal {
+  width: min(calc(100vw - 32px), 540px);
+}
+
+.privacy-notice-list {
+  display: grid;
+  gap: 9px;
+  margin: 18px 0 14px;
+}
+
+.privacy-notice-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px 13px;
+  border: 1px solid var(--theme-line);
+  border-radius: 13px;
+  background: var(--theme-surface-soft);
+}
+
+.privacy-notice-item strong {
+  color: var(--theme-text);
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.privacy-notice-item span {
+  color: var(--theme-secondary-text);
+  font-size: 11px;
+  line-height: 1.62;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.privacy-notice-footnote {
+  margin: 0;
+  color: var(--theme-muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .site-footer {
+    padding-top: 22px;
+    padding-bottom: 28px;
+    font-size: 8.5px;
+  }
+
+  .privacy-modal {
+    width: min(calc(100vw - 24px), 520px);
+  }
+}
+
 /* ---------- Content-type/status tags ---------- */
 .card-status-tag {
   opacity: .86;

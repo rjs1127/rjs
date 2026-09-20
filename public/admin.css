@@ -699,7 +699,7 @@ button:disabled{opacity:.5;cursor:not-allowed}
   border-radius:10px;background:#fff;color:#241f29;padding:9px 11px;font:inherit;
 }
 .postype-bulk-table-wrap{overflow-x:auto;margin:8px 0 14px;}
-.postype-bulk-table{width:100%;border-collapse:collapse;min-width:1180px;}
+.postype-bulk-table{width:100%;border-collapse:collapse;min-width:1360px;}
 .postype-bulk-table th,.postype-bulk-table td{padding:7px;border-bottom:1px solid #ece7ef;text-align:left;}
 .postype-bulk-table th{font-size:11px;color:#706877;background:#f7f4f9;}
 .postype-bulk-table td:first-child,.postype-bulk-table th:first-child{width:34px;text-align:center;}
@@ -1165,6 +1165,74 @@ button.primary,
 
 .drive-manual-note {
   display:none;
+}
+
+/* ---------- POSTYPE registration URL fields ---------- */
+.postype-bulk-table th:nth-child(9),
+.postype-bulk-table td:nth-child(9) {
+  width: 300px;
+  min-width: 300px;
+}
+
+.postype-bulk-url-cell {
+  vertical-align: top;
+}
+
+.postype-bulk-url-list {
+  display: grid;
+  gap: 6px;
+}
+
+.postype-bulk-url-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 30px;
+  gap: 5px;
+  align-items: center;
+}
+
+.postype-bulk-url-row.is-primary {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.postype-bulk-url-row input[data-bulk-url] {
+  width: 100%;
+  min-width: 0;
+}
+
+.postype-bulk-url-add,
+.postype-bulk-url-remove {
+  height: 30px;
+  min-height: 30px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: #514b45;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 850;
+  cursor: pointer;
+}
+
+.postype-bulk-url-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 6px;
+  padding: 0 9px;
+  border-radius: 9px;
+}
+
+.postype-bulk-url-remove {
+  width: 30px;
+  padding: 0;
+  border-radius: 9px;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.postype-bulk-url-add:hover,
+.postype-bulk-url-remove:hover {
+  background: #f1ede7;
 }
 
 /* ---------- POSTYPE inputs/tables ---------- */

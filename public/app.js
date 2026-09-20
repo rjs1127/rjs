@@ -182,6 +182,9 @@ const els = {
   signupCompleteButton: document.getElementById("signupCompleteButton"),
   helpModal: document.getElementById("helpModal"),
   helpLoginButton: document.getElementById("helpLoginButton"),
+  publicVersion: document.getElementById("publicVersion"),
+  privacyButton: document.getElementById("privacyButton"),
+  privacyModal: document.getElementById("privacyModal"),
   libraryModal: document.getElementById("libraryModal"),
   libraryModalTitle: document.getElementById("libraryModalTitle"),
   libraryModalDescription: document.getElementById("libraryModalDescription"),
@@ -252,6 +255,7 @@ function getSimpleModals() {
     els.authModal,
     els.signupModal,
     els.helpModal,
+    els.privacyModal,
     els.libraryModal,
     els.accountModal,
   ].filter(Boolean);
@@ -2733,6 +2737,10 @@ els.helpButton?.addEventListener("click", () => {
   openModal(els.helpModal);
 });
 
+els.privacyButton?.addEventListener("click", () => {
+  openModal(els.privacyModal);
+});
+
 els.helpLoginButton?.addEventListener("click", () => {
   openAuthModal("login");
 });
@@ -3019,6 +3027,7 @@ for (const modal of [
   els.authModal,
   els.signupModal,
   els.helpModal,
+  els.privacyModal,
   els.libraryModal,
   els.accountModal,
 ]) {
@@ -3487,11 +3496,32 @@ els.pageScrollTop?.addEventListener("click", () => {
 });
 
 
+async function loadPublicVersion() {
+  if (!els.publicVersion) return;
+
+  try {
+    const response = await fetch(`/version.json?ts=${Date.now()}`, {
+      method: "GET",
+      cache: "no-store",
+      credentials: "same-origin",
+    });
+
+    if (!response.ok) throw new Error("version fetch failed");
+
+    const data = await response.json();
+    const version = String(data?.version || "").trim();
+    if (version) els.publicVersion.textContent = version;
+  } catch (error) {
+    console.warn("사용자 페이지 버전 확인 실패", error);
+  }
+}
+
 applyUserPreferences();
 updatePageScrollTopButton();
 updateCompactHeader();
 syncViewButtons();
 syncQuickFilterButtons();
 updateAccountUi();
+loadPublicVersion();
 loadArchive();
 restoreAuth();

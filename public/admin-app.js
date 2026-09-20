@@ -940,6 +940,49 @@ function splitPostypeUrls(value) {
     .filter(Boolean))];
 }
 
+function getPostypeRowUrls(tr) {
+  if (!tr) return [];
+
+  const urls = Array.from(tr.querySelectorAll("[data-bulk-url]"))
+    .flatMap((input) => splitPostypeUrls(input.value));
+
+  return [...new Set(urls)];
+}
+
+function getPostypeRowUrlValue(tr) {
+  return getPostypeRowUrls(tr).join("\n");
+}
+
+function invalidatePostypeRowMeta(tr) {
+  if (!tr) return;
+  delete tr.dataset.latestPublishedDate;
+  delete tr.dataset.metaUrl;
+  delete tr.dataset.metaLinkType;
+  delete tr.dataset.latestPostUrl;
+}
+
+function addPostypeUrlInput(tr, value = "", focus = true) {
+  const list = tr?.querySelector("[data-bulk-url-list]");
+  if (!list) return null;
+
+  const current = list.querySelectorAll("[data-bulk-url]").length;
+  if (current >= 20) {
+    window.alert("한 작품에는 최대 20개 링크까지 등록할 수 있습니다.");
+    return null;
+  }
+
+  const row = document.createElement("div");
+  row.className = "postype-bulk-url-row";
+  row.innerHTML =
+    `<input type="text" data-bulk-url placeholder="POSTYPE URL" value="${escapeHtml(value)}" />` +
+    `<button class="postype-bulk-url-remove" type="button" data-bulk-url-remove aria-label="이 링크 삭제">×</button>`;
+
+  list.appendChild(row);
+  const input = row.querySelector("[data-bulk-url]");
+  if (focus) input?.focus();
+  return input;
+}
+
 function detectPostypeConnection(urlValue) {
   const urls = splitPostypeUrls(urlValue);
   if (urls.length > 1) return { linkType: "manual", publishType: "다회차", urls };
@@ -982,7 +1025,7 @@ async function fetchPostypeUrlMeta(urlValue, linkType = "") {
 
 function applyBulkConnectionFromUrl(tr) {
   if (!tr) return null;
-  const urlValue = tr.querySelector('[data-bulk-field="url"]')?.value.trim() || "";
+  const urlValue = getPostypeRowUrlValue(tr);
   const detected = detectPostypeConnection(urlValue);
   const contentTypeSelect = tr.querySelector('[data-bulk-field="contentType"]');
   if (contentTypeSelect) {
@@ -998,11 +1041,10 @@ function applyBulkConnectionFromUrl(tr) {
 
 async function fillBulkRowFromUrl(tr) {
   if (!tr) return false;
-  const urlInput = tr.querySelector('[data-bulk-field="url"]');
   const titleInput = tr.querySelector('[data-bulk-field="title"]');
   const authorInput = tr.querySelector('[data-bulk-field="author"]');
   const button = tr.querySelector("[data-bulk-meta]");
-  const urlValue = urlInput?.value.trim() || "";
+  const urlValue = getPostypeRowUrlValue(tr);
   if (!urlValue) return false;
 
   if (button) { button.disabled = true; button.textContent = "확인 중…"; }
@@ -1036,7 +1078,12 @@ function addPostypeBulkRows(count = 3) {
       `<td><input type="text" data-bulk-field="subCp2" placeholder="없으면 비워두기" /></td>` +
       `<td><select data-bulk-field="contentType"><option value="단편">단편</option><option value="연재물">연재</option></select></td>` +
       `<td><select data-bulk-field="status"><option value="완결">완결</option><option value="연재">연재중</option></select></td>` +
-      `<td><input type="text" data-bulk-field="url" placeholder="URL 1개 또는 URL1, URL2" /></td>` +
+      `<td class="postype-bulk-url-cell">` +
+      `<div class="postype-bulk-url-list" data-bulk-url-list>` +
+      `<div class="postype-bulk-url-row is-primary"><input type="text" data-bulk-url placeholder="POSTYPE URL" /></div>` +
+      `</div>` +
+      `<button class="postype-bulk-url-add" type="button" data-bulk-url-add aria-label="링크 입력칸 추가">+ 링크</button>` +
+      `</td>` +
       `<td><div class="postype-bulk-row-actions">` +
       `<button class="postype-bulk-meta" type="button" data-bulk-meta>불러오기</button>` +
       `<button class="postype-bulk-remove" type="button" data-bulk-remove aria-label="행 삭제">×</button>` +
@@ -1062,10 +1109,10 @@ function clearPostypeBulkRows() {
 
 async function ensureBulkLatestPublishedDates() {
   const rows = Array.from(els.postypeBulkRows?.querySelectorAll("tr") || [])
-    .filter((tr) => tr.querySelector('[data-bulk-field="url"]')?.value.trim());
+    .filter((tr) => getPostypeRowUrls(tr).length);
   for (let index = 0; index < rows.length; index += 1) {
     const tr = rows[index];
-    const urlValue = tr.querySelector('[data-bulk-field="url"]')?.value.trim() || "";
+    const urlValue = getPostypeRowUrlValue(tr);
     const detected = applyBulkConnectionFromUrl(tr);
     const linkType = detected?.linkType || "post";
     const cached = tr.dataset.latestPublishedDate && tr.dataset.metaUrl === urlValue && tr.dataset.metaLinkType === linkType;
@@ -1094,7 +1141,7 @@ function collectPostypeBulkItems() {
     const detected = applyBulkConnectionFromUrl(tr);
     const publishType = contentType === "연재물" ? "다회차" : "단일글";
     const linkType = tr.dataset.linkType || detected?.linkType || "post";
-    const urlValue = tr.querySelector('[data-bulk-field="url"]')?.value.trim() || "";
+    const urlValue = getPostypeRowUrlValue(tr);
     const urlList = splitPostypeUrls(urlValue);
     const manualUrls = linkType === "manual" ? urlList.join("\n") : "";
     const url = linkType === "manual" ? (tr.dataset.latestPostUrl || urlList[0] || "") : (urlList[0] || "");
@@ -1873,16 +1920,14 @@ els.postypeBulkAddRowsButton?.addEventListener("click", () => {
 });
 
 els.postypeBulkRows?.addEventListener("change", async (event) => {
-  const urlInput = event.target.closest('[data-bulk-field="url"]');
+  const urlInput = event.target.closest("[data-bulk-url]");
   if (urlInput) {
     const tr = urlInput.closest("tr");
     delete tr.dataset.contentTypeTouched;
     if (!urlInput.value.trim()) return;
 
     applyBulkConnectionFromUrl(tr);
-    delete tr.dataset.latestPublishedDate;
-    delete tr.dataset.metaUrl;
-    delete tr.dataset.metaLinkType;
+    invalidatePostypeRowMeta(tr);
 
     els.postypeBulkMessage.hidden = false;
     els.postypeBulkMessage.textContent = "URL에서 작품 정보를 자동으로 불러오는 중입니다…";
@@ -1903,12 +1948,28 @@ els.postypeBulkRows?.addEventListener("change", async (event) => {
 
   const tr = changedSelect.closest("tr");
   tr.dataset.contentTypeTouched = "1";
-  delete tr.dataset.latestPublishedDate;
-  delete tr.dataset.metaUrl;
-  delete tr.dataset.metaLinkType;
+  invalidatePostypeRowMeta(tr);
 });
 
 els.postypeBulkRows?.addEventListener("click", async (event) => {
+  const addUrlButton = event.target.closest("[data-bulk-url-add]");
+  if (addUrlButton) {
+    const tr = addUrlButton.closest("tr");
+    addPostypeUrlInput(tr);
+    invalidatePostypeRowMeta(tr);
+    return;
+  }
+
+  const removeUrlButton = event.target.closest("[data-bulk-url-remove]");
+  if (removeUrlButton) {
+    const tr = removeUrlButton.closest("tr");
+    removeUrlButton.closest(".postype-bulk-url-row")?.remove();
+    invalidatePostypeRowMeta(tr);
+    delete tr.dataset.contentTypeTouched;
+    applyBulkConnectionFromUrl(tr);
+    return;
+  }
+
   const metaButton = event.target.closest("[data-bulk-meta]");
   if (metaButton) {
     els.postypeBulkMessage.hidden = false;
@@ -1932,7 +1993,7 @@ els.postypeBulkRows?.addEventListener("click", async (event) => {
 
 els.postypeBulkFetchAllButton?.addEventListener("click", async () => {
   const rows = Array.from(els.postypeBulkRows?.querySelectorAll("tr") || [])
-    .filter((tr) => tr.querySelector('[data-bulk-field="url"]')?.value.trim());
+    .filter((tr) => getPostypeRowUrls(tr).length);
 
   els.postypeBulkMessage.hidden = false;
   if (!rows.length) {
