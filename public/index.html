@@ -59,6 +59,28 @@
             <span class="filter-chevron" aria-hidden="true">⌄</span>
           </button>
 
+          <div class="library-quick-actions">
+            <button id="resumeShortcutButton" class="resume-shortcut-button" type="button" hidden>
+              <span class="resume-shortcut-icon" aria-hidden="true">▶</span>
+              <span id="resumeShortcutText">최근 읽던 작품 이어보기</span>
+            </button>
+
+            <button id="bookmarkOnlyButton" class="quick-filter-button" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7A1.75 1.75 0 0 1 17.25 4.75v15.1l-5.25-3.3-5.25 3.3V4.75Z"></path>
+              </svg>
+              <span>북마크만</span>
+            </button>
+
+            <button id="readingOnlyButton" class="quick-filter-button" type="button" aria-pressed="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 5.5h5.25A1.75 1.75 0 0 1 12 7.25V19a2.4 2.4 0 0 0-2.1-1.25H5V5.5Z"></path>
+                <path d="M19 5.5h-5.25A1.75 1.75 0 0 0 12 7.25V19a2.4 2.4 0 0 1 2.1-1.25H19V5.5Z"></path>
+              </svg>
+              <span>읽는 중</span>
+            </button>
+          </div>
+
           <label class="sort-control">
             <span>정렬</span>
             <select id="sortSelect">

@@ -23,6 +23,9 @@ const state = {
   visitRecordedUserId: "",
   remoteProgressState: new Map(),
   bookmarkSaveTimers: new Map(),
+  bookmarkOnly: false,
+  readingOnly: false,
+  resumeShortcutItemId: "",
 };
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
@@ -43,6 +46,10 @@ const els = {
   filterToggleButton: document.getElementById("filterToggleButton"),
   filterSummary: document.getElementById("filterSummary"),
   sortSelect: document.getElementById("sortSelect"),
+  bookmarkOnlyButton: document.getElementById("bookmarkOnlyButton"),
+  readingOnlyButton: document.getElementById("readingOnlyButton"),
+  resumeShortcutButton: document.getElementById("resumeShortcutButton"),
+  resumeShortcutText: document.getElementById("resumeShortcutText"),
   resetFiltersButton: document.getElementById("resetFiltersButton"),
   cardViewButton: document.getElementById("cardViewButton"),
   listViewButton: document.getElementById("listViewButton"),
@@ -235,6 +242,11 @@ function clearUserSession(clearToken = true) {
   state.userLibrary = new Map();
   state.remoteProgressState = new Map();
   state.visitRecordedUserId = "";
+  state.bookmarkOnly = false;
+  state.readingOnly = false;
+  state.resumeShortcutItemId = "";
+  syncQuickFilterButtons();
+  updateResumeShortcut();
   updateAccountUi();
   updateReaderBookmarkButton();
 
@@ -301,6 +313,82 @@ async function recordLoggedInVisit() {
   }
 }
 
+
+function syncQuickFilterButtons() {
+  if (els.bookmarkOnlyButton) {
+    els.bookmarkOnlyButton.classList.toggle("active", state.bookmarkOnly);
+    els.bookmarkOnlyButton.setAttribute(
+      "aria-pressed",
+      state.bookmarkOnly ? "true" : "false"
+    );
+  }
+
+  if (els.readingOnlyButton) {
+    els.readingOnlyButton.classList.toggle("active", state.readingOnly);
+    els.readingOnlyButton.setAttribute(
+      "aria-pressed",
+      state.readingOnly ? "true" : "false"
+    );
+  }
+}
+
+function getLatestReadingItem() {
+  if (!state.user) return null;
+
+  let best = null;
+
+  for (const [fileId, entry] of state.userLibrary.entries()) {
+    const progress = Number(entry?.progressPercent || 0);
+    if (progress < 1 || progress >= 95 || entry?.readAt) continue;
+
+    const item = state.items.find((candidate) => candidate.id === fileId);
+    if (!item) continue;
+
+    const activityAt = Math.max(
+      Number(entry.viewedAt || 0),
+      Number(entry.updatedAt || 0)
+    );
+
+    if (!best || activityAt > best.activityAt) {
+      best = { item, entry, activityAt };
+    }
+  }
+
+  return best;
+}
+
+function updateResumeShortcut() {
+  if (!els.resumeShortcutButton || !els.resumeShortcutText) return;
+
+  const latest = getLatestReadingItem();
+
+  if (!latest) {
+    state.resumeShortcutItemId = "";
+    els.resumeShortcutButton.hidden = true;
+    return;
+  }
+
+  state.resumeShortcutItemId = latest.item.id;
+
+  const percent = Math.max(
+    1,
+    Math.min(94, Math.round(Number(latest.entry.progressPercent || 0)))
+  );
+
+  const title = latest.item.title || "제목 미상";
+  els.resumeShortcutText.textContent =
+    `이어보기 · ${title} ${percent}%`;
+  els.resumeShortcutButton.title =
+    `${title} ${percent}% 지점부터 이어보기`;
+  els.resumeShortcutButton.hidden = false;
+}
+
+function requireLoginForPersonalFilter(message) {
+  if (state.user) return true;
+  openAuthModal("login", message);
+  return false;
+}
+
 async function loadUserLibrary() {
   if (!state.user) {
     state.userLibrary = new Map();
@@ -329,6 +417,12 @@ async function loadUserLibrary() {
   );
 
   updateReaderBookmarkButton();
+  syncQuickFilterButtons();
+  updateResumeShortcut();
+
+  if (state.items.length) {
+    render();
+  }
 }
 
 async function restoreAuth() {
@@ -486,6 +580,7 @@ async function persistProgress(item, saved) {
           ? (getUserLibraryEntry(item.id)?.readAt || Date.now())
           : getUserLibraryEntry(item.id)?.readAt || null,
     });
+    updateResumeShortcut();
     if (state.items.length) render();
   } catch (error) {
     console.warn("이어보기 저장 실패", error);
@@ -660,6 +755,7 @@ async function loadArchive(force = false) {
     applySettings(data.settings || {});
     buildCombinationFilters(data.combinations || []);
     hideStatus();
+    updateResumeShortcut();
     render();
   } catch (error) {
     console.error(error);
@@ -734,6 +830,8 @@ function updateFilterSummary() {
   const parts = [];
   if (state.combination !== "전체") parts.push(state.combination);
   if (state.length !== "전체") parts.push(state.length);
+  if (state.bookmarkOnly) parts.push("북마크");
+  if (state.readingOnly) parts.push("읽는 중");
   if (state.view === "card") parts.push("카드형");
 
   els.filterSummary.textContent = parts.length ? parts.join(" · ") : "전체";
@@ -755,7 +853,29 @@ function getFilteredItems() {
     const matchesSearch =
       tokens.length === 0 || tokens.every((token) => haystack.includes(token));
 
-    return matchesCombination && matchesLength && matchesSearch;
+    const libraryEntry = state.user
+      ? getUserLibraryEntry(item.id)
+      : null;
+
+    const matchesBookmark =
+      !state.bookmarkOnly || Boolean(libraryEntry?.bookmarked);
+
+    const progress = Number(libraryEntry?.progressPercent || 0);
+    const matchesReading =
+      !state.readingOnly ||
+      (
+        progress >= 1 &&
+        progress < 95 &&
+        !libraryEntry?.readAt
+      );
+
+    return (
+      matchesCombination &&
+      matchesLength &&
+      matchesSearch &&
+      matchesBookmark &&
+      matchesReading
+    );
   });
 
   return sortItems(filtered);
@@ -1604,6 +1724,8 @@ els.resetFiltersButton?.addEventListener("click", () => {
   state.search = "";
   state.combination = "전체";
   state.length = "전체";
+  state.bookmarkOnly = false;
+  state.readingOnly = false;
 
   els.searchInput.value = "";
   els.clearSearch.classList.remove("visible");
@@ -1616,6 +1738,7 @@ els.resetFiltersButton?.addEventListener("click", () => {
     chip.classList.toggle("active", chip.dataset.length === "전체");
   });
 
+  syncQuickFilterButtons();
   render();
 });
 
@@ -2099,6 +2222,47 @@ for (const container of [els.contentGrid, els.contentListBody]) {
   });
 }
 
+
+els.bookmarkOnlyButton?.addEventListener("click", () => {
+  if (
+    !requireLoginForPersonalFilter(
+      "북마크한 작품만 모아보려면 로그인해 주세요."
+    )
+  ) return;
+
+  state.bookmarkOnly = !state.bookmarkOnly;
+  syncQuickFilterButtons();
+  render();
+});
+
+els.readingOnlyButton?.addEventListener("click", () => {
+  if (
+    !requireLoginForPersonalFilter(
+      "읽는 중인 작품을 모아보려면 로그인해 주세요."
+    )
+  ) return;
+
+  state.readingOnly = !state.readingOnly;
+  syncQuickFilterButtons();
+  render();
+});
+
+els.resumeShortcutButton?.addEventListener("click", () => {
+  if (!state.user) {
+    openAuthModal(
+      "login",
+      "최근 읽던 작품을 이어보려면 로그인해 주세요."
+    );
+    return;
+  }
+
+  const item = state.items.find(
+    (candidate) => candidate.id === state.resumeShortcutItemId
+  );
+
+  if (item) openReader(item);
+});
+
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
@@ -2200,6 +2364,7 @@ els.pageScrollTop?.addEventListener("click", () => {
 
 updatePageScrollTopButton();
 syncViewButtons();
+syncQuickFilterButtons();
 updateAccountUi();
 loadArchive();
 restoreAuth();

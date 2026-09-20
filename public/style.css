@@ -2725,3 +2725,122 @@ body.reader-open .page-scroll-top {
     font-size: 7px;
   }
 }
+
+
+/* v6.29 - personal quick filters / resume shortcut */
+.controls-toolbar {
+  gap: 10px;
+}
+
+.library-quick-actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  margin-left: auto;
+}
+
+.quick-filter-button,
+.resume-shortcut-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255,255,255,.62);
+  color: var(--muted);
+  padding: 7px 10px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background .15s ease,
+    border-color .15s ease,
+    color .15s ease;
+}
+
+.quick-filter-button:hover,
+.resume-shortcut-button:hover {
+  background: #fff;
+  color: var(--ink);
+}
+
+.quick-filter-button.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: #fff;
+}
+
+.quick-filter-button svg {
+  width: 13px;
+  height: 13px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.resume-shortcut-button {
+  max-width: 270px;
+  color: var(--ink);
+}
+
+.resume-shortcut-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #fff;
+  font-size: 7px;
+  padding-left: 1px;
+}
+
+#resumeShortcutText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+@media (max-width: 900px) {
+  .controls-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .library-quick-actions {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+  }
+
+  .library-quick-actions::-webkit-scrollbar {
+    display: none;
+  }
+
+  .resume-shortcut-button {
+    max-width: min(68vw, 270px);
+  }
+}
+
+@media (max-width: 560px) {
+  .quick-filter-button,
+  .resume-shortcut-button {
+    min-height: 31px;
+    padding: 6px 9px;
+    font-size: 9px;
+  }
+
+  .resume-shortcut-icon {
+    width: 17px;
+    height: 17px;
+  }
+}
