@@ -3618,3 +3618,131 @@ html.theme-dark .page-scroll-top {
 html.theme-dark .page-scroll-top:hover {
   background: #f0ebe4;
 }
+
+
+/* v6.34 - dark mode contrast fixes for filters, modal close, reader tags */
+html.theme-dark .control-card {
+  background: #1f1d1b;
+  border-color: #4a4640;
+  box-shadow: 0 10px 28px rgba(0,0,0,.16);
+}
+
+html.theme-dark .filter-label {
+  color: #d7d1c8;
+}
+
+html.theme-dark .chip {
+  background: #2d2a27;
+  border-color: #514c45;
+  color: #e5dfd7;
+}
+
+html.theme-dark .chip:hover {
+  background: #38342f;
+  border-color: #686158;
+  color: #fffaf2;
+}
+
+html.theme-dark .chip.active {
+  background: #eee8df;
+  border-color: #eee8df;
+  color: #171614;
+}
+
+html.theme-dark .view-switch {
+  background: #262320;
+  border-color: #4d4841;
+}
+
+html.theme-dark .view-button {
+  color: #cbc4bb;
+}
+
+html.theme-dark .view-button.active {
+  background: #eee8df;
+  color: #171614;
+}
+
+html.theme-dark .mobile-filter-toggle {
+  background: #25221f;
+  border-color: #4e4942;
+  color: #eee8df;
+}
+
+html.theme-dark .filter-summary,
+html.theme-dark .sort-control > span {
+  color: #bdb5ab;
+}
+
+html.theme-dark .sort-control select {
+  background: #25221f;
+  border-color: #4e4942;
+  color: #eee8df;
+}
+
+/* Modal close button */
+html.theme-dark .simple-modal-close {
+  background: #2b2825;
+  border-color: #5c564e;
+  color: #f4eee6;
+}
+
+html.theme-dark .simple-modal-close:hover {
+  background: #3b3732;
+  border-color: #756d63;
+  color: #ffffff;
+}
+
+/* Reader tags */
+html.theme-dark .reader-tag {
+  background: #eee8df;
+  color: #171614;
+}
+
+html.theme-dark .reader-tag.subtle {
+  background: #34302c;
+  color: #e8e1d8;
+  border: 1px solid #5b554d;
+}
+
+html.theme-dark .reader-tag.warning {
+  background: #493d25;
+  color: #ffe0a3;
+}
+
+html.theme-dark .reader-tag.edited {
+  background: #26384f;
+  color: #cfe2ff;
+}
+
+/* Extra contrast for compact reader state */
+html.theme-dark .reader.reader-compact .reader-tag {
+  background: #eee8df;
+  color: #171614;
+}
+
+html.theme-dark .reader.reader-compact .reader-tag.subtle {
+  background: #34302c;
+  color: #e8e1d8;
+}
+
+/* Ensure text/icon contrast in buttons around filters */
+html.theme-dark .quick-filter-button,
+html.theme-dark .resume-shortcut-button {
+  background: #2a2724;
+  border-color: #514c45;
+  color: #ded7ce;
+}
+
+html.theme-dark .quick-filter-button:hover,
+html.theme-dark .resume-shortcut-button:hover {
+  background: #38342f;
+  border-color: #686158;
+  color: #fffaf2;
+}
+
+html.theme-dark .quick-filter-button.active {
+  background: #eee8df;
+  border-color: #eee8df;
+  color: #171614;
+}
