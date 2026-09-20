@@ -131,43 +131,201 @@ function normalizeDate(value) {
   ].join("-");
 }
 
-function collectSeriesDateCandidates(html, jsonLd) {
-  const values = [];
-  const push = (value) => {
-    const date = normalizeDate(value);
-    if (date) values.push(date);
-  };
+function collectDatesFromObject(node, results, context = {}) {
+  if (!node || typeof node !== "object") return;
 
-  const queue = [...jsonLd];
-  while (queue.length) {
-    const node = queue.shift();
-    if (!node || typeof node !== "object") continue;
-    for (const [key, value] of Object.entries(node)) {
-      if (/^(datePublished|dateCreated|uploadDate|publishedAt|published_at|createdAt|created_at)$/i.test(key) && typeof value === "string") {
-        push(value);
+  const localUrl =
+    normalize(node.url) ||
+    normalize(node.href) ||
+    normalize(node.link) ||
+    normalize(node.permalink) ||
+    normalize(node.canonicalUrl);
+
+  const localType =
+    normalize(node["@type"]) ||
+    normalize(node.type) ||
+    normalize(node.__typename);
+
+  const title =
+    normalize(node.headline) ||
+    normalize(node.title) ||
+    normalize(node.name);
+
+  const postLike =
+    /\/post\/\d+/i.test(localUrl) ||
+    /(article|post|episode|content)/i.test(localType) ||
+    Boolean(title && (
+      node.datePublished ||
+      node.publishedAt ||
+      node.published_at ||
+      node.createdAt ||
+      node.created_at
+    ));
+
+  if (postLike) {
+    const rawDates = [
+      node.datePublished,
+      node.publishedAt,
+      node.published_at,
+      node.createdAt,
+      node.created_at,
+      node.uploadDate,
+    ];
+
+    for (const raw of rawDates) {
+      const date = normalizeDate(raw);
+      if (date) {
+        results.push({
+          date,
+          url: localUrl,
+          title,
+          source: "object",
+        });
       }
-      if (Array.isArray(value)) queue.push(...value);
-      else if (value && typeof value === "object") queue.push(value);
     }
   }
 
-  const patterns = [
-    /"(?:datePublished|publishedAt|published_at|createdAt|created_at)"\s*:\s*"([^"]+)"/gi,
-    /<time[^>]*datetime\s*=\s*["']([^"']+)["'][^>]*>/gi,
+  for (const value of Object.values(node)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === "object") {
+          collectDatesFromObject(item, results, context);
+        }
+      }
+    } else if (value && typeof value === "object") {
+      collectDatesFromObject(value, results, context);
+    }
+  }
+}
+
+function collectEmbeddedJsonObjects(html) {
+  const objects = [];
+
+  const jsonLdPattern =
+    /<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+
+  let match;
+  while ((match = jsonLdPattern.exec(html))) {
+    const raw = match[1]?.trim();
+    if (!raw) continue;
+    try {
+      objects.push(JSON.parse(raw));
+    } catch {}
+  }
+
+  const nextDataMatch = html.match(
+    /<script[^>]*id\s*=\s*["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i
+  );
+  if (nextDataMatch?.[1]) {
+    try {
+      objects.push(JSON.parse(nextDataMatch[1]));
+    } catch {}
+  }
+
+  return objects;
+}
+
+function collectEpisodeCardDates(html) {
+  const results = [];
+
+  // POSTYPE 회차 링크 주변만 좁게 잘라 날짜를 찾는다.
+  const linkPattern = /href\s*=\s*["']([^"']*\/post\/\d+[^"']*)["']/gi;
+  let match;
+
+  while ((match = linkPattern.exec(html))) {
+    const url = decodeHtml(match[1]);
+    const from = Math.max(0, match.index - 1400);
+    const to = Math.min(html.length, match.index + 2400);
+    const fragment = html.slice(from, to);
+
+    const dateCandidates = [];
+
+    const datetimePattern =
+      /<time[^>]*datetime\s*=\s*["']([^"']+)["'][^>]*>/gi;
+    let timeMatch;
+    while ((timeMatch = datetimePattern.exec(fragment))) {
+      const date = normalizeDate(timeMatch[1]);
+      if (date) dateCandidates.push(date);
+    }
+
+    const jsonPattern =
+      /"(?:datePublished|publishedAt|published_at|createdAt|created_at)"\s*:\s*"([^"]+)"/gi;
+    let jsonMatch;
+    while ((jsonMatch = jsonPattern.exec(fragment))) {
+      const date = normalizeDate(jsonMatch[1]);
+      if (date) dateCandidates.push(date);
+    }
+
+    const visiblePattern =
+      /\b(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*\.?\s*(?:일)?\b/g;
+    let visibleMatch;
+    while ((visibleMatch = visiblePattern.exec(fragment))) {
+      const date = normalizeDate(
+        `${visibleMatch[1]}-${visibleMatch[2]}-${visibleMatch[3]}`
+      );
+      if (date) dateCandidates.push(date);
+    }
+
+    // 회차 카드 주변에 날짜가 여러 개면 링크에 가장 가까운 데이터만 쓰는 게 안전하다.
+    if (dateCandidates.length) {
+      results.push({
+        date: dateCandidates[0],
+        url,
+        source: "episode-card",
+      });
+    }
+  }
+
+  return results;
+}
+
+function chooseLatestEpisodeDate(html, jsonLd) {
+  const candidates = [];
+
+  const embeddedObjects = [
+    ...jsonLd,
+    ...collectEmbeddedJsonObjects(html),
   ];
 
-  for (const pattern of patterns) {
-    let match;
-    while ((match = pattern.exec(html))) push(match[1]);
+  for (const object of embeddedObjects) {
+    if (Array.isArray(object)) {
+      for (const item of object) {
+        collectDatesFromObject(item, candidates);
+      }
+    } else {
+      collectDatesFromObject(object, candidates);
+    }
   }
 
-  const visible = /\b(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})\s*\.?\s*(?:일)?\b/g;
-  let match;
-  while ((match = visible.exec(html))) {
-    push(`${match[1]}-${match[2]}-${match[3]}`);
+  candidates.push(...collectEpisodeCardDates(html));
+
+  const unique = new Map();
+
+  for (const item of candidates) {
+    if (!item?.date) continue;
+
+    // 시리즈 페이지 자체 생성일/수정일처럼 회차와 관계없는 날짜를 배제하려고
+    // post 링크 또는 post-like 객체에서 얻은 값만 남긴다.
+    const key = `${item.date}|${item.url || ""}|${item.title || ""}`;
+    if (!unique.has(key)) unique.set(key, item);
   }
 
-  return [...new Set(values)].sort();
+  const filtered = [...unique.values()].filter((item) => {
+    if (item.url && /\/post\/\d+/i.test(item.url)) return true;
+    return item.source === "object" && Boolean(item.title);
+  });
+
+  if (!filtered.length) return {
+    date: "",
+    candidateCount: 0,
+  };
+
+  filtered.sort((a, b) => a.date.localeCompare(b.date));
+
+  return {
+    date: filtered[filtered.length - 1].date,
+    candidateCount: filtered.length,
+  };
 }
 
 function findEmbeddedAuthor(html) {
@@ -204,9 +362,12 @@ function extractMetadata(html, pageUrl, requestedLengthType) {
 
   let latestPublishedDate = "";
 
+  let seriesCandidateCount = 0;
+
   if (seriesMode) {
-    const candidates = collectSeriesDateCandidates(html, jsonLd);
-    latestPublishedDate = candidates.at(-1) || "";
+    const latestEpisode = chooseLatestEpisodeDate(html, jsonLd);
+    latestPublishedDate = latestEpisode.date;
+    seriesCandidateCount = latestEpisode.candidateCount;
   } else {
     latestPublishedDate = normalizeDate(
       getMetaContent(html, "article:published_time") ||
@@ -214,8 +375,8 @@ function extractMetadata(html, pageUrl, requestedLengthType) {
       findJsonLdValue(jsonLd, ["datePublished"])
     );
     if (!latestPublishedDate) {
-      const candidates = collectSeriesDateCandidates(html, jsonLd);
-      latestPublishedDate = candidates.at(-1) || "";
+      const latestEpisode = chooseLatestEpisodeDate(html, jsonLd);
+      latestPublishedDate = latestEpisode.date;
     }
   }
 
@@ -224,6 +385,7 @@ function extractMetadata(html, pageUrl, requestedLengthType) {
     author: normalize(author),
     latestPublishedDate,
     mode: seriesMode ? "series" : "post",
+    seriesCandidateCount,
   };
 }
 
@@ -305,6 +467,7 @@ export async function onRequestPost(context) {
         author: metadata.author,
         latestPublishedDate: metadata.latestPublishedDate,
         mode: metadata.mode,
+        seriesCandidateCount: metadata.seriesCandidateCount || 0,
         found: Boolean(metadata.title || metadata.author || metadata.latestPublishedDate),
       },
       200,
