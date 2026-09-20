@@ -1624,3 +1624,92 @@ html.theme-light body {
     margin: 0 auto !important;
   }
 }
+
+
+/* =========================
+   v6.106 reader loading position / close color stability
+   ========================= */
+
+/* During loading, the normal reader header still reserved a tall title area.
+   Collapse only the loading-state header so the progress card sits directly
+   below the top action buttons. The full title header returns after unlock. */
+@media (max-width: 640px) {
+  .reader.reader-loading-locked .reader-header {
+    height: 64px !important;
+    min-height: 64px !important;
+    padding: 0 !important;
+    border-bottom: 0 !important;
+  }
+
+  .reader.reader-loading-locked .reader-meta-top,
+  .reader.reader-loading-locked .reader-header h2,
+  .reader.reader-loading-locked .reader-author,
+  .reader.reader-loading-locked .reader-filename {
+    display: none !important;
+  }
+
+  .reader.reader-loading-locked .reader-header-actions {
+    top: 10px !important;
+    right: 12px !important;
+  }
+
+  .reader.reader-loading-locked .reader-body {
+    padding-top: 0 !important;
+  }
+
+  .reader.reader-loading-locked .reader-loading-overlay {
+    top: 0 !important;
+    padding-top: 2px !important;
+  }
+
+  .reader.reader-loading-locked .reader-loading-overlay .rich-loading {
+    margin-top: 2px !important;
+  }
+}
+
+@media (min-width: 641px) and (max-width: 1024px) {
+  .reader.reader-loading-locked .reader-header {
+    height: 70px !important;
+    min-height: 70px !important;
+    padding: 0 !important;
+    border-bottom: 0 !important;
+  }
+
+  .reader.reader-loading-locked .reader-meta-top,
+  .reader.reader-loading-locked .reader-header h2,
+  .reader.reader-loading-locked .reader-author,
+  .reader.reader-loading-locked .reader-filename {
+    display: none !important;
+  }
+
+  .reader.reader-loading-locked .reader-header-actions {
+    top: 13px !important;
+    right: 16px !important;
+  }
+
+  .reader.reader-loading-locked .reader-body {
+    padding-top: 2px !important;
+  }
+}
+
+/* The legacy compact rule changed only the close button background to
+   rgba(255,255,255,.86). Give the close button one stable color in both
+   normal and compact modes so scrolling never changes its appearance. */
+html.theme-light .reader-close,
+html.theme-light .reader.reader-compact .reader-close {
+  background: var(--theme-surface-soft) !important;
+  color: var(--theme-secondary-text) !important;
+  border-color: var(--theme-line) !important;
+}
+
+html.theme-dark .reader-close,
+html.theme-dark .reader.reader-compact .reader-close {
+  background: var(--theme-surface-soft) !important;
+  color: var(--theme-secondary-text) !important;
+  border-color: var(--theme-line) !important;
+}
+
+.reader.reader-compact .reader-close:hover,
+.reader-close:hover {
+  background: var(--theme-hover) !important;
+}
