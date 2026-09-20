@@ -1106,7 +1106,16 @@ function getItemLinkType(item) {
 }
 
 function getItemContentType(item) {
-  if (!item || item.source !== "postype") return "TXT";
+  if (!item) return "";
+
+  if (item.source !== "postype") {
+    const explicit = String(item.contentType || "").trim();
+    if (["단편", "연재물"].includes(explicit)) return explicit;
+
+    const size = Number(item.size || 0);
+    return size > 200 * 1024 ? "연재물" : "단편";
+  }
+
   const publishType = String(item.publishType || "").trim();
   if (publishType === "다회차") return "연재물";
   if (publishType === "단일글") return "단편";
@@ -1193,7 +1202,7 @@ function getFilteredItems() {
     const itemContentType = getItemContentType(item);
     const matchesContentType =
       state.contentType === "전체" ||
-      (item.source === "postype" && itemContentType === state.contentType);
+      itemContentType === state.contentType;
     const itemStatusLabel = getItemStatusLabel(item);
     const matchesStatus =
       state.statusFilter === "전체" ||
@@ -1425,7 +1434,8 @@ function renderCards(items) {
         <div class="card-tags">
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
-          ${item.source === "postype" ? `<span class="card-tag card-publish-tag">${escapeHtml(getItemContentType(item))}</span><span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>` : ""}
+          <span class="card-tag card-publish-tag">${escapeHtml(getItemContentType(item))}</span>
+          ${item.source === "postype" ? `<span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>` : ""}
         </div>
         ${getItemReadingBadge(item)}
       </div>
@@ -1470,7 +1480,7 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
       class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
-      <td>${escapeHtml(item.source === "postype" ? getItemContentType(item) : "TXT")}</td>
+      <td>${escapeHtml(getItemContentType(item))}</td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
@@ -2933,10 +2943,6 @@ els.contentTypeFilters?.addEventListener("click", (event) => {
     chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
   });
 
-  if (state.contentType !== "전체") {
-    state.source = "postype";
-    syncSourceFilterChips();
-  }
   render();
 });
 

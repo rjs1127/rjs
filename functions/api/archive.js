@@ -10,6 +10,13 @@ import {
 } from "../_shared.js";
 
 const POSTYPE_INDEX_KEY = "postype:index:v1";
+const DRIVE_CONTENT_TYPE_OVERRIDES_KEY = "archive:drive-content-type-overrides:v1";
+const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
+
+function getDriveAutoContentType(item) {
+  const size = Number(item?.size || 0);
+  return size > DRIVE_SHORT_MAX_BYTES ? "연재물" : "단편";
+}
 
 export async function onRequestGet(context) {
   try {
@@ -23,17 +30,28 @@ export async function onRequestGet(context) {
       await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
     }
 
-    const [overrides, settings, postypeArchive] = await Promise.all([
+    const [overrides, settings, postypeArchive, driveTypeOverrides] = await Promise.all([
       getJson(kv, OVERRIDES_KEY, {}),
       readSettings(kv),
       getJson(kv, POSTYPE_INDEX_KEY, null),
+      getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
     ]);
 
     const driveArchive = applyOverrides(archive, overrides);
-    const driveItems = (driveArchive?.items || []).map((item) => ({
-      ...item,
-      source: item.source || "drive",
-    }));
+    const driveItems = (driveArchive?.items || []).map((item) => {
+      const autoContentType = getDriveAutoContentType(item);
+      const manualContentType = ["단편", "연재물"].includes(driveTypeOverrides?.[item.id])
+        ? driveTypeOverrides[item.id]
+        : "";
+
+      return {
+        ...item,
+        source: item.source || "drive",
+        autoContentType,
+        contentType: manualContentType || autoContentType,
+        contentTypeOverride: manualContentType,
+      };
+    });
 
     const postypeItems = Array.isArray(postypeArchive?.items)
       ? postypeArchive.items.map((item) => ({
