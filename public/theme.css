@@ -2428,3 +2428,66 @@ html.theme-dark .library-modal {
     padding-right:30px;
   }
 }
+
+
+/* =========================
+   v7.22 page-mode mobile positioning fix
+   ========================= */
+
+/* Legacy structural CSS can override the HTML hidden attribute.
+   In page mode the scroll renderer must contribute zero layout height. */
+.reader.reader-page-mode #readerContent,
+.reader.reader-page-mode .reader-content {
+  display:none !important;
+  height:0 !important;
+  min-height:0 !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:hidden !important;
+}
+
+.reader-page-viewport[hidden] {
+  display:none !important;
+}
+
+.reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+  display:grid !important;
+  margin-top:0 !important;
+  align-self:stretch;
+}
+
+.reader.reader-page-mode .reader-body {
+  min-height:0 !important;
+}
+
+.reader-page-text {
+  display:block !important;
+  align-items:initial !important;
+  justify-content:initial !important;
+  text-align:left !important;
+  vertical-align:top !important;
+}
+
+@media (max-width:640px) {
+  .reader.reader-page-mode {
+    min-height:100dvh;
+  }
+
+  .reader.reader-page-mode .reader-mode-bar {
+    flex:0 0 auto;
+  }
+
+  .reader.reader-page-mode .reader-body {
+    min-height:0 !important;
+    padding-top:6px !important;
+  }
+
+  .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+    margin-top:0 !important;
+  }
+
+  .reader.reader-page-mode .reader-page-text,
+  .reader.reader-page-mode .reader-page-measure {
+    padding-top:16px !important;
+  }
+}

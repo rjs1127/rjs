@@ -2541,10 +2541,12 @@ async function setReaderDisplayMode(mode, options = {}) {
 
   if (els.readerContent) {
     els.readerContent.hidden = pageActive;
+    els.readerContent.style.display = pageActive ? "none" : "";
   }
 
   if (els.readerPageViewport) {
     els.readerPageViewport.hidden = !pageActive;
+    els.readerPageViewport.style.display = pageActive ? "grid" : "none";
   }
 
   if (pageActive) {
@@ -2660,6 +2662,9 @@ function showReaderLoading(item) {
 
   els.readerContent = document.getElementById("readerContent");
   els.readerPageViewport = document.getElementById("readerPageViewport");
+  if (els.readerPageViewport) {
+    els.readerPageViewport.style.display = "none";
+  }
   els.readerPageText = document.getElementById("readerPageText");
   els.readerPagePrev = document.getElementById("readerPagePrev");
   els.readerPageNext = document.getElementById("readerPageNext");
@@ -3301,6 +3306,13 @@ function closeReader() {
   resetReaderPageState();
   resetLargeReaderState();
   els.readerPanel?.classList.remove("reader-page-mode");
+  if (els.readerContent) {
+    els.readerContent.style.display = "";
+  }
+  if (els.readerPageViewport) {
+    els.readerPageViewport.hidden = true;
+    els.readerPageViewport.style.display = "none";
+  }
   if (els.readerModeBar) els.readerModeBar.hidden = true;
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
