@@ -5623,7 +5623,6 @@ function ensureReaderShareUi() {
   const style = document.createElement("style");
   style.id = "readerShareStyle";
   style.textContent = `
-    @import url("//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css");
     @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
     @font-face { font-family: 'ChosunIlboMyungjo'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Ridibatang'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -5650,6 +5649,7 @@ function ensureReaderShareUi() {
     }
     .reader-share-float[hidden] { display: none !important; }
     .reader-share-float svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    html.theme-dark .reader-share-float { background:#fff; color:#191816; border-color:rgba(0,0,0,.08); box-shadow:0 8px 24px rgba(0,0,0,.38); }
     .reader-share-backdrop { position: fixed; inset: 0; z-index: 1390; background: rgba(20,14,24,.46); backdrop-filter: blur(4px); }
     .reader-share-backdrop[hidden] { display: none !important; }
     .reader-share-sheet {
@@ -5688,7 +5688,8 @@ function ensureReaderShareUi() {
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
-    .reader-share-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .reader-share-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .reader-share-action[data-share-system][hidden] { display:none !important; }
     .reader-share-action { min-height:42px; border-radius:12px; border:1px solid rgba(91,75,99,.18); font-size:13px; font-weight:800; cursor:pointer; }
     .reader-share-action.primary { background:#191816; color:#fff; border-color:#191816; }
     .reader-share-action.secondary { background:rgba(255,255,255,.64); color:inherit; }
@@ -5706,7 +5707,14 @@ function ensureReaderShareUi() {
     .reader-share-switch.active::after { transform:translateX(18px); }
     .reader-share-wrap-control { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
     .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    @media (max-width: 719px) {
+      .reader-header .reader-filename { margin-bottom:14px !important; padding-bottom:2px !important; }
+      .reader-resume { margin-top:10px !important; position:relative !important; clear:both !important; z-index:1; }
+      .reader-share-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .reader-share-action { padding-left:6px; padding-right:6px; font-size:12px; }
+    }
     @media (min-width: 720px) {
+      .reader-share-actions { grid-template-columns:1fr 1fr; }
       .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; max-height:min(88vh,860px); width:min(calc(100% - 24px), 560px); }
       .reader-share-sheet-scroll { max-height:min(88vh,860px); padding:12px 18px 20px; }
       .reader-share-head { top:-12px; margin-left:-18px; margin-right:-18px; padding-left:18px; padding-right:18px; }
@@ -5806,6 +5814,7 @@ function ensureReaderShareUi() {
         <div class="reader-share-section">
           <div class="reader-share-actions">
             <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
+            <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
             <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
           </div>
         </div>
@@ -5824,6 +5833,7 @@ function ensureReaderShareUi() {
   const sizes = backdrop.querySelector(".reader-share-sizes");
   const wrap = backdrop.querySelector("[data-share-wrap]");
   const saveButton = backdrop.querySelector("[data-share-save]");
+  const clipboardButton = backdrop.querySelector("[data-share-clipboard]");
   const shareButton = backdrop.querySelector("[data-share-system]");
 
   thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
@@ -5885,6 +5895,9 @@ function ensureReaderShareUi() {
   saveButton?.addEventListener("click", async () => {
     await handleReaderShareExport("save");
   });
+  clipboardButton?.addEventListener("click", async () => {
+    await handleReaderShareExport("clipboard");
+  });
   shareButton?.addEventListener("click", async () => {
     await handleReaderShareExport("share");
   });
@@ -5899,7 +5912,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, saveButton, shareButton, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, saveButton, clipboardButton, shareButton, close };
   return readerShareUi;
 }
 
@@ -6100,16 +6113,19 @@ function getReaderShareFilename() {
   return `${title || "quote-card"}-${ratio}.png`;
 }
 
-function isReaderShareDesktopClipboardMode() {
-  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches;
-  return !coarse && !!(navigator.clipboard?.write && window.ClipboardItem);
+function isReaderShareTouchDevice() {
+  return !!window.matchMedia?.("(pointer: coarse)")?.matches;
 }
 
 function updateReaderShareActionLabel() {
-  if (!readerShareUi?.shareButton) return;
-  readerShareUi.shareButton.textContent = isReaderShareDesktopClipboardMode()
-    ? "클립보드 복사"
-    : "공유하기";
+  if (!readerShareUi) return;
+  const touch = isReaderShareTouchDevice();
+  if (readerShareUi.saveButton) readerShareUi.saveButton.textContent = "이미지 저장";
+  if (readerShareUi.clipboardButton) readerShareUi.clipboardButton.textContent = "클립보드 복사";
+  if (readerShareUi.shareButton) {
+    readerShareUi.shareButton.textContent = "공유하기";
+    readerShareUi.shareButton.hidden = !touch;
+  }
 }
 
 async function copyReaderShareBlobToClipboard(blob) {
@@ -6122,15 +6138,15 @@ async function copyReaderShareBlobToClipboard(blob) {
 
 async function setReaderShareBusy(isBusy) {
   const ui = ensureReaderShareUi();
-  if (ui.saveButton) {
-    ui.saveButton.disabled = isBusy;
-    ui.saveButton.textContent = isBusy ? "생성 중..." : "이미지 저장";
+  for (const button of [ui.saveButton, ui.clipboardButton, ui.shareButton]) {
+    if (button) button.disabled = isBusy;
   }
-  if (ui.shareButton) {
-    ui.shareButton.disabled = isBusy;
-    ui.shareButton.textContent = isBusy
-      ? "생성 중..."
-      : (isReaderShareDesktopClipboardMode() ? "클립보드 복사" : "공유하기");
+  if (isBusy) {
+    if (ui.saveButton) ui.saveButton.textContent = "생성 중...";
+    if (ui.clipboardButton) ui.clipboardButton.textContent = "생성 중...";
+    if (ui.shareButton) ui.shareButton.textContent = "생성 중...";
+  } else {
+    updateReaderShareActionLabel();
   }
 }
 
@@ -6151,10 +6167,10 @@ async function handleReaderShareExport(mode) {
       downloadReaderShareBlob(blob, filename);
       return;
     }
-    if (isReaderShareDesktopClipboardMode()) {
+    if (mode === "clipboard") {
       await copyReaderShareBlobToClipboard(blob);
-      if (ui.shareButton) {
-        ui.shareButton.textContent = "복사 완료";
+      if (ui.clipboardButton) {
+        ui.clipboardButton.textContent = "복사 완료";
         window.setTimeout(updateReaderShareActionLabel, 1200);
       }
       return;
@@ -6291,16 +6307,17 @@ function syncReaderShareSelection() {
     }
 
     state.readerShareText = selected.text;
-    const margin = 28;
+    const margin = 24;
     const buttonSize = 38;
+    const preferredX = selected.rect.right + (buttonSize * 0.42);
     const x = Math.min(
       window.innerWidth - margin,
-      Math.max(margin, selected.rect.left + (selected.rect.width / 2))
+      Math.max(margin, preferredX)
     );
-    const belowY = selected.rect.bottom + 14;
-    const aboveY = selected.rect.top - buttonSize - 14;
-    const hasRoomBelow = belowY + buttonSize + 12 < window.innerHeight;
-    const y = hasRoomBelow ? belowY : Math.max(58, aboveY);
+    const belowY = selected.rect.bottom + 8;
+    const aboveY = selected.rect.top - buttonSize - 8;
+    const hasRoomBelow = belowY + buttonSize + 8 < window.innerHeight;
+    const y = hasRoomBelow ? belowY : Math.max(54, aboveY);
 
     ui.floatButton.style.left = `${x}px`;
     ui.floatButton.style.top = `${y}px`;
