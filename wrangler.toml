@@ -10,3 +10,5 @@ id = "9cb79e5c2e184fd9904d396bf7affc23"
 binding = "USER_DB"
 database_name = "rjs-book-users"
 database_id = "c22e6db2-66d6-4e49-ad18-7e0271299aa7"
+
+[vars]SITE_NAME = "셩냥책"
