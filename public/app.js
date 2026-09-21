@@ -2672,50 +2672,10 @@ function renderReaderPageAt(start, options = {}) {
 
 async function syncScrollReaderToOffset(offset, options = {}) {
   const item = state.activeReaderItem;
-  if (!item || !els.readerPanel) return;
+  if (!item || !els.readerPanel) return false;
 
   const safeOffset = clampReaderTextOffset(offset);
-
-  if (
-    isLargeReaderFile(item) &&
-    Array.isArray(state.largeReaderChunks)
-  ) {
-    const position = readerOffsetToLargePosition(safeOffset);
-    if (!position) return;
-
-    await renderLargeReaderThrough(
-      position.index,
-      state.readerRenderToken
-    );
-
-    const targetChunk = els.readerContent?.querySelector(
-      `.reader-virtual-chunk[data-reader-chunk-index="${position.index}"]`
-    );
-
-    if (targetChunk) {
-      const targetTop = getLargeReaderTargetScrollTop(
-        targetChunk,
-        position.ratio
-      );
-
-      await jumpReaderPanelTo(targetTop, {
-        releaseAfter: 420,
-        releaseProgressSave: options.releaseProgressSave,
-      });
-    }
-
-    return;
-  }
-
-  const maxScroll = Math.max(
-    0,
-    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
-  );
-  const ratio = getReaderTextLength() > 0
-    ? safeOffset / getReaderTextLength()
-    : 0;
-
-  await jumpReaderPanelTo(maxScroll * ratio, {
+  return scrollReaderToTextOffset(safeOffset, {
     releaseAfter: 420,
     releaseProgressSave: options.releaseProgressSave,
   });
@@ -3269,6 +3229,134 @@ function getReaderChunkTextY(section, charOffset) {
   } finally {
     range.detach?.();
   }
+}
+
+
+async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) {
+  if (!els.readerPanel || !textNode) return false;
+
+  const length = textNode.data?.length || 0;
+  const safeOffset = Math.max(0, Math.min(length, Math.floor(Number(charOffset) || 0)));
+  const marker = document.createElement("span");
+  marker.className = "reader-resume-anchor";
+  marker.setAttribute("aria-hidden", "true");
+  marker.style.cssText =
+    "display:inline-block;width:0;height:1px;overflow:hidden;pointer-events:none;vertical-align:top;";
+
+  const range = document.createRange();
+  state.suspendReaderProgressSave = true;
+
+  try {
+    range.setStart(textNode, safeOffset);
+    range.collapse(true);
+    range.insertNode(marker);
+
+    // Use the browser's native nearest-scroll-container navigation instead
+    // of converting a text position back into a readerPanel pixel coordinate.
+    // This stays reliable when page/scroll mode toggles change layout and on
+    // mobile browsers that defer nested scrollTop updates.
+    marker.scrollIntoView({
+      block: "start",
+      inline: "nearest",
+      behavior: "auto",
+    });
+
+    await nextFrame();
+    await nextFrame();
+
+    // Leave a small reading margin below the compact header.
+    const margin = Math.min(96, Math.max(56, els.readerPanel.clientHeight * 0.08));
+    if (els.readerPanel.scrollTop > margin) {
+      try {
+        els.readerPanel.scrollBy({ top: -margin, behavior: "auto" });
+      } catch {
+        els.readerPanel.scrollTop = Math.max(0, els.readerPanel.scrollTop - margin);
+      }
+      await nextFrame();
+    }
+
+    return els.readerPanel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
+  } catch (error) {
+    console.warn("이어보기 앵커 이동 실패", error);
+    return false;
+  } finally {
+    marker.remove();
+    marker.parentNode?.normalize?.();
+    range.detach?.();
+
+    if (options.releaseProgressSave !== false) {
+      const releaseAfter = Number(options.releaseAfter || 520);
+      window.setTimeout(() => {
+        state.suspendReaderProgressSave = false;
+        const saved = saveReaderProgress();
+        const item = state.activeReaderItem;
+        if (saved && state.user && item && shouldPersistProgress(item.id, saved)) {
+          persistProgress(item, saved);
+        }
+      }, releaseAfter);
+    }
+  }
+}
+
+async function scrollReaderToTextOffset(offset, options = {}) {
+  if (!els.readerPanel || !els.readerContent) return false;
+
+  const safeOffset = clampReaderTextOffset(offset);
+  if (safeOffset <= 0) {
+    return jumpReaderPanelTo(0, options);
+  }
+
+  const item = state.activeReaderItem;
+  if (item && isLargeReaderFile(item) && Array.isArray(state.largeReaderChunks)) {
+    const position = readerOffsetToLargePosition(safeOffset);
+    if (!position) return false;
+
+    const ready = await ensureLargeReaderChunkRendered(
+      position.index,
+      state.readerRenderToken
+    );
+    if (!ready) return false;
+
+    const section = els.readerContent.querySelector(
+      `.reader-virtual-chunk[data-reader-chunk-index="${position.index}"]`
+    );
+    const textNode = getReaderChunkTextNode(section);
+    if (!textNode) return false;
+
+    const charOffset = Math.round(
+      (textNode.data?.length || 0) * Math.max(0, Math.min(1, Number(position.ratio) || 0))
+    );
+
+    return scrollReaderTextNodeIntoView(textNode, charOffset, options);
+  }
+
+  const walker = document.createTreeWalker(
+    els.readerContent,
+    NodeFilter.SHOW_TEXT
+  );
+  let remaining = safeOffset;
+  let node = walker.nextNode();
+  let lastTextNode = null;
+
+  while (node) {
+    lastTextNode = node;
+    const length = node.data?.length || 0;
+    if (remaining <= length) {
+      return scrollReaderTextNodeIntoView(node, remaining, options);
+    }
+    remaining -= length;
+    node = walker.nextNode();
+  }
+
+  if (lastTextNode) {
+    return scrollReaderTextNodeIntoView(
+      lastTextNode,
+      lastTextNode.data?.length || 0,
+      options
+    );
+  }
+
+  return false;
 }
 
 function getReaderChunkCharOffsetAtY(section, targetY) {
@@ -4133,36 +4221,18 @@ els.readerResume?.addEventListener("click", async (event) => {
 
       await nextFrame();
 
-      const targetChunk = ready
-        ? els.readerContent?.querySelector(
-            `.reader-virtual-chunk[data-reader-chunk-index="${targetIndex}"]`
-          )
-        : null;
+      const reached = ready
+        ? await scrollReaderToTextOffset(targetOffset, {
+            releaseAfter: IS_SAFARI_READER ? 750 : 520,
+          })
+        : false;
 
-      if (targetChunk) {
-        const ratio = Math.max(
-          0,
-          Math.min(1, Number(position.ratio || 0))
-        );
-
-        const targetTop = getLargeReaderTargetScrollTop(
-          targetChunk,
-          ratio
-        );
-
-        const reached = await jumpReaderPanelTo(targetTop, {
-          releaseAfter: IS_SAFARI_READER ? 750 : 520,
-        });
-
-        if (reached) {
-          els.readerResume.hidden = true;
-        } else {
-          els.readerResumeText.textContent =
-            "위치 이동을 다시 시도해 주세요.";
-        }
+      if (reached) {
+        els.readerResume.hidden = true;
       } else {
-        els.readerResumeText.textContent =
-          "읽던 위치를 준비하지 못했습니다. 다시 시도해 주세요.";
+        els.readerResumeText.textContent = ready
+          ? "위치 이동을 다시 시도해 주세요."
+          : "읽던 위치를 준비하지 못했습니다. 다시 시도해 주세요.";
       }
 
       els.readerResumeButton.disabled = false;
@@ -4174,11 +4244,8 @@ els.readerResume?.addEventListener("click", async (event) => {
     await nextFrame();
     await nextFrame();
 
-    // Header compaction changes the scrollable height. Calculate the target
-    // only after the final scroll-mode layout is active.
-    const target = getResumeTarget(saved);
-
-    const reached = await jumpReaderPanelTo(target, {
+    const targetOffset = savedProgressToReaderOffset(saved);
+    const reached = await scrollReaderToTextOffset(targetOffset, {
       releaseAfter: IS_SAFARI_READER ? 750 : 520,
     });
 

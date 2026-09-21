@@ -3295,3 +3295,10 @@ POSTYPE 전용 필드:
 - 세 버튼의 배경색 / 테두리 / 아이콘 굵기를 동일하게 맞춤
 - compact 모드에서도 닫기 버튼만 다른 배경으로 바뀌지 않도록 canonical reader action 규칙에 통합함
 - v7 규칙에 따라 별도 override를 추가하지 않고 `V7 CANONICAL UI OVERRIDES`의 reader action 섹션을 직접 수정함
+
+
+## v7.40 patch
+- 스크롤 모드 이어보기 이동을 픽셀 좌표 환산 방식에서 텍스트 위치 앵커 + `scrollIntoView()` 방식으로 변경
+- 긴 TXT 가상 청크에서도 저장된 문자 위치까지 청크를 렌더한 뒤 해당 위치 자체로 이동
+- 페이징 모드 추가 이후 DOM 표시/숨김 및 레이아웃 변경 때문에 `scrollTop` 목표값이 0 또는 잘못된 값으로 계산되는 경로 회피
+- 기존 배포/Cloudflare 설정 파일은 포함하지 않음
