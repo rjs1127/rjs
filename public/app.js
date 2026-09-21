@@ -30,6 +30,7 @@ const state = {
   readerPageResizeTimer: 0,
   readerPageTouchStartX: null,
   readerPageTouchStartY: null,
+  readerPageLastSwipeAt: 0,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -105,6 +106,8 @@ function applyUserPreferences() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+
+  syncReaderModeButtons();
 }
 
 
@@ -176,7 +179,6 @@ const els = {
   readerResumeText: document.getElementById("readerResumeText"),
   readerResumeButton: document.getElementById("readerResumeButton"),
   readerRestartButton: document.getElementById("readerRestartButton"),
-  readerModeBar: document.getElementById("readerModeBar"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
   readerPageViewport: document.getElementById("readerPageViewport"),
@@ -2486,17 +2488,20 @@ async function syncScrollReaderToOffset(offset) {
   els.readerPanel.scrollTop = Math.max(0, maxScroll * ratio);
 }
 
-function syncReaderModeButtons() {
-  const pageActive = state.readerDisplayMode === "page";
+function getPreferredReaderDisplayMode() {
+  return localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+    ? "page"
+    : "scroll";
+}
 
-  els.readerScrollModeButton?.classList.toggle(
-    "active",
-    !pageActive
-  );
-  els.readerPageModeButton?.classList.toggle(
-    "active",
-    pageActive
-  );
+function syncReaderModeButtons() {
+  const effectiveMode = state.activeReaderItem
+    ? state.readerDisplayMode
+    : getPreferredReaderDisplayMode();
+  const pageActive = effectiveMode === "page";
+
+  els.readerScrollModeButton?.classList.toggle("active", !pageActive);
+  els.readerPageModeButton?.classList.toggle("active", pageActive);
 
   els.readerScrollModeButton?.setAttribute(
     "aria-pressed",
@@ -2510,7 +2515,19 @@ function syncReaderModeButtons() {
 
 async function setReaderDisplayMode(mode, options = {}) {
   const item = state.activeReaderItem;
-  let nextMode = mode === "page" ? "page" : "scroll";
+  const requestedMode = mode === "page" ? "page" : "scroll";
+  let nextMode = requestedMode;
+
+  if (!item) {
+    state.readerDisplayMode = requestedMode;
+
+    if (options.persist !== false) {
+      localStorage.setItem(READER_DISPLAY_MODE_KEY, requestedMode);
+    }
+
+    syncReaderModeButtons();
+    return;
+  }
 
   if (
     nextMode === "page" &&
@@ -2562,8 +2579,7 @@ async function setReaderDisplayMode(mode, options = {}) {
 
   if (pageActive) {
     els.readerPanel.scrollTop = 0;
-    readerCompactActive = false;
-    els.readerPanel.classList.remove("reader-compact");
+    setReaderCompactActive(false);
     els.readerScrollTop?.classList.remove("visible");
 
     await nextFrame();
@@ -2591,6 +2607,16 @@ async function turnReaderPage(direction) {
     state.readerDisplayMode !== "page" ||
     !state.readerText
   ) return;
+
+  if (!readerCompactActive) {
+    const currentStart = state.readerPageStart;
+    setReaderCompactActive(true);
+    await nextFrame();
+    resizeReaderPageViewport();
+    renderReaderPageAt(currentStart, {
+      navigated: state.readerPageHasNavigated,
+    });
+  }
 
   if (direction > 0) {
     if (state.readerPageEnd >= getReaderTextLength()) return;
@@ -3184,12 +3210,6 @@ async function openReader(item) {
   if (els.readerResume) els.readerResume.hidden = true;
 
   const pageEligible = isReaderPageModeEligible(item);
-  if (els.readerModeBar) {
-    els.readerModeBar.hidden = !pageEligible;
-  }
-  if (els.readerPageModeButton) {
-    els.readerPageModeButton.disabled = true;
-  }
 
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
@@ -3249,10 +3269,6 @@ async function openReader(item) {
     const rendered = await streamTextIntoReader(response, renderToken);
 
     if (!rendered || renderToken !== state.readerRenderToken) return;
-
-    if (els.readerPageModeButton) {
-      els.readerPageModeButton.disabled = false;
-    }
 
     const preferredMode =
       isReaderPageModeEligible(item) &&
@@ -3315,13 +3331,14 @@ function closeReader() {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
   }
-  if (els.readerModeBar) els.readerModeBar.hidden = true;
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
   els.readerScrollTop?.classList.remove("visible");
   document.body.classList.remove("reader-open");
   els.readerBody.textContent = "";
+  state.readerDisplayMode = getPreferredReaderDisplayMode();
+  syncReaderModeButtons();
   updatePageScrollTopButton();
   updateCompactHeader();
 }
@@ -3433,21 +3450,29 @@ els.readerBody?.addEventListener("click", (event) => {
 
 els.readerScrollModeButton?.addEventListener("click", async () => {
   await setReaderDisplayMode("scroll");
+
+  if (!state.activeReaderItem) return;
+
   const saved = saveReaderProgress();
-  if (saved && state.activeReaderItem && state.user) {
+  if (saved && state.user) {
     persistProgress(state.activeReaderItem, saved);
   }
 });
 
 els.readerPageModeButton?.addEventListener("click", async () => {
   await setReaderDisplayMode("page");
+
+  if (!state.activeReaderItem) return;
+
   const saved = saveReaderProgress();
-  if (saved && state.activeReaderItem && state.user) {
+  if (saved && state.user) {
     persistProgress(state.activeReaderItem, saved);
   }
 });
 
-els.readerBody?.addEventListener("click", async (event) => {
+els.readerPageViewport?.addEventListener("click", async (event) => {
+  if (state.readerDisplayMode !== "page") return;
+
   if (event.target.closest("#readerPagePrev")) {
     await turnReaderPage(-1);
     return;
@@ -3455,14 +3480,34 @@ els.readerBody?.addEventListener("click", async (event) => {
 
   if (event.target.closest("#readerPageNext")) {
     await turnReaderPage(1);
+    return;
   }
+
+  if (event.target.closest(".reader-page-footer")) {
+    return;
+  }
+
+  if (
+    Date.now() - Number(state.readerPageLastSwipeAt || 0) <
+    450
+  ) {
+    return;
+  }
+
+  const selection = window.getSelection?.();
+  if (selection && String(selection).trim()) {
+    return;
+  }
+
+  const rect = els.readerPageViewport.getBoundingClientRect();
+  const x = event.clientX - rect.left;
+  const previousZone = rect.width * 0.30;
+
+  await turnReaderPage(x <= previousZone ? -1 : 1);
 });
 
-els.readerBody?.addEventListener("touchstart", (event) => {
-  if (
-    state.readerDisplayMode !== "page" ||
-    !event.target.closest("#readerPageViewport")
-  ) return;
+els.readerPageViewport?.addEventListener("touchstart", (event) => {
+  if (state.readerDisplayMode !== "page") return;
 
   const touch = event.touches?.[0];
   if (!touch) return;
@@ -3471,7 +3516,7 @@ els.readerBody?.addEventListener("touchstart", (event) => {
   state.readerPageTouchStartY = touch.clientY;
 }, { passive: true });
 
-els.readerBody?.addEventListener("touchend", async (event) => {
+els.readerPageViewport?.addEventListener("touchend", async (event) => {
   if (
     state.readerDisplayMode !== "page" ||
     state.readerPageTouchStartX == null ||
@@ -3492,6 +3537,7 @@ els.readerBody?.addEventListener("touchend", async (event) => {
     Math.abs(dx) <= Math.abs(dy) * 1.2
   ) return;
 
+  state.readerPageLastSwipeAt = Date.now();
   await turnReaderPage(dx < 0 ? 1 : -1);
 }, { passive: true });
 
@@ -3547,6 +3593,9 @@ els.readerResume?.addEventListener("click", async (event) => {
     ) {
       state.suspendReaderProgressSave = true;
       els.readerResume.hidden = true;
+      setReaderCompactActive(true);
+      await nextFrame();
+      resizeReaderPageViewport();
 
       renderReaderPageAt(
         savedProgressToReaderOffset(saved),
@@ -3650,6 +3699,9 @@ els.readerResume?.addEventListener("click", async (event) => {
       state.readerText
     ) {
       resetReaderPageState();
+      setReaderCompactActive(true);
+      await nextFrame();
+      resizeReaderPageViewport();
       renderReaderPageAt(0, { navigated: false });
       return;
     }
@@ -4386,6 +4438,23 @@ let readerProgressSaveTimer = 0;
 let readerCompactActive = false;
 let readerCompactFrame = 0;
 
+function setReaderCompactActive(active) {
+  if (!els.readerPanel) return;
+
+  const next = Boolean(active);
+  if (next === readerCompactActive) return;
+
+  readerCompactActive = next;
+
+  window.cancelAnimationFrame(readerCompactFrame);
+  readerCompactFrame = window.requestAnimationFrame(() => {
+    els.readerPanel?.classList.toggle(
+      "reader-compact",
+      readerCompactActive
+    );
+  });
+}
+
 function syncReaderCompactMode(scrollTop) {
   if (!els.readerPanel) return;
 
@@ -4398,16 +4467,7 @@ function syncReaderCompactMode(scrollTop) {
       : scrollTop >= 180;
 
   if (shouldCompact === readerCompactActive) return;
-
-  readerCompactActive = shouldCompact;
-
-  window.cancelAnimationFrame(readerCompactFrame);
-  readerCompactFrame = window.requestAnimationFrame(() => {
-    els.readerPanel?.classList.toggle(
-      "reader-compact",
-      readerCompactActive
-    );
-  });
+  setReaderCompactActive(shouldCompact);
 }
 
 function updateReaderScrollUi() {

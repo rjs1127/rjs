@@ -1,5 +1,5 @@
 {
-  "version": "v7.26",
+  "version": "v7.27",
   "releasedAt": "2026-09-21",
-  "label": "mobile-page-right-clipping-fix"
+  "label": "page-mode-regression-restore"
 }

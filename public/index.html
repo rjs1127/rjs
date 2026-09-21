@@ -15,7 +15,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=726" />
+  <link rel="stylesheet" href="/theme.css?v=727" />
 </head>
 <body>
   <div class="app-shell">
@@ -261,7 +261,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.26</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.27</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -319,14 +319,6 @@
         <div class="reader-resume-actions">
           <button id="readerResumeButton" type="button">이어보기</button>
           <button id="readerRestartButton" type="button">처음부터</button>
-        </div>
-      </div>
-
-      <div id="readerModeBar" class="reader-mode-bar" hidden>
-        <span class="reader-mode-label">읽기 방식</span>
-        <div class="reader-mode-switch" role="group" aria-label="읽기 방식">
-          <button id="readerScrollModeButton" class="active" type="button" aria-pressed="true">스크롤</button>
-          <button id="readerPageModeButton" type="button" aria-pressed="false">페이지</button>
         </div>
       </div>
 
@@ -595,12 +587,23 @@
             <button type="button" data-reader-spacing="wide">넓게</button>
           </div>
         </div>
+
+        <div class="account-preference-row account-preference-row-stack">
+          <div>
+            <strong>장편 읽기 방식</strong>
+            <span>장편·연재 TXT를 열 때 사용할 기본 방식을 선택합니다.</span>
+          </div>
+          <div class="preference-segmented" role="group" aria-label="장편 읽기 방식">
+            <button id="readerScrollModeButton" type="button" aria-pressed="true">스크롤</button>
+            <button id="readerPageModeButton" type="button" aria-pressed="false">페이지</button>
+          </div>
+        </div>
       </div>
 
       <button id="logoutButton" class="modal-secondary-button" type="button">로그아웃</button>
     </section>
   </div>
 
-  <script src="/app.js?v=726" defer></script>
+  <script src="/app.js?v=727" defer></script>
 </body>
 </html>
