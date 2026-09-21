@@ -59,7 +59,7 @@ const LARGE_FILE_MIN_LOADING_VISIBLE_MS = 1700;
 const READER_REMOTE_SYNC_INTERVAL_MS = 60 * 1000;
 const READER_MIN_MEANINGFUL_SCROLL_PX = 24;
 const READER_END_DISTANCE_PX = 140;
-const READER_PROGRESS_PRECISION = 10; // 0.1% 단위 저장
+const READER_PROGRESS_PRECISION = 100; // 0.01% 단위 저장 (모드 간 위치 정밀도 향상)
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
 const LIBRARY_PAGE_SIZE = 20;
@@ -2255,8 +2255,10 @@ function saveReaderProgress() {
     );
 
     const scrollTop = Math.max(0, els.readerPanel.scrollTop);
-    const rawPercent = maxScroll > 0
-      ? (scrollTop / maxScroll) * 100
+    const textLength = Math.max(1, getReaderTextLength());
+    const textOffset = currentScrollToReaderOffset();
+    const rawPercent = textLength > 0
+      ? (textOffset / textLength) * 100
       : 0;
     let percent = normalizeReaderProgressPercent(rawPercent);
 
@@ -2504,6 +2506,89 @@ function savedProgressToReaderOffset(saved) {
   return 0;
 }
 
+function getReaderTextNodeCharOffsetAtY(textNode, targetY) {
+  if (!textNode) return 0;
+
+  const length = textNode.data?.length || 0;
+  if (length <= 0) return 0;
+
+  const range = document.createRange();
+  let low = 0;
+  let high = Math.max(0, length - 1);
+  let best = 0;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+
+    try {
+      range.setStart(textNode, mid);
+      range.setEnd(textNode, Math.min(length, mid + 1));
+      const rect = range.getBoundingClientRect();
+      const y = rect.top;
+
+      if (!Number.isFinite(y)) break;
+
+      if (y <= targetY) {
+        best = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    } catch {
+      break;
+    }
+  }
+
+  return Math.max(0, Math.min(length, best));
+}
+
+function getNormalReaderTextOffsetAtCurrentScroll() {
+  if (!els.readerPanel || !els.readerContent) return null;
+
+  const panelScrollTop = Math.max(0, els.readerPanel.scrollTop);
+  if (panelScrollTop < READER_MIN_MEANINGFUL_SCROLL_PX) return 0;
+
+  const panelRect = els.readerPanel.getBoundingClientRect();
+  const targetY = panelRect.top + 92;
+  const walker = document.createTreeWalker(
+    els.readerContent,
+    NodeFilter.SHOW_TEXT
+  );
+
+  let totalBefore = 0;
+  let node = walker.nextNode();
+  let lastOffset = 0;
+
+  while (node) {
+    const length = node.data?.length || 0;
+
+    if (length > 0) {
+      try {
+        const range = document.createRange();
+        range.selectNodeContents(node);
+        const rect = range.getBoundingClientRect();
+
+        if (rect.bottom >= targetY) {
+          const localOffset = getReaderTextNodeCharOffsetAtY(
+            node,
+            targetY
+          );
+          return clampReaderTextOffset(totalBefore + localOffset);
+        }
+      } catch {
+        // Fall through to the legacy scroll-height ratio below.
+        return null;
+      }
+    }
+
+    totalBefore += length;
+    lastOffset = totalBefore;
+    node = walker.nextNode();
+  }
+
+  return clampReaderTextOffset(lastOffset);
+}
+
 function currentScrollToReaderOffset() {
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return 0;
@@ -2518,6 +2603,13 @@ function currentScrollToReaderOffset() {
     }
   }
 
+  const exactOffset = getNormalReaderTextOffsetAtCurrentScroll();
+  if (Number.isFinite(exactOffset)) {
+    return clampReaderTextOffset(exactOffset);
+  }
+
+  // Browser Range failures are rare, but keep the old height-ratio logic as
+  // a compatibility fallback rather than breaking progress saving.
   const maxScroll = Math.max(
     0,
     els.readerPanel.scrollHeight - els.readerPanel.clientHeight
