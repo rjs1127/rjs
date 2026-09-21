@@ -62,25 +62,59 @@ const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
 const LIBRARY_PAGE_SIZE = 20;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
-const READER_GUEST_DISPLAY_MODE_KEY = "rjsGuestReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
 const READER_PAGE_SWIPE_PX = 48;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
+const READER_FONT_SIZE_KEY = "rjsBookReaderFontSizeV1";
+
+function getViewerPreferenceStorage() {
+  return state.user ? localStorage : sessionStorage;
+}
 
 function getSavedTheme() {
-  return localStorage.getItem(UI_THEME_KEY) === "dark" ? "dark" : "light";
+  return getViewerPreferenceStorage().getItem(UI_THEME_KEY) === "dark"
+    ? "dark"
+    : "light";
 }
 
 function getSavedReaderSpacing() {
-  const value = localStorage.getItem(READER_SPACING_KEY);
-  return ["compact", "normal", "wide"].includes(value) ? value : "normal";
+  const value = getViewerPreferenceStorage().getItem(READER_SPACING_KEY);
+  return ["compact", "normal", "wide"].includes(value)
+    ? value
+    : "normal";
+}
+
+function getSavedReaderFontSize() {
+  const value = getViewerPreferenceStorage().getItem(READER_FONT_SIZE_KEY);
+  return ["small", "normal", "large"].includes(value)
+    ? value
+    : "normal";
+}
+
+function setViewerPreference(key, value) {
+  getViewerPreferenceStorage().setItem(key, value);
+}
+
+function refreshReaderPaginationForPreferences() {
+  if (
+    state.readerDisplayMode !== "page" ||
+    els.readerOverlay?.hidden ||
+    !state.readerText
+  ) return;
+
+  window.requestAnimationFrame(() => {
+    const start = state.readerPageStart;
+    resizeReaderPageViewport();
+    renderReaderPageAt(start, { navigated: false });
+  });
 }
 
 function applyUserPreferences() {
   const theme = getSavedTheme();
   const spacing = getSavedReaderSpacing();
+  const fontSize = getSavedReaderFontSize();
   const root = document.documentElement;
 
   if (theme === "dark") {
@@ -95,12 +129,16 @@ function applyUserPreferences() {
 
   root.dataset.theme = theme;
   root.dataset.readerSpacing = spacing;
+  root.dataset.readerFontSize = fontSize;
 
   if (els.darkModeToggle) {
     const enabled = theme === "dark";
     els.darkModeToggle.textContent = enabled ? "ON" : "OFF";
     els.darkModeToggle.classList.toggle("active", enabled);
-    els.darkModeToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+    els.darkModeToggle.setAttribute(
+      "aria-pressed",
+      enabled ? "true" : "false"
+    );
   }
 
   els.readerSpacingButtons?.forEach((button) => {
@@ -109,9 +147,22 @@ function applyUserPreferences() {
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 
-  syncReaderModeButtons();
-}
+  els.readerFontSizeButtons?.forEach((button) => {
+    const active = button.dataset.readerFontSize === fontSize;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
 
+  if (els.viewerSettingsScopeText) {
+    els.viewerSettingsScopeText.textContent = state.user
+      ? "로그인 상태에서는 이 브라우저에 설정값이 유지됩니다."
+      : "비회원 설정은 현재 브라우저 세션에서만 유지됩니다.";
+  }
+
+  state.readerDisplayMode = getPreferredReaderDisplayMode();
+  syncReaderModeButtons();
+  refreshReaderPaginationForPreferences();
+}
 
 const els = {
   status: document.getElementById("status"),
@@ -183,9 +234,6 @@ const els = {
   readerRestartButton: document.getElementById("readerRestartButton"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
-  readerQuickModeBar: document.getElementById("readerQuickModeBar"),
-  readerQuickScrollButton: document.getElementById("readerQuickScrollButton"),
-  readerQuickPageButton: document.getElementById("readerQuickPageButton"),
   readerPageViewport: document.getElementById("readerPageViewport"),
   readerPageText: document.getElementById("readerPageText"),
   readerPagePrev: document.getElementById("readerPagePrev"),
@@ -198,6 +246,7 @@ const els = {
   readerProgressBar: document.getElementById("readerProgressBar"),
   readerProgressLabel: document.getElementById("readerProgressLabel"),
   readerScrollTop: document.getElementById("readerScrollTop"),
+  viewerSettingsButton: document.getElementById("viewerSettingsButton"),
   bookmarkLibraryButton: document.getElementById("bookmarkLibraryButton"),
   recentLibraryButton: document.getElementById("recentLibraryButton"),
   helpButton: document.getElementById("helpButton"),
@@ -244,10 +293,13 @@ const els = {
   libraryMoreButton: document.getElementById("libraryMoreButton"),
   libraryMoreLabel: document.getElementById("libraryMoreLabel"),
   libraryMoreProgress: document.getElementById("libraryMoreProgress"),
+  viewerSettingsModal: document.getElementById("viewerSettingsModal"),
+  viewerSettingsScopeText: document.getElementById("viewerSettingsScopeText"),
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
   darkModeToggle: document.getElementById("darkModeToggle"),
   readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
+  readerFontSizeButtons: Array.from(document.querySelectorAll("[data-reader-font-size]")),
   logoutButton: document.getElementById("logoutButton"),
 };
 
@@ -310,6 +362,7 @@ function getSimpleModals() {
     els.helpModal,
     els.privacyModal,
     els.libraryModal,
+    els.viewerSettingsModal,
     els.accountModal,
   ].filter(Boolean);
 }
@@ -526,6 +579,7 @@ function clearUserSession(clearToken = true) {
   state.bookmarkOnly = false;
   state.readingOnly = false;
   state.resumeShortcutItemId = "";
+  applyUserPreferences();
   syncQuickFilterButtons();
   updateResumeShortcut();
   updateAccountUi();
@@ -723,6 +777,7 @@ async function loadUserLibrary() {
 async function restoreAuth() {
   const token = getAuthToken();
   if (!token) {
+    applyUserPreferences();
     updateAccountUi();
     return;
   }
@@ -730,6 +785,7 @@ async function restoreAuth() {
   try {
     const data = await userApi("/api/auth/me");
     state.user = data.user;
+    applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
     await recordLoggedInVisit();
@@ -2506,13 +2562,7 @@ async function syncScrollReaderToOffset(offset) {
 }
 
 function getPreferredReaderDisplayMode() {
-  if (state.user) {
-    return localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
-      ? "page"
-      : "scroll";
-  }
-
-  return sessionStorage.getItem(READER_GUEST_DISPLAY_MODE_KEY) === "page"
+  return getViewerPreferenceStorage().getItem(READER_DISPLAY_MODE_KEY) === "page"
     ? "page"
     : "scroll";
 }
@@ -2523,25 +2573,17 @@ function syncReaderModeButtons() {
     : getPreferredReaderDisplayMode();
   const pageActive = effectiveMode === "page";
 
-  [els.readerScrollModeButton, els.readerQuickScrollButton]
-    .filter(Boolean)
-    .forEach((button) => {
-      button.classList.toggle("active", !pageActive);
-      button.setAttribute(
-        "aria-pressed",
-        pageActive ? "false" : "true"
-      );
-    });
+  els.readerScrollModeButton?.classList.toggle("active", !pageActive);
+  els.readerPageModeButton?.classList.toggle("active", pageActive);
 
-  [els.readerPageModeButton, els.readerQuickPageButton]
-    .filter(Boolean)
-    .forEach((button) => {
-      button.classList.toggle("active", pageActive);
-      button.setAttribute(
-        "aria-pressed",
-        pageActive ? "true" : "false"
-      );
-    });
+  els.readerScrollModeButton?.setAttribute(
+    "aria-pressed",
+    pageActive ? "false" : "true"
+  );
+  els.readerPageModeButton?.setAttribute(
+    "aria-pressed",
+    pageActive ? "true" : "false"
+  );
 }
 
 async function setReaderDisplayMode(mode, options = {}) {
@@ -2553,14 +2595,7 @@ async function setReaderDisplayMode(mode, options = {}) {
     state.readerDisplayMode = requestedMode;
 
     if (options.persist !== false) {
-      if (state.user) {
-        localStorage.setItem(READER_DISPLAY_MODE_KEY, requestedMode);
-      } else {
-        sessionStorage.setItem(
-          READER_GUEST_DISPLAY_MODE_KEY,
-          requestedMode
-        );
-      }
+      setViewerPreference(READER_DISPLAY_MODE_KEY, requestedMode);
     }
 
     syncReaderModeButtons();
@@ -2587,11 +2622,7 @@ async function setReaderDisplayMode(mode, options = {}) {
   state.readerDisplayMode = nextMode;
 
   if (options.persist !== false) {
-    if (state.user) {
-      localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
-    } else {
-      sessionStorage.setItem(READER_GUEST_DISPLAY_MODE_KEY, nextMode);
-    }
+    setViewerPreference(READER_DISPLAY_MODE_KEY, nextMode);
   }
 
   syncReaderModeButtons();
@@ -3277,9 +3308,6 @@ async function openReader(item) {
 
   const pageEligible = isReaderPageModeEligible(item);
 
-  if (els.readerQuickModeBar) {
-    els.readerQuickModeBar.hidden = !pageEligible;
-  }
 
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
@@ -3400,9 +3428,6 @@ function closeReader() {
   if (els.readerPageViewport) {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
-  }
-  if (els.readerQuickModeBar) {
-    els.readerQuickModeBar.hidden = true;
   }
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
@@ -3543,27 +3568,6 @@ els.readerPageModeButton?.addEventListener("click", async () => {
   }
 });
 
-els.readerQuickScrollButton?.addEventListener("click", async () => {
-  await setReaderDisplayMode("scroll");
-
-  if (!state.activeReaderItem) return;
-
-  const saved = saveReaderProgress();
-  if (saved && state.user) {
-    persistProgress(state.activeReaderItem, saved);
-  }
-});
-
-els.readerQuickPageButton?.addEventListener("click", async () => {
-  await setReaderDisplayMode("page");
-
-  if (!state.activeReaderItem) return;
-
-  const saved = saveReaderProgress();
-  if (saved && state.user) {
-    persistProgress(state.activeReaderItem, saved);
-  }
-});
 
 els.readerPageViewport?.addEventListener("click", async (event) => {
   if (state.readerDisplayMode !== "page") return;
@@ -3815,7 +3819,7 @@ els.readerResume?.addEventListener("click", async (event) => {
 
 els.darkModeToggle?.addEventListener("click", () => {
   const nextTheme = getSavedTheme() === "dark" ? "light" : "dark";
-  localStorage.setItem(UI_THEME_KEY, nextTheme);
+  setViewerPreference(UI_THEME_KEY, nextTheme);
   applyUserPreferences();
 });
 
@@ -3823,9 +3827,23 @@ els.readerSpacingButtons?.forEach((button) => {
   button.addEventListener("click", () => {
     const spacing = button.dataset.readerSpacing;
     if (!["compact", "normal", "wide"].includes(spacing)) return;
-    localStorage.setItem(READER_SPACING_KEY, spacing);
+    setViewerPreference(READER_SPACING_KEY, spacing);
     applyUserPreferences();
   });
+});
+
+els.readerFontSizeButtons?.forEach((button) => {
+  button.addEventListener("click", () => {
+    const fontSize = button.dataset.readerFontSize;
+    if (!["small", "normal", "large"].includes(fontSize)) return;
+    setViewerPreference(READER_FONT_SIZE_KEY, fontSize);
+    applyUserPreferences();
+  });
+});
+
+els.viewerSettingsButton?.addEventListener("click", () => {
+  applyUserPreferences();
+  openModal(els.viewerSettingsModal);
 });
 
 els.loginButton?.addEventListener("click", () => {
@@ -3917,6 +3935,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
 
     setAuthToken(data.token);
     state.user = data.user;
+    applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
     await recordLoggedInVisit();
@@ -3951,6 +3970,7 @@ els.authForm?.addEventListener("submit", async (event) => {
 
     setAuthToken(data.token);
     state.user = data.user;
+    applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
     await recordLoggedInVisit();

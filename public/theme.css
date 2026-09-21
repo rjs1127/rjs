@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.30 canonical page-mode layout
+   v7.31 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -2991,5 +2991,104 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 @media (prefers-reduced-motion: reduce) {
   .reader-page-progress-fill {
     transition:none !important;
+  }
+}
+
+/* =========================
+   v7.31 viewer settings center
+   ========================= */
+
+.viewer-settings-button svg {
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+
+.viewer-settings-modal {
+  width:min(520px, calc(100vw - 28px));
+}
+
+.viewer-settings-list {
+  display:grid;
+  gap:10px;
+  margin-top:18px;
+}
+
+.viewer-settings-list .account-preference-row {
+  margin:0;
+}
+
+.viewer-settings-list .preference-segmented {
+  width:100%;
+}
+
+.viewer-settings-list .preference-segmented button {
+  flex:1 1 0;
+  min-width:0;
+}
+
+/* Reader font size applies to both scroll and page modes. */
+html[data-reader-font-size="small"] .reader-body,
+html[data-reader-font-size="small"] .reader-content {
+  font-size:15px !important;
+}
+
+html[data-reader-font-size="normal"] .reader-body,
+html[data-reader-font-size="normal"] .reader-content {
+  font-size:17px !important;
+}
+
+html[data-reader-font-size="large"] .reader-body,
+html[data-reader-font-size="large"] .reader-content {
+  font-size:19px !important;
+}
+
+html[data-reader-font-size="small"] .reader-page-text,
+html[data-reader-font-size="small"] .reader-page-measure {
+  font-size:15px !important;
+}
+
+html[data-reader-font-size="normal"] .reader-page-text,
+html[data-reader-font-size="normal"] .reader-page-measure {
+  font-size:17px !important;
+}
+
+html[data-reader-font-size="large"] .reader-page-text,
+html[data-reader-font-size="large"] .reader-page-measure {
+  font-size:19px !important;
+}
+
+@media (max-width:640px) {
+  .viewer-settings-modal {
+    width:calc(100vw - 20px);
+  }
+
+  .viewer-settings-list {
+    gap:8px;
+  }
+
+  html[data-reader-font-size="small"] .reader-body,
+  html[data-reader-font-size="small"] .reader-content,
+  html[data-reader-font-size="small"] .reader-page-text,
+  html[data-reader-font-size="small"] .reader-page-measure {
+    font-size:14px !important;
+  }
+
+  html[data-reader-font-size="normal"] .reader-body,
+  html[data-reader-font-size="normal"] .reader-content,
+  html[data-reader-font-size="normal"] .reader-page-text,
+  html[data-reader-font-size="normal"] .reader-page-measure {
+    font-size:16px !important;
+  }
+
+  html[data-reader-font-size="large"] .reader-body,
+  html[data-reader-font-size="large"] .reader-content,
+  html[data-reader-font-size="large"] .reader-page-text,
+  html[data-reader-font-size="large"] .reader-page-measure {
+    font-size:18px !important;
   }
 }
