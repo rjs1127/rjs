@@ -2539,6 +2539,20 @@ async function setReaderDisplayMode(mode, options = {}) {
     pageActive
   );
 
+  if (els.readerBody) {
+    els.readerBody.style.display = pageActive ? "block" : "";
+    els.readerBody.style.minHeight = pageActive ? "0" : "";
+    els.readerBody.style.height = pageActive ? "auto" : "";
+  }
+
+  if (els.readerRenderShell) {
+    els.readerRenderShell.style.display = pageActive ? "block" : "";
+    els.readerRenderShell.style.minHeight = pageActive ? "0" : "";
+    els.readerRenderShell.style.height = pageActive ? "auto" : "";
+    els.readerRenderShell.style.margin = pageActive ? "0" : "";
+    els.readerRenderShell.style.padding = pageActive ? "0" : "";
+  }
+
   if (els.readerContent) {
     els.readerContent.hidden = pageActive;
     els.readerContent.style.display = pageActive ? "none" : "";
@@ -2660,6 +2674,7 @@ function showReaderLoading(item) {
     </div>
   `;
 
+  els.readerRenderShell = document.getElementById("readerRenderShell");
   els.readerContent = document.getElementById("readerContent");
   els.readerPageViewport = document.getElementById("readerPageViewport");
   if (els.readerPageViewport) {
@@ -3306,6 +3321,18 @@ function closeReader() {
   resetReaderPageState();
   resetLargeReaderState();
   els.readerPanel?.classList.remove("reader-page-mode");
+  if (els.readerBody) {
+    els.readerBody.style.display = "";
+    els.readerBody.style.minHeight = "";
+    els.readerBody.style.height = "";
+  }
+  if (els.readerRenderShell) {
+    els.readerRenderShell.style.display = "";
+    els.readerRenderShell.style.minHeight = "";
+    els.readerRenderShell.style.height = "";
+    els.readerRenderShell.style.margin = "";
+    els.readerRenderShell.style.padding = "";
+  }
   if (els.readerContent) {
     els.readerContent.style.display = "";
   }

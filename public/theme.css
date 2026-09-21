@@ -2491,3 +2491,80 @@ html.theme-dark .library-modal {
     padding-top:16px !important;
   }
 }
+
+
+/* =========================
+   v7.23 page-mode true top alignment
+   ========================= */
+
+/* Page mode is its own compact layout. Any structural min-height/flex rules
+   from the legacy reader must not reserve blank space above the page card. */
+.reader.reader-page-mode {
+  display:flex !important;
+  flex-direction:column !important;
+  justify-content:flex-start !important;
+  align-items:stretch !important;
+}
+
+.reader.reader-page-mode #readerModeBar,
+.reader.reader-page-mode .reader-mode-bar {
+  flex:0 0 auto !important;
+}
+
+.reader.reader-page-mode #readerBody,
+.reader.reader-page-mode .reader-body {
+  display:block !important;
+  flex:0 0 auto !important;
+  align-self:stretch !important;
+  min-height:0 !important;
+  height:auto !important;
+  margin:0 !important;
+  overflow:visible !important;
+}
+
+.reader.reader-page-mode #readerRenderShell,
+.reader.reader-page-mode .reader-render-shell {
+  position:relative !important;
+  display:block !important;
+  min-height:0 !important;
+  height:auto !important;
+  margin:0 !important;
+  padding:0 !important;
+  overflow:visible !important;
+  transform:none !important;
+  inset:auto !important;
+}
+
+.reader.reader-page-mode #readerPageViewport,
+.reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+  position:relative !important;
+  inset:auto !important;
+  top:auto !important;
+  bottom:auto !important;
+  display:grid !important;
+  width:100% !important;
+  margin:0 !important;
+  transform:none !important;
+}
+
+@media (max-width:640px) {
+  .reader.reader-page-mode {
+    min-height:100dvh !important;
+    height:100dvh !important;
+  }
+
+  .reader.reader-page-mode #readerBody,
+  .reader.reader-page-mode .reader-body {
+    padding:6px 12px 10px !important;
+  }
+
+  .reader.reader-page-mode #readerRenderShell,
+  .reader.reader-page-mode .reader-render-shell {
+    width:100% !important;
+  }
+
+  .reader.reader-page-mode #readerPageViewport,
+  .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+    margin-top:0 !important;
+  }
+}

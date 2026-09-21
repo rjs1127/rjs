@@ -3,6 +3,26 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.23 — 모바일 페이지 모드 상단 정렬 강제
+
+### 문제
+- v7.22에서 기존 스크롤 본문은 숨겼지만 모바일에서 페이지 카드 자체가 여전히 화면 하단 쪽에 배치됨
+- 레거시 `style.css`의 reader / reader-body / reader-render-shell 구조 규칙이 min-height 또는 flex 정렬을 유지하면서 빈 공간을 예약하는 케이스로 판단
+
+### 수정
+- 페이지 모드에서는 `reader → readerBody → readerRenderShell → readerPageViewport`를 별도 compact layout으로 강제
+- `readerBody`와 `readerRenderShell`의 min-height / height / margin / padding / flex 영향을 제거
+- 페이지 뷰포트의 top/bottom/inset/transform 영향을 모두 초기화
+- 모바일에서 읽기 방식 토글 직후 6px 여백만 두고 페이지 카드가 시작하도록 고정
+- JS에서도 페이지 모드 전환 시 readerBody / readerRenderShell inline layout을 직접 정리해 레거시 CSS 우선순위 영향 최소화
+- 스크롤 모드 또는 뷰어 종료 시 inline layout 원복
+
+### 영향
+- 서버/API/KV/D1 변경 없음
+- 장편 페이지 계산 / 스와이프 / 진도 / 읽음 판정 변경 없음
+- 모바일 배치만 수정
+
+
 ## v7.22 — 모바일 페이지 모드 본문 위치 수정
 
 ### 문제
