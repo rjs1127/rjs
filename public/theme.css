@@ -3574,3 +3574,27 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
     width:164px !important; min-width:164px !important; max-width:164px !important; gap:4px !important;
   }
 }
+
+
+/* v8.05 - mobile list density + long-title adaptive sizing */
+@media (max-width:640px) {
+  /* CP/형태는 짧은 값이므로 폭을 줄이고 제목에 공간을 돌려준다. */
+  .content-list th:nth-child(1), .content-list td:nth-child(1) { width:9% !important; }
+  .content-list th:nth-child(2), .content-list td:nth-child(2) { width:10% !important; }
+  .content-list th:nth-child(3), .content-list td:nth-child(3) { width:61% !important; }
+  .content-list th:nth-child(4), .content-list td:nth-child(4) { width:20% !important; }
+  .content-list th:nth-child(1), .content-list th:nth-child(2),
+  .content-list td:nth-child(1), .content-list td:nth-child(2) {
+    padding-left:4px !important; padding-right:4px !important;
+  }
+  .content-list .list-title-text-3plus {
+    font-size:10.5px !important;
+    line-height:1.2 !important;
+    letter-spacing:-0.02em;
+  }
+  .content-list .list-title-text-4plus {
+    font-size:9.8px !important;
+    line-height:1.18 !important;
+    letter-spacing:-0.025em;
+  }
+}

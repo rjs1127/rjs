@@ -343,13 +343,22 @@
             <button type="button" data-profile-tab="likes">좋아요</button>
             <button type="button" data-profile-tab="quotes">저장한 문장</button>
           </div>
-          <label class="profile-search">
-            <span aria-hidden="true">⌕</span>
-            <input id="profileSearchInput" type="search" placeholder="현재 목록에서 검색" autocomplete="off" />
-          </label>
+          <div class="profile-toolbar-actions">
+            <button id="profileClearButton" class="profile-secondary-button danger profile-clear-button" type="button" hidden>전체 삭제</button>
+            <label class="profile-search">
+              <span aria-hidden="true">⌕</span>
+              <input id="profileSearchInput" type="search" placeholder="현재 목록에서 검색" autocomplete="off" />
+            </label>
+          </div>
         </div>
         <p id="profileListMeta" class="profile-list-meta"></p>
-        <div id="profileList" class="profile-list"></div>
+        <div class="profile-list-shell">
+          <div id="profileList" class="profile-list"></div>
+        </div>
+        <div id="profileMoreWrap" class="profile-more-wrap" hidden>
+          <button id="profileMoreButton" class="profile-secondary-button" type="button">15개 더보기</button>
+          <span id="profileMoreProgress" class="profile-more-progress"></span>
+        </div>
       </section>
     </main>
 

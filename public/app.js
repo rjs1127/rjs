@@ -2088,6 +2088,7 @@ function render() {
 
   if (state.view === "list") {
     renderList(visibleItems);
+    adjustMobileListTitleSizes();
     els.contentGrid.hidden = true;
     els.contentListWrap.hidden = false;
   } else {
@@ -2438,6 +2439,27 @@ function renderList(items) {
       <td>${escapeHtml(item.author)}</td>
     </tr>
   `).join("");
+}
+
+function adjustMobileListTitleSizes() {
+  if (!window.matchMedia?.("(max-width: 640px)")?.matches) return;
+
+  window.requestAnimationFrame(() => {
+    els.contentListBody?.querySelectorAll(".list-title-text").forEach((title) => {
+      title.classList.remove("list-title-text-3plus", "list-title-text-4plus");
+      const style = window.getComputedStyle(title);
+      const lineHeight = Number.parseFloat(style.lineHeight) || (Number.parseFloat(style.fontSize) || 12) * 1.28;
+      let lines = Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight));
+
+      if (lines >= 3) {
+        title.classList.add("list-title-text-3plus");
+        const style3 = window.getComputedStyle(title);
+        const lineHeight3 = Number.parseFloat(style3.lineHeight) || (Number.parseFloat(style3.fontSize) || 11) * 1.22;
+        lines = Math.max(1, Math.round(title.getBoundingClientRect().height / lineHeight3));
+      }
+      if (lines >= 4) title.classList.add("list-title-text-4plus");
+    });
+  });
 }
 
 function syncViewButtons() {
@@ -4647,6 +4669,7 @@ window.addEventListener("resize", () => {
   ) {
     setMobileFiltersOpen(false);
   }
+  if (state.view === "list") adjustMobileListTitleSizes();
 });
 
 window.addEventListener("pageshow", () => {
@@ -6211,6 +6234,27 @@ const READER_SHARE_BACKGROUNDS = [
     meta: "#4d4841",
     accent: "#2a2724",
   },
+  {
+    name: "로지",
+    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #fff8fa 0%, #f7e5e8 58%, #efd8dc 100%)",
+    text: "#b45b63",
+    meta: "#c58a92",
+    accent: "#b45b63",
+  },
+  {
+    name: "스카이",
+    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #f5f9ff 0%, #e7f1ff 56%, #dbe8fb 100%)",
+    text: "#4b78c2",
+    meta: "#86a5d9",
+    accent: "#4b78c2",
+  },
+  {
+    name: "라벤더",
+    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #faf7ff 0%, #eee8ff 56%, #e1d8fb 100%)",
+    text: "#7652b8",
+    meta: "#a28ecf",
+    accent: "#7652b8",
+  },
 ];
 
 const READER_SHARE_FONTS = [
@@ -6793,14 +6837,10 @@ function isReaderShareTouchDevice() {
 function updateReaderShareActionLabel() {
   if (!readerShareUi) return;
   const touch = isReaderShareTouchDevice();
-  const clipboardReady = Boolean(getPreparedReaderShareBlob());
   if (readerShareUi.saveButton) readerShareUi.saveButton.textContent = "이미지 저장";
-  if (readerShareUi.clipboardButton) {
-    readerShareUi.clipboardButton.disabled = !clipboardReady;
-    readerShareUi.clipboardButton.textContent = clipboardReady
-      ? "클립보드 복사"
-      : "클립보드 준비 중";
-  }
+  // v7.77 검증 동작: 준비 상태 때문에 버튼 자체를 비활성화하지 않는다.
+  // 아직 Blob이 준비되지 않은 극히 짧은 구간은 클릭 핸들러가 안내 후 즉시 재준비한다.
+  if (readerShareUi.clipboardButton) readerShareUi.clipboardButton.textContent = "클립보드 복사";
   if (readerShareUi.shareButton) {
     readerShareUi.shareButton.textContent = "공유하기";
     readerShareUi.shareButton.hidden = !touch;
@@ -6884,15 +6924,12 @@ function copyReaderShareImageToClipboard() {
 
   let item;
   try {
-    // Safari/WebKit 계열은 ClipboardItem 값으로 Promise<Blob>을 요구하는
-    // 경우가 있어 Promise 형태를 우선 사용한다. Chromium 계열도 허용한다.
-    item = new ClipboardItem({ "image/png": Promise.resolve(blob) });
-  } catch (promiseError) {
-    try {
-      item = new ClipboardItem({ "image/png": blob });
-    } catch (error) {
-      throw new Error("clipboard_image_unsupported", { cause: error || promiseError });
-    }
+    // v7.77에서 실제 모바일 붙여넣기까지 확인된 경로로 유지한다.
+    // Blob은 편집기에서 미리 생성해 두므로 클릭 순간에는 비동기 렌더링 없이
+    // ClipboardItem을 만들고 곧바로 write()를 호출할 수 있다.
+    item = new ClipboardItem({ "image/png": blob });
+  } catch (error) {
+    throw new Error("clipboard_image_unsupported", { cause: error });
   }
   return navigator.clipboard.write([item]);
 }
