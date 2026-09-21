@@ -2846,7 +2846,13 @@ async function setReaderDisplayMode(mode, options = {}) {
     pageActive
   );
 
-  if (els.readerBody) {
+  const deferPageBodyHide = Boolean(
+    pageActive &&
+    options.initialLayout === true &&
+    els.readerLoadingOverlay
+  );
+
+  if (els.readerBody && !deferPageBodyHide) {
     els.readerBody.hidden = pageActive;
     els.readerBody.style.display = pageActive ? "none" : "";
   }
@@ -2878,6 +2884,14 @@ async function setReaderDisplayMode(mode, options = {}) {
     renderReaderPageAt(positionOffset, {
       navigated: Boolean(options.navigated),
     });
+
+    // 첫 진입에서는 로딩 커버를 유지한 상태로 페이지를 먼저 완성한다.
+    // 스크롤 본문이 숨겨지고 페이지 뷰가 준비된 다음 같은 프레임에서
+    // 커버를 제거해야 스크롤 화면이 순간적으로 비치지 않는다.
+    if (deferPageBodyHide && els.readerBody) {
+      els.readerBody.hidden = true;
+      els.readerBody.style.display = "none";
+    }
 
     if (els.readerLoadingOverlay) {
       els.readerLoadingOverlay.remove();
@@ -3739,14 +3753,15 @@ async function renderLongText(text, renderToken) {
       "이제 바로 읽을 수 있습니다. 아래로 읽으면 다음 내용이 자동으로 이어집니다."
     );
 
-    await new Promise((resolve) => setTimeout(resolve, 180));
+    if (!openingInPageMode) {
+      await new Promise((resolve) => setTimeout(resolve, 180));
+      els.readerLoadingOverlay?.classList.add("done");
+      await new Promise((resolve) => setTimeout(resolve, 180));
 
-    els.readerLoadingOverlay?.classList.add("done");
-    await new Promise((resolve) => setTimeout(resolve, 180));
-
-    if (!openingInPageMode && els.readerLoadingOverlay) {
-      els.readerLoadingOverlay.remove();
-      els.readerLoadingOverlay = null;
+      if (els.readerLoadingOverlay) {
+        els.readerLoadingOverlay.remove();
+        els.readerLoadingOverlay = null;
+      }
     }
 
     return true;
@@ -3786,14 +3801,15 @@ async function renderLongText(text, renderToken) {
     "이제 바로 읽을 수 있습니다."
   );
 
-  await new Promise((resolve) => setTimeout(resolve, 100));
+  if (!openingInPageMode) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    els.readerLoadingOverlay?.classList.add("done");
+    await new Promise((resolve) => setTimeout(resolve, 150));
 
-  els.readerLoadingOverlay?.classList.add("done");
-  await new Promise((resolve) => setTimeout(resolve, 150));
-
-  if (!openingInPageMode && els.readerLoadingOverlay) {
-    els.readerLoadingOverlay.remove();
-    els.readerLoadingOverlay = null;
+    if (els.readerLoadingOverlay) {
+      els.readerLoadingOverlay.remove();
+      els.readerLoadingOverlay = null;
+    }
   }
 
   return true;
