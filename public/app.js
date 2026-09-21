@@ -50,6 +50,8 @@ const state = {
   readingOnly: false,
   resumeShortcutItemId: "",
   readerResumeSaved: null,
+  readerShareText: "",
+  readerShareBackground: 0,
   visibleItemLimit: 40,
   paginationSignature: "",
 };
@@ -4082,6 +4084,7 @@ async function openReader(item) {
 }
 
 function finalizeReaderClose() {
+  closeReaderShareUi();
   unlockReaderScroll();
 
   // If the reader was opened on a saved resume point and the user closes it
@@ -5542,6 +5545,7 @@ if (IS_SAFARI_READER) {
   });
 }
 
+
 els.readerScrollTop?.addEventListener("click", () => {
   els.readerPanel?.scrollTo({
     top: 0,
@@ -5549,6 +5553,447 @@ els.readerScrollTop?.addEventListener("click", () => {
   });
 });
 
+const READER_SHARE_BACKGROUNDS = [
+  {
+    name: "라벤더",
+    src: "/assets/share-cards/lavender-ui.webp",
+    text: "#44384f",
+    meta: "#756a80",
+  },
+  {
+    name: "블러시",
+    src: "/assets/share-cards/blush-ui.webp",
+    text: "#563d49",
+    meta: "#806570",
+  },
+  {
+    name: "미드나잇",
+    src: "/assets/share-cards/midnight-ui.webp",
+    text: "#f7f3ff",
+    meta: "#c7bde0",
+  },
+];
+
+const READER_SHARE_FONTS = [
+  { key: "pretendard", label: "프리텐다드", css: 'Pretendard, "Pretendard Variable", "Noto Sans KR", sans-serif' },
+  { key: "serif", label: "명조", css: '"Noto Serif KR", "Nanum Myeongjo", Georgia, serif' },
+  { key: "suit", label: "SUIT", css: 'SUIT, Pretendard, "Noto Sans KR", sans-serif' },
+  { key: "hand", label: "감성체", css: '"Nanum Pen Script", "Apple SD Gothic Neo", cursive' },
+];
+
+const READER_SHARE_SIZES = {
+  xs: { label: "작게", px: 17 },
+  sm: { label: "보통", px: 21 },
+  md: { label: "크게", px: 26 },
+  lg: { label: "아주 크게", px: 31 },
+};
+
+let readerShareUi = null;
+let readerShareSelectionTimer = 0;
+
+function ensureReaderShareState() {
+  if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
+  if (!state.readerShareRatio) state.readerShareRatio = "1:1";
+  if (!state.readerShareFont) state.readerShareFont = "pretendard";
+  if (!state.readerShareSize) state.readerShareSize = "sm";
+  if (!state.readerShareTextColor) state.readerShareTextColor = "auto";
+  if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
+}
+
+function getReaderShareBrandName() {
+  return String(
+    document.getElementById("brandText")?.textContent ||
+    document.title ||
+    "RJS BOOK"
+  ).trim() || "RJS BOOK";
+}
+
+function ensureReaderShareUi() {
+  if (readerShareUi) return readerShareUi;
+  ensureReaderShareState();
+
+  const style = document.createElement("style");
+  style.id = "readerShareStyle";
+  style.textContent = `
+    .reader-share-float {
+      position: fixed; z-index: 1300; width: 38px; height: 38px; border: 0;
+      border-radius: 999px; display: grid; place-items: center; cursor: pointer;
+      background: rgba(69, 48, 83, .96); color: #fff;
+      box-shadow: 0 8px 24px rgba(31, 20, 37, .24);
+      transform: translate(-50%, -100%); transition: opacity .15s ease, transform .15s ease;
+    }
+    .reader-share-float[hidden] { display: none !important; }
+    .reader-share-float svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .reader-share-backdrop { position: fixed; inset: 0; z-index: 1390; background: rgba(20,14,24,.46); backdrop-filter: blur(4px); }
+    .reader-share-backdrop[hidden] { display: none !important; }
+    .reader-share-sheet {
+      position: absolute; left: 50%; bottom: 0; width: min(100%, 560px); max-height: 92dvh;
+      overflow: auto; transform: translateX(-50%); border-radius: 24px 24px 0 0;
+      background: var(--surface, #fff); color: var(--text, #2c2630);
+      box-shadow: 0 -16px 48px rgba(27,18,31,.22); padding: 10px 14px 24px;
+      overscroll-behavior: contain;
+    }
+    .reader-share-handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(93,78,101,.24); margin: 2px auto 8px; }
+    .reader-share-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+    .reader-share-head strong { font-size: 16px; }
+    .reader-share-close { border:0; background:transparent; color:inherit; width:34px; height:34px; border-radius:50%; font-size:24px; cursor:pointer; }
+    .reader-share-section { border-top:1px solid rgba(91,75,99,.11); padding:11px 0; }
+    .reader-share-section:first-of-type { border-top:0; padding-top:5px; }
+    .reader-share-row { display:grid; grid-template-columns:72px minmax(0,1fr); align-items:center; gap:10px; }
+    .reader-share-label { font-size:12px; font-weight:750; color:var(--muted, #756d79); white-space:nowrap; }
+    .reader-share-preview-wrap { display:flex; justify-content:center; padding:2px 0 10px; }
+    .reader-share-card { position:relative; width:min(78vw, 360px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease; }
+    .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(66vw, 320px); }
+    .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
+    .reader-share-card-brand { position:absolute; z-index:1; left:8%; top:6.8%; display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.84; }
+    .reader-share-card-brand svg { width:17px; height:17px; }
+    .reader-share-card-quote { position:absolute; z-index:1; left:10.5%; right:10.5%; top:17%; bottom:23%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.62; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
+    .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:16%; bottom:20%; }
+    .reader-share-card-meta { position:absolute; z-index:1; left:10%; right:10%; bottom:8.5%; text-align:center; font-size:10.5px; line-height:1.45; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reader-share-thumbs { display:flex; gap:8px; overflow:auto; padding:1px 1px 3px; scrollbar-width:none; }
+    .reader-share-thumbs::-webkit-scrollbar { display:none; }
+    .reader-share-thumb { flex:0 0 52px; width:52px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; background:#eee; cursor:pointer; }
+    .reader-share-thumb.active { border-color:#725080; box-shadow:0 0 0 2px rgba(114,80,128,.12); }
+    .reader-share-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
+    .reader-share-input:focus { border-color:rgba(109,75,126,.5); box-shadow:0 0 0 3px rgba(109,75,126,.07); }
+    .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+    .reader-share-chip { border:1px solid rgba(91,75,99,.17); background:rgba(255,255,255,.56); color:inherit; border-radius:10px; min-height:34px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; }
+    .reader-share-chip.active { border-color:#725080; color:#5a3869; background:rgba(114,80,128,.1); box-shadow:0 0 0 1px rgba(114,80,128,.06); }
+    .reader-share-color { display:inline-flex; align-items:center; gap:6px; }
+    .reader-share-color-dot { width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,.18); box-shadow:0 0 0 2px rgba(255,255,255,.45); }
+    .reader-share-color-dot.white { background:#fff; }
+    .reader-share-color-dot.black { background:#111; }
+    .reader-share-switch { margin-left:auto; position:relative; width:44px; height:26px; border:0; border-radius:999px; background:rgba(91,75,99,.2); cursor:pointer; transition:.16s ease; padding:0; }
+    .reader-share-switch::after { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:.16s ease; }
+    .reader-share-switch.active { background:#725080; }
+    .reader-share-switch.active::after { transform:translateX(18px); }
+    .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; }
+    @media (min-width: 720px) {
+      .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; padding:12px 18px 20px; max-height:min(88vh,860px); }
+      .reader-share-card { width:min(46vw,340px); }
+      .reader-share-card[data-ratio="4:5"] { width:min(38vw,300px); }
+    }
+  `;
+  document.head.appendChild(style);
+
+  const floatButton = document.createElement("button");
+  floatButton.type = "button";
+  floatButton.className = "reader-share-float";
+  floatButton.hidden = true;
+  floatButton.setAttribute("aria-label", "선택한 문구 공유 카드 만들기");
+  floatButton.innerHTML = `
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <circle cx="18" cy="5" r="2.5"></circle>
+      <circle cx="6" cy="12" r="2.5"></circle>
+      <circle cx="18" cy="19" r="2.5"></circle>
+      <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"></path>
+    </svg>`;
+  document.body.appendChild(floatButton);
+
+  const backdrop = document.createElement("div");
+  backdrop.className = "reader-share-backdrop";
+  backdrop.hidden = true;
+  backdrop.innerHTML = `
+    <section class="reader-share-sheet" role="dialog" aria-modal="true" aria-label="문구 공유 카드 편집">
+      <div class="reader-share-handle" aria-hidden="true"></div>
+      <div class="reader-share-head">
+        <strong>문장 이미지 만들기</strong>
+        <button type="button" class="reader-share-close" aria-label="닫기">×</button>
+      </div>
+
+      <div class="reader-share-preview-wrap">
+        <div class="reader-share-card" data-ratio="1:1">
+          <div class="reader-share-card-brand">
+            <svg viewBox="0 0 32 32" aria-hidden="true">
+              <path d="M8.3 11.6 6.7 6.8l5.1 2.7A11.7 11.7 0 0 1 16 8.7c1.5 0 2.9.3 4.2.8l5.1-2.7-1.6 4.8a9.2 9.2 0 0 1 2 5.7c0 5.2-4.3 9-9.7 9s-9.7-3.8-9.7-9c0-2.2.7-4.1 2-5.7Z" fill="currentColor"></path>
+            </svg>
+            <span class="reader-share-brand-text"></span>
+          </div>
+          <div class="reader-share-card-quote"></div>
+          <div class="reader-share-card-meta"></div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <span class="reader-share-label">배경</span>
+          <div class="reader-share-thumbs"></div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <span class="reader-share-label">비율</span>
+          <div class="reader-share-options">
+            <button type="button" class="reader-share-chip" data-share-ratio="1:1">1:1 정방형</button>
+            <button type="button" class="reader-share-chip" data-share-ratio="4:5">4:5 세로형</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <span class="reader-share-label">글꼴</span>
+          <div class="reader-share-options reader-share-fonts"></div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <span class="reader-share-label">글자 크기</span>
+          <div class="reader-share-options reader-share-sizes"></div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <span class="reader-share-label">글자 색상</span>
+          <div class="reader-share-options">
+            <button type="button" class="reader-share-chip reader-share-color" data-share-color="white"><span class="reader-share-color-dot white"></span>흰색</button>
+            <button type="button" class="reader-share-chip reader-share-color" data-share-color="black"><span class="reader-share-color-dot black"></span>검은색</button>
+            <button type="button" class="reader-share-chip" data-share-color="auto">자동</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row">
+          <div>
+            <span class="reader-share-label">줄 바꿈</span>
+            <div class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동으로 줄 바꿉니다.</div>
+          </div>
+          <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
+        </div>
+      </div>
+
+      <div class="reader-share-section">
+        <div class="reader-share-row" style="align-items:start;">
+          <span class="reader-share-label" style="padding-top:9px;">문구</span>
+          <textarea class="reader-share-input" maxlength="700" aria-label="선택한 문구 편집"></textarea>
+        </div>
+      </div>
+    </section>`;
+  document.body.appendChild(backdrop);
+
+  const sheet = backdrop.querySelector(".reader-share-sheet");
+  const thumbs = backdrop.querySelector(".reader-share-thumbs");
+  const input = backdrop.querySelector(".reader-share-input");
+  const card = backdrop.querySelector(".reader-share-card");
+  const quote = backdrop.querySelector(".reader-share-card-quote");
+  const meta = backdrop.querySelector(".reader-share-card-meta");
+  const brand = backdrop.querySelector(".reader-share-brand-text");
+  const fonts = backdrop.querySelector(".reader-share-fonts");
+  const sizes = backdrop.querySelector(".reader-share-sizes");
+  const wrap = backdrop.querySelector("[data-share-wrap]");
+
+  thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
+    <button type="button" class="reader-share-thumb" data-share-background="${index}" aria-label="${background.name} 배경">
+      <img src="${background.src}" alt="" loading="eager" />
+    </button>`).join("");
+
+  fonts.innerHTML = READER_SHARE_FONTS.map((font) => `
+    <button type="button" class="reader-share-chip" data-share-font="${font.key}">${font.label}</button>`).join("");
+
+  sizes.innerHTML = Object.entries(READER_SHARE_SIZES).map(([key, size]) => `
+    <button type="button" class="reader-share-chip" data-share-size="${key}">${size.label}</button>`).join("");
+
+  const close = () => { backdrop.hidden = true; };
+  backdrop.querySelector(".reader-share-close")?.addEventListener("click", close);
+  backdrop.addEventListener("pointerdown", (event) => {
+    if (event.target === backdrop) close();
+  });
+
+  thumbs.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-share-background]");
+    if (!button) return;
+    state.readerShareBackground = Math.max(0, Math.min(
+      READER_SHARE_BACKGROUNDS.length - 1,
+      Number(button.dataset.shareBackground || 0)
+    ));
+    updateReaderSharePreview();
+  });
+
+  backdrop.addEventListener("click", (event) => {
+    const ratioButton = event.target.closest("[data-share-ratio]");
+    if (ratioButton) {
+      state.readerShareRatio = ratioButton.dataset.shareRatio === "4:5" ? "4:5" : "1:1";
+      updateReaderSharePreview();
+      return;
+    }
+    const fontButton = event.target.closest("[data-share-font]");
+    if (fontButton) {
+      state.readerShareFont = fontButton.dataset.shareFont || "pretendard";
+      updateReaderSharePreview();
+      return;
+    }
+    const sizeButton = event.target.closest("[data-share-size]");
+    if (sizeButton) {
+      state.readerShareSize = sizeButton.dataset.shareSize || "sm";
+      updateReaderSharePreview();
+      return;
+    }
+    const colorButton = event.target.closest("[data-share-color]");
+    if (colorButton) {
+      state.readerShareTextColor = colorButton.dataset.shareColor || "auto";
+      updateReaderSharePreview();
+      return;
+    }
+    const wrapButton = event.target.closest("[data-share-wrap]");
+    if (wrapButton) {
+      state.readerShareAutoWrap = !state.readerShareAutoWrap;
+      updateReaderSharePreview();
+    }
+  });
+
+  input.addEventListener("input", () => {
+    state.readerShareText = String(input.value || "");
+    updateReaderSharePreview();
+  });
+
+  floatButton.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  floatButton.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openReaderShareSheet();
+  });
+
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, close };
+  return readerShareUi;
+}
+
+function updateReaderSharePreview() {
+  ensureReaderShareState();
+  const ui = ensureReaderShareUi();
+  const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
+  const item = state.activeReaderItem || {};
+  const text = String(state.readerShareText || "").trim();
+  const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
+  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.sm;
+  const textColor = state.readerShareTextColor === "white"
+    ? "#ffffff"
+    : state.readerShareTextColor === "black"
+      ? "#151219"
+      : background.text;
+  const metaColor = state.readerShareTextColor === "auto" ? background.meta : textColor;
+
+  ui.card.dataset.ratio = state.readerShareRatio;
+  ui.card.style.backgroundImage = `url("${background.src}")`;
+  ui.card.style.color = textColor;
+  ui.meta.style.color = metaColor;
+  ui.brand.style.color = metaColor;
+  ui.quote.textContent = text;
+  ui.quote.style.fontFamily = font.css;
+  const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
+  ui.quote.style.fontSize = `${Math.max(13, size.px - lengthPenalty)}px`;
+  ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
+  ui.quote.style.wordBreak = state.readerShareAutoWrap ? "keep-all" : "normal";
+  ui.quote.style.overflowWrap = state.readerShareAutoWrap ? "break-word" : "normal";
+  ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
+  ui.brand.textContent = getReaderShareBrandName();
+
+  ui.thumbs.querySelectorAll("[data-share-background]").forEach((button, index) => {
+    button.classList.toggle("active", index === state.readerShareBackground);
+  });
+  ui.backdrop.querySelectorAll("[data-share-ratio]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.shareRatio === state.readerShareRatio);
+  });
+  ui.backdrop.querySelectorAll("[data-share-font]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.shareFont === state.readerShareFont);
+  });
+  ui.backdrop.querySelectorAll("[data-share-size]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.shareSize === state.readerShareSize);
+  });
+  ui.backdrop.querySelectorAll("[data-share-color]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.shareColor === state.readerShareTextColor);
+  });
+  ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
+  ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
+}
+
+function openReaderShareSheet() {
+  if (!state.readerShareText) return;
+  ensureReaderShareState();
+  const ui = ensureReaderShareUi();
+  ui.input.value = state.readerShareText;
+  ui.backdrop.hidden = false;
+  updateReaderSharePreview();
+  ui.floatButton.hidden = true;
+}
+
+function closeReaderShareUi() {
+  if (!readerShareUi) return;
+  readerShareUi.backdrop.hidden = true;
+  readerShareUi.floatButton.hidden = true;
+  state.readerShareText = "";
+}
+
+function getReaderTextSelection() {
+  if (els.readerOverlay?.hidden || !state.activeReaderItem) return null;
+  const selection = window.getSelection?.();
+  if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
+
+  const text = String(selection.toString() || "").replace(/\u00a0/g, " ").trim();
+  if (!text) return null;
+
+  const range = selection.getRangeAt(0);
+  const common = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE
+    ? range.commonAncestorContainer
+    : range.commonAncestorContainer.parentElement;
+  const allowed = common?.closest?.("#readerContent, #readerPageText");
+  if (!allowed) return null;
+
+  const rects = Array.from(range.getClientRects()).filter((rect) => rect.width > 0 && rect.height > 0);
+  const rect = rects.at(-1) || range.getBoundingClientRect();
+  if (!rect || (!rect.width && !rect.height)) return null;
+
+  return {
+    text: text.slice(0, 700),
+    rect,
+  };
+}
+
+function syncReaderShareSelection() {
+  window.clearTimeout(readerShareSelectionTimer);
+  readerShareSelectionTimer = window.setTimeout(() => {
+    const ui = ensureReaderShareUi();
+    if (!ui.backdrop.hidden) return;
+
+    const selected = getReaderTextSelection();
+    if (!selected) {
+      ui.floatButton.hidden = true;
+      return;
+    }
+
+    state.readerShareText = selected.text;
+    const margin = 24;
+    const x = Math.min(
+      window.innerWidth - margin,
+      Math.max(margin, selected.rect.right)
+    );
+    const y = Math.max(58, selected.rect.top - 8);
+
+    ui.floatButton.style.left = `${x}px`;
+    ui.floatButton.style.top = `${y}px`;
+    ui.floatButton.hidden = false;
+  }, 35);
+}
+
+function initReaderShareSelection() {
+  ensureReaderShareUi();
+  document.addEventListener("selectionchange", () => {
+    if (els.readerOverlay?.hidden) return;
+    syncReaderShareSelection();
+  });
+  els.readerPanel?.addEventListener("pointerup", syncReaderShareSelection);
+  els.readerPanel?.addEventListener("touchend", syncReaderShareSelection, { passive: true });
+  els.readerPanel?.addEventListener("scroll", () => {
+    readerShareUi && (readerShareUi.floatButton.hidden = true);
+  }, { passive: true });
+}
 
 
 function updatePageScrollTopButton() {
@@ -5689,6 +6134,7 @@ if (history.state?.rjsReaderOpen) {
 }
 state.readerHistoryActive = false;
 
+initReaderShareSelection();
 applyUserPreferences();
 updateNetworkStatus();
 window.addEventListener("online", updateNetworkStatus);
