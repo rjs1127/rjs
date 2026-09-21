@@ -4363,6 +4363,7 @@ async function resumeScrollReaderFromSaved(saved, item) {
 
   let targetTop = 0;
   let ready = true;
+  let directTextResumeResult = null;
 
   if (isLargeReaderFile(item) && Array.isArray(state.largeReaderChunks)) {
     let position = null;
@@ -4418,14 +4419,30 @@ async function resumeScrollReaderFromSaved(saved, item) {
     const storedScrollTop = Number(saved.scrollTop);
 
     if (Number.isFinite(storedScrollTop) && storedScrollTop > 0) {
+      // A progress record created in scroll mode already has the exact native
+      // scroller coordinate. Keep using it so the verified v7.44+ scroll
+      // resume path remains unchanged.
       targetTop = Math.max(0, Math.min(maxScroll, storedScrollTop));
     } else {
-      const percent = Math.max(0, Math.min(99.9, Number(saved.percent) || 0));
-      targetTop = Math.max(0, Math.min(maxScroll, maxScroll * (percent / 100)));
+      // Page mode stores the shared text-based percentage but intentionally
+      // has no scrollTop. Converting that percentage back through scroll
+      // height drifts because text ratio and pixel-height ratio are not the
+      // same coordinate system. Restore the actual text offset instead.
+      const textOffset = savedProgressToReaderOffset(saved);
+
+      if (textOffset > 0) {
+        directTextResumeResult = await scrollReaderToTextOffset(
+          textOffset,
+          { releaseProgressSave: false }
+        );
+        ready = false;
+      } else {
+        targetTop = 0;
+      }
     }
   }
 
-  let reached = false;
+  let reached = directTextResumeResult === true;
 
   if (ready) {
     const applyTarget = async () => {
