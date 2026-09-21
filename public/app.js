@@ -5640,11 +5640,16 @@ function ensureReaderShareUi() {
     .reader-share-backdrop { position: fixed; inset: 0; z-index: 1390; background: rgba(20,14,24,.46); backdrop-filter: blur(4px); }
     .reader-share-backdrop[hidden] { display: none !important; }
     .reader-share-sheet {
-      position: absolute; left: 50%; bottom: 0; width: min(100%, 560px); max-height: 92dvh;
-      overflow: auto; transform: translateX(-50%); border-radius: 24px 24px 0 0;
+      position: absolute; left: 50%; bottom: 0; width: min(calc(100% - 12px), 560px); max-height: 92dvh;
+      overflow: hidden; transform: translateX(-50%); border-radius: 24px 24px 0 0;
       background: var(--surface, #fff); color: var(--text, #2c2630);
-      box-shadow: 0 -16px 48px rgba(27,18,31,.22); padding: 10px 14px 24px;
-      overscroll-behavior: contain;
+      box-shadow: 0 -16px 48px rgba(27,18,31,.22); box-sizing: border-box;
+    }
+    .reader-share-sheet-scroll {
+      max-height: 92dvh; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain;
+      padding: 10px 14px calc(24px + env(safe-area-inset-bottom, 0px));
+      scrollbar-gutter: stable;
+      box-sizing: border-box;
     }
     .reader-share-handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(93,78,101,.24); margin: 2px auto 8px; }
     .reader-share-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
@@ -5683,7 +5688,8 @@ function ensureReaderShareUi() {
     .reader-share-switch.active::after { transform:translateX(18px); }
     .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; }
     @media (min-width: 720px) {
-      .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; padding:12px 18px 20px; max-height:min(88vh,860px); }
+      .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; max-height:min(88vh,860px); width:min(calc(100% - 24px), 560px); }
+      .reader-share-sheet-scroll { max-height:min(88vh,860px); padding:12px 18px 20px; }
       .reader-share-card { width:min(48vw,360px); }
       .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
@@ -5709,71 +5715,72 @@ function ensureReaderShareUi() {
   backdrop.hidden = true;
   backdrop.innerHTML = `
     <section class="reader-share-sheet" role="dialog" aria-modal="true" aria-label="문구 공유 카드 편집">
-      <div class="reader-share-handle" aria-hidden="true"></div>
-      <div class="reader-share-head">
-        <strong>문장 이미지 만들기</strong>
-        <button type="button" class="reader-share-close" aria-label="닫기">×</button>
-      </div>
-
-      <div class="reader-share-preview-wrap">
-        <div class="reader-share-card" data-ratio="1:1">
-          <div class="reader-share-card-brand">
-            <svg viewBox="0 0 32 32" aria-hidden="true">
-              <path d="M8.3 11.6 6.7 6.8l5.1 2.7A11.7 11.7 0 0 1 16 8.7c1.5 0 2.9.3 4.2.8l5.1-2.7-1.6 4.8a9.2 9.2 0 0 1 2 5.7c0 5.2-4.3 9-9.7 9s-9.7-3.8-9.7-9c0-2.2.7-4.1 2-5.7Z" fill="currentColor"></path>
-            </svg>
-            <span class="reader-share-brand-text"></span>
-          </div>
-          <div class="reader-share-card-quote"></div>
-          <div class="reader-share-card-meta"></div>
+      <div class="reader-share-sheet-scroll">
+        <div class="reader-share-handle" aria-hidden="true"></div>
+        <div class="reader-share-head">
+          <strong>문장 이미지 만들기</strong>
+          <button type="button" class="reader-share-close" aria-label="닫기">×</button>
         </div>
-      </div>
 
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <span class="reader-share-label">배경</span>
-          <div class="reader-share-thumbs"></div>
-        </div>
-      </div>
-
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <span class="reader-share-label">비율</span>
-          <div class="reader-share-options">
-            <button type="button" class="reader-share-chip" data-share-ratio="1:1">1:1 정방형</button>
-            <button type="button" class="reader-share-chip" data-share-ratio="4:5">4:5 세로형</button>
+        <div class="reader-share-preview-wrap">
+          <div class="reader-share-card" data-ratio="1:1">
+            <div class="reader-share-card-brand">
+              <svg viewBox="0 0 32 32" aria-hidden="true">
+                <path d="M8.3 11.6 6.7 6.8l5.1 2.7A11.7 11.7 0 0 1 16 8.7c1.5 0 2.9.3 4.2.8l5.1-2.7-1.6 4.8a9.2 9.2 0 0 1 2 5.7c0 5.2-4.3 9-9.7 9s-9.7-3.8-9.7-9c0-2.2.7-4.1 2-5.7Z" fill="currentColor"></path>
+              </svg>
+              <span class="reader-share-brand-text"></span>
+            </div>
+            <div class="reader-share-card-quote"></div>
+            <div class="reader-share-card-meta"></div>
           </div>
         </div>
-      </div>
 
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <span class="reader-share-label">글꼴</span>
-          <div class="reader-share-options reader-share-fonts"></div>
-        </div>
-      </div>
-
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <span class="reader-share-label">글자 크기</span>
-          <div class="reader-share-options reader-share-sizes"></div>
-        </div>
-      </div>
-
-
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <div>
-            <span class="reader-share-label">줄 바꿈</span>
-            <div class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동으로 줄 바꿉니다.</div>
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <span class="reader-share-label">배경</span>
+            <div class="reader-share-thumbs"></div>
           </div>
-          <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
         </div>
-      </div>
 
-      <div class="reader-share-section">
-        <div class="reader-share-row" style="align-items:start;">
-          <span class="reader-share-label" style="padding-top:9px;">문구</span>
-          <textarea class="reader-share-input" maxlength="700" aria-label="선택한 문구 편집"></textarea>
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <span class="reader-share-label">비율</span>
+            <div class="reader-share-options">
+              <button type="button" class="reader-share-chip" data-share-ratio="1:1">1:1 정방형</button>
+              <button type="button" class="reader-share-chip" data-share-ratio="4:5">4:5 세로형</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <span class="reader-share-label">글꼴</span>
+            <div class="reader-share-options reader-share-fonts"></div>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <span class="reader-share-label">글자 크기</span>
+            <div class="reader-share-options reader-share-sizes"></div>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <div>
+              <span class="reader-share-label">줄 바꿈</span>
+              <div class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동으로 줄 바꿉니다.</div>
+            </div>
+            <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-row" style="align-items:start;">
+            <span class="reader-share-label" style="padding-top:9px;">문구</span>
+            <textarea class="reader-share-input" maxlength="700" aria-label="선택한 문구 편집"></textarea>
+          </div>
         </div>
       </div>
     </section>`;
