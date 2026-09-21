@@ -2926,6 +2926,12 @@ els.zipDropZone.addEventListener("drop", (event) => {
   handleZipFile(event.dataTransfer.files?.[0]);
 });
 
+function normalizeVersionLabel(value) {
+  const raw = String(value || "").trim();
+  const match = raw.match(/^v?(\d+(?:\.\d+)*)$/i);
+  return match ? `v${match[1]}` : "";
+}
+
 async function loadVersionMetadata() {
   if (!els.adminVersion) return null;
 
@@ -2937,18 +2943,17 @@ async function loadVersionMetadata() {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
-    const version = String(data?.version || "").trim();
-    if (!/^v\d+(?:\.\d+)*$/i.test(version)) {
-      throw new Error("invalid version metadata");
-    }
+    const version = normalizeVersionLabel(data?.version);
+    if (!version) throw new Error("invalid version metadata");
 
     els.adminVersion.textContent = `현재 버전 ${version}`;
-    if (pendingDeployVersion.toLowerCase() === version.toLowerCase()) {
+    if (normalizeVersionLabel(pendingDeployVersion) === version) {
       pendingDeployVersion = "";
     }
     return version;
   } catch (error) {
     console.warn("현재 버전 확인 실패", error);
+    els.adminVersion.textContent = "현재 버전 확인 실패";
     return null;
   }
 }

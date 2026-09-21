@@ -388,7 +388,7 @@ async function queryCloudflarePagesDeployments(env) {
   const deployments = [];
   let apiRequests = 0;
   let page = 1;
-  const perPage = 100;
+  const perPage = 20;
   const maxPages = 10;
   const monthStart = Date.parse(range.start);
   const monthEnd = Date.parse(range.end);
