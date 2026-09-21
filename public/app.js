@@ -32,6 +32,7 @@ const state = {
   readerPageTouchStartY: null,
   readerPageLastSwipeAt: 0,
   readerPageAnimationTimer: 0,
+  readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -407,11 +408,11 @@ function lockPageForModal() {
   document.documentElement.classList.add("simple-modal-open");
   document.body.classList.add("simple-modal-open");
 
-  document.body.style.position = "fixed";
-  document.body.style.top = `-${modalPageScrollY}px`;
-  document.body.style.left = "0";
-  document.body.style.right = "0";
-  document.body.style.width = "100%";
+  // Keep the document at its real scroll position. Using body position:fixed
+  // caused some mobile browsers to restore to a different position on close.
+  document.documentElement.style.overflow = "hidden";
+  document.body.style.overflow = "hidden";
+  document.body.style.overscrollBehavior = "none";
 
   if (scrollbarGap > 0) {
     document.body.style.paddingRight = `${scrollbarGap}px`;
@@ -428,21 +429,15 @@ function unlockPageForModal() {
   document.documentElement.classList.remove("simple-modal-open");
   document.body.classList.remove("simple-modal-open");
 
-  document.body.style.position = "";
-  document.body.style.top = "";
-  document.body.style.left = "";
-  document.body.style.right = "";
-  document.body.style.width = "";
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+  document.body.style.overscrollBehavior = "";
   document.body.style.paddingRight = "";
 
   setBackgroundInert(false);
 
-  window.scrollTo({
-    top: modalPageScrollY,
-    left: 0,
-    behavior: "auto",
-  });
-
+  // No scrollTo here: the underlying document was never moved while locked.
+  // Restore focus without allowing it to move the viewport.
   if (
     modalLastFocusedElement &&
     document.contains(modalLastFocusedElement)
@@ -451,12 +446,13 @@ function unlockPageForModal() {
       try {
         modalLastFocusedElement.focus({ preventScroll: true });
       } catch {
-        modalLastFocusedElement.focus();
+        // Avoid fallback focus() because it can scroll the page on mobile.
       }
     }, 0);
   }
 
   modalLastFocusedElement = null;
+  updateViewerSettingsButtonVisibility();
 }
 
 function focusModal(modal) {
@@ -3287,11 +3283,24 @@ function triggerItemDownload(item) {
 async function openReader(item) {
   if (!item) return;
 
+  if (!state.readerHistoryActive) {
+    history.pushState(
+      {
+        ...(history.state || {}),
+        rjsReaderOpen: true,
+      },
+      "",
+      window.location.href
+    );
+    state.readerHistoryActive = true;
+  }
+
   state.activeReaderItem = item;
   state.suspendReaderProgressSave = true;
   const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
+  updateViewerSettingsButtonVisibility();
   mainHeaderCompactActive = false;
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
@@ -3400,7 +3409,7 @@ async function openReader(item) {
   }
 }
 
-function closeReader() {
+function finalizeReaderClose() {
   unlockReaderScroll();
   state.suspendReaderProgressSave = false;
 
@@ -3439,8 +3448,29 @@ function closeReader() {
   syncReaderModeButtons();
   updatePageScrollTopButton();
   updateCompactHeader();
+
+  state.readerHistoryActive = false;
+  updateViewerSettingsButtonVisibility();
 }
 
+function closeReader(options = {}) {
+  const fromHistory = Boolean(options.fromHistory);
+
+  if (!fromHistory && state.readerHistoryActive) {
+    history.back();
+    return;
+  }
+
+  finalizeReaderClose();
+}
+
+
+window.addEventListener("popstate", () => {
+  if (!els.readerOverlay?.hidden && state.activeReaderItem) {
+    state.readerHistoryActive = false;
+    closeReader({ fromHistory: true });
+  }
+});
 
 state.sort = normalizeSortValue(state.sort);
 localStorage.setItem("archiveSort", state.sort);
@@ -4240,6 +4270,18 @@ function setSearchValue(value, source = "main") {
 
 let mainHeaderCompactActive = false;
 
+function updateViewerSettingsButtonVisibility() {
+  if (!els.viewerSettingsButton) return;
+
+  const atTop = (window.scrollY || window.pageYOffset || 0) <= 8;
+  const readerOpen = document.body.classList.contains("reader-open");
+
+  els.viewerSettingsButton.classList.toggle(
+    "viewer-settings-top-hidden",
+    !atTop || readerOpen
+  );
+}
+
 function updateCompactHeader() {
   if (!els.siteHeader || !els.heroSearchBox) return;
 
@@ -4642,6 +4684,7 @@ function updatePageScrollTopButton() {
 window.addEventListener("scroll", () => {
   updatePageScrollTopButton();
   updateCompactHeader();
+  updateViewerSettingsButtonVisibility();
 }, {
   passive: true,
 });
@@ -4755,12 +4798,25 @@ async function loadPublicVersion() {
   }
 }
 
+if (history.state?.rjsReaderOpen) {
+  history.replaceState(
+    {
+      ...(history.state || {}),
+      rjsReaderOpen: false,
+    },
+    "",
+    window.location.href
+  );
+}
+state.readerHistoryActive = false;
+
 applyUserPreferences();
 updateNetworkStatus();
 window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
 updatePageScrollTopButton();
 updateCompactHeader();
+updateViewerSettingsButtonVisibility();
 syncViewButtons();
 syncQuickFilterButtons();
 updateAccountUi();

@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.31 canonical page-mode layout
+   v7.32 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -3091,4 +3091,19 @@ html[data-reader-font-size="large"] .reader-page-measure {
   html[data-reader-font-size="large"] .reader-page-measure {
     font-size:18px !important;
   }
+}
+
+/* =========================
+   v7.32 top-only viewer settings + stable modal lock
+   ========================= */
+
+.viewer-settings-button.viewer-settings-top-hidden,
+.site-header.compact-mode .viewer-settings-button {
+  display:none !important;
+}
+
+html.simple-modal-open,
+body.simple-modal-open {
+  overflow:hidden !important;
+  overscroll-behavior:none;
 }
