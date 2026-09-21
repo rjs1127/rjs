@@ -2568,3 +2568,68 @@ html.theme-dark .library-modal {
     margin-top:0 !important;
   }
 }
+
+
+/* =========================
+   v7.24 page viewport structural fix
+   ========================= */
+
+/* The page viewport is now a direct sibling of the mode bar.
+   This completely bypasses legacy reader-body / render-shell spacing. */
+.reader-page-viewport {
+  margin: 8px 28px 14px !important;
+}
+
+.reader.reader-page-mode #readerBody,
+.reader.reader-page-mode .reader-body {
+  display:none !important;
+}
+
+.reader.reader-page-mode #readerPageViewport:not([hidden]),
+.reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+  position:relative !important;
+  display:grid !important;
+  flex:0 0 auto !important;
+  align-self:stretch !important;
+  margin:8px 28px 14px !important;
+  inset:auto !important;
+  transform:none !important;
+}
+
+.reader-page-text,
+.reader-page-measure {
+  font-family:'Ridibatang', "Batang", serif;
+  font-size:17px;
+  line-height:2.05;
+  letter-spacing:-0.01em;
+  white-space:pre-wrap;
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+}
+
+html[data-reader-spacing="compact"] .reader-page-text,
+html[data-reader-spacing="compact"] .reader-page-measure {
+  line-height:1.72;
+}
+
+html[data-reader-spacing="normal"] .reader-page-text,
+html[data-reader-spacing="normal"] .reader-page-measure {
+  line-height:2.05;
+}
+
+html[data-reader-spacing="wide"] .reader-page-text,
+html[data-reader-spacing="wide"] .reader-page-measure {
+  line-height:2.38;
+}
+
+@media (max-width:640px) {
+  .reader.reader-page-mode #readerPageViewport:not([hidden]),
+  .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+    margin:6px 12px 10px !important;
+  }
+
+  .reader-page-text,
+  .reader-page-measure {
+    font-size:16px;
+  }
+}

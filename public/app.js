@@ -179,6 +179,12 @@ const els = {
   readerModeBar: document.getElementById("readerModeBar"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
+  readerPageViewport: document.getElementById("readerPageViewport"),
+  readerPageText: document.getElementById("readerPageText"),
+  readerPagePrev: document.getElementById("readerPagePrev"),
+  readerPageNext: document.getElementById("readerPageNext"),
+  readerPageStatus: document.getElementById("readerPageStatus"),
+  readerPageMeasure: document.getElementById("readerPageMeasure"),
   readerLoadingTitle: document.getElementById("readerLoadingTitle"),
   readerLoadingText: document.getElementById("readerLoadingText"),
   readerProgressBar: document.getElementById("readerProgressBar"),
@@ -2540,17 +2546,8 @@ async function setReaderDisplayMode(mode, options = {}) {
   );
 
   if (els.readerBody) {
-    els.readerBody.style.display = pageActive ? "block" : "";
-    els.readerBody.style.minHeight = pageActive ? "0" : "";
-    els.readerBody.style.height = pageActive ? "auto" : "";
-  }
-
-  if (els.readerRenderShell) {
-    els.readerRenderShell.style.display = pageActive ? "block" : "";
-    els.readerRenderShell.style.minHeight = pageActive ? "0" : "";
-    els.readerRenderShell.style.height = pageActive ? "auto" : "";
-    els.readerRenderShell.style.margin = pageActive ? "0" : "";
-    els.readerRenderShell.style.padding = pageActive ? "0" : "";
+    els.readerBody.hidden = pageActive;
+    els.readerBody.style.display = pageActive ? "none" : "";
   }
 
   if (els.readerContent) {
@@ -2645,16 +2642,6 @@ function showReaderLoading(item) {
     <div id="readerRenderShell" class="reader-render-shell">
       <div id="readerContent" class="reader-content" aria-live="off"></div>
 
-      <section id="readerPageViewport" class="reader-page-viewport" hidden aria-label="페이지 읽기">
-        <div id="readerPageText" class="reader-page-text"></div>
-        <div class="reader-page-footer">
-          <button id="readerPagePrev" type="button" aria-label="이전 페이지">‹ 이전</button>
-          <span id="readerPageStatus" aria-live="polite">0%</span>
-          <button id="readerPageNext" type="button" aria-label="다음 페이지">다음 ›</button>
-        </div>
-        <div id="readerPageMeasure" class="reader-page-measure" aria-hidden="true"></div>
-      </section>
-
       <div id="readerLoadingOverlay" class="reader-loading-overlay">
         <div class="reader-loading rich-loading">
           <div class="loading-copy">
@@ -2676,15 +2663,10 @@ function showReaderLoading(item) {
 
   els.readerRenderShell = document.getElementById("readerRenderShell");
   els.readerContent = document.getElementById("readerContent");
-  els.readerPageViewport = document.getElementById("readerPageViewport");
   if (els.readerPageViewport) {
+    els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
   }
-  els.readerPageText = document.getElementById("readerPageText");
-  els.readerPagePrev = document.getElementById("readerPagePrev");
-  els.readerPageNext = document.getElementById("readerPageNext");
-  els.readerPageStatus = document.getElementById("readerPageStatus");
-  els.readerPageMeasure = document.getElementById("readerPageMeasure");
   els.readerLoadingOverlay = document.getElementById("readerLoadingOverlay");
   els.readerLoadingTitle = document.getElementById("readerLoadingTitle");
   els.readerLoadingText = document.getElementById("readerLoadingText");
@@ -3322,18 +3304,11 @@ function closeReader() {
   resetLargeReaderState();
   els.readerPanel?.classList.remove("reader-page-mode");
   if (els.readerBody) {
+    els.readerBody.hidden = false;
     els.readerBody.style.display = "";
-    els.readerBody.style.minHeight = "";
-    els.readerBody.style.height = "";
-  }
-  if (els.readerRenderShell) {
-    els.readerRenderShell.style.display = "";
-    els.readerRenderShell.style.minHeight = "";
-    els.readerRenderShell.style.height = "";
-    els.readerRenderShell.style.margin = "";
-    els.readerRenderShell.style.padding = "";
   }
   if (els.readerContent) {
+    els.readerContent.hidden = false;
     els.readerContent.style.display = "";
   }
   if (els.readerPageViewport) {
