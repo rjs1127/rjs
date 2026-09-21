@@ -115,6 +115,7 @@ const els = {
   compactClearSearch: document.getElementById("compactClearSearch"),
   compactFilterButton: document.getElementById("compactFilterButton"),
   brandText: document.getElementById("brandText"),
+  brandLink: document.getElementById("brandLink"),
   siteFavicon: document.getElementById("siteFavicon"),
   siteShortcutIcon: document.getElementById("siteShortcutIcon"),
   siteAppleTouchIcon: document.getElementById("siteAppleTouchIcon"),
@@ -1107,6 +1108,60 @@ function getVersionedFaviconUrl(rawUrl, updatedAt = "") {
   return `${value}${value.includes("?") ? "&" : "?"}v=${version}`;
 }
 
+const SITE_NAME_CACHE_KEY = "archiveSiteNameV1";
+
+function applyBrandName(siteName, { cache = true } = {}) {
+  const normalized = String(siteName || "").trim() || "RJS BOOK";
+
+  document.title = normalized;
+
+  if (els.brandText) {
+    els.brandText.textContent = normalized;
+    els.brandText.classList.remove("brand-name-pending");
+    els.brandText.classList.add("brand-name-ready");
+  }
+
+  if (els.brandLink) {
+    els.brandLink.setAttribute("aria-label", `${normalized} 홈`);
+  }
+
+  if (cache) {
+    try {
+      localStorage.setItem(SITE_NAME_CACHE_KEY, normalized);
+    } catch {
+      // Storage can be unavailable in restrictive/private browser modes.
+    }
+  }
+
+  return normalized;
+}
+
+function applyCachedBrandName() {
+  try {
+    const cached = String(
+      localStorage.getItem(SITE_NAME_CACHE_KEY) || ""
+    ).trim();
+
+    if (!cached) return false;
+
+    applyBrandName(cached, { cache: false });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function revealFallbackBrandName() {
+  if (!els.brandText) return;
+
+  if (els.brandText.classList.contains("brand-name-pending")) {
+    applyBrandName(
+      els.brandText.textContent || "RJS BOOK",
+      { cache: false }
+    );
+  }
+}
+
 function applySettings(settings = {}) {
   const siteName = String(settings.siteName || "RJS BOOK").trim() || "RJS BOOK";
   const faviconUrl = getVersionedFaviconUrl(
@@ -1114,11 +1169,7 @@ function applySettings(settings = {}) {
     settings.updatedAt
   );
 
-  document.title = siteName;
-
-  if (els.brandText) {
-    els.brandText.textContent = siteName;
-  }
+  applyBrandName(siteName);
 
   if (faviconUrl) {
     for (const link of [
@@ -1160,6 +1211,7 @@ async function loadArchive(force = false) {
     render();
   } catch (error) {
     console.error(error);
+    revealFallbackBrandName();
     els.heroSection?.classList.remove("hero-settings-pending");
     els.heroSection?.classList.add("hero-settings-ready");
     els.resultCount.textContent = "연결 오류";
@@ -3779,6 +3831,7 @@ async function loadPublicVersion() {
   }
 }
 
+applyCachedBrandName();
 applyUserPreferences();
 updateNetworkStatus();
 window.addEventListener("online", updateNetworkStatus);

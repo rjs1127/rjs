@@ -1248,6 +1248,16 @@ html.theme-dark .mobile-filter-close {
   border-color: #5a534a;
 }
 
+/* ---------- Header brand name loading ----------
+   Prevent the bundled fallback name from flashing before saved settings load. */
+.brand-text.brand-name-pending {
+  visibility: hidden;
+}
+
+.brand-text.brand-name-ready {
+  visibility: visible;
+}
+
 /* ---------- Mobile compact-header filter button ---------- */
 .compact-filter-button {
   display: none;
