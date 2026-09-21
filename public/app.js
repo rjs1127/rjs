@@ -5555,43 +5555,44 @@ els.readerScrollTop?.addEventListener("click", () => {
 
 const READER_SHARE_BACKGROUNDS = [
   {
-    name: "오프화이트",
-    background: "linear-gradient(145deg, #f7f3ed 0%, #efe8de 100%)",
-    text: "#23201d",
-    meta: "#6f655c",
-    accent: "#5a4e45",
+    name: "베이지",
+    background: "linear-gradient(145deg, #fffdf9 0%, #f6f3ee 100%)",
+    text: "#191816",
+    meta: "#77716a",
+    accent: "#191816",
   },
   {
-    name: "웜베이지",
-    background: "linear-gradient(145deg, #e7dccd 0%, #d8cab7 100%)",
-    text: "#2b2622",
-    meta: "#655a50",
-    accent: "#6a5b4c",
+    name: "다크",
+    background: "linear-gradient(145deg, #211f1c 0%, #171614 100%)",
+    text: "#f2ede6",
+    meta: "#aaa39a",
+    accent: "#eee8df",
   },
   {
-    name: "차콜",
-    background: "linear-gradient(145deg, #3a352f 0%, #27231f 100%)",
-    text: "#f7f1e8",
-    meta: "#d7ccc0",
-    accent: "#f0e1cf",
+    name: "그레이지",
+    background: "linear-gradient(145deg, #ebe6df 0%, #ddd7ce 100%)",
+    text: "#2a2724",
+    meta: "#77716a",
+    accent: "#39352f",
   },
   {
-    name: "블랙",
-    background: "linear-gradient(145deg, #1e1b19 0%, #11100f 100%)",
-    text: "#fbf7f1",
-    meta: "#d5ccc3",
-    accent: "#e7d9c8",
+    name: "모카",
+    background: "linear-gradient(145deg, #38342f 0%, #2a2724 100%)",
+    text: "#eee8df",
+    meta: "#aaa39a",
+    accent: "#f3eee7",
   },
 ];
 
 const READER_SHARE_FONTS = [
-  { key: "paperlogy", label: "페이퍼로지", css: 'Paperlogy, Pretendard, "Noto Sans KR", sans-serif' },
-  { key: "nanumgothic", label: "나눔고딕", css: '"Nanum Gothic", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif' },
-  { key: "ridibatang", label: "리디바탕", css: 'RIDIBatang, "Noto Serif KR", "Nanum Myeongjo", serif' },
-  { key: "chosunmyeongjo", label: "조선명조", css: 'ChosunNm, "Noto Serif KR", "Nanum Myeongjo", serif' },
+  { key: "paperlogy", label: "페이퍼로지", css: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif', weight: 500 },
+  { key: "ridibatang", label: "리디바탕", css: 'Ridibatang, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
+  { key: "chosunilbo", label: "조선일보명조", css: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
+  { key: "inkliquid", label: "잉크립퀴드", css: 'InkLiquid, cursive', weight: 400 },
 ];
 
 const READER_SHARE_SIZES = {
+  xxs: { label: "아주 작게", px: 13 },
   xs: { label: "작게", px: 15 },
   sm: { label: "보통", px: 18 },
   md: { label: "크게", px: 22 },
@@ -5604,7 +5605,7 @@ function ensureReaderShareState() {
   if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
   if (!state.readerShareRatio) state.readerShareRatio = "1:1";
   if (!state.readerShareFont) state.readerShareFont = "paperlogy";
-  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
+  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xxs";
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -5623,9 +5624,10 @@ function ensureReaderShareUi() {
   const style = document.createElement("style");
   style.id = "readerShareStyle";
   style.textContent = `
-    @font-face { font-family: "Paperlogy"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2408@1.0/Paperlogy-5Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
-    @font-face { font-family: "RIDIBatang"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.1/RIDIBatang.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
-    @font-face { font-family: "ChosunNm"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2107@1.1/ChosunNm.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'ChosunIlboMyungjo'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Ridibatang'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'InkLiquid'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     .reader-share-float {
       position: fixed; z-index: 1300; width: 38px; height: 38px; border: 0;
       border-radius: 999px; display: grid; place-items: center; cursor: pointer;
@@ -5828,7 +5830,7 @@ function ensureReaderShareUi() {
     }
     const sizeButton = event.target.closest("[data-share-size]");
     if (sizeButton) {
-      state.readerShareSize = sizeButton.dataset.shareSize || "xs";
+      state.readerShareSize = sizeButton.dataset.shareSize || "xxs";
       updateReaderSharePreview();
       return;
     }
@@ -5865,7 +5867,7 @@ function updateReaderSharePreview() {
   const item = state.activeReaderItem || {};
   const text = String(state.readerShareText || "").trim();
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
-  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.sm;
+  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
   const textColor = background.text;
   const metaColor = background.meta;
 
@@ -5877,6 +5879,7 @@ function updateReaderSharePreview() {
   ui.brand.style.color = metaColor;
   ui.quote.textContent = text;
   ui.quote.style.fontFamily = font.css;
+  ui.quote.style.fontWeight = String(font.weight || 400);
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
   ui.quote.style.fontSize = `${Math.max(13, size.px - lengthPenalty)}px`;
   ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
