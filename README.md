@@ -3,6 +3,16 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.73 — Pages 전용 토큰 분리 + 개발 가이드 배포 허용
+
+- 관리자 `리소스` 탭의 Cloudflare Pages 배포 조회가 기존 Analytics 토큰과 섞이지 않도록 전용 Secret `CLOUDFLARE_PAGES_TOKEN`을 사용하도록 변경함
+- 기존 Analytics/KV/D1/R2 리소스 통계는 계속 `CLOUDFLARE_ANALYTICS_TOKEN`을 사용해 Pages 인증 실패가 다른 통계에 영향을 주지 않도록 분리함
+- Pages 인증 실패 시 원문 `Authentication error` 대신 전용 토큰/`Cloudflare Pages Read` 권한을 확인하라는 안내 문구를 표시하도록 보정함
+- 관리자 ZIP 배포 허용 경로에 루트 `DEVELOPMENT_GUIDE.md`를 추가해 앞으로 가이드 수정도 패치 ZIP으로 정상 커밋되도록 함
+- v7.72 및 아직 배포하지 않은 v7.71 통합 뷰어 수정사항은 그대로 유지함
+
+**커밋 메시지 요약:** `v7.73: Pages 전용 토큰 분리 및 DEVELOPMENT_GUIDE 배포 허용`
+
 ## v7.72 — v7.71 통합 + 관리자 Cloudflare Pages 월 배포 현황
 
 - 아직 배포하지 않은 v7.71의 기본 리디바탕, PENDING 로딩, 문장 이미지 줄바꿈/앞부분 보존, 모바일 클립보드 안정화, `DEVELOPMENT_GUIDE.md` 추가 사항을 모두 포함함

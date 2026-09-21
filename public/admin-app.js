@@ -845,7 +845,7 @@ function renderResourcePagesDeployments(data) {
     if (els.resourcePagesBuildNotice) {
       els.resourcePagesBuildNotice.classList.add("is-error");
       els.resourcePagesBuildNotice.textContent =
-        pages.note || "CLOUDFLARE_ANALYTICS_TOKEN의 Cloudflare Pages Read 권한을 확인해 주세요.";
+        pages.note || "CLOUDFLARE_PAGES_TOKEN과 Cloudflare Pages Read 권한을 확인해 주세요.";
     }
     return;
   }
@@ -1950,7 +1950,7 @@ function checkDeployPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || normalized === "README.md")) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md"))) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 

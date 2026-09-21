@@ -365,7 +365,7 @@ function summarizePagesDeployment(item) {
 }
 
 async function queryCloudflarePagesDeployments(env) {
-  const token = String(env.CLOUDFLARE_ANALYTICS_TOKEN || "").trim();
+  const token = String(env.CLOUDFLARE_PAGES_TOKEN || "").trim();
   const accountId = String(env.CLOUDFLARE_ACCOUNT_ID || "").trim();
   const projectName = String(
     env.CLOUDFLARE_PAGES_PROJECT_NAME || DEFAULT_PAGES_PROJECT_NAME
@@ -381,7 +381,7 @@ async function queryCloudflarePagesDeployments(env) {
       range,
       apiRequests: 0,
       deployments: [],
-      note: "Pages 배포 조회에 필요한 Token, Account ID 또는 Project Name을 확인해 주세요.",
+      note: "Pages 배포 조회에 필요한 CLOUDFLARE_PAGES_TOKEN, Account ID 또는 Project Name을 확인해 주세요.",
     };
   }
 
@@ -482,6 +482,7 @@ async function queryCloudflarePagesDeployments(env) {
       note: "Cloudflare Pages 배포 목록 기준 집계입니다. Git 연동에서는 배포 기록이 월 빌드 사용량을 확인하는 실용적인 기준이며, Cloudflare의 최종 billing counter와 소폭 차이가 있을 수 있습니다.",
     };
   } catch (error) {
+    const detail = analyticsErrorMessage(error);
     return {
       configured: true,
       connected: false,
@@ -490,7 +491,9 @@ async function queryCloudflarePagesDeployments(env) {
       range,
       apiRequests,
       deployments: [],
-      note: analyticsErrorMessage(error),
+      note: detail && !/^Authentication error$/i.test(detail)
+        ? `Pages 배포 기록을 불러오지 못했습니다. ${detail}`
+        : "Pages 배포 기록을 불러오지 못했습니다. CLOUDFLARE_PAGES_TOKEN과 Cloudflare Pages Read 권한을 확인해 주세요.",
     };
   }
 }
