@@ -1,5 +1,4 @@
 {
-  "version": "v7.38",
-  "releasedAt": "2026-09-21",
-  "label": "scroll-resume-text-coordinate-fix"
+  "version": "v7.39",
+  "label": "scroll-resume-initial-zero-overwrite-fix"
 }

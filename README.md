@@ -1,3 +1,27 @@
+# RRR v7.39 patch
+
+## v7.39 — 스크롤 이어보기 초기 0% 덮어쓰기 수정
+
+### 확인된 원인
+- v7.21에서 페이지/스크롤 모드 전환 로직이 추가된 뒤, 작품을 처음 열 때 `setReaderDisplayMode(..., offset: 0)`이 실행됨
+- 이 초기 레이아웃 정렬 과정에서 `jumpReaderPanelTo(0)` / `temporarilySuspendProgressSave()`가 지연 저장을 예약함
+- 이어보기 안내는 정상적으로 표시되지만 약 0.4~0.7초 뒤 현재 맨 위 위치가 0% 진도로 메모리에 다시 저장됨
+- 사용자가 그 뒤 `이어보기` 버튼을 누르면 기존 저장 진도가 이미 0%로 바뀌어 `getReaderProgress()`가 이어볼 위치가 없다고 판단할 수 있었음
+
+### 수정
+- 초기 작품 오픈용 스크롤 0 위치 정렬과 실제 사용자 진도 저장을 분리함
+- `initialLayout` 단계에서는 `releaseProgressSave: false`로 두어 0% 저장 타이머를 만들지 않음
+- 기존 저장된 진도는 이어보기 버튼을 누를 때까지 그대로 보존함
+- 사용자가 실제 스크롤하거나 이어보기 이동을 수행한 이후의 정상 진도 저장은 기존대로 유지함
+- 페이지 모드 전환/일반 이어보기 이동 시의 저장 로직은 변경하지 않음
+
+### 패치 파일
+- `public/app.js`
+- `public/index.html`
+- `public/version.json`
+
+---
+
 # Google Drive Archive Site — V7 Stable Baseline
 
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  

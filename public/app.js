@@ -2164,6 +2164,14 @@ async function jumpReaderPanelTo(targetTop, options = {}) {
 
   updateReaderScrollUi();
 
+  // During the initial reader layout we intentionally move the scroll
+  // container to 0. That is only a layout reset, not a user reading action.
+  // Keep progress saving suspended so the previously saved resume point is
+  // not overwritten with 0% before the user can press the resume button.
+  if (options.releaseProgressSave === false) {
+    return reached;
+  }
+
   const releaseAfter = Number(options.releaseAfter || 520);
   window.setTimeout(() => {
     state.suspendReaderProgressSave = false;
@@ -2662,7 +2670,7 @@ function renderReaderPageAt(start, options = {}) {
   return true;
 }
 
-async function syncScrollReaderToOffset(offset) {
+async function syncScrollReaderToOffset(offset, options = {}) {
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return;
 
@@ -2692,6 +2700,7 @@ async function syncScrollReaderToOffset(offset) {
 
       await jumpReaderPanelTo(targetTop, {
         releaseAfter: 420,
+        releaseProgressSave: options.releaseProgressSave,
       });
     }
 
@@ -2708,6 +2717,7 @@ async function syncScrollReaderToOffset(offset) {
 
   await jumpReaderPanelTo(maxScroll * ratio, {
     releaseAfter: 420,
+    releaseProgressSave: options.releaseProgressSave,
   });
 }
 
@@ -2820,8 +2830,16 @@ async function setReaderDisplayMode(mode, options = {}) {
   await nextFrame();
 
   if (previousMode === "page" || Number.isFinite(options.offset)) {
-    temporarilySuspendProgressSave(700);
-    await syncScrollReaderToOffset(positionOffset);
+    if (options.initialLayout === true) {
+      // openReader already keeps saving suspended while the initial content
+      // layout is prepared. Do not schedule a delayed 0% save here.
+      await syncScrollReaderToOffset(positionOffset, {
+        releaseProgressSave: false,
+      });
+    } else {
+      temporarilySuspendProgressSave(700);
+      await syncScrollReaderToOffset(positionOffset);
+    }
   }
 }
 
@@ -3724,6 +3742,7 @@ async function openReader(item) {
     await setReaderDisplayMode(preferredMode, {
       persist: false,
       offset: 0,
+      initialLayout: true,
     });
 
     showResumePrompt(item);
