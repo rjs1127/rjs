@@ -49,6 +49,7 @@ const state = {
   bookmarkOnly: false,
   readingOnly: false,
   resumeShortcutItemId: "",
+  readerResumeSaved: null,
   visibleItemLimit: 40,
   paginationSignature: "",
 };
@@ -3712,9 +3713,14 @@ function showResumePrompt(item) {
     !saved ||
     Number(saved.percent || 0) <= 0
   ) {
+    state.readerResumeSaved = null;
     els.readerResume.hidden = true;
     return;
   }
+
+  // Freeze the resume point shown to the user. Initial layout scroll events
+  // must never be able to invalidate the button target before it is clicked.
+  state.readerResumeSaved = { ...saved };
 
   els.readerResume.hidden = false;
   els.readerResume.dataset.itemId = item.id;
@@ -3797,6 +3803,7 @@ async function openReader(item) {
   }
 
   state.activeReaderItem = item;
+  state.readerResumeSaved = null;
   state.suspendReaderProgressSave = true;
   const renderToken = ++state.readerRenderToken;
 
@@ -3892,6 +3899,13 @@ async function openReader(item) {
     showResumePrompt(item);
 
     window.setTimeout(() => {
+      // A scroll event can fire during the initial reader layout. If that
+      // event scheduled a delayed save while progress saving was suspended,
+      // it would run after this release and overwrite the real resume point
+      // with the top-of-document 0% position. Drop every pending initial
+      // layout save before enabling normal progress tracking.
+      window.clearTimeout(readerProgressSaveTimer);
+      readerProgressSaveTimer = 0;
       state.suspendReaderProgressSave = false;
     }, 250);
   } catch (error) {
@@ -3915,6 +3929,7 @@ function finalizeReaderClose() {
   state.suspendReaderProgressSave = false;
 
   const closingItem = state.activeReaderItem;
+  state.readerResumeSaved = null;
   const savedProgress = saveReaderProgress();
 
   if (closingItem && savedProgress && state.user) {
@@ -4201,87 +4216,13 @@ window.addEventListener("resize", () => {
 
 
 
-function updateReaderResumeDebug(stage, data = {}) {
-  if (!els.readerOverlay) return;
-
-  let panel = document.getElementById("readerResumeDebugPanel");
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.id = "readerResumeDebugPanel";
-    panel.style.cssText = [
-      "position:fixed",
-      "left:12px",
-      "right:12px",
-      "bottom:12px",
-      "z-index:2147483647",
-      "max-height:46vh",
-      "overflow:auto",
-      "padding:12px 14px",
-      "border-radius:12px",
-      "background:rgba(20,20,24,.96)",
-      "color:#fff",
-      "font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace",
-      "box-shadow:0 8px 30px rgba(0,0,0,.35)",
-      "white-space:pre-wrap",
-      "word-break:break-word",
-    ].join(";");
-    els.readerOverlay.appendChild(panel);
-  }
-
-  const snapshot = {
-    stage,
-    time: new Date().toISOString(),
-    ...data,
-  };
-
-  window.__readerResumeDebug = snapshot;
-  panel.textContent = "이어보기 진단 v7.43\n" + JSON.stringify(snapshot, null, 2);
-}
-
-function getReaderResumeDebugSnapshot(extra = {}) {
-  const panel = els.readerPanel;
-  const content = els.readerContent;
-  const body = els.readerBody;
-  const page = els.readerPageViewport;
-
-  return {
-    displayMode: state.readerDisplayMode,
-    suspendSave: state.suspendReaderProgressSave,
-    panelScrollTop: panel ? Math.round(panel.scrollTop) : null,
-    panelScrollHeight: panel ? Math.round(panel.scrollHeight) : null,
-    panelClientHeight: panel ? Math.round(panel.clientHeight) : null,
-    panelMaxScroll: panel ? Math.round(Math.max(0, panel.scrollHeight - panel.clientHeight)) : null,
-    panelOverflowY: panel ? getComputedStyle(panel).overflowY : null,
-    contentHidden: content?.hidden ?? null,
-    contentDisplay: content ? getComputedStyle(content).display : null,
-    bodyHidden: body?.hidden ?? null,
-    bodyDisplay: body ? getComputedStyle(body).display : null,
-    pageHidden: page?.hidden ?? null,
-    pageDisplay: page ? getComputedStyle(page).display : null,
-    readerCompact: panel?.classList.contains("reader-compact") ?? null,
-    ...extra,
-  };
-}
-
 async function resumeScrollReaderFromSaved(saved, item) {
   if (!saved || !item || !els.readerPanel || !els.readerContent) {
-    updateReaderResumeDebug("resume-aborted-missing-elements", {
-      hasSaved: Boolean(saved),
-      hasItem: Boolean(item),
-      hasPanel: Boolean(els.readerPanel),
-      hasContent: Boolean(els.readerContent),
-    });
     return false;
   }
 
   const panel = els.readerPanel;
   const content = els.readerContent;
-  updateReaderResumeDebug("resume-start", getReaderResumeDebugSnapshot({
-    itemId: item.id,
-    saved,
-    isLargeFile: isLargeReaderFile(item),
-    largeChunkCount: Array.isArray(state.largeReaderChunks) ? state.largeReaderChunks.length : null,
-  }));
   const previousPanelAnchor = panel.style.getPropertyValue("overflow-anchor");
   const previousPanelAnchorPriority = panel.style.getPropertyPriority("overflow-anchor");
   const previousContentAnchor = content.style.getPropertyValue("overflow-anchor");
@@ -4363,12 +4304,6 @@ async function resumeScrollReaderFromSaved(saved, item) {
     }
   }
 
-  updateReaderResumeDebug("target-computed", getReaderResumeDebugSnapshot({
-    saved,
-    ready,
-    targetTop: Math.round(targetTop),
-  }));
-
   let reached = false;
 
   if (ready) {
@@ -4393,12 +4328,6 @@ async function resumeScrollReaderFromSaved(saved, item) {
     };
 
     let result = await applyTarget();
-    updateReaderResumeDebug("after-first-apply", getReaderResumeDebugSnapshot({
-      saved,
-      targetTop: Math.round(targetTop),
-      appliedTarget: Math.round(result.target),
-      appliedActual: Math.round(result.actual),
-    }));
 
     // Re-check after layout/scroll anchoring has had time to run. If the
     // browser pulled the panel back toward zero, force the same native
@@ -4414,15 +4343,6 @@ async function resumeScrollReaderFromSaved(saved, item) {
       if (fellBackToTop || farFromTarget) {
         result = await applyTarget();
       }
-
-      updateReaderResumeDebug(`after-${delay}ms`, getReaderResumeDebugSnapshot({
-        saved,
-        targetTop: Math.round(targetTop),
-        appliedTarget: Math.round(result.target),
-        appliedActual: Math.round(result.actual),
-        fellBackToTop,
-        farFromTarget,
-      }));
     }
 
     const tolerance = Math.max(42, panel.clientHeight * 0.05);
@@ -4432,13 +4352,6 @@ async function resumeScrollReaderFromSaved(saved, item) {
         : Math.abs(panel.scrollTop - result.target) <= tolerance &&
           panel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
   }
-
-  updateReaderResumeDebug("resume-result", getReaderResumeDebugSnapshot({
-    saved,
-    ready,
-    targetTop: Math.round(targetTop),
-    reached,
-  }));
 
   if (!reached && els.readerResume) {
     els.readerResume.hidden = false;
@@ -4498,13 +4411,7 @@ els.readerResume?.addEventListener("click", async (event) => {
   event.stopPropagation();
 
   if (button.id === "readerResumeButton") {
-    const saved = getReaderProgress(item.id);
-    updateReaderResumeDebug("resume-button-click", getReaderResumeDebugSnapshot({
-      itemId: item.id,
-      saved,
-      isLargeFile: isLargeReaderFile(item),
-      largeChunkCount: Array.isArray(state.largeReaderChunks) ? state.largeReaderChunks.length : null,
-    }));
+    const saved = state.readerResumeSaved || getReaderProgress(item.id);
     if (!saved) {
       els.readerResume.hidden = true;
       return;
@@ -4550,6 +4457,7 @@ els.readerResume?.addEventListener("click", async (event) => {
   }
 
   if (button.id === "readerRestartButton") {
+    state.readerResumeSaved = null;
     if (state.user) {
       updateUserLibraryEntry(item.id, {
         progressPercent: 0,
@@ -5370,19 +5278,27 @@ function updateReaderScrollUi() {
   const scrollTop = els.readerPanel.scrollTop;
 
   window.clearTimeout(readerProgressSaveTimer);
-  readerProgressSaveTimer = window.setTimeout(() => {
-    const saved = saveReaderProgress();
-    const item = state.activeReaderItem;
+  readerProgressSaveTimer = 0;
 
-    if (
-      saved &&
-      state.user &&
-      item &&
-      shouldSyncProgressNow(item.id, saved)
-    ) {
-      persistProgress(item, saved);
-    }
-  }, 260);
+  // Initial layout and programmatic resume moves intentionally suspend
+  // progress saving. Do not even enqueue a delayed save while suspended:
+  // otherwise the callback may fire after suspension is released and write
+  // the temporary 0% layout position over the real saved progress.
+  if (!state.suspendReaderProgressSave) {
+    readerProgressSaveTimer = window.setTimeout(() => {
+      const saved = saveReaderProgress();
+      const item = state.activeReaderItem;
+
+      if (
+        saved &&
+        state.user &&
+        item &&
+        shouldSyncProgressNow(item.id, saved)
+      ) {
+        persistProgress(item, saved);
+      }
+    }, 260);
+  }
 
   syncReaderCompactMode(scrollTop);
 
