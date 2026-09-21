@@ -5583,6 +5583,13 @@ const READER_SHARE_BACKGROUNDS = [
     meta: "#aaa39a",
     accent: "#f3eee7",
   },
+  {
+    name: "샌드",
+    background: "linear-gradient(145deg, #f8f4ed 0%, #ddd7ce 100%)",
+    text: "#191816",
+    meta: "#77716a",
+    accent: "#4d4841",
+  },
 ];
 
 const READER_SHARE_FONTS = [
@@ -5692,7 +5699,7 @@ function ensureReaderShareUi() {
     .reader-share-switch::after { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:.16s ease; }
     .reader-share-switch.active { background:#5a4e45; }
     .reader-share-switch.active::after { transform:translateX(18px); }
-    .reader-share-wrap-line { display:flex; align-items:center; gap:8px; min-width:0; }
+    .reader-share-wrap-control { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
     .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     @media (min-width: 720px) {
       .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; max-height:min(88vh,860px); width:min(calc(100% - 24px), 560px); }
@@ -5776,11 +5783,11 @@ function ensureReaderShareUi() {
 
         <div class="reader-share-section">
           <div class="reader-share-row">
-            <div class="reader-share-wrap-line">
-              <span class="reader-share-label">줄 바꿈</span>
+            <span class="reader-share-label">줄 바꿈</span>
+            <div class="reader-share-wrap-control">
               <span class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동 줄바꿈</span>
+              <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
             </div>
-            <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
           </div>
         </div>
 
@@ -6027,11 +6034,23 @@ async function renderReaderShareCanvas() {
   const scale = width / 380;
   const brandX = width * 0.07;
   const brandY = height * 0.055;
+  const logoSize = 17 * scale;
   const brandFont = 10 * scale;
   ctx.fillStyle = model.background.meta;
+  if (typeof Path2D !== "undefined") {
+    try {
+      const catPath = new Path2D("M8.3 11.6 6.7 6.8l5.1 2.7A11.7 11.7 0 0 1 16 8.7c1.5 0 2.9.3 4.2.8l5.1-2.7-1.6 4.8a9.2 9.2 0 0 1 2 5.7c0 5.2-4.3 9-9.7 9s-9.7-3.8-9.7-9c0-2.2.7-4.1 2-5.7Z");
+      ctx.save();
+      ctx.translate(brandX, brandY);
+      ctx.scale(logoSize / 32, logoSize / 32);
+      ctx.fill(catPath);
+      ctx.restore();
+    } catch (_) {}
+  }
   ctx.font = `800 ${brandFont}px Pretendard, sans-serif`;
   ctx.textBaseline = "middle";
-  ctx.fillText(model.brand, brandX, brandY + 18);
+  ctx.textAlign = "left";
+  ctx.fillText(model.brand, brandX + logoSize + (6 * scale), brandY + (logoSize / 2));
 
   const layout = computeReaderShareTextLayout(ctx, model, width, height);
   ctx.fillStyle = model.background.text;
@@ -6076,6 +6095,26 @@ function getReaderShareFilename() {
   return `${title || "quote-card"}-${ratio}.png`;
 }
 
+function isReaderShareDesktopClipboardMode() {
+  const coarse = window.matchMedia?.("(pointer: coarse)")?.matches;
+  return !coarse && !!(navigator.clipboard?.write && window.ClipboardItem);
+}
+
+function updateReaderShareActionLabel() {
+  if (!readerShareUi?.shareButton) return;
+  readerShareUi.shareButton.textContent = isReaderShareDesktopClipboardMode()
+    ? "클립보드 복사"
+    : "공유하기";
+}
+
+async function copyReaderShareBlobToClipboard(blob) {
+  if (!navigator.clipboard?.write || !window.ClipboardItem) {
+    throw new Error("clipboard_image_unsupported");
+  }
+  const item = new ClipboardItem({ "image/png": blob });
+  await navigator.clipboard.write([item]);
+}
+
 async function setReaderShareBusy(isBusy) {
   const ui = ensureReaderShareUi();
   if (ui.saveButton) {
@@ -6084,7 +6123,9 @@ async function setReaderShareBusy(isBusy) {
   }
   if (ui.shareButton) {
     ui.shareButton.disabled = isBusy;
-    ui.shareButton.textContent = isBusy ? "생성 중..." : "공유하기";
+    ui.shareButton.textContent = isBusy
+      ? "생성 중..."
+      : (isReaderShareDesktopClipboardMode() ? "클립보드 복사" : "공유하기");
   }
 }
 
@@ -6105,8 +6146,16 @@ async function handleReaderShareExport(mode) {
       downloadReaderShareBlob(blob, filename);
       return;
     }
+    if (isReaderShareDesktopClipboardMode()) {
+      await copyReaderShareBlobToClipboard(blob);
+      if (ui.shareButton) {
+        ui.shareButton.textContent = "복사 완료";
+        window.setTimeout(updateReaderShareActionLabel, 1200);
+      }
+      return;
+    }
     const file = new File([blob], filename, { type: "image/png" });
-    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    if (navigator.share && (!navigator.canShare || navigator.canShare({ files: [file] }))) {
       await navigator.share({
         files: [file],
         title: filename,
@@ -6117,8 +6166,13 @@ async function handleReaderShareExport(mode) {
     downloadReaderShareBlob(blob, filename);
     window.alert("이 기기에서는 시스템 공유를 지원하지 않아 이미지 파일을 저장했어요.");
   } catch (error) {
+    if (error?.name === "AbortError") return;
     console.error("reader share export failed", error);
-    window.alert("이미지를 생성하지 못했습니다. 다시 시도해 주세요.");
+    if (String(error?.message || "").includes("clipboard_image_unsupported")) {
+      window.alert("이 브라우저는 이미지 클립보드 복사를 지원하지 않습니다. 이미지 저장을 이용해 주세요.");
+    } else {
+      window.alert("이미지를 생성하지 못했습니다. 다시 시도해 주세요.");
+    }
   } finally {
     await setReaderShareBusy(false);
   }
@@ -6183,6 +6237,7 @@ function openReaderShareSheet() {
   ui.input.value = state.readerShareText;
   ui.backdrop.hidden = false;
   updateReaderSharePreview();
+  updateReaderShareActionLabel();
 }
 
 function closeReaderShareUi() {
