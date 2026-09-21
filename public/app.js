@@ -3235,54 +3235,110 @@ function getReaderChunkTextY(section, charOffset) {
 async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) {
   if (!els.readerPanel || !textNode) return false;
 
+  const panel = els.readerPanel;
   const length = textNode.data?.length || 0;
-  const safeOffset = Math.max(0, Math.min(length, Math.floor(Number(charOffset) || 0)));
-  const marker = document.createElement("span");
-  marker.className = "reader-resume-anchor";
-  marker.setAttribute("aria-hidden", "true");
-  marker.style.cssText =
-    "display:inline-block;width:0;height:1px;overflow:hidden;pointer-events:none;vertical-align:top;";
-
+  const safeOffset = Math.max(
+    0,
+    Math.min(length, Math.floor(Number(charOffset) || 0))
+  );
   const range = document.createRange();
+  const previousInlineScrollBehavior = panel.style.getPropertyValue("scroll-behavior");
+  const previousInlineScrollBehaviorPriority = panel.style.getPropertyPriority("scroll-behavior");
+
   state.suspendReaderProgressSave = true;
 
   try {
-    range.setStart(textNode, safeOffset);
-    range.collapse(true);
-    range.insertNode(marker);
+    if (length <= 0) return false;
 
-    // Use the browser's native nearest-scroll-container navigation instead
-    // of converting a text position back into a readerPanel pixel coordinate.
-    // This stays reliable when page/scroll mode toggles change layout and on
-    // mobile browsers that defer nested scrollTop updates.
-    marker.scrollIntoView({
-      block: "start",
-      inline: "nearest",
-      behavior: "auto",
-    });
+    const start = Math.min(safeOffset, length - 1);
+    const end = Math.min(length, start + 1);
+    range.setStart(textNode, start);
+    range.setEnd(textNode, end);
 
-    await nextFrame();
-    await nextFrame();
+    // Reader resume must be an immediate internal-panel move. A CSS
+    // `scroll-behavior:smooth` rule can otherwise keep scrollTop near zero
+    // for several frames and make the resume verification fail.
+    panel.style.setProperty("scroll-behavior", "auto", "important");
 
-    // Leave a small reading margin below the compact header.
-    const margin = Math.min(96, Math.max(56, els.readerPanel.clientHeight * 0.08));
-    if (els.readerPanel.scrollTop > margin) {
-      try {
-        els.readerPanel.scrollBy({ top: -margin, behavior: "auto" });
-      } catch {
-        els.readerPanel.scrollTop = Math.max(0, els.readerPanel.scrollTop - margin);
+    let reached = false;
+
+    for (let pass = 0; pass < 6; pass += 1) {
+      const panelRect = panel.getBoundingClientRect();
+      const targetRect = range.getBoundingClientRect();
+      const margin = Math.min(
+        96,
+        Math.max(56, panel.clientHeight * 0.08)
+      );
+      const desiredViewportY = panelRect.top + margin;
+      const delta = targetRect.top - desiredViewportY;
+      const tolerance = Math.max(18, panel.clientHeight * 0.018);
+
+      // Verify using the actual text line position, not only scrollTop.
+      if (Math.abs(delta) <= tolerance) {
+        reached = true;
+        break;
       }
+
+      const maxScroll = Math.max(
+        0,
+        panel.scrollHeight - panel.clientHeight
+      );
+      const currentTop = Math.max(0, panel.scrollTop);
+      const nextTop = Math.max(
+        0,
+        Math.min(maxScroll, currentTop + delta)
+      );
+
+      panel.scrollTop = nextTop;
+      try {
+        panel.scrollTo(0, nextTop);
+      } catch {
+        try {
+          panel.scrollTo({ top: nextTop, left: 0, behavior: "auto" });
+        } catch {}
+      }
+
       await nextFrame();
+      await nextFrame();
+
+      // Some mobile browsers settle a very large nested scroll one task later.
+      if (pass < 5) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, pass === 0 ? 35 : 70)
+        );
+      }
     }
 
-    return els.readerPanel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
+    if (!reached) {
+      const panelRect = panel.getBoundingClientRect();
+      const targetRect = range.getBoundingClientRect();
+      const margin = Math.min(
+        96,
+        Math.max(56, panel.clientHeight * 0.08)
+      );
+      const tolerance = Math.max(26, panel.clientHeight * 0.03);
+      reached = Math.abs(
+        targetRect.top - (panelRect.top + margin)
+      ) <= tolerance;
+    }
+
+    updateReaderScrollUi();
+    return reached;
   } catch (error) {
-    console.warn("이어보기 앵커 이동 실패", error);
+    console.warn("이어보기 직접 위치 이동 실패", error);
     return false;
   } finally {
-    marker.remove();
-    marker.parentNode?.normalize?.();
     range.detach?.();
+
+    if (previousInlineScrollBehavior) {
+      panel.style.setProperty(
+        "scroll-behavior",
+        previousInlineScrollBehavior,
+        previousInlineScrollBehaviorPriority
+      );
+    } else {
+      panel.style.removeProperty("scroll-behavior");
+    }
 
     if (options.releaseProgressSave !== false) {
       const releaseAfter = Number(options.releaseAfter || 520);

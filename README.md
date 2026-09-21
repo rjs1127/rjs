@@ -3302,3 +3302,12 @@ POSTYPE 전용 필드:
 - 긴 TXT 가상 청크에서도 저장된 문자 위치까지 청크를 렌더한 뒤 해당 위치 자체로 이동
 - 페이징 모드 추가 이후 DOM 표시/숨김 및 레이아웃 변경 때문에 `scrollTop` 목표값이 0 또는 잘못된 값으로 계산되는 경로 회피
 - 기존 배포/Cloudflare 설정 파일은 포함하지 않음
+
+
+## v7.41 patch
+- 스크롤 이어보기 복원 경로를 임시 DOM 앵커 `scrollIntoView()` 방식에서 readerPanel 직접 좌표 보정 방식으로 변경
+- 저장된 텍스트 위치의 실제 Range Y좌표를 기준으로 readerPanel 내부 scrollTop을 최대 6회 재계산/보정
+- CSS `scroll-behavior:smooth`가 개입하지 않도록 이어보기 이동 중 readerPanel을 `scroll-behavior:auto !important`로 임시 강제
+- scrollTop 값 자체가 아니라 목표 텍스트가 readerPanel 상단 읽기 여백에 실제 도착했는지 검증 후 성공 처리
+- 긴 TXT는 목표 가상 청크를 먼저 렌더링한 뒤 동일한 직접 보정 로직 적용
+- 페이지 모드 및 서버/API/Cloudflare 설정 변경 없음
