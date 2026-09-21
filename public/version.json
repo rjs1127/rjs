@@ -1,4 +1,4 @@
 {
-  "version": "v7.42",
-  "label": "scroll-resume-native-coordinate-restore-fix"
+  "version": "7.43",
+  "label": "scroll-resume-diagnostic-overlay"
 }

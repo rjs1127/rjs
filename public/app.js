@@ -4200,11 +4200,88 @@ window.addEventListener("resize", () => {
 });
 
 
+
+function updateReaderResumeDebug(stage, data = {}) {
+  if (!els.readerOverlay) return;
+
+  let panel = document.getElementById("readerResumeDebugPanel");
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "readerResumeDebugPanel";
+    panel.style.cssText = [
+      "position:fixed",
+      "left:12px",
+      "right:12px",
+      "bottom:12px",
+      "z-index:2147483647",
+      "max-height:46vh",
+      "overflow:auto",
+      "padding:12px 14px",
+      "border-radius:12px",
+      "background:rgba(20,20,24,.96)",
+      "color:#fff",
+      "font:12px/1.45 ui-monospace,SFMono-Regular,Consolas,monospace",
+      "box-shadow:0 8px 30px rgba(0,0,0,.35)",
+      "white-space:pre-wrap",
+      "word-break:break-word",
+    ].join(";");
+    els.readerOverlay.appendChild(panel);
+  }
+
+  const snapshot = {
+    stage,
+    time: new Date().toISOString(),
+    ...data,
+  };
+
+  window.__readerResumeDebug = snapshot;
+  panel.textContent = "이어보기 진단 v7.43\n" + JSON.stringify(snapshot, null, 2);
+}
+
+function getReaderResumeDebugSnapshot(extra = {}) {
+  const panel = els.readerPanel;
+  const content = els.readerContent;
+  const body = els.readerBody;
+  const page = els.readerPageViewport;
+
+  return {
+    displayMode: state.readerDisplayMode,
+    suspendSave: state.suspendReaderProgressSave,
+    panelScrollTop: panel ? Math.round(panel.scrollTop) : null,
+    panelScrollHeight: panel ? Math.round(panel.scrollHeight) : null,
+    panelClientHeight: panel ? Math.round(panel.clientHeight) : null,
+    panelMaxScroll: panel ? Math.round(Math.max(0, panel.scrollHeight - panel.clientHeight)) : null,
+    panelOverflowY: panel ? getComputedStyle(panel).overflowY : null,
+    contentHidden: content?.hidden ?? null,
+    contentDisplay: content ? getComputedStyle(content).display : null,
+    bodyHidden: body?.hidden ?? null,
+    bodyDisplay: body ? getComputedStyle(body).display : null,
+    pageHidden: page?.hidden ?? null,
+    pageDisplay: page ? getComputedStyle(page).display : null,
+    readerCompact: panel?.classList.contains("reader-compact") ?? null,
+    ...extra,
+  };
+}
+
 async function resumeScrollReaderFromSaved(saved, item) {
-  if (!saved || !item || !els.readerPanel || !els.readerContent) return false;
+  if (!saved || !item || !els.readerPanel || !els.readerContent) {
+    updateReaderResumeDebug("resume-aborted-missing-elements", {
+      hasSaved: Boolean(saved),
+      hasItem: Boolean(item),
+      hasPanel: Boolean(els.readerPanel),
+      hasContent: Boolean(els.readerContent),
+    });
+    return false;
+  }
 
   const panel = els.readerPanel;
   const content = els.readerContent;
+  updateReaderResumeDebug("resume-start", getReaderResumeDebugSnapshot({
+    itemId: item.id,
+    saved,
+    isLargeFile: isLargeReaderFile(item),
+    largeChunkCount: Array.isArray(state.largeReaderChunks) ? state.largeReaderChunks.length : null,
+  }));
   const previousPanelAnchor = panel.style.getPropertyValue("overflow-anchor");
   const previousPanelAnchorPriority = panel.style.getPropertyPriority("overflow-anchor");
   const previousContentAnchor = content.style.getPropertyValue("overflow-anchor");
@@ -4286,6 +4363,12 @@ async function resumeScrollReaderFromSaved(saved, item) {
     }
   }
 
+  updateReaderResumeDebug("target-computed", getReaderResumeDebugSnapshot({
+    saved,
+    ready,
+    targetTop: Math.round(targetTop),
+  }));
+
   let reached = false;
 
   if (ready) {
@@ -4310,6 +4393,12 @@ async function resumeScrollReaderFromSaved(saved, item) {
     };
 
     let result = await applyTarget();
+    updateReaderResumeDebug("after-first-apply", getReaderResumeDebugSnapshot({
+      saved,
+      targetTop: Math.round(targetTop),
+      appliedTarget: Math.round(result.target),
+      appliedActual: Math.round(result.actual),
+    }));
 
     // Re-check after layout/scroll anchoring has had time to run. If the
     // browser pulled the panel back toward zero, force the same native
@@ -4325,6 +4414,15 @@ async function resumeScrollReaderFromSaved(saved, item) {
       if (fellBackToTop || farFromTarget) {
         result = await applyTarget();
       }
+
+      updateReaderResumeDebug(`after-${delay}ms`, getReaderResumeDebugSnapshot({
+        saved,
+        targetTop: Math.round(targetTop),
+        appliedTarget: Math.round(result.target),
+        appliedActual: Math.round(result.actual),
+        fellBackToTop,
+        farFromTarget,
+      }));
     }
 
     const tolerance = Math.max(42, panel.clientHeight * 0.05);
@@ -4334,6 +4432,13 @@ async function resumeScrollReaderFromSaved(saved, item) {
         : Math.abs(panel.scrollTop - result.target) <= tolerance &&
           panel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
   }
+
+  updateReaderResumeDebug("resume-result", getReaderResumeDebugSnapshot({
+    saved,
+    ready,
+    targetTop: Math.round(targetTop),
+    reached,
+  }));
 
   if (!reached && els.readerResume) {
     els.readerResume.hidden = false;
@@ -4394,6 +4499,12 @@ els.readerResume?.addEventListener("click", async (event) => {
 
   if (button.id === "readerResumeButton") {
     const saved = getReaderProgress(item.id);
+    updateReaderResumeDebug("resume-button-click", getReaderResumeDebugSnapshot({
+      itemId: item.id,
+      saved,
+      isLargeFile: isLargeReaderFile(item),
+      largeChunkCount: Array.isArray(state.largeReaderChunks) ? state.largeReaderChunks.length : null,
+    }));
     if (!saved) {
       els.readerResume.hidden = true;
       return;

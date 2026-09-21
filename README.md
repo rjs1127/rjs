@@ -1,4 +1,70 @@
-# RRR v7.39 patch
+# Google Drive Archive Site — V7 Stable Baseline
+
+> 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
+> v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
+
+## v7.43 — 스크롤 이어보기 진단 패치
+
+### 변경
+- 이어보기 클릭 시 화면 하단에 진단 패널을 표시하도록 추가
+- 저장된 진도, 현재 표시 모드, `readerPanel`의 `scrollTop` / `scrollHeight` / `clientHeight`, 계산된 목표 위치를 확인 가능하도록 추가
+- 최초 이동 직후와 120ms / 360ms 후 실제 `scrollTop`을 추적해 어느 단계에서 위치가 초기화되는지 확인 가능하도록 추가
+- 개발자도구 없이 화면 캡처만으로 복원 실패 지점을 확인할 수 있도록 구성
+
+### 커밋 메시지 요약
+- 스크롤 이어보기 클릭 경로 진단 패널 추가
+- 이동 전후 `scrollTop` 및 목표 좌표 추적 추가
+
+### 유지
+- 진단용 표시 외 기존 페이지 모드 / 서버 / API / Cloudflare 설정 변경 없음
+- 배포 및 환경설정 파일 미포함
+
+## v7.42 — 스크롤 이어보기 저장 좌표 직접 복원
+
+### 변경
+- 스크롤 모드 이어보기를 진도 저장 시 사용한 좌표계 그대로 복원하도록 변경
+- 일반 TXT는 저장된 `scrollTop`을 직접 복원
+- 장편 가상 렌더링 TXT는 저장된 `chunkIndex + chunkRatio`를 직접 복원하고, 기존 기록은 진도율을 보조값으로 사용
+- 이어보기 안내 영역을 먼저 제거한 뒤 위치를 계산해 안내 영역 높이 변화가 복원 좌표에 영향을 주지 않도록 수정
+- 이어보기 중 브라우저 스크롤 앵커링을 일시적으로 비활성화하고, 레이아웃 안정화 후 목표 위치를 재확인·재적용
+
+### 커밋 메시지 요약
+- 스크롤 이어보기 저장 좌표 직접 복원
+- 안내 영역 제거 및 스크롤 앵커링 재보정
+
+### 유지
+- 페이지 모드 이어보기 동작 변경 없음
+- 서버/API/Cloudflare 설정 변경 없음
+
+## v7.41 — 스크롤 이어보기 직접 좌표 보정
+
+### 변경
+- 임시 DOM 앵커 `scrollIntoView()` 방식 대신 `readerPanel` 직접 좌표 보정 방식으로 변경
+- 저장된 텍스트 위치의 실제 Range Y좌표를 기준으로 `readerPanel.scrollTop`을 최대 6회 재계산·보정
+- 이어보기 이동 중 `scroll-behavior:auto`를 강제해 smooth scroll 개입 방지
+- 목표 텍스트가 실제 읽기 영역 상단에 도착했는지 확인한 뒤 성공 처리
+- 장편 TXT는 목표 가상 청크를 먼저 렌더링한 뒤 동일한 보정 로직 적용
+
+### 커밋 메시지 요약
+- 스크롤 이어보기 readerPanel 직접 좌표 보정
+- 실제 목표 텍스트 도착 여부 검증 추가
+
+### 유지
+- 페이지 모드 및 서버/API/Cloudflare 설정 변경 없음
+
+## v7.40 — 스크롤 이어보기 텍스트 앵커 이동
+
+### 변경
+- 스크롤 모드 이어보기를 픽셀 좌표 환산 방식에서 텍스트 위치 앵커 + `scrollIntoView()` 방식으로 변경
+- 긴 TXT 가상 청크에서도 저장된 문자 위치까지 필요한 청크를 먼저 렌더링한 뒤 해당 위치로 이동
+- 페이징 모드 추가 이후 DOM 표시/숨김 및 레이아웃 변경으로 `scrollTop` 목표값이 잘못 계산될 수 있는 경로를 우회
+
+### 커밋 메시지 요약
+- 스크롤 이어보기 텍스트 앵커 이동 방식 적용
+- 장편 TXT 목표 청크 선렌더링 후 복원
+
+### 유지
+- 기존 배포/Cloudflare 설정 파일 미포함
 
 ## v7.39 — 스크롤 이어보기 초기 0% 덮어쓰기 수정
 
@@ -15,17 +81,13 @@
 - 사용자가 실제 스크롤하거나 이어보기 이동을 수행한 이후의 정상 진도 저장은 기존대로 유지함
 - 페이지 모드 전환/일반 이어보기 이동 시의 저장 로직은 변경하지 않음
 
-### 패치 파일
-- `public/app.js`
-- `public/index.html`
-- `public/version.json`
+### 커밋 메시지 요약
+- 스크롤 초기 0% 저장으로 기존 진도가 덮이는 문제 수정
+- 초기 레이아웃 이동과 실제 진도 저장 분리
 
----
-
-# Google Drive Archive Site — V7 Stable Baseline
-
-> 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
-> v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
+### 유지
+- 페이지 모드 전환/일반 이어보기 저장 로직 유지
+- 서버/API/KV/D1 변경 없음
 
 ## v7.38 — 스크롤 모드 이어보기 문자 좌표 수정
 
@@ -3295,29 +3357,3 @@ POSTYPE 전용 필드:
 - 세 버튼의 배경색 / 테두리 / 아이콘 굵기를 동일하게 맞춤
 - compact 모드에서도 닫기 버튼만 다른 배경으로 바뀌지 않도록 canonical reader action 규칙에 통합함
 - v7 규칙에 따라 별도 override를 추가하지 않고 `V7 CANONICAL UI OVERRIDES`의 reader action 섹션을 직접 수정함
-
-
-## v7.40 patch
-- 스크롤 모드 이어보기 이동을 픽셀 좌표 환산 방식에서 텍스트 위치 앵커 + `scrollIntoView()` 방식으로 변경
-- 긴 TXT 가상 청크에서도 저장된 문자 위치까지 청크를 렌더한 뒤 해당 위치 자체로 이동
-- 페이징 모드 추가 이후 DOM 표시/숨김 및 레이아웃 변경 때문에 `scrollTop` 목표값이 0 또는 잘못된 값으로 계산되는 경로 회피
-- 기존 배포/Cloudflare 설정 파일은 포함하지 않음
-
-
-## v7.41 patch
-- 스크롤 이어보기 복원 경로를 임시 DOM 앵커 `scrollIntoView()` 방식에서 readerPanel 직접 좌표 보정 방식으로 변경
-- 저장된 텍스트 위치의 실제 Range Y좌표를 기준으로 readerPanel 내부 scrollTop을 최대 6회 재계산/보정
-- CSS `scroll-behavior:smooth`가 개입하지 않도록 이어보기 이동 중 readerPanel을 `scroll-behavior:auto !important`로 임시 강제
-- scrollTop 값 자체가 아니라 목표 텍스트가 readerPanel 상단 읽기 여백에 실제 도착했는지 검증 후 성공 처리
-- 긴 TXT는 목표 가상 청크를 먼저 렌더링한 뒤 동일한 직접 보정 로직 적용
-- 페이지 모드 및 서버/API/Cloudflare 설정 변경 없음
-
-
-## v7.42 patch
-
-- Reworked scroll-mode resume to restore the same native coordinate system used when progress is saved.
-- Normal files restore the stored `scrollTop` directly.
-- Large virtualized files restore the stored `chunkIndex` + `chunkRatio` directly, with percent fallback for legacy entries.
-- The resume banner is removed before measuring/jumping so its layout change cannot reset the reader position afterward.
-- Temporarily disables browser scroll anchoring during resume and re-checks/reapplies the target after delayed layout settling.
-- Page-mode resume behavior is unchanged.
