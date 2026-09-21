@@ -1,5 +1,5 @@
 {
-  "version": "v7.24",
+  "version": "v7.25",
   "releasedAt": "2026-09-21",
-  "label": "page-viewport-structure-fix"
+  "label": "page-tap-swipe-navigation"
 }

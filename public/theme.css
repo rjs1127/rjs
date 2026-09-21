@@ -2633,3 +2633,32 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     font-size:16px;
   }
 }
+
+
+/* =========================
+   v7.25 page tap / swipe navigation
+   ========================= */
+.reader-page-viewport {
+  cursor: pointer;
+  touch-action: pan-y pinch-zoom;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.reader-page-text {
+  cursor: pointer;
+}
+
+.reader-page-footer,
+.reader-page-footer button {
+  cursor: default;
+}
+
+.reader-page-footer button:not(:disabled) {
+  cursor: pointer;
+}
+
+@media (max-width:640px) {
+  .reader-page-viewport {
+    touch-action: pan-y pinch-zoom;
+  }
+}

@@ -30,6 +30,7 @@ const state = {
   readerPageResizeTimer: 0,
   readerPageTouchStartX: null,
   readerPageTouchStartY: null,
+  readerPageSuppressClickUntil: 0,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -2193,6 +2194,7 @@ function resetReaderPageState() {
   state.readerPageHasNavigated = false;
   state.readerPageTouchStartX = null;
   state.readerPageTouchStartY = null;
+  state.readerPageSuppressClickUntil = 0;
   window.clearTimeout(state.readerPageResizeTimer);
   state.readerPageResizeTimer = 0;
 }
@@ -3447,21 +3449,52 @@ els.readerPageModeButton?.addEventListener("click", async () => {
   }
 });
 
-els.readerBody?.addEventListener("click", async (event) => {
-  if (event.target.closest("#readerPagePrev")) {
+els.readerPageViewport?.addEventListener("click", async (event) => {
+  if (
+    state.readerDisplayMode !== "page" ||
+    els.readerPageViewport.hidden
+  ) return;
+
+  if (Date.now() < state.readerPageSuppressClickUntil) {
+    return;
+  }
+
+  const prevButton = event.target.closest("#readerPagePrev");
+  if (prevButton) {
+    event.preventDefault();
     await turnReaderPage(-1);
     return;
   }
 
-  if (event.target.closest("#readerPageNext")) {
+  const nextButton = event.target.closest("#readerPageNext");
+  if (nextButton) {
+    event.preventDefault();
     await turnReaderPage(1);
+    return;
   }
+
+  if (event.target.closest(".reader-page-footer")) {
+    return;
+  }
+
+  const selection = window.getSelection?.();
+  if (selection && !selection.isCollapsed && String(selection).trim()) {
+    return;
+  }
+
+  const rect = els.readerPageViewport.getBoundingClientRect();
+  if (!rect.width) return;
+
+  const x = event.clientX - rect.left;
+  const direction = x < rect.width / 2 ? -1 : 1;
+
+  await turnReaderPage(direction);
 });
 
-els.readerBody?.addEventListener("touchstart", (event) => {
+els.readerPageViewport?.addEventListener("touchstart", (event) => {
   if (
     state.readerDisplayMode !== "page" ||
-    !event.target.closest("#readerPageViewport")
+    els.readerPageViewport.hidden
   ) return;
 
   const touch = event.touches?.[0];
@@ -3471,7 +3504,7 @@ els.readerBody?.addEventListener("touchstart", (event) => {
   state.readerPageTouchStartY = touch.clientY;
 }, { passive: true });
 
-els.readerBody?.addEventListener("touchend", async (event) => {
+els.readerPageViewport?.addEventListener("touchend", async (event) => {
   if (
     state.readerDisplayMode !== "page" ||
     state.readerPageTouchStartX == null ||
@@ -3492,6 +3525,7 @@ els.readerBody?.addEventListener("touchend", async (event) => {
     Math.abs(dx) <= Math.abs(dy) * 1.2
   ) return;
 
+  state.readerPageSuppressClickUntil = Date.now() + 450;
   await turnReaderPage(dx < 0 ? 1 : -1);
 }, { passive: true });
 
