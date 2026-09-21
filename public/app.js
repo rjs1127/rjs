@@ -5063,6 +5063,7 @@ for (const modal of [
   els.helpModal,
   els.privacyModal,
   els.libraryModal,
+  els.viewerSettingsModal,
   els.accountModal,
 ]) {
   modal?.addEventListener("click", (event) => {
@@ -5652,7 +5653,7 @@ function ensureReaderShareUi() {
       box-sizing: border-box;
     }
     .reader-share-handle { width: 40px; height: 4px; border-radius: 999px; background: rgba(93,78,101,.24); margin: 2px auto 8px; }
-    .reader-share-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px; }
+    .reader-share-head { position:sticky; top:-10px; z-index:6; display:flex; align-items:center; justify-content:space-between; gap:12px; margin:0 -14px 8px; padding:10px 14px 8px; background:var(--surface,#fff); border-bottom:1px solid rgba(91,75,99,.08); }
     .reader-share-head strong { font-size: 16px; }
     .reader-share-close { border:0; background:transparent; color:inherit; width:34px; height:34px; border-radius:50%; font-size:24px; cursor:pointer; }
     .reader-share-section { border-top:1px solid rgba(91,75,99,.11); padding:11px 0; }
@@ -5675,6 +5676,11 @@ function ensureReaderShareUi() {
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
+    .reader-share-actions { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .reader-share-action { min-height:42px; border-radius:12px; border:1px solid rgba(91,75,99,.18); font-size:13px; font-weight:800; cursor:pointer; }
+    .reader-share-action.primary { background:#191816; color:#fff; border-color:#191816; }
+    .reader-share-action.secondary { background:rgba(255,255,255,.64); color:inherit; }
+    .reader-share-action:disabled { opacity:.56; cursor:wait; }
     .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
     .reader-share-chip { border:1px solid rgba(91,75,99,.17); background:rgba(255,255,255,.56); color:inherit; border-radius:10px; min-height:34px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; }
     .reader-share-chip.active { border-color:#5a4e45; color:#3f372f; background:rgba(90,78,69,.1); box-shadow:0 0 0 1px rgba(90,78,69,.06); }
@@ -5686,10 +5692,12 @@ function ensureReaderShareUi() {
     .reader-share-switch::after { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:.16s ease; }
     .reader-share-switch.active { background:#5a4e45; }
     .reader-share-switch.active::after { transform:translateX(18px); }
-    .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; }
+    .reader-share-wrap-line { display:flex; align-items:center; gap:8px; min-width:0; }
+    .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     @media (min-width: 720px) {
       .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; max-height:min(88vh,860px); width:min(calc(100% - 24px), 560px); }
       .reader-share-sheet-scroll { max-height:min(88vh,860px); padding:12px 18px 20px; }
+      .reader-share-head { top:-12px; margin-left:-18px; margin-right:-18px; padding-left:18px; padding-right:18px; }
       .reader-share-card { width:min(48vw,360px); }
       .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
@@ -5768,9 +5776,9 @@ function ensureReaderShareUi() {
 
         <div class="reader-share-section">
           <div class="reader-share-row">
-            <div>
+            <div class="reader-share-wrap-line">
               <span class="reader-share-label">줄 바꿈</span>
-              <div class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동으로 줄 바꿉니다.</div>
+              <span class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동 줄바꿈</span>
             </div>
             <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
           </div>
@@ -5780,6 +5788,13 @@ function ensureReaderShareUi() {
           <div class="reader-share-row" style="align-items:start;">
             <span class="reader-share-label" style="padding-top:9px;">문구</span>
             <textarea class="reader-share-input" maxlength="700" aria-label="선택한 문구 편집"></textarea>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-actions">
+            <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
+            <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
           </div>
         </div>
       </div>
@@ -5796,6 +5811,8 @@ function ensureReaderShareUi() {
   const fonts = backdrop.querySelector(".reader-share-fonts");
   const sizes = backdrop.querySelector(".reader-share-sizes");
   const wrap = backdrop.querySelector("[data-share-wrap]");
+  const saveButton = backdrop.querySelector("[data-share-save]");
+  const shareButton = backdrop.querySelector("[data-share-system]");
 
   thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
     <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
@@ -5853,6 +5870,13 @@ function ensureReaderShareUi() {
     updateReaderSharePreview();
   });
 
+  saveButton?.addEventListener("click", async () => {
+    await handleReaderShareExport("save");
+  });
+  shareButton?.addEventListener("click", async () => {
+    await handleReaderShareExport("share");
+  });
+
   floatButton.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     event.stopPropagation();
@@ -5863,8 +5887,241 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, saveButton, shareButton, close };
   return readerShareUi;
+}
+
+function parseShareGradientColors(backgroundValue) {
+  const matches = String(backgroundValue || "").match(/#(?:[0-9a-fA-F]{3}){1,2}/g) || [];
+  return {
+    start: matches[0] || "#f6f3ee",
+    end: matches[1] || matches[0] || "#fffdf9",
+  };
+}
+
+function getReaderShareRenderModel() {
+  ensureReaderShareState();
+  const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
+  const item = state.activeReaderItem || {};
+  const text = String(state.readerShareText || "").trim();
+  const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
+  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
+  const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
+  return {
+    background,
+    font,
+    item,
+    text,
+    sizePx: Math.max(13, size.px - lengthPenalty),
+    ratio: state.readerShareRatio === "4:5" ? "4:5" : "1:1",
+    autoWrap: !!state.readerShareAutoWrap,
+    brand: getReaderShareBrandName(),
+  };
+}
+
+function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
+  const paragraphs = String(rawText || "").split(/\r?\n/);
+  const lines = [];
+  const pushBrokenToken = (token) => {
+    let part = "";
+    for (const ch of Array.from(token)) {
+      const test = part + ch;
+      if (part && ctx.measureText(test).width > maxWidth) {
+        lines.push(part);
+        part = ch;
+      } else {
+        part = test;
+      }
+    }
+    if (part) lines.push(part);
+  };
+  for (const paragraph of paragraphs) {
+    if (!paragraph) {
+      lines.push("");
+      continue;
+    }
+    if (!autoWrap) {
+      pushBrokenToken(paragraph);
+      continue;
+    }
+    const tokens = paragraph.split(/(\s+)/).filter(Boolean);
+    let line = "";
+    for (const token of tokens) {
+      const test = line + token;
+      if (!line) {
+        if (ctx.measureText(token).width <= maxWidth) {
+          line = token;
+        } else {
+          pushBrokenToken(token);
+          line = "";
+        }
+        continue;
+      }
+      if (ctx.measureText(test).width <= maxWidth) {
+        line = test;
+        continue;
+      }
+      lines.push(line.trimEnd());
+      if (ctx.measureText(token).width <= maxWidth) {
+        line = token.trimStart();
+      } else {
+        pushBrokenToken(token.trim());
+        line = "";
+      }
+    }
+    if (line) lines.push(line.trimEnd());
+  }
+  return lines.length ? lines : [""];
+}
+
+function computeReaderShareTextLayout(ctx, model, width, height) {
+  const left = width * 0.07;
+  const right = width * 0.07;
+  const top = model.ratio === "4:5" ? height * 0.12 : height * 0.13;
+  const bottom = model.ratio === "4:5" ? height * 0.13 : height * 0.15;
+  const boxWidth = width - left - right;
+  const boxHeight = height - top - bottom;
+  const scale = width / 380;
+  let fontSize = model.sizePx * scale;
+  let lineHeight = fontSize * 1.56;
+  let lines = [];
+  for (let i = 0; i < 24; i += 1) {
+    ctx.font = `${model.font.weight || 400} ${fontSize}px ${model.font.css}`;
+    lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
+    lineHeight = fontSize * 1.56;
+    const totalHeight = lines.length * lineHeight;
+    const maxLineWidth = Math.max(0, ...lines.map((line) => ctx.measureText(line).width));
+    if (totalHeight <= boxHeight && maxLineWidth <= boxWidth) break;
+    fontSize -= Math.max(1, scale * 0.7);
+    if (fontSize < 28) break;
+  }
+  return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines };
+}
+
+async function renderReaderShareCanvas() {
+  const model = getReaderShareRenderModel();
+  const width = 1200;
+  const height = model.ratio === "4:5" ? 1500 : 1200;
+  try {
+    if (document.fonts?.load) {
+      await document.fonts.load(`${model.font.weight || 400} 48px ${model.font.css}`);
+      await document.fonts.ready;
+    }
+  } catch (_) {}
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("canvas_context_unavailable");
+
+  const colors = parseShareGradientColors(model.background.background);
+  const gradient = ctx.createLinearGradient(0, 0, width, height);
+  gradient.addColorStop(0, colors.start);
+  gradient.addColorStop(1, colors.end);
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, width, height);
+  ctx.fillStyle = "rgba(0,0,0,.02)";
+  ctx.fillRect(0, 0, width, height);
+
+  const scale = width / 380;
+  const brandX = width * 0.07;
+  const brandY = height * 0.055;
+  const brandFont = 10 * scale;
+  ctx.fillStyle = model.background.meta;
+  ctx.font = `800 ${brandFont}px Pretendard, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.fillText(model.brand, brandX, brandY + 18);
+
+  const layout = computeReaderShareTextLayout(ctx, model, width, height);
+  ctx.fillStyle = model.background.text;
+  ctx.font = `${model.font.weight || 400} ${layout.fontSize}px ${model.font.css}`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "top";
+  const totalHeight = layout.lines.length * layout.lineHeight;
+  let y = layout.top + Math.max(0, (layout.boxHeight - totalHeight) / 2);
+  const centerX = width / 2;
+  for (const line of layout.lines) {
+    ctx.fillText(line, centerX, y);
+    y += layout.lineHeight;
+  }
+
+  const meta = [model.item.title, model.item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
+  ctx.fillStyle = model.background.meta;
+  ctx.font = `400 ${10 * scale}px Pretendard, sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(meta, centerX, height - (height * 0.058));
+
+  return canvas;
+}
+
+function downloadReaderShareBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  window.setTimeout(() => URL.revokeObjectURL(url), 1500);
+}
+
+function getReaderShareFilename() {
+  const title = String(state.activeReaderItem?.title || "quote-card")
+    .replace(/[\/:*?"<>|]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const ratio = state.readerShareRatio === "4:5" ? "4x5" : "1x1";
+  return `${title || "quote-card"}-${ratio}.png`;
+}
+
+async function setReaderShareBusy(isBusy) {
+  const ui = ensureReaderShareUi();
+  if (ui.saveButton) {
+    ui.saveButton.disabled = isBusy;
+    ui.saveButton.textContent = isBusy ? "생성 중..." : "이미지 저장";
+  }
+  if (ui.shareButton) {
+    ui.shareButton.disabled = isBusy;
+    ui.shareButton.textContent = isBusy ? "생성 중..." : "공유하기";
+  }
+}
+
+async function handleReaderShareExport(mode) {
+  const ui = ensureReaderShareUi();
+  if (!String(state.readerShareText || "").trim()) {
+    window.alert("공유할 문구가 없습니다.");
+    return;
+  }
+  await setReaderShareBusy(true);
+  try {
+    const canvas = await renderReaderShareCanvas();
+    const blob = await new Promise((resolve, reject) => {
+      canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
+    });
+    const filename = getReaderShareFilename();
+    if (mode === "save") {
+      downloadReaderShareBlob(blob, filename);
+      return;
+    }
+    const file = new File([blob], filename, { type: "image/png" });
+    if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({
+        files: [file],
+        title: filename,
+        text: `${state.activeReaderItem?.title || "문장 이미지"}`,
+      });
+      return;
+    }
+    downloadReaderShareBlob(blob, filename);
+    window.alert("이 기기에서는 시스템 공유를 지원하지 않아 이미지 파일을 저장했어요.");
+  } catch (error) {
+    console.error("reader share export failed", error);
+    window.alert("이미지를 생성하지 못했습니다. 다시 시도해 주세요.");
+  } finally {
+    await setReaderShareBusy(false);
+  }
 }
 
 function updateReaderSharePreview() {
