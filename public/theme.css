@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.35 canonical page-mode layout
+   v7.36 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -2998,15 +2998,6 @@ html[data-reader-spacing="wide"] .reader-page-measure {
    v7.31 viewer settings center
    ========================= */
 
-.viewer-settings-button svg {
-  width:16px;
-  height:16px;
-  fill:none;
-  stroke:currentColor;
-  stroke-width:1.7;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
 
 .viewer-settings-modal {
   width:min(520px, calc(100vw - 28px));
@@ -3097,10 +3088,6 @@ html[data-reader-font-size="large"] .reader-page-measure {
    v7.32 top-only viewer settings + stable modal lock
    ========================= */
 
-.viewer-settings-button.viewer-settings-top-hidden,
-.site-header.compact-mode .viewer-settings-button {
-  display:none !important;
-}
 
 html.simple-modal-open,
 body.simple-modal-open {
@@ -3171,4 +3158,20 @@ html.safari-reader .reader:not(.reader-page-mode) .reader-content {
 .reader-resume-actions button:disabled {
   opacity:.52;
   cursor:wait;
+}
+
+
+/* =========================
+   v7.36 header settings icon alignment
+   ========================= */
+/* Viewer settings intentionally uses only .header-icon-button visibility
+   rules so it appears/disappears exactly like bookmark/recent icons. */
+#viewerSettingsButton svg {
+  width:16px;
+  height:16px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
 }

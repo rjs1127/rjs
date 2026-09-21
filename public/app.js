@@ -465,7 +465,6 @@ function unlockPageForModal() {
   }
 
   modalLastFocusedElement = null;
-  updateViewerSettingsButtonVisibility();
 }
 
 function focusModal(modal) {
@@ -3455,7 +3454,6 @@ async function openReader(item) {
   const renderToken = ++state.readerRenderToken;
 
   document.body.classList.add("reader-open");
-  updateViewerSettingsButtonVisibility();
   mainHeaderCompactActive = false;
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
@@ -3605,7 +3603,6 @@ function finalizeReaderClose() {
   updateCompactHeader();
 
   state.readerHistoryActive = false;
-  updateViewerSettingsButtonVisibility();
 }
 
 function closeReader(options = {}) {
@@ -4455,17 +4452,7 @@ function setSearchValue(value, source = "main") {
 
 let mainHeaderCompactActive = false;
 
-function updateViewerSettingsButtonVisibility() {
-  if (!els.viewerSettingsButton) return;
 
-  const atTop = (window.scrollY || window.pageYOffset || 0) <= 8;
-  const readerOpen = document.body.classList.contains("reader-open");
-
-  els.viewerSettingsButton.classList.toggle(
-    "viewer-settings-top-hidden",
-    !atTop || readerOpen
-  );
-}
 
 function updateCompactHeader() {
   if (!els.siteHeader || !els.heroSearchBox) return;
@@ -4894,7 +4881,6 @@ function updatePageScrollTopButton() {
 window.addEventListener("scroll", () => {
   updatePageScrollTopButton();
   updateCompactHeader();
-  updateViewerSettingsButtonVisibility();
 }, {
   passive: true,
 });
@@ -5026,7 +5012,6 @@ window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
 updatePageScrollTopButton();
 updateCompactHeader();
-updateViewerSettingsButtonVisibility();
 syncViewButtons();
 syncQuickFilterButtons();
 updateAccountUi();
