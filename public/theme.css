@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.32 canonical page-mode layout
+   v7.33 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -3106,4 +3106,51 @@ html.simple-modal-open,
 body.simple-modal-open {
   overflow:hidden !important;
   overscroll-behavior:none;
+}
+
+/* =========================
+   v7.33 Safari reader stability
+   ========================= */
+
+/* iOS/macOS Safari can intermittently blank very large text while a sticky
+   header and large text nodes share a nested momentum scroller. Keep each
+   virtual chunk as a small paintable block and avoid aggressive containment. */
+html.safari-reader .reader-content {
+  contain:none !important;
+  isolation:isolate;
+}
+
+html.safari-reader .reader-virtual-chunk {
+  position:relative;
+  display:block;
+  min-height:1px;
+  contain:none !important;
+  -webkit-transform:translateZ(0);
+  transform:translateZ(0);
+  -webkit-backface-visibility:hidden;
+  backface-visibility:hidden;
+}
+
+/* Use Safari's stable viewport unit on phones so browser toolbar changes
+   do not repeatedly resize the inner reader during a scroll gesture. */
+@supports (height: 100svh) {
+  @media (max-width:840px) {
+    html.safari-reader .reader:not(.reader-page-mode) {
+      height:100svh !important;
+      max-height:100svh !important;
+    }
+  }
+}
+
+/* Keep the scroll layer simple on Safari. */
+html.safari-reader .reader:not(.reader-page-mode) {
+  overflow-x:hidden !important;
+  overscroll-behavior:contain;
+}
+
+html.safari-reader .reader:not(.reader-page-mode) .reader-body,
+html.safari-reader .reader:not(.reader-page-mode) .reader-render-shell,
+html.safari-reader .reader:not(.reader-page-mode) .reader-content {
+  max-width:100%;
+  box-sizing:border-box;
 }

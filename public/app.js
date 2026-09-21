@@ -64,6 +64,19 @@ const CONTENT_PAGE_SIZE = 40;
 const LIBRARY_PAGE_SIZE = 20;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
+
+const READER_USER_AGENT = String(navigator.userAgent || "");
+const IS_SAFARI_READER =
+  /Safari/i.test(READER_USER_AGENT) &&
+  /AppleWebKit/i.test(READER_USER_AGENT) &&
+  !/(CriOS|FxiOS|EdgiOS|OPiOS|Chrome|Chromium|Edg|OPR)/i.test(
+    READER_USER_AGENT
+  );
+
+document.documentElement.classList.toggle(
+  "safari-reader",
+  IS_SAFARI_READER
+);
 const READER_PAGE_SWIPE_PX = 48;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
@@ -2881,6 +2894,13 @@ async function collectResponseText(response, renderToken) {
 
 
 const LARGE_READER_CHUNK_CHARS = 180000;
+const SAFARI_LARGE_READER_CHUNK_CHARS = 70000;
+
+function getLargeReaderChunkChars() {
+  return IS_SAFARI_READER
+    ? SAFARI_LARGE_READER_CHUNK_CHARS
+    : LARGE_READER_CHUNK_CHARS;
+}
 
 function resetLargeReaderState() {
   state.largeReaderChunks = null;
@@ -2892,8 +2912,10 @@ function splitLargeReaderText(text) {
   const chunks = [];
   let offset = 0;
 
+  const chunkChars = getLargeReaderChunkChars();
+
   while (offset < text.length) {
-    let end = Math.min(text.length, offset + LARGE_READER_CHUNK_CHARS);
+    let end = Math.min(text.length, offset + chunkChars);
 
     if (end < text.length) {
       const nextBreak = text.indexOf("\n", end);
@@ -2920,6 +2942,13 @@ function appendLargeReaderChunk(index) {
   section.dataset.readerChunkIndex = String(index);
   section.appendChild(document.createTextNode(text));
   els.readerContent.appendChild(section);
+
+  if (IS_SAFARI_READER) {
+    // Safari occasionally delays painting very large text nodes inside a
+    // nested overflow scroller. Reading offsetHeight forces the new chunk
+    // into the current layout without changing visible scroll position.
+    void section.offsetHeight;
+  }
 }
 
 async function renderLargeReaderThrough(targetIndex, renderToken) {
@@ -2969,11 +2998,13 @@ async function maybeRenderMoreLargeReader() {
     els.readerPanel.scrollTop -
     els.readerPanel.clientHeight;
 
-  if (distanceToBottom > 1500) return;
+  const renderAheadDistance = IS_SAFARI_READER ? 5200 : 1500;
+  if (distanceToBottom > renderAheadDistance) return;
 
+  const renderAheadChunks = IS_SAFARI_READER ? 2 : 1;
   const target = Math.min(
     state.largeReaderChunks.length - 1,
-    state.largeReaderRenderedCount + 1
+    state.largeReaderRenderedCount + renderAheadChunks
   );
 
   await renderLargeReaderThrough(target, state.readerRenderToken);
@@ -3100,7 +3131,7 @@ async function renderLongText(text, renderToken) {
 
     const initialLastIndex = Math.min(
       state.largeReaderChunks.length - 1,
-      1
+      IS_SAFARI_READER ? 2 : 1
     );
 
     await renderLargeReaderThrough(initialLastIndex, renderToken);
@@ -4661,6 +4692,31 @@ function updateReaderScrollUi() {
 els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
   passive: true,
 });
+
+if (IS_SAFARI_READER) {
+  els.readerPanel?.addEventListener("touchend", () => {
+    window.requestAnimationFrame(() => {
+      maybeRenderMoreLargeReader();
+    });
+  }, {
+    passive: true,
+  });
+
+  window.visualViewport?.addEventListener("resize", () => {
+    if (
+      els.readerOverlay?.hidden ||
+      state.readerDisplayMode === "page"
+    ) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      maybeRenderMoreLargeReader();
+    });
+  }, {
+    passive: true,
+  });
+}
 
 els.readerScrollTop?.addEventListener("click", () => {
   els.readerPanel?.scrollTo({
