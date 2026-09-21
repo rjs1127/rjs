@@ -2662,3 +2662,56 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     touch-action: pan-y pinch-zoom;
   }
 }
+
+
+/* =========================
+   v7.26 page-mode compact header + preference location + footer safe area
+   ========================= */
+
+/* Read-mode control now lives in account/preferences modal only. */
+.reader-mode-bar {
+  display:none !important;
+}
+
+/* Page mode always uses the reader compact header. */
+.reader.reader-page-mode .reader-header {
+  min-height:0 !important;
+}
+
+.reader.reader-page-mode.reader-compact .reader-header {
+  padding-bottom:6px !important;
+}
+
+/* Keep the whole page viewport above mobile browser/safe-area UI. */
+.reader.reader-page-mode #readerPageViewport:not([hidden]),
+.reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+  max-height:calc(100dvh - env(safe-area-inset-bottom, 0px) - 92px) !important;
+}
+
+.reader-page-footer {
+  box-sizing:border-box;
+  padding-bottom:max(7px, env(safe-area-inset-bottom, 0px)) !important;
+}
+
+@media (max-width:640px) {
+  .reader.reader-page-mode {
+    height:100dvh !important;
+    min-height:100dvh !important;
+    overflow:hidden !important;
+  }
+
+  .reader.reader-page-mode #readerPageViewport:not([hidden]),
+  .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
+    max-height:calc(100dvh - env(safe-area-inset-bottom, 0px) - 80px) !important;
+    margin-bottom:max(10px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .reader-page-footer {
+    min-height:54px !important;
+    padding:7px 8px max(10px, env(safe-area-inset-bottom, 0px)) !important;
+  }
+
+  .reader-page-footer button {
+    min-height:36px !important;
+  }
+}

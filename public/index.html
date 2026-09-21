@@ -15,7 +15,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=725" />
+  <link rel="stylesheet" href="/theme.css?v=726" />
 </head>
 <body>
   <div class="app-shell">
@@ -261,7 +261,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.25</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.26</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -319,14 +319,6 @@
         <div class="reader-resume-actions">
           <button id="readerResumeButton" type="button">이어보기</button>
           <button id="readerRestartButton" type="button">처음부터</button>
-        </div>
-      </div>
-
-      <div id="readerModeBar" class="reader-mode-bar" hidden>
-        <span class="reader-mode-label">읽기 방식</span>
-        <div class="reader-mode-switch" role="group" aria-label="읽기 방식">
-          <button id="readerScrollModeButton" class="active" type="button" aria-pressed="true">스크롤</button>
-          <button id="readerPageModeButton" type="button" aria-pressed="false">페이지</button>
         </div>
       </div>
 
@@ -586,6 +578,17 @@
 
         <div class="account-preference-row account-preference-row-stack">
           <div>
+            <strong>읽기 방식</strong>
+            <span>장편·연재 TXT 뷰어에서 사용할 기본 읽기 방식을 선택합니다.</span>
+          </div>
+          <div id="readerDisplayModePreference" class="preference-segmented" role="group" aria-label="읽기 방식">
+            <button id="readerScrollModeButton" type="button" data-reader-display-mode="scroll">스크롤</button>
+            <button id="readerPageModeButton" type="button" data-reader-display-mode="page">페이지</button>
+          </div>
+        </div>
+
+        <div class="account-preference-row account-preference-row-stack">
+          <div>
             <strong>본문 간격</strong>
             <span>뷰어에서 읽기 편한 간격을 선택합니다.</span>
           </div>
@@ -601,6 +604,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=725" defer></script>
+  <script src="/app.js?v=726" defer></script>
 </body>
 </html>

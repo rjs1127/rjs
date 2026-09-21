@@ -106,6 +106,23 @@ function applyUserPreferences() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+
+  const displayMode =
+    localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+      ? "page"
+      : "scroll";
+
+  [els.readerScrollModeButton, els.readerPageModeButton]
+    .filter(Boolean)
+    .forEach((button) => {
+      const active =
+        button.dataset.readerDisplayMode === displayMode;
+      button.classList.toggle("active", active);
+      button.setAttribute(
+        "aria-pressed",
+        active ? "true" : "false"
+      );
+    });
 }
 
 
@@ -177,9 +194,9 @@ const els = {
   readerResumeText: document.getElementById("readerResumeText"),
   readerResumeButton: document.getElementById("readerResumeButton"),
   readerRestartButton: document.getElementById("readerRestartButton"),
-  readerModeBar: document.getElementById("readerModeBar"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
+  readerDisplayModePreference: document.getElementById("readerDisplayModePreference"),
   readerPageViewport: document.getElementById("readerPageViewport"),
   readerPageText: document.getElementById("readerPageText"),
   readerPagePrev: document.getElementById("readerPagePrev"),
@@ -2564,8 +2581,8 @@ async function setReaderDisplayMode(mode, options = {}) {
 
   if (pageActive) {
     els.readerPanel.scrollTop = 0;
-    readerCompactActive = false;
-    els.readerPanel.classList.remove("reader-compact");
+    readerCompactActive = true;
+    els.readerPanel.classList.add("reader-compact");
     els.readerScrollTop?.classList.remove("visible");
 
     await nextFrame();
@@ -2581,6 +2598,7 @@ async function setReaderDisplayMode(mode, options = {}) {
   }
 
   await nextFrame();
+  syncReaderCompactMode(els.readerPanel.scrollTop);
 
   if (previousMode === "page" || Number.isFinite(options.offset)) {
     temporarilySuspendProgressSave(700);
@@ -3186,11 +3204,8 @@ async function openReader(item) {
   if (els.readerResume) els.readerResume.hidden = true;
 
   const pageEligible = isReaderPageModeEligible(item);
-  if (els.readerModeBar) {
-    els.readerModeBar.hidden = !pageEligible;
-  }
   if (els.readerPageModeButton) {
-    els.readerPageModeButton.disabled = true;
+    els.readerPageModeButton.disabled = !pageEligible;
   }
 
   els.readerCombination.textContent = item.combination || "";
@@ -3317,7 +3332,6 @@ function closeReader() {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
   }
-  if (els.readerModeBar) els.readerModeBar.hidden = true;
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
@@ -3433,20 +3447,32 @@ els.readerBody?.addEventListener("click", (event) => {
   if (item) openReader(item);
 });
 
-els.readerScrollModeButton?.addEventListener("click", async () => {
-  await setReaderDisplayMode("scroll");
-  const saved = saveReaderProgress();
-  if (saved && state.activeReaderItem && state.user) {
-    persistProgress(state.activeReaderItem, saved);
+async function setReaderDisplayPreference(mode) {
+  const nextMode = mode === "page" ? "page" : "scroll";
+  localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
+  state.readerDisplayMode = nextMode;
+  applyUserPreferences();
+
+  const item = state.activeReaderItem;
+  if (
+    item &&
+    !els.readerOverlay?.hidden &&
+    isReaderPageModeEligible(item) &&
+    state.readerText
+  ) {
+    await setReaderDisplayMode(nextMode, {
+      persist: false,
+    });
   }
+}
+
+els.readerScrollModeButton?.addEventListener("click", async () => {
+  await setReaderDisplayPreference("scroll");
 });
 
 els.readerPageModeButton?.addEventListener("click", async () => {
-  await setReaderDisplayMode("page");
-  const saved = saveReaderProgress();
-  if (saved && state.activeReaderItem && state.user) {
-    persistProgress(state.activeReaderItem, saved);
-  }
+  if (els.readerPageModeButton.disabled) return;
+  await setReaderDisplayPreference("page");
 });
 
 els.readerPageViewport?.addEventListener("click", async (event) => {
