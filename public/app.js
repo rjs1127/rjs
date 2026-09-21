@@ -41,6 +41,7 @@ const state = {
   profileTab: "bookmarks",
   profileSearch: "",
   profileOpen: false,
+  profileVisibleLimit: 15,
   authMode: "login",
   pendingAuthReason: "",
   remoteProgressSyncedAt: new Map(),
@@ -352,6 +353,10 @@ const els = {
   profileSearchInput: document.getElementById("profileSearchInput"),
   profileListMeta: document.getElementById("profileListMeta"),
   profileList: document.getElementById("profileList"),
+  profileClearButton: document.getElementById("profileClearButton"),
+  profileMoreWrap: document.getElementById("profileMoreWrap"),
+  profileMoreButton: document.getElementById("profileMoreButton"),
+  profileMoreProgress: document.getElementById("profileMoreProgress"),
   profileBackButton: document.getElementById("profileBackButton"),
   profileLogoutButton: document.getElementById("profileLogoutButton"),
   viewerSettingsModal: document.getElementById("viewerSettingsModal"),
@@ -907,7 +912,7 @@ function formatProfileDate(timestamp) {
 }
 
 async function toggleItemLike(item) {
-  if (!item?.id) return;
+  if (!item?.id || item.source === "postype") return;
   if (!state.user) {
     openAuthModal("login", "좋아요를 저장하려면 로그인해 주세요.");
     return;
@@ -956,7 +961,14 @@ async function toggleItemLike(item) {
 
 function updateReaderLikeButton() {
   if (!els.readerLikeButton) return;
-  const liked = Boolean(state.user && state.activeReaderItem && isItemLiked(state.activeReaderItem));
+  const eligible = Boolean(state.activeReaderItem && state.activeReaderItem.source !== "postype");
+  els.readerLikeButton.hidden = !eligible;
+  if (!eligible) {
+    els.readerLikeButton.classList.remove("active");
+    els.readerLikeButton.setAttribute("aria-pressed", "false");
+    return;
+  }
+  const liked = Boolean(state.user && isItemLiked(state.activeReaderItem));
   els.readerLikeButton.classList.toggle("active", liked);
   els.readerLikeButton.setAttribute("aria-pressed", liked ? "true" : "false");
   els.readerLikeButton.title = liked ? "좋아요 취소" : "좋아요";
@@ -990,8 +1002,12 @@ function renderProfilePage() {
   const bookmarked = getLibraryVisibleEntries("bookmarks", "");
   const recent = getLibraryVisibleEntries("recent", "");
   const likes = [...state.userLikes.values()]
+    .filter((like) => {
+      const item = state.items.find((candidate) => candidate.id === like.workId);
+      return !item || item.source !== "postype";
+    })
     .sort((a,b) => Number(b.likedAt||0) - Number(a.likedAt||0));
-  const quotes = [...state.savedQuotes]
+  const quotes = [...state.userQuotes.values()]
     .sort((a,b) => Number(b.createdAt||0) - Number(a.createdAt||0));
 
   if (els.profileBookmarkCount) els.profileBookmarkCount.textContent = String(bookmarked.length);
@@ -1001,8 +1017,8 @@ function renderProfilePage() {
   if (els.profileSummary) {
     const joined = formatProfileDate(state.profileUserCreatedAt);
     els.profileSummary.textContent = joined
-      ? `${state.user.userId} · 가입 ${joined}`
-      : `${state.user.userId} 계정`;
+      ? `${state.user.id} · 가입 ${joined}`
+      : `${state.user.id} · 개인 보관함`;
   }
 
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {
@@ -1010,19 +1026,20 @@ function renderProfilePage() {
   });
 
   let rows = [];
+  let html = "";
   if (state.profileTab === "bookmarks") {
     rows = bookmarked.filter(({item}) => !q || normalizeSearchText(`${item?.title||""} ${item?.author||""}`).includes(q));
-    els.profileList.innerHTML = rows.length
+    html = rows.length
       ? rows.map(({item,entry}) => getProfileWorkEntry(item,entry,"bookmarks")).join("")
       : '<div class="profile-empty">저장된 북마크가 없습니다.</div>';
   } else if (state.profileTab === "recent") {
     rows = recent.filter(({item}) => !q || normalizeSearchText(`${item?.title||""} ${item?.author||""}`).includes(q));
-    els.profileList.innerHTML = rows.length
+    html = rows.length
       ? rows.map(({item,entry}) => getProfileWorkEntry(item,entry,"recent")).join("")
       : '<div class="profile-empty">최근 본 작품이 없습니다.</div>';
   } else if (state.profileTab === "likes") {
     rows = likes.filter((like) => !q || normalizeSearchText(`${like.title} ${like.author}`).includes(q));
-    els.profileList.innerHTML = rows.length ? rows.map((like) => {
+    html = rows.length ? rows.map((like) => {
       const item = state.items.find((candidate) => candidate.id === like.workId);
       return `
         <div class="profile-entry">
@@ -1038,7 +1055,7 @@ function renderProfilePage() {
     }).join("") : '<div class="profile-empty">좋아요한 작품이 없습니다.</div>';
   } else {
     rows = quotes.filter((quote) => !q || normalizeSearchText(`${quote.title} ${quote.author} ${quote.quoteText}`).includes(q));
-    els.profileList.innerHTML = rows.length ? rows.map((quote) => `
+    html = rows.length ? rows.map((quote) => `
       <div class="profile-entry quote-entry">
         <div class="profile-entry-main">
           <span class="profile-entry-title">${escapeHtml(quote.title || "제목 미상")}</span>
@@ -1051,7 +1068,34 @@ function renderProfilePage() {
         </div>
       </div>`).join("") : '<div class="profile-empty">저장한 문장이 없습니다.</div>';
   }
-  if (els.profileListMeta) els.profileListMeta.textContent = `${rows.length}개`;
+
+  const pagedKinds = state.profileTab === "bookmarks" || state.profileTab === "recent";
+  const total = rows.length;
+  const shown = pagedKinds ? Math.min(total, state.profileVisibleLimit) : total;
+  if (pagedKinds && total) {
+    const visibleRows = rows.slice(0, shown);
+    html = state.profileTab === "bookmarks"
+      ? visibleRows.map(({item,entry}) => getProfileWorkEntry(item,entry,"bookmarks")).join("")
+      : visibleRows.map(({item,entry}) => getProfileWorkEntry(item,entry,"recent")).join("");
+  }
+
+  els.profileList.innerHTML = html;
+  if (els.profileListMeta) {
+    els.profileListMeta.textContent = pagedKinds && total > shown ? `${shown} / ${total}개` : `${total}개`;
+  }
+
+  if (els.profileClearButton) {
+    const clearable = state.profileTab === "bookmarks" || state.profileTab === "recent";
+    els.profileClearButton.hidden = !clearable;
+    els.profileClearButton.disabled = !clearable || total === 0;
+    els.profileClearButton.textContent = state.profileTab === "bookmarks" ? "북마크 전체 삭제" : "최근 본 작품 전체 삭제";
+  }
+  if (els.profileMoreWrap) {
+    const hasMore = pagedKinds && shown < total;
+    els.profileMoreWrap.hidden = !hasMore;
+    if (els.profileMoreProgress) els.profileMoreProgress.textContent = `${shown} / ${total}`;
+    if (els.profileMoreButton) els.profileMoreButton.textContent = `${Math.min(15, total - shown)}개 더보기`;
+  }
 }
 
 function showProfilePage(tab = "bookmarks") {
@@ -1062,6 +1106,7 @@ function showProfilePage(tab = "bookmarks") {
   state.profileOpen = true;
   state.profileTab = ["bookmarks","recent","likes","quotes"].includes(tab) ? tab : "bookmarks";
   state.profileSearch = "";
+  state.profileVisibleLimit = 15;
   setMobileFiltersOpen(false);
   if (els.profileSearchInput) els.profileSearchInput.value = "";
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
@@ -2194,8 +2239,69 @@ async function togglePostypeBookmark(item) {
 }
 
 
-function getItemLikeButtonHtml(item, className = "item-like-button") {
+async function toggleListBookmark(item) {
+  if (!item?.id) return;
+  if (item.source === "postype") {
+    await togglePostypeBookmark(item);
+    return;
+  }
+
+  if (!state.user) {
+    openAuthModal("login", "북마크를 저장하려면 로그인해 주세요.");
+    return;
+  }
+
+  const fileId = item.id;
+  const nextValue = !getUserLibraryEntry(fileId)?.bookmarked;
+  updateUserLibraryEntry(fileId, {
+    bookmarked: nextValue,
+    updatedAt: Date.now(),
+  });
+  render();
+  if (!els.libraryModal?.hidden) renderUserLibraryModal();
+
+  const previousTimer = state.bookmarkSaveTimers.get(fileId);
+  if (previousTimer) window.clearTimeout(previousTimer);
+  const timer = window.setTimeout(async () => {
+    state.bookmarkSaveTimers.delete(fileId);
+    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
+    try {
+      await userApi("/api/user/item", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "bookmark",
+          fileId,
+          bookmarked: finalValue,
+        }),
+      });
+    } catch (error) {
+      console.warn("북마크 저장 실패", error);
+    }
+  }, 300);
+  state.bookmarkSaveTimers.set(fileId, timer);
+}
+
+function getMobileListMoreHtml(item) {
   if (!item?.id) return "";
+  const bookmarked = Boolean(state.user && getUserLibraryEntry(item.id)?.bookmarked);
+  const downloadUrl = getDownloadUrl(item);
+  return `
+    <details class="list-mobile-more" data-list-more>
+      <summary class="list-mobile-more-trigger" aria-label="더보기" title="더보기">
+        <span aria-hidden="true">•••</span>
+      </summary>
+      <div class="list-mobile-more-menu" role="menu">
+        <button type="button" role="menuitem" data-list-bookmark="${escapeHtml(item.id)}">
+          ${bookmarked ? "북마크 해제" : "북마크"}
+        </button>
+        ${downloadUrl ? `<a role="menuitem" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener noreferrer" data-download-id="${escapeHtml(item.id)}">TXT 다운로드</a>` : ""}
+      </div>
+    </details>`;
+}
+
+
+function getItemLikeButtonHtml(item, className = "item-like-button") {
+  if (!item?.id || item.source === "postype") return "";
   const liked = Boolean(state.user && isItemLiked(item));
   return `
     <button
@@ -2280,8 +2386,11 @@ function renderList(items) {
           </span>
           <span class="list-title-actions">
             ${getItemLikeButtonHtml(item, "item-like-button list-like-button")}
-            ${getListBookmarkIndicator(item)}
-            ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
+            <span class="list-desktop-actions">
+              ${getListBookmarkIndicator(item)}
+              ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
+            </span>
+            ${getMobileListMoreHtml(item)}
           </span>
         </span>
         ${
@@ -5256,6 +5365,7 @@ document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach
   button.addEventListener("click", () => {
     state.profileTab = button.dataset.profileTab || button.dataset.profileTabJump || "bookmarks";
     state.profileSearch = "";
+    state.profileVisibleLimit = 15;
     if (els.profileSearchInput) els.profileSearchInput.value = "";
     renderProfilePage();
   });
@@ -5263,6 +5373,7 @@ document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach
 
 els.profileSearchInput?.addEventListener("input", (event) => {
   state.profileSearch = event.target.value || "";
+  state.profileVisibleLimit = 15;
   renderProfilePage();
 });
 
@@ -5315,6 +5426,44 @@ els.profileList?.addEventListener("click", async (event) => {
     await userApi("/api/user/profile", { method:"POST", body:JSON.stringify({ action:"quote_delete", id }) });
     state.savedQuotes = state.savedQuotes.filter((entry) => entry.id !== id);
     renderProfilePage();
+  }
+});
+
+
+els.profileMoreButton?.addEventListener("click", () => {
+  state.profileVisibleLimit += 15;
+  renderProfilePage();
+});
+
+els.profileClearButton?.addEventListener("click", async () => {
+  if (!state.user) return;
+  const kind = state.profileTab;
+  if (kind !== "bookmarks" && kind !== "recent") return;
+  const message = kind === "bookmarks"
+    ? "저장된 북마크를 모두 삭제할까요?"
+    : "최근 본 작품 기록을 모두 삭제할까요?";
+  if (!window.confirm(message)) return;
+
+  els.profileClearButton.disabled = true;
+  try {
+    await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({ action: kind === "bookmarks" ? "clear_bookmarks" : "clear_recent" }),
+    });
+    for (const [fileId, entry] of state.userLibrary.entries()) {
+      state.userLibrary.set(fileId, kind === "bookmarks"
+        ? { ...entry, bookmarked: false }
+        : { ...entry, viewedAt: null });
+    }
+    state.profileVisibleLimit = 15;
+    renderProfilePage();
+    render();
+    updateReaderBookmarkButton();
+  } catch (error) {
+    console.warn(error);
+    window.alert(error.message || "기록을 삭제하지 못했습니다.");
+  } finally {
+    els.profileClearButton.disabled = false;
   }
 });
 
@@ -5664,6 +5813,17 @@ function handleContentOpenClick(event) {
     return;
   }
 
+  const listBookmarkButton = event.target.closest("[data-list-bookmark]");
+  if (listBookmarkButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = state.items.find((entry) => entry.id === listBookmarkButton.dataset.listBookmark);
+    const details = listBookmarkButton.closest("details[data-list-more]");
+    if (details) details.open = false;
+    toggleListBookmark(item);
+    return;
+  }
+
   const postypeBookmarkButton = event.target.closest("[data-postype-bookmark]");
   if (postypeBookmarkButton) {
     event.preventDefault();
@@ -5684,6 +5844,11 @@ function handleContentOpenClick(event) {
       (entry) => entry.id === downloadButton.dataset.downloadId
     );
     recordTxtDownload(item);
+    return;
+  }
+
+  if (event.target.closest("details[data-list-more]")) {
+    event.stopPropagation();
     return;
   }
 

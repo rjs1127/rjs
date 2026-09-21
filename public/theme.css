@@ -3337,3 +3337,131 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
     width:178px !important; min-width:178px !important; max-width:178px !important;
   }
 }
+
+
+/* v8.01 - unified content actions + mobile list title safety + profile paging */
+.content-card .card-actions > .card-like-button.item-like-button,
+.content-card .card-actions > .card-download-button.item-download-button,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button {
+  width:28px !important; height:28px !important; min-width:28px !important; min-height:28px !important;
+  flex:0 0 28px !important; border-radius:50% !important; padding:0 !important;
+  display:inline-grid !important; place-items:center !important;
+  border:1px solid var(--theme-line) !important;
+  background:var(--theme-secondary-bg) !important;
+  color:var(--theme-secondary-text) !important;
+  box-shadow:none !important;
+}
+.content-card .card-actions > .card-like-button.item-like-button svg,
+.content-card .card-actions > .card-download-button.item-download-button svg,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button svg {
+  width:14px !important; height:14px !important; stroke:currentColor !important;
+  stroke-width:1.8 !important; stroke-linecap:round; stroke-linejoin:round;
+}
+.content-card .card-actions > .card-like-button.item-like-button.active {
+  color:#b45b63 !important; border-color:rgba(180,91,99,.34) !important; background:rgba(180,91,99,.08) !important;
+}
+
+.content-list .list-title-actions > .list-like-button.item-like-button,
+.content-list .list-title-actions > .list-download-button.item-download-button,
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button,
+.content-list .list-title-actions > .list-bookmark-indicator {
+  width:24px !important; height:24px !important; min-width:24px !important; min-height:24px !important;
+  flex:0 0 24px !important; border-radius:50% !important; padding:0 !important; margin:0 !important;
+  display:inline-grid !important; place-items:center !important; box-sizing:border-box !important;
+  border:1px solid var(--theme-line) !important; background:var(--theme-secondary-bg) !important;
+  color:var(--theme-secondary-text) !important; box-shadow:none !important;
+}
+.content-list .list-title-actions > .list-like-button.item-like-button svg,
+.content-list .list-title-actions > .list-download-button.item-download-button svg,
+.content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button svg,
+.content-list .list-title-actions > .list-bookmark-indicator svg {
+  width:13px !important; height:13px !important; margin:0 !important;
+  stroke:currentColor !important; stroke-width:1.8 !important; stroke-linecap:round; stroke-linejoin:round;
+}
+.content-list .list-title-actions > .list-like-button.item-like-button.active {
+  color:#b45b63 !important; border-color:rgba(180,91,99,.34) !important; background:rgba(180,91,99,.08) !important;
+}
+
+.profile-toolbar-actions { display:flex; align-items:center; gap:8px; }
+.profile-clear-button { min-height:36px; white-space:nowrap; }
+.profile-list-shell { max-height:min(58vh, 620px); overflow:auto; overscroll-behavior:contain; padding-right:2px; }
+.profile-more-wrap { display:flex; align-items:center; justify-content:center; gap:10px; margin-top:12px; }
+.profile-more-progress { color:var(--theme-muted); font-size:11px; font-variant-numeric:tabular-nums; }
+
+@media (max-width:640px) {
+  .content-list th:nth-child(3), .content-list td:nth-child(3) { width:54%; }
+  .content-list th:nth-child(4), .content-list td:nth-child(4) { width:20%; }
+  .content-list td.list-title { padding-right:78px !important; }
+  .content-list .list-title-actions { right:5px !important; gap:3px !important; padding-left:3px !important; }
+  .content-list .list-title-actions > .list-like-button.item-like-button,
+  .content-list .list-title-actions > .list-download-button.item-download-button,
+  .content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button,
+  .content-list .list-title-actions > .list-bookmark-indicator {
+    width:22px !important; height:22px !important; min-width:22px !important; min-height:22px !important;
+    flex-basis:22px !important;
+  }
+  .content-list .list-title-actions > .list-like-button.item-like-button svg,
+  .content-list .list-title-actions > .list-download-button.item-download-button svg,
+  .content-list .list-title-actions > .list-postype-bookmark.postype-bookmark-button svg,
+  .content-list .list-title-actions > .list-bookmark-indicator svg {
+    width:12px !important; height:12px !important;
+  }
+  .content-list .list-title-text { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .profile-toolbar-actions { width:100%; align-items:stretch; }
+  .profile-toolbar-actions .profile-search { flex:1 1 auto; }
+  .profile-clear-button { flex:0 0 auto; padding:7px 9px; font-size:11px; }
+  .profile-list-shell { max-height:54vh; }
+}
+
+
+/* v8.02 - mobile list keeps only Like visible; bookmark/download move into compact more menu */
+.list-desktop-actions { display:inline-flex; align-items:center; gap:4px; }
+.list-mobile-more { display:none; position:relative; margin:0; }
+.list-mobile-more > summary { list-style:none; }
+.list-mobile-more > summary::-webkit-details-marker { display:none; }
+.list-mobile-more-trigger {
+  width:24px; height:24px; min-width:24px; min-height:24px; padding:0; margin:0;
+  border:1px solid var(--theme-line); border-radius:50%;
+  background:var(--theme-secondary-bg); color:var(--theme-secondary-text);
+  display:grid; place-items:center; cursor:pointer; box-sizing:border-box;
+  font-size:11px; font-weight:800; line-height:1; letter-spacing:-1px;
+}
+.list-mobile-more-menu {
+  position:absolute; z-index:40; top:calc(100% + 6px); right:0; min-width:126px;
+  padding:5px; border:1px solid var(--theme-line); border-radius:10px;
+  background:var(--theme-surface-strong); color:var(--theme-text);
+  box-shadow:0 10px 28px var(--theme-shadow);
+}
+.list-mobile-more-menu button,
+.list-mobile-more-menu a {
+  width:100%; min-height:32px; border:0; border-radius:7px; padding:7px 9px;
+  background:transparent; color:inherit; text-align:left; font:inherit; font-size:12px;
+  text-decoration:none; display:flex; align-items:center; cursor:pointer; box-sizing:border-box;
+}
+.list-mobile-more-menu button:hover,
+.list-mobile-more-menu a:hover { background:var(--theme-hover); }
+
+@media (max-width:640px) {
+  .content-list td.list-title { padding-right:58px !important; }
+  .content-list .list-title-actions { right:5px !important; gap:4px !important; }
+  .content-list .list-title-actions > .list-like-button.item-like-button {
+    width:22px !important; height:22px !important; min-width:22px !important; min-height:22px !important;
+    flex:0 0 22px !important;
+  }
+  .content-list .list-title-actions > .list-like-button.item-like-button svg {
+    width:12px !important; height:12px !important;
+  }
+  .content-list .list-desktop-actions { display:none !important; }
+  .content-list .list-mobile-more { display:inline-block; flex:0 0 22px; }
+  .content-list .list-mobile-more-trigger {
+    width:22px; height:22px; min-width:22px; min-height:22px;
+    font-size:10px;
+  }
+}
+
+
+/* v8.03 - POSTYPE does not use site likes; reclaim mobile list title space */
+@media (max-width:640px) {
+  .content-list tr.postype-item td.list-title { padding-right:32px !important; }
+  .content-list tr.postype-item .list-title-actions { gap:0 !important; }
+}
