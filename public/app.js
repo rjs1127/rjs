@@ -1007,7 +1007,7 @@ function renderProfilePage() {
       return !item || item.source !== "postype";
     })
     .sort((a,b) => Number(b.likedAt||0) - Number(a.likedAt||0));
-  const quotes = [...state.userQuotes.values()]
+  const quotes = [...state.savedQuotes]
     .sort((a,b) => Number(b.createdAt||0) - Number(a.createdAt||0));
 
   if (els.profileBookmarkCount) els.profileBookmarkCount.textContent = String(bookmarked.length);
@@ -1098,10 +1098,19 @@ function renderProfilePage() {
   }
 }
 
+function getHistoryStateWithoutProfile() {
+  const next = { ...(history.state || {}) };
+  delete next.rjsProfilePage;
+  return next;
+}
+
 function showProfilePage(tab = "bookmarks") {
   if (!state.user) {
     openAuthModal("login", "내 정보를 보려면 로그인해 주세요.");
     return;
+  }
+  if (!state.profileOpen && !history.state?.rjsProfilePage) {
+    history.pushState({ ...(history.state || {}), rjsProfilePage: true }, "", location.href);
   }
   state.profileOpen = true;
   state.profileTab = ["bookmarks","recent","likes","quotes"].includes(tab) ? tab : "bookmarks";
@@ -1117,11 +1126,14 @@ function showProfilePage(tab = "bookmarks") {
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
-function hideProfilePage() {
+function hideProfilePage({ fromHistory = false, clearHistoryMarker = false } = {}) {
   state.profileOpen = false;
   if (els.profilePage) els.profilePage.hidden = true;
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
     if (el) el.hidden = false;
+  }
+  if (clearHistoryMarker && !fromHistory && history.state?.rjsProfilePage) {
+    history.replaceState(getHistoryStateWithoutProfile(), "", location.href);
   }
 }
 
@@ -2282,7 +2294,7 @@ async function toggleListBookmark(item) {
 }
 
 function getMobileListMoreHtml(item) {
-  if (!item?.id) return "";
+  if (!item?.id || item.source === "postype") return "";
   const bookmarked = Boolean(state.user && getUserLibraryEntry(item.id)?.bookmarked);
   const downloadUrl = getDownloadUrl(item);
   return `
@@ -2291,12 +2303,25 @@ function getMobileListMoreHtml(item) {
         <span aria-hidden="true">•••</span>
       </summary>
       <div class="list-mobile-more-menu" role="menu">
-        <button type="button" role="menuitem" data-list-bookmark="${escapeHtml(item.id)}">
-          ${bookmarked ? "북마크 해제" : "북마크"}
-        </button>
-        ${downloadUrl ? `<a role="menuitem" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener noreferrer" data-download-id="${escapeHtml(item.id)}">TXT 다운로드</a>` : ""}
+        <button type="button" role="menuitem" data-list-bookmark="${escapeHtml(item.id)}">${bookmarked ? "북마크 해제" : "북마크"}</button>
+        ${downloadUrl ? `<a role="menuitem" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener noreferrer" data-download-id="${escapeHtml(item.id)}">TXT</a>` : ""}
       </div>
     </details>`;
+}
+
+function getMobilePostypeBookmarkHtml(item) {
+  if (!item?.id || item.source !== "postype") return "";
+  return getPostypeBookmarkButtonHtml(
+    item,
+    "postype-bookmark-button list-mobile-postype-bookmark"
+  );
+}
+
+function getListTitleLengthClass(title) {
+  const length = Array.from(String(title || "")).length;
+  if (length >= 46) return " list-title-text-very-long";
+  if (length >= 28) return " list-title-text-long";
+  return "";
 }
 
 
@@ -2380,12 +2405,13 @@ function renderList(items) {
           <span class="list-title-main">
             <span class="list-title-heading">
               ${getSourceBadgeHtml(item, "list-source-badge")}
-              <span class="list-title-text">${escapeHtml(item.title)}</span>
+              <span class="list-title-text${getListTitleLengthClass(item.title)}">${escapeHtml(item.title)}</span>
             </span>
             ${getItemReadingBadge(item)}
           </span>
           <span class="list-title-actions">
             ${getItemLikeButtonHtml(item, "item-like-button list-like-button")}
+            ${getMobilePostypeBookmarkHtml(item)}
             <span class="list-desktop-actions">
               ${getListBookmarkIndicator(item)}
               ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
@@ -5352,7 +5378,48 @@ els.libraryViewAllButton?.addEventListener("click", () => {
   showProfilePage(tab);
 });
 
+window.addEventListener("popstate", (event) => {
+  if (state.profileOpen && !event.state?.rjsProfilePage) {
+    hideProfilePage({ fromHistory: true });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+});
+
+document.addEventListener("toggle", (event) => {
+  const details = event.target?.closest?.("details[data-list-more]");
+  if (!details) return;
+  const row = details.closest("tr");
+  row?.classList.toggle("list-more-open", details.open);
+  if (!details.open) return;
+  document.querySelectorAll("details[data-list-more][open]").forEach((other) => {
+    if (other !== details) other.open = false;
+  });
+}, true);
+
+document.addEventListener("click", (event) => {
+  const trigger = event.target.closest("details[data-list-more] > summary");
+  if (trigger) {
+    const current = trigger.closest("details[data-list-more]");
+    document.querySelectorAll("details[data-list-more][open]").forEach((details) => {
+      if (details !== current) details.open = false;
+    });
+    window.requestAnimationFrame(() => {
+      document.querySelectorAll("tr.list-more-open").forEach((row) => row.classList.remove("list-more-open"));
+      if (current?.open) current.closest("tr")?.classList.add("list-more-open");
+    });
+    return;
+  }
+  if (event.target.closest("details[data-list-more]")) return;
+  document.querySelectorAll("details[data-list-more][open]").forEach((details) => {
+    details.open = false;
+  });
+});
+
 els.profileBackButton?.addEventListener("click", () => {
+  if (history.state?.rjsProfilePage) {
+    history.back();
+    return;
+  }
   hideProfilePage();
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
@@ -5382,7 +5449,7 @@ els.profileList?.addEventListener("click", async (event) => {
   if (open) {
     const item = state.items.find((candidate) => candidate.id === open.dataset.profileOpen);
     if (item) {
-      hideProfilePage();
+      hideProfilePage({ clearHistoryMarker: true });
       openContentItem(item);
     }
     return;
@@ -5839,6 +5906,8 @@ function handleContentOpenClick(event) {
   const downloadButton = event.target.closest("[data-download-id]");
   if (downloadButton) {
     event.stopPropagation();
+    const details = downloadButton.closest("details[data-list-more]");
+    if (details) details.open = false;
 
     const item = state.items.find(
       (entry) => entry.id === downloadButton.dataset.downloadId
