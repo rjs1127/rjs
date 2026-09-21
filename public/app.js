@@ -2685,10 +2685,10 @@ async function syncScrollReaderToOffset(offset) {
     );
 
     if (targetChunk) {
-      const targetTop =
-        targetChunk.offsetTop +
-        targetChunk.offsetHeight * position.ratio -
-        92;
+      const targetTop = getLargeReaderTargetScrollTop(
+        targetChunk,
+        position.ratio
+      );
 
       await jumpReaderPanelTo(targetTop, {
         releaseAfter: 420,
@@ -3212,6 +3212,107 @@ async function maybeRenderMoreLargeReader() {
   await renderLargeReaderThrough(target, state.readerRenderToken);
 }
 
+function getReaderChunkTextNode(section) {
+  if (!section) return null;
+
+  for (const node of section.childNodes) {
+    if (node.nodeType === Node.TEXT_NODE) return node;
+  }
+
+  return null;
+}
+
+function getReaderChunkTextY(section, charOffset) {
+  const textNode = getReaderChunkTextNode(section);
+  if (!textNode) return null;
+
+  const length = textNode.data.length;
+  const safeOffset = Math.max(0, Math.min(length, Math.floor(Number(charOffset) || 0)));
+  const range = document.createRange();
+
+  try {
+    if (length <= 0) {
+      const rect = section.getBoundingClientRect();
+      return rect.top;
+    }
+
+    // A one-character range gives a stable line box in Chromium/WebKit.
+    // At EOF use the final character because a collapsed range can report
+    // an empty rect on some mobile Safari builds.
+    const start = Math.min(safeOffset, length - 1);
+    const end = Math.min(length, start + 1);
+    range.setStart(textNode, start);
+    range.setEnd(textNode, end);
+
+    const rect = range.getBoundingClientRect();
+    return Number.isFinite(rect.top) ? rect.top : null;
+  } catch {
+    return null;
+  } finally {
+    range.detach?.();
+  }
+}
+
+function getReaderChunkCharOffsetAtY(section, targetY) {
+  const textNode = getReaderChunkTextNode(section);
+  if (!textNode) return 0;
+
+  const length = textNode.data.length;
+  if (length <= 1) return 0;
+
+  let low = 0;
+  let high = length - 1;
+  let best = 0;
+
+  // Find the last character whose rendered line starts at or above targetY.
+  // This converts the real scroller coordinate to a text coordinate instead
+  // of assuming pixel-height ratio === character ratio.
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+    const y = getReaderChunkTextY(section, mid);
+
+    if (!Number.isFinite(y)) break;
+
+    if (y <= targetY) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return Math.max(0, Math.min(length, best));
+}
+
+function getLargeReaderTargetScrollTop(section, chunkRatio = 0) {
+  if (!section || !els.readerPanel) return 0;
+
+  const panelRect = els.readerPanel.getBoundingClientRect();
+  const textNode = getReaderChunkTextNode(section);
+  const length = textNode?.data?.length || 0;
+  const ratio = Math.max(0, Math.min(1, Number(chunkRatio) || 0));
+  const charOffset = Math.round(length * ratio);
+  const targetY = getReaderChunkTextY(section, charOffset);
+
+  if (Number.isFinite(targetY)) {
+    return Math.max(
+      0,
+      els.readerPanel.scrollTop + targetY - panelRect.top - 92
+    );
+  }
+
+  // Fallback for unusual browser Range failures. Importantly this still
+  // converts from viewport coordinates into readerPanel scroll coordinates.
+  const sectionRect = section.getBoundingClientRect();
+  return Math.max(
+    0,
+    els.readerPanel.scrollTop +
+      sectionRect.top - panelRect.top +
+      sectionRect.height * ratio -
+      92
+  );
+}
+
 function getLargeReaderPosition() {
   if (!state.largeReaderChunks || !els.readerPanel || !els.readerContent) {
     return null;
@@ -3223,11 +3324,19 @@ function getLargeReaderPosition() {
 
   if (!sections.length) return null;
 
-  const viewportTop = els.readerPanel.scrollTop + 92;
+  const panelScrollTop = Math.max(0, els.readerPanel.scrollTop);
+
+  if (panelScrollTop < READER_MIN_MEANINGFUL_SCROLL_PX) {
+    return { index: 0, ratio: 0, percent: 0, textOffset: 0 };
+  }
+
+  const panelRect = els.readerPanel.getBoundingClientRect();
+  const targetY = panelRect.top + 92;
   let current = sections[0];
 
   for (const section of sections) {
-    if (section.offsetTop <= viewportTop) {
+    const rect = section.getBoundingClientRect();
+    if (rect.top <= targetY) {
       current = section;
     } else {
       break;
@@ -3235,16 +3344,12 @@ function getLargeReaderPosition() {
   }
 
   const index = Number(current.dataset.readerChunkIndex || 0);
-  const localOffset = Math.max(0, viewportTop - current.offsetTop);
-  const ratio = current.offsetHeight > 0
-    ? Math.min(1, localOffset / current.offsetHeight)
+  const textNode = getReaderChunkTextNode(current);
+  const chunkLength = textNode?.data?.length || 0;
+  const charOffset = getReaderChunkCharOffsetAtY(current, targetY);
+  const ratio = chunkLength > 0
+    ? Math.max(0, Math.min(1, charOffset / chunkLength))
     : 0;
-
-  const panelScrollTop = Math.max(0, els.readerPanel.scrollTop);
-
-  if (panelScrollTop < READER_MIN_MEANINGFUL_SCROLL_PX) {
-    return { index: 0, ratio: 0, percent: 0 };
-  }
 
   const textOffset = largePositionToReaderOffset(index, ratio);
   const textLength = Math.max(1, getReaderTextLength());
@@ -4021,10 +4126,10 @@ els.readerResume?.addEventListener("click", async (event) => {
           Math.min(1, Number(position.ratio || 0))
         );
 
-        const targetTop =
-          targetChunk.offsetTop +
-          targetChunk.offsetHeight * ratio -
-          92;
+        const targetTop = getLargeReaderTargetScrollTop(
+          targetChunk,
+          ratio
+        );
 
         const reached = await jumpReaderPanelTo(targetTop, {
           releaseAfter: IS_SAFARI_READER ? 750 : 520,

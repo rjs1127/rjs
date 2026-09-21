@@ -1,5 +1,5 @@
 {
-  "version": "v7.37",
+  "version": "v7.38",
   "releasedAt": "2026-09-21",
-  "label": "scroll-resume-coordinate-fix"
+  "label": "scroll-resume-text-coordinate-fix"
 }
