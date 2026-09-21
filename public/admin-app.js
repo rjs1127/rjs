@@ -41,6 +41,8 @@ const els = {
   postypeListCount: document.getElementById("postypeListCount"),
   postypeMissingDateCount: document.getElementById("postypeMissingDateCount"),
   postypeDirtyCount: document.getElementById("postypeDirtyCount"),
+  postypeDuplicateCount: document.getElementById("postypeDuplicateCount"),
+  postypeDuplicateFilters: document.getElementById("postypeDuplicateFilters"),
   postypeListBody: document.getElementById("postypeListBody"),
   postypeListPagination: document.getElementById("postypeListPagination"),
   postypeListEmpty: document.getElementById("postypeListEmpty"),
@@ -52,6 +54,7 @@ const els = {
   driveOverrideCount: document.getElementById("driveOverrideCount"),
   driveMismatchCount: document.getElementById("driveMismatchCount"),
   driveDirtyCount: document.getElementById("driveDirtyCount"),
+  driveDuplicateCount: document.getElementById("driveDuplicateCount"),
   driveListBody: document.getElementById("driveListBody"),
   driveListPagination: document.getElementById("driveListPagination"),
   driveListEmpty: document.getElementById("driveListEmpty"),
@@ -158,6 +161,7 @@ let postypeAdminItems = [];
 let postypeAdminLoaded = false;
 const POSTYPE_ADMIN_PAGE_SIZE = 30;
 let postypeAdminPage = 1;
+let postypeAdminFilter = "all";
 let driveAdminItems = [];
 let driveAdminLoaded = false;
 const DRIVE_ADMIN_PAGE_SIZE = 30;
@@ -1089,6 +1093,214 @@ async function loadResourceUsage(precise = false) {
   }
 }
 
+function normalizeDuplicateText(value = "") {
+  return String(value || "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[\u200b-\u200d\ufeff]/g, "")
+    .replace(/[\s\p{P}\p{S}_]+/gu, "")
+    .trim();
+}
+
+function normalizeDuplicateAuthor(value = "") {
+  return normalizeDuplicateText(value)
+    .replace(/^(?:작가|글|by)+/i, "");
+}
+
+function normalizeDuplicateUrl(value = "") {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  try {
+    const url = new URL(raw);
+    url.hash = "";
+    url.search = "";
+    return `${url.origin}${url.pathname}`.replace(/\/+$/, "").toLowerCase();
+  } catch {
+    return raw.replace(/[?#].*$/, "").replace(/\/+$/, "").toLowerCase();
+  }
+}
+
+function normalizeLooseDuplicateTitle(value = "") {
+  let text = String(value || "").normalize("NFKC").trim();
+  text = text
+    .replace(/\s*[\[(【][^\])】]{0,24}(?:완결|완|연재중|연재|외전|번외|후기|에필로그|epilogue)[^\])】]{0,24}[\])】]\s*$/iu, "")
+    .replace(/\s*[-–—·|:]\s*(?:완결|완|연재중|연재|외전|번외|후기|에필로그|epilogue)\s*$/iu, "")
+    .trim();
+  return normalizeDuplicateText(text);
+}
+
+function duplicateEntry(source, item, index) {
+  return {
+    source,
+    key: source === "postype"
+      ? `postype:${String(item.id || item.rowNumber || index)}`
+      : `drive:${String(item.id || index)}`,
+    item,
+    title: String(item.title || "").trim(),
+    author: String(item.author || "").trim(),
+    titleKey: normalizeDuplicateText(item.title),
+    looseTitleKey: normalizeLooseDuplicateTitle(item.title),
+    authorKey: normalizeDuplicateAuthor(item.author),
+    urlKey: source === "postype" ? normalizeDuplicateUrl(item.url) : "",
+  };
+}
+
+function addDuplicateMatch(entry, target, level, reason) {
+  if (!entry || !target || entry.key === target.key) return;
+  const item = entry.item;
+  if (!item._duplicate) item._duplicate = { level: "", matches: [] };
+  const existing = item._duplicate.matches.find((match) => match.key === target.key);
+  if (existing) {
+    if (level === "confirmed") {
+      existing.level = "confirmed";
+      existing.reason = reason;
+    }
+  } else {
+    item._duplicate.matches.push({
+      key: target.key,
+      source: target.source,
+      id: String(target.item.id || target.item.rowNumber || ""),
+      title: target.title,
+      author: target.author,
+      level,
+      reason,
+    });
+  }
+  if (level === "confirmed" || !item._duplicate.level) {
+    item._duplicate.level = level;
+  }
+}
+
+function rebuildDuplicateIndex() {
+  [...postypeAdminItems, ...driveAdminItems].forEach((item) => {
+    item._duplicate = { level: "", matches: [] };
+  });
+
+  const entries = [
+    ...postypeAdminItems.map((item, index) => duplicateEntry("postype", item, index)),
+    ...driveAdminItems.map((item, index) => duplicateEntry("drive", item, index)),
+  ].filter((entry) => entry.titleKey || entry.urlKey);
+
+  for (let i = 0; i < entries.length; i += 1) {
+    const a = entries[i];
+    for (let j = i + 1; j < entries.length; j += 1) {
+      const b = entries[j];
+      let level = "";
+      let reason = "";
+
+      if (a.urlKey && b.urlKey && a.urlKey === b.urlKey) {
+        level = "confirmed";
+        reason = "같은 POSTYPE URL";
+      } else if (a.titleKey && a.titleKey === b.titleKey) {
+        if (a.authorKey && b.authorKey && a.authorKey === b.authorKey) {
+          level = "confirmed";
+          reason = "제목·작가 일치";
+        } else {
+          level = "suspect";
+          reason = a.authorKey && b.authorKey
+            ? "제목 일치 · 작가 다름"
+            : "제목 일치 · 작가 확인 필요";
+        }
+      } else if (
+        a.looseTitleKey &&
+        b.looseTitleKey &&
+        a.looseTitleKey === b.looseTitleKey &&
+        a.looseTitleKey.length >= 3
+      ) {
+        level = "suspect";
+        reason = "제목 표기만 유사";
+      }
+
+      if (!level) continue;
+      addDuplicateMatch(a, b, level, reason);
+      addDuplicateMatch(b, a, level, reason);
+    }
+  }
+
+  [...postypeAdminItems, ...driveAdminItems].forEach((item) => {
+    if (!item._duplicate) return;
+    item._duplicate.matches.sort((a, b) => {
+      if (a.level !== b.level) return a.level === "confirmed" ? -1 : 1;
+      return String(a.title).localeCompare(String(b.title), "ko", { numeric: true });
+    });
+  });
+}
+
+function isDuplicateItem(item) {
+  return Boolean(item?._duplicate?.matches?.length);
+}
+
+function getDuplicateCounts(items = []) {
+  const flagged = items.filter(isDuplicateItem);
+  return {
+    total: flagged.length,
+    confirmed: flagged.filter((item) => item._duplicate?.level === "confirmed").length,
+    suspect: flagged.filter((item) => item._duplicate?.level !== "confirmed").length,
+  };
+}
+
+function renderDuplicateInfo(item) {
+  const info = item?._duplicate;
+  if (!info?.matches?.length) return "";
+
+  const confirmed = info.level === "confirmed";
+  const visible = info.matches.slice(0, 3);
+  const rows = visible.map((match) => {
+    const sourceLabel = match.source === "postype" ? "POSTYPE" : "Drive";
+    const author = match.author ? ` · ${escapeHtml(match.author)}` : "";
+    return `<div><b>${sourceLabel}</b> ${escapeHtml(match.title || "제목 없음")}${author}<small>${escapeHtml(match.reason || "중복 확인")}</small></div>`;
+  }).join("");
+  const more = info.matches.length > visible.length
+    ? `<span class="duplicate-more">외 ${info.matches.length - visible.length}건</span>`
+    : "";
+
+  return `
+    <div class="duplicate-info ${confirmed ? "is-confirmed" : "is-suspect"}">
+      <span class="duplicate-badge">${confirmed ? "중복 확정" : "중복 의심"}</span>
+      <div class="duplicate-matches">${rows}${more}</div>
+    </div>`;
+}
+
+async function ensureDuplicateReferenceData(source) {
+  try {
+    if (source !== "drive" && !driveAdminLoaded) {
+      const driveData = await api("/api/admin/drive-items", { method: "GET" });
+      driveAdminItems = mapDriveAdminItems(driveData.items || []);
+      driveAdminLoaded = true;
+    }
+    if (source !== "postype" && !postypeAdminLoaded) {
+      const postypeData = await api("/api/admin/postype-list", { method: "GET" });
+      postypeAdminItems = mapPostypeAdminItems(postypeData.items || []);
+      postypeAdminLoaded = true;
+    }
+  } catch (error) {
+    console.warn("duplicate reference load failed", error);
+  }
+  rebuildDuplicateIndex();
+}
+
+function mapDriveAdminItems(items = []) {
+  return items.map((item) => ({
+    ...item,
+    overrideContentType: String(item.overrideContentType || ""),
+    draftOverrideContentType: String(item.overrideContentType || ""),
+    overrideStatus: String(item.overrideStatus || ""),
+    draftOverrideStatus: String(item.overrideStatus || ""),
+  }));
+}
+
+function mapPostypeAdminItems(items = []) {
+  return items.map((item) => ({
+    ...item,
+    latestPublishedDate: String(item.latestPublishedDate || ""),
+    draftLatestPublishedDate: String(item.latestPublishedDate || ""),
+    publishType: String(item.publishType || (["series", "manual"].includes(item.linkType) ? "다회차" : "단일글")),
+    draftPublishType: String(item.publishType || (["series", "manual"].includes(item.linkType) ? "다회차" : "단일글")),
+    status: String(item.status || "완결"),
+    draftStatus: String(item.status || "완결"),
+  }));
+}
+
 function getPostypeDirtyItems() {
   return postypeAdminItems.filter((item) =>
     String(item.draftLatestPublishedDate || "") !== String(item.latestPublishedDate || "") ||
@@ -1111,6 +1323,11 @@ function updatePostypeAdminCounts() {
   }
   if (els.postypeDirtyCount) {
     els.postypeDirtyCount.textContent = dirty.toLocaleString("ko-KR") + "개";
+  }
+  if (els.postypeDuplicateCount) {
+    const duplicateCounts = getDuplicateCounts(postypeAdminItems);
+    els.postypeDuplicateCount.textContent = `${duplicateCounts.total.toLocaleString("ko-KR")}개`;
+    els.postypeDuplicateCount.title = `확정 ${duplicateCounts.confirmed.toLocaleString("ko-KR")} · 의심 ${duplicateCounts.suspect.toLocaleString("ko-KR")}`;
   }
 }
 
@@ -1151,6 +1368,11 @@ function updateDriveAdminCounts() {
     els.driveDirtyCount.textContent =
       `${getDriveDirtyItems().length.toLocaleString("ko-KR")}개`;
   }
+  if (els.driveDuplicateCount) {
+    const duplicateCounts = getDuplicateCounts(driveAdminItems);
+    els.driveDuplicateCount.textContent = `${duplicateCounts.total.toLocaleString("ko-KR")}개`;
+    els.driveDuplicateCount.title = `확정 ${duplicateCounts.confirmed.toLocaleString("ko-KR")} · 의심 ${duplicateCounts.suspect.toLocaleString("ko-KR")}`;
+  }
 }
 
 function isDriveFolderMismatch(item) {
@@ -1182,6 +1404,10 @@ function getFilteredDriveAdminItems() {
     return getDriveDirtyItems();
   }
 
+  if (driveAdminFilter === "duplicate") {
+    return driveAdminItems.filter(isDuplicateItem);
+  }
+
   return driveAdminItems;
 }
 
@@ -1198,6 +1424,7 @@ function getDriveFilterLabel() {
   if (driveAdminFilter === "manual") return "수동 지정";
   if (driveAdminFilter === "mismatch") return "기존 폴더와 자동판정 불일치";
   if (driveAdminFilter === "dirty") return "수정 대기";
+  if (driveAdminFilter === "duplicate") return "중복 확인";
   return "전체";
 }
 
@@ -1318,6 +1545,7 @@ function renderDriveAdminList() {
         <td class="postype-library-title">
           ${escapeHtml(item.title || "제목 없음")}
           <div class="postype-library-sub">${escapeHtml(item.fileName || "")}</div>
+          ${renderDuplicateInfo(item)}
         </td>
         <td>${escapeHtml(item.author || "-")}</td>
         <td>${escapeHtml(item.combination || "-")}</td>
@@ -1358,22 +1586,14 @@ async function loadDriveAdminList() {
     method: "GET",
   });
 
-  driveAdminItems = (data.items || []).map((item) => ({
-    ...item,
-    overrideContentType:
-      String(item.overrideContentType || ""),
-    draftOverrideContentType:
-      String(item.overrideContentType || ""),
-    overrideStatus:
-      String(item.overrideStatus || ""),
-    draftOverrideStatus:
-      String(item.overrideStatus || ""),
-  }));
+  driveAdminItems = mapDriveAdminItems(data.items || []);
 
   driveAdminPage = 1;
   driveAdminFilter = "all";
   driveAdminLoaded = true;
+  await ensureDuplicateReferenceData("drive");
   renderDriveAdminList();
+  if (postypeAdminLoaded) renderPostypeAdminList();
 
   els.driveListMessage.textContent =
     `용량 자동판정 기준 ${Number(data.thresholdKb || 200)}KB · ` +
@@ -1441,8 +1661,21 @@ function getPostypeIdNumber(id) {
   return match ? Number(match[1]) : -1;
 }
 
+function getFilteredPostypeAdminItems() {
+  if (postypeAdminFilter === "duplicate") {
+    return postypeAdminItems.filter(isDuplicateItem);
+  }
+  return postypeAdminItems;
+}
+
+function syncPostypeDuplicateFilterButtons() {
+  els.postypeDuplicateFilters?.querySelectorAll("[data-postype-filter]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.postypeFilter === postypeAdminFilter);
+  });
+}
+
 function getSortedPostypeAdminItems() {
-  return [...postypeAdminItems].sort((a, b) => {
+  return [...getFilteredPostypeAdminItems()].sort((a, b) => {
     const aNumber = getPostypeIdNumber(a.id);
     const bNumber = getPostypeIdNumber(b.id);
     if (bNumber !== aNumber) return bNumber - aNumber;
@@ -1502,6 +1735,9 @@ function renderPostypeAdminList() {
   const pageItems = sortedItems.slice(startIndex, startIndex + POSTYPE_ADMIN_PAGE_SIZE);
 
   els.postypeListEmpty.hidden = sortedItems.length !== 0;
+  els.postypeListEmpty.textContent = postypeAdminFilter === "duplicate"
+    ? "중복으로 확인할 POSTYPE 작품이 없습니다."
+    : "등록된 POSTYPE 작품이 없습니다.";
   els.postypeListBody.innerHTML = pageItems.map((item) => {
     const dirty =
       String(item.draftLatestPublishedDate || "") !== String(item.latestPublishedDate || "") ||
@@ -1512,7 +1748,7 @@ function renderPostypeAdminList() {
     return `
       <tr data-postype-id="${escapeHtml(item.id)}" class="${dirty ? "postype-library-row-dirty" : ""}">
         <td>${escapeHtml(item.id || "-")}</td>
-        <td class="postype-library-title">${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title || "제목 없음")}</a>` : escapeHtml(item.title || "제목 없음")}<div class="postype-library-sub">${escapeHtml(item.genre || "-")}${item.enabled === "N" ? " · 숨김" : ""}</div></td>
+        <td class="postype-library-title">${item.url ? `<a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.title || "제목 없음")}</a>` : escapeHtml(item.title || "제목 없음")}<div class="postype-library-sub">${escapeHtml(item.genre || "-")}${item.enabled === "N" ? " · 숨김" : ""}</div>${renderDuplicateInfo(item)}</td>
         <td>${escapeHtml(item.author || "-")}</td>
         <td>${escapeHtml(item.combination || "-")}${subCp ? `<div class="postype-library-sub">${escapeHtml(subCp)}</div>` : ""}</td>
         <td><select data-postype-content-type><option value="단편"${contentType === "단편" ? " selected" : ""}>단편</option><option value="연재물"${contentType === "연재물" ? " selected" : ""}>연재</option></select></td>
@@ -1524,6 +1760,7 @@ function renderPostypeAdminList() {
   }).join("");
   renderPostypePagination(sortedItems.length);
   updatePostypeAdminCounts();
+  syncPostypeDuplicateFilterButtons();
 }
 
 async function loadPostypeAdminList(showMessage = false) {
@@ -1537,17 +1774,12 @@ async function loadPostypeAdminList(showMessage = false) {
   });
 
   postypeAdminPage = 1;
-  postypeAdminItems = (data.items || []).map((item) => ({
-    ...item,
-    latestPublishedDate: String(item.latestPublishedDate || ""),
-    draftLatestPublishedDate: String(item.latestPublishedDate || ""),
-    publishType: String(item.publishType || (["series", "manual"].includes(item.linkType) ? "다회차" : "단일글")),
-    draftPublishType: String(item.publishType || (["series", "manual"].includes(item.linkType) ? "다회차" : "단일글")),
-    status: String(item.status || "완결"),
-    draftStatus: String(item.status || "완결"),
-  }));
+  postypeAdminItems = mapPostypeAdminItems(data.items || []);
+  postypeAdminFilter = "all";
   postypeAdminLoaded = true;
+  await ensureDuplicateReferenceData("postype");
   renderPostypeAdminList();
+  if (driveAdminLoaded) renderDriveAdminList();
 
   if (els.postypeListMessage) {
     if (data.headerAdded) {
@@ -2341,6 +2573,23 @@ els.postypeListRefreshButton?.addEventListener("click", async () => {
   }
 });
 
+els.postypeDuplicateFilters?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-postype-filter]");
+  if (!button) return;
+
+  postypeAdminFilter = button.dataset.postypeFilter || "all";
+  postypeAdminPage = 1;
+  renderPostypeAdminList();
+
+  if (els.postypeListMessage) {
+    els.postypeListMessage.hidden = false;
+    const count = getFilteredPostypeAdminItems().length;
+    els.postypeListMessage.textContent = postypeAdminFilter === "duplicate"
+      ? `중복 확인 대상 · ${count.toLocaleString("ko-KR")}개 조회`
+      : `전체 · ${count.toLocaleString("ko-KR")}개 조회`;
+  }
+});
+
 els.driveSummaryFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-drive-filter]");
   if (!button) return;
@@ -2469,7 +2718,7 @@ els.driveTypeSaveButton?.addEventListener("click", async () => {
 });
 
 els.postypeListPagination?.addEventListener("click", (event) => {
-  const totalPages = Math.max(1, Math.ceil(postypeAdminItems.length / POSTYPE_ADMIN_PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(getFilteredPostypeAdminItems().length / POSTYPE_ADMIN_PAGE_SIZE));
   const pageButton = event.target.closest("[data-postype-page]");
 
   if (pageButton) {

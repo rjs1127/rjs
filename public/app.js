@@ -2910,19 +2910,15 @@ async function turnReaderPage(direction) {
   ) return;
 
   // Page mode should enter the same compact reading state for every content
-  // type on the first real page navigation. Preserve the already-rendered
-  // viewport height while the header compacts so the first page and later
-  // pages keep the same text area instead of jumping in size.
+  // type on the first real page navigation. Measure the page viewport only
+  // after the compact header has reached its final layout. Keeping the old
+  // expanded-header height for one turn made the first compact page end a few
+  // pixels higher/lower than every page rendered after the next navigation.
   if (!readerCompactActive && els.readerPageViewport) {
-    const stablePageHeight = Math.max(
-      0,
-      Math.round(els.readerPageViewport.getBoundingClientRect().height)
-    );
     setReaderCompactActive(true);
     await nextFrame();
-    if (stablePageHeight > 0) {
-      els.readerPageViewport.style.height = `${stablePageHeight}px`;
-    }
+    await nextFrame();
+    resizeReaderPageViewport();
   }
 
   if (direction > 0) {
@@ -5880,14 +5876,6 @@ function ensureReaderShareUi() {
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
-  input.addEventListener("blur", () => {
-    const normalized = normalizeReaderShareText(input.value);
-    if (normalized && normalized !== input.value) {
-      input.value = normalized;
-      state.readerShareText = normalized;
-      updateReaderSharePreview();
-    }
-  });
 
   saveButton?.addEventListener("click", async () => {
     await handleReaderShareExport("save");
@@ -5925,7 +5913,7 @@ function getReaderShareRenderModel() {
   ensureReaderShareState();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = state.activeReaderItem || {};
-  const text = normalizeReaderShareText(state.readerShareText).slice(0, 700);
+  const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
@@ -6133,28 +6121,85 @@ function updateReaderShareActionLabel() {
   }
 }
 
+let readerSharePreparedBlob = null;
+let readerSharePreparedBlobKey = "";
+let readerSharePreparePromise = null;
+let readerSharePrepareTimer = 0;
+
+function getReaderShareBlobKey() {
+  const item = state.activeReaderItem || {};
+  return JSON.stringify({
+    text: getReaderShareEditedText(state.readerShareText).slice(0, 700),
+    background: state.readerShareBackground,
+    ratio: state.readerShareRatio,
+    font: state.readerShareFont,
+    size: state.readerShareSize,
+    autoWrap: !!state.readerShareAutoWrap,
+    title: item.title || "",
+    author: item.author || "",
+  });
+}
+
 function createReaderShareBlobPromise() {
   return renderReaderShareCanvas().then((canvas) => new Promise((resolve, reject) => {
     canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
   }));
 }
 
-async function copyReaderShareImageToClipboard() {
+function scheduleReaderShareBlobPreparation(delay = 90) {
+  window.clearTimeout(readerSharePrepareTimer);
+  const key = getReaderShareBlobKey();
+  if (readerSharePreparedBlob && readerSharePreparedBlobKey === key) return;
+
+  readerSharePrepareTimer = window.setTimeout(() => {
+    const preparedKey = getReaderShareBlobKey();
+    if (readerSharePreparedBlob && readerSharePreparedBlobKey === preparedKey) return;
+
+    const promise = createReaderShareBlobPromise();
+    readerSharePreparePromise = promise;
+    promise.then((blob) => {
+      if (getReaderShareBlobKey() !== preparedKey) return;
+      readerSharePreparedBlob = blob;
+      readerSharePreparedBlobKey = preparedKey;
+    }).catch((error) => {
+      console.warn("reader share image pre-render failed", error);
+    }).finally(() => {
+      if (readerSharePreparePromise === promise) readerSharePreparePromise = null;
+    });
+  }, Math.max(0, Number(delay) || 0));
+}
+
+function getPreparedReaderShareBlob() {
+  return readerSharePreparedBlobKey === getReaderShareBlobKey()
+    ? readerSharePreparedBlob
+    : null;
+}
+
+function copyReaderShareImageToClipboard() {
   if (!window.isSecureContext || !navigator.clipboard?.write || !window.ClipboardItem) {
     throw new Error("clipboard_image_unsupported");
   }
+  if (typeof ClipboardItem.supports === "function" && !ClipboardItem.supports("image/png")) {
+    throw new Error("clipboard_image_unsupported");
+  }
 
-  // Mobile browsers can drop transient user activation while we await canvas/blob
-  // generation. Start clipboard.write() synchronously from the button click and
-  // hand ClipboardItem a Promise for the PNG instead.
-  const blobPromise = createReaderShareBlobPromise();
+  // Mobile browsers are especially strict about transient user activation.
+  // The PNG is pre-rendered while the editor is open, so the actual click can
+  // construct ClipboardItem from an already-ready Blob and call write()
+  // immediately, without awaiting canvas/font work first.
+  const blob = getPreparedReaderShareBlob();
+  if (!blob) {
+    scheduleReaderShareBlobPreparation(0);
+    throw new Error("clipboard_image_preparing");
+  }
+
   let item;
   try {
-    item = new ClipboardItem({ "image/png": blobPromise });
+    item = new ClipboardItem({ "image/png": blob });
   } catch (error) {
     throw new Error("clipboard_image_unsupported", { cause: error });
   }
-  await navigator.clipboard.write([item]);
+  return navigator.clipboard.write([item]);
 }
 
 function setReaderShareBusy(isBusy) {
@@ -6190,7 +6235,11 @@ async function handleReaderShareExport(mode) {
       return;
     }
 
-    const blob = await createReaderShareBlobPromise();
+    const blob = getPreparedReaderShareBlob() || await createReaderShareBlobPromise();
+    if (!readerSharePreparedBlob || readerSharePreparedBlobKey !== getReaderShareBlobKey()) {
+      readerSharePreparedBlob = blob;
+      readerSharePreparedBlobKey = getReaderShareBlobKey();
+    }
     const filename = getReaderShareFilename();
     if (mode === "save") {
       downloadReaderShareBlob(blob, filename);
@@ -6210,8 +6259,11 @@ async function handleReaderShareExport(mode) {
   } catch (error) {
     if (error?.name === "AbortError") return;
     console.error("reader share export failed", error);
-    if (String(error?.message || "").includes("clipboard_image_unsupported")) {
-      window.alert("이 브라우저는 이미지 클립보드 복사를 지원하지 않습니다. 이미지 저장을 이용해 주세요.");
+    const message = String(error?.message || "");
+    if (message.includes("clipboard_image_preparing")) {
+      window.alert("클립보드용 이미지를 준비 중입니다. 잠시 후 다시 눌러 주세요.");
+    } else if (message.includes("clipboard_image_unsupported")) {
+      window.alert("이 브라우저는 이미지 클립보드 복사를 지원하지 않습니다. 이미지 저장 또는 공유하기를 이용해 주세요.");
     } else {
       window.alert("이미지를 생성하지 못했습니다. 다시 시도해 주세요.");
     }
@@ -6244,7 +6296,7 @@ function updateReaderSharePreview() {
   const ui = ensureReaderShareUi();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = state.activeReaderItem || {};
-  const text = normalizeReaderShareText(state.readerShareText).slice(0, 700);
+  const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
   const textColor = background.text;
@@ -6284,6 +6336,7 @@ function updateReaderSharePreview() {
   });
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
+  scheduleReaderShareBlobPreparation(120);
 }
 
 function openReaderShareSheet() {
@@ -6301,6 +6354,7 @@ function openReaderShareSheet() {
   ui.input.value = state.readerShareText;
   ui.backdrop.hidden = false;
   updateReaderSharePreview();
+  scheduleReaderShareBlobPreparation(0);
   updateReaderShareActionLabel();
 }
 
@@ -6308,44 +6362,26 @@ function closeReaderShareUi() {
   if (!readerShareUi) return;
   readerShareUi.backdrop.hidden = true;
   readerShareUi.floatButton.hidden = true;
+  window.clearTimeout(readerSharePrepareTimer);
   state.readerShareText = "";
 }
 
-function normalizeReaderShareText(rawText) {
-  const source = String(rawText || "")
+function getReaderShareEditedText(rawText) {
+  return String(rawText || "").replace(/\r\n?/g, "\n");
+}
+
+function normalizeReaderShareInitialText(rawText) {
+  return String(rawText || "")
     .replace(/\u00a0/g, " ")
     .replace(/\r\n?/g, "\n")
-    .replace(/[\t\f\v]+/g, " ");
-  const lines = source.split("\n").map((line) => line.replace(/[ ]+/g, " ").trim());
-  const paragraphs = [];
-  let current = [];
-  let blankSeen = false;
-
-  const flush = () => {
-    if (!current.length) return;
-    const paragraph = current.join(" ")
-      .replace(/\s+([,.!?;:，。！？])/g, "$1")
-      .replace(/([([{“‘])\s+/g, "$1")
-      .replace(/\s+([)\]}”’])/g, "$1")
-      .replace(/ {2,}/g, " ")
-      .trim();
-    if (paragraph) paragraphs.push(paragraph);
-    current = [];
-  };
-
-  for (const line of lines) {
-    if (!line) {
-      if (current.length) blankSeen = true;
-      continue;
-    }
-    if (blankSeen) {
-      flush();
-      blankSeen = false;
-    }
-    current.push(line);
-  }
-  flush();
-  return paragraphs.join("\n").trim();
+    .replace(/[\t\f\v]+/g, " ")
+    .split("\n")
+    .map((line) => line.replace(/ {2,}/g, " ").trim())
+    .join("\n")
+    // Keep an intentional single line break, but collapse old text that has
+    // several blank/forced lines in a row when it is first selected.
+    .replace(/\n{2,}/g, "\n")
+    .trim();
 }
 
 function getReaderTextSelection() {
@@ -6353,7 +6389,7 @@ function getReaderTextSelection() {
   const selection = window.getSelection?.();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
 
-  const text = normalizeReaderShareText(selection.toString()).slice(0, 700);
+  const text = normalizeReaderShareInitialText(selection.toString()).slice(0, 700);
   if (!text) return null;
 
   const range = selection.getRangeAt(0);
@@ -6387,6 +6423,7 @@ function syncReaderShareSelection() {
     }
 
     state.readerShareText = selected.text;
+    scheduleReaderShareBlobPreparation(0);
     const margin = 24;
     const buttonSize = 38;
     let x;
