@@ -30,7 +30,6 @@ const state = {
   readerPageResizeTimer: 0,
   readerPageTouchStartX: null,
   readerPageTouchStartY: null,
-  readerPageSuppressClickUntil: 0,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -106,23 +105,6 @@ function applyUserPreferences() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
-
-  const displayMode =
-    localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
-      ? "page"
-      : "scroll";
-
-  [els.readerScrollModeButton, els.readerPageModeButton]
-    .filter(Boolean)
-    .forEach((button) => {
-      const active =
-        button.dataset.readerDisplayMode === displayMode;
-      button.classList.toggle("active", active);
-      button.setAttribute(
-        "aria-pressed",
-        active ? "true" : "false"
-      );
-    });
 }
 
 
@@ -194,9 +176,9 @@ const els = {
   readerResumeText: document.getElementById("readerResumeText"),
   readerResumeButton: document.getElementById("readerResumeButton"),
   readerRestartButton: document.getElementById("readerRestartButton"),
+  readerModeBar: document.getElementById("readerModeBar"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
-  readerDisplayModePreference: document.getElementById("readerDisplayModePreference"),
   readerPageViewport: document.getElementById("readerPageViewport"),
   readerPageText: document.getElementById("readerPageText"),
   readerPagePrev: document.getElementById("readerPagePrev"),
@@ -2211,7 +2193,6 @@ function resetReaderPageState() {
   state.readerPageHasNavigated = false;
   state.readerPageTouchStartX = null;
   state.readerPageTouchStartY = null;
-  state.readerPageSuppressClickUntil = 0;
   window.clearTimeout(state.readerPageResizeTimer);
   state.readerPageResizeTimer = 0;
 }
@@ -2581,8 +2562,8 @@ async function setReaderDisplayMode(mode, options = {}) {
 
   if (pageActive) {
     els.readerPanel.scrollTop = 0;
-    readerCompactActive = true;
-    els.readerPanel.classList.add("reader-compact");
+    readerCompactActive = false;
+    els.readerPanel.classList.remove("reader-compact");
     els.readerScrollTop?.classList.remove("visible");
 
     await nextFrame();
@@ -2598,7 +2579,6 @@ async function setReaderDisplayMode(mode, options = {}) {
   }
 
   await nextFrame();
-  syncReaderCompactMode(els.readerPanel.scrollTop);
 
   if (previousMode === "page" || Number.isFinite(options.offset)) {
     temporarilySuspendProgressSave(700);
@@ -3204,8 +3184,11 @@ async function openReader(item) {
   if (els.readerResume) els.readerResume.hidden = true;
 
   const pageEligible = isReaderPageModeEligible(item);
+  if (els.readerModeBar) {
+    els.readerModeBar.hidden = !pageEligible;
+  }
   if (els.readerPageModeButton) {
-    els.readerPageModeButton.disabled = !pageEligible;
+    els.readerPageModeButton.disabled = true;
   }
 
   els.readerCombination.textContent = item.combination || "";
@@ -3332,6 +3315,7 @@ function closeReader() {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
   }
+  if (els.readerModeBar) els.readerModeBar.hidden = true;
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
@@ -3447,80 +3431,37 @@ els.readerBody?.addEventListener("click", (event) => {
   if (item) openReader(item);
 });
 
-async function setReaderDisplayPreference(mode) {
-  const nextMode = mode === "page" ? "page" : "scroll";
-  localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
-  state.readerDisplayMode = nextMode;
-  applyUserPreferences();
-
-  const item = state.activeReaderItem;
-  if (
-    item &&
-    !els.readerOverlay?.hidden &&
-    isReaderPageModeEligible(item) &&
-    state.readerText
-  ) {
-    await setReaderDisplayMode(nextMode, {
-      persist: false,
-    });
-  }
-}
-
 els.readerScrollModeButton?.addEventListener("click", async () => {
-  await setReaderDisplayPreference("scroll");
+  await setReaderDisplayMode("scroll");
+  const saved = saveReaderProgress();
+  if (saved && state.activeReaderItem && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
 });
 
 els.readerPageModeButton?.addEventListener("click", async () => {
-  if (els.readerPageModeButton.disabled) return;
-  await setReaderDisplayPreference("page");
+  await setReaderDisplayMode("page");
+  const saved = saveReaderProgress();
+  if (saved && state.activeReaderItem && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
 });
 
-els.readerPageViewport?.addEventListener("click", async (event) => {
-  if (
-    state.readerDisplayMode !== "page" ||
-    els.readerPageViewport.hidden
-  ) return;
-
-  if (Date.now() < state.readerPageSuppressClickUntil) {
-    return;
-  }
-
-  const prevButton = event.target.closest("#readerPagePrev");
-  if (prevButton) {
-    event.preventDefault();
+els.readerBody?.addEventListener("click", async (event) => {
+  if (event.target.closest("#readerPagePrev")) {
     await turnReaderPage(-1);
     return;
   }
 
-  const nextButton = event.target.closest("#readerPageNext");
-  if (nextButton) {
-    event.preventDefault();
+  if (event.target.closest("#readerPageNext")) {
     await turnReaderPage(1);
-    return;
   }
-
-  if (event.target.closest(".reader-page-footer")) {
-    return;
-  }
-
-  const selection = window.getSelection?.();
-  if (selection && !selection.isCollapsed && String(selection).trim()) {
-    return;
-  }
-
-  const rect = els.readerPageViewport.getBoundingClientRect();
-  if (!rect.width) return;
-
-  const x = event.clientX - rect.left;
-  const direction = x < rect.width / 2 ? -1 : 1;
-
-  await turnReaderPage(direction);
 });
 
-els.readerPageViewport?.addEventListener("touchstart", (event) => {
+els.readerBody?.addEventListener("touchstart", (event) => {
   if (
     state.readerDisplayMode !== "page" ||
-    els.readerPageViewport.hidden
+    !event.target.closest("#readerPageViewport")
   ) return;
 
   const touch = event.touches?.[0];
@@ -3530,7 +3471,7 @@ els.readerPageViewport?.addEventListener("touchstart", (event) => {
   state.readerPageTouchStartY = touch.clientY;
 }, { passive: true });
 
-els.readerPageViewport?.addEventListener("touchend", async (event) => {
+els.readerBody?.addEventListener("touchend", async (event) => {
   if (
     state.readerDisplayMode !== "page" ||
     state.readerPageTouchStartX == null ||
@@ -3551,7 +3492,6 @@ els.readerPageViewport?.addEventListener("touchend", async (event) => {
     Math.abs(dx) <= Math.abs(dy) * 1.2
   ) return;
 
-  state.readerPageSuppressClickUntil = Date.now() + 450;
   await turnReaderPage(dx < 0 ? 1 : -1);
 }, { passive: true });
 
