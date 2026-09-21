@@ -15,7 +15,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=729" />
+  <link rel="stylesheet" href="/theme.css?v=730" />
 </head>
 <body>
   <div class="app-shell">
@@ -261,7 +261,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.29</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.30</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -322,11 +322,24 @@
         </div>
       </div>
 
+      <div id="readerQuickModeBar" class="reader-quick-mode-bar" hidden>
+        <span class="reader-quick-mode-label">읽기</span>
+        <div class="reader-quick-mode-switch" role="group" aria-label="현재 읽기 방식">
+          <button id="readerQuickScrollButton" type="button" aria-pressed="true">스크롤</button>
+          <button id="readerQuickPageButton" type="button" aria-pressed="false">페이지</button>
+        </div>
+      </div>
+
       <section id="readerPageViewport" class="reader-page-viewport" hidden aria-label="페이지 읽기">
         <div id="readerPageText" class="reader-page-text"></div>
         <div class="reader-page-footer">
           <button id="readerPagePrev" type="button" aria-label="이전 페이지">‹ 이전</button>
-          <span id="readerPageStatus" aria-live="polite">0%</span>
+          <div class="reader-page-progress" aria-label="읽기 진도">
+            <div class="reader-page-progress-track" aria-hidden="true">
+              <div id="readerPageProgressFill" class="reader-page-progress-fill"></div>
+            </div>
+            <span id="readerPageStatus" aria-live="polite">0%</span>
+          </div>
           <button id="readerPageNext" type="button" aria-label="다음 페이지">다음 ›</button>
         </div>
         <div id="readerPageMeasure" class="reader-page-measure" aria-hidden="true"></div>
@@ -604,6 +617,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=729" defer></script>
+  <script src="/app.js?v=730" defer></script>
 </body>
 </html>

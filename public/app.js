@@ -62,6 +62,7 @@ const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
 const LIBRARY_PAGE_SIZE = 20;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
+const READER_GUEST_DISPLAY_MODE_KEY = "rjsGuestReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
 const READER_PAGE_SWIPE_PX = 48;
 
@@ -182,11 +183,15 @@ const els = {
   readerRestartButton: document.getElementById("readerRestartButton"),
   readerScrollModeButton: document.getElementById("readerScrollModeButton"),
   readerPageModeButton: document.getElementById("readerPageModeButton"),
+  readerQuickModeBar: document.getElementById("readerQuickModeBar"),
+  readerQuickScrollButton: document.getElementById("readerQuickScrollButton"),
+  readerQuickPageButton: document.getElementById("readerQuickPageButton"),
   readerPageViewport: document.getElementById("readerPageViewport"),
   readerPageText: document.getElementById("readerPageText"),
   readerPagePrev: document.getElementById("readerPagePrev"),
   readerPageNext: document.getElementById("readerPageNext"),
   readerPageStatus: document.getElementById("readerPageStatus"),
+  readerPageProgressFill: document.getElementById("readerPageProgressFill"),
   readerPageMeasure: document.getElementById("readerPageMeasure"),
   readerLoadingTitle: document.getElementById("readerLoadingTitle"),
   readerLoadingText: document.getElementById("readerLoadingText"),
@@ -2415,10 +2420,15 @@ function updateReaderPageControls() {
       end >= length ? "마지막" : "다음 ›";
   }
 
+  if (els.readerPageProgressFill) {
+    els.readerPageProgressFill.style.width =
+      `${Math.max(0, Math.min(100, percent))}%`;
+  }
+
   if (els.readerPageStatus) {
     els.readerPageStatus.textContent =
       end >= length
-        ? "마지막 페이지"
+        ? "100%"
         : `${getReaderProgressDisplayPercent(percent)}%`;
   }
 }
@@ -2496,7 +2506,13 @@ async function syncScrollReaderToOffset(offset) {
 }
 
 function getPreferredReaderDisplayMode() {
-  return localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+  if (state.user) {
+    return localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+      ? "page"
+      : "scroll";
+  }
+
+  return sessionStorage.getItem(READER_GUEST_DISPLAY_MODE_KEY) === "page"
     ? "page"
     : "scroll";
 }
@@ -2507,17 +2523,25 @@ function syncReaderModeButtons() {
     : getPreferredReaderDisplayMode();
   const pageActive = effectiveMode === "page";
 
-  els.readerScrollModeButton?.classList.toggle("active", !pageActive);
-  els.readerPageModeButton?.classList.toggle("active", pageActive);
+  [els.readerScrollModeButton, els.readerQuickScrollButton]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.classList.toggle("active", !pageActive);
+      button.setAttribute(
+        "aria-pressed",
+        pageActive ? "false" : "true"
+      );
+    });
 
-  els.readerScrollModeButton?.setAttribute(
-    "aria-pressed",
-    pageActive ? "false" : "true"
-  );
-  els.readerPageModeButton?.setAttribute(
-    "aria-pressed",
-    pageActive ? "true" : "false"
-  );
+  [els.readerPageModeButton, els.readerQuickPageButton]
+    .filter(Boolean)
+    .forEach((button) => {
+      button.classList.toggle("active", pageActive);
+      button.setAttribute(
+        "aria-pressed",
+        pageActive ? "true" : "false"
+      );
+    });
 }
 
 async function setReaderDisplayMode(mode, options = {}) {
@@ -2529,7 +2553,14 @@ async function setReaderDisplayMode(mode, options = {}) {
     state.readerDisplayMode = requestedMode;
 
     if (options.persist !== false) {
-      localStorage.setItem(READER_DISPLAY_MODE_KEY, requestedMode);
+      if (state.user) {
+        localStorage.setItem(READER_DISPLAY_MODE_KEY, requestedMode);
+      } else {
+        sessionStorage.setItem(
+          READER_GUEST_DISPLAY_MODE_KEY,
+          requestedMode
+        );
+      }
     }
 
     syncReaderModeButtons();
@@ -2556,7 +2587,11 @@ async function setReaderDisplayMode(mode, options = {}) {
   state.readerDisplayMode = nextMode;
 
   if (options.persist !== false) {
-    localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
+    if (state.user) {
+      localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
+    } else {
+      sessionStorage.setItem(READER_GUEST_DISPLAY_MODE_KEY, nextMode);
+    }
   }
 
   syncReaderModeButtons();
@@ -3242,6 +3277,10 @@ async function openReader(item) {
 
   const pageEligible = isReaderPageModeEligible(item);
 
+  if (els.readerQuickModeBar) {
+    els.readerQuickModeBar.hidden = !pageEligible;
+  }
+
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
   els.readerTitle.textContent = item.title || "제목 미상";
@@ -3303,7 +3342,7 @@ async function openReader(item) {
 
     const preferredMode =
       isReaderPageModeEligible(item) &&
-      localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+      getPreferredReaderDisplayMode() === "page"
         ? "page"
         : "scroll";
 
@@ -3361,6 +3400,9 @@ function closeReader() {
   if (els.readerPageViewport) {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
+  }
+  if (els.readerQuickModeBar) {
+    els.readerQuickModeBar.hidden = true;
   }
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
@@ -3491,6 +3533,28 @@ els.readerScrollModeButton?.addEventListener("click", async () => {
 });
 
 els.readerPageModeButton?.addEventListener("click", async () => {
+  await setReaderDisplayMode("page");
+
+  if (!state.activeReaderItem) return;
+
+  const saved = saveReaderProgress();
+  if (saved && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
+});
+
+els.readerQuickScrollButton?.addEventListener("click", async () => {
+  await setReaderDisplayMode("scroll");
+
+  if (!state.activeReaderItem) return;
+
+  const saved = saveReaderProgress();
+  if (saved && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
+});
+
+els.readerQuickPageButton?.addEventListener("click", async () => {
   await setReaderDisplayMode("page");
 
   if (!state.activeReaderItem) return;

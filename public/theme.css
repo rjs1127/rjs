@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.29 canonical page-mode layout
+   v7.30 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -2868,5 +2868,128 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 
   .reader-page-footer button:active {
     transform:none;
+  }
+}
+
+/* =========================
+   v7.30 guest mode switch + progress bar
+   ========================= */
+
+.reader-quick-mode-bar {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  width:100%;
+  max-width:100%;
+  padding:6px 12px 0;
+  box-sizing:border-box;
+}
+
+.reader-quick-mode-label {
+  color:var(--theme-muted);
+  font-size:10px;
+  font-weight:750;
+}
+
+.reader-quick-mode-switch {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  padding:3px;
+  border:1px solid var(--theme-line);
+  border-radius:12px;
+  background:var(--theme-surface-soft);
+}
+
+.reader-quick-mode-switch button {
+  min-width:50px;
+  height:29px;
+  padding:0 8px;
+  border:0;
+  border-radius:9px;
+  background:transparent;
+  color:var(--theme-muted);
+  font:inherit;
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+}
+
+.reader-quick-mode-switch button.active {
+  background:var(--theme-primary-bg);
+  color:var(--theme-primary-text);
+}
+
+.reader-page-progress {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:8px;
+  width:100%;
+  min-width:0;
+}
+
+.reader-page-progress-track {
+  position:relative;
+  width:100%;
+  min-width:0;
+  height:4px;
+  overflow:hidden;
+  border-radius:999px;
+  background:var(--theme-line-soft);
+}
+
+.reader-page-progress-fill {
+  width:0;
+  height:100%;
+  border-radius:inherit;
+  background:var(--theme-primary);
+  transition:width .28s ease;
+  will-change:width;
+}
+
+.reader-page-progress #readerPageStatus {
+  min-width:34px;
+  text-align:right;
+  white-space:nowrap;
+}
+
+.reader.reader-page-mode.reader-compact .reader-quick-mode-bar {
+  padding-top:4px;
+}
+
+@media (max-width:640px) {
+  .reader-quick-mode-bar {
+    justify-content:space-between;
+    padding:5px 12px 0;
+  }
+
+  .reader-quick-mode-switch {
+    margin-left:auto;
+  }
+
+  .reader-page-footer {
+    grid-template-columns:minmax(64px,86px) minmax(0,1fr) minmax(64px,86px);
+  }
+
+  .reader-page-progress {
+    gap:6px;
+  }
+
+  .reader-page-progress-track {
+    height:3px;
+  }
+
+  .reader-page-progress #readerPageStatus {
+    min-width:31px;
+    font-size:9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-page-progress-fill {
+    transition:none !important;
   }
 }
