@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.28 canonical page-mode layout
+   v7.29 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -2793,5 +2793,80 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     width:calc(100% - 60px) !important;
     margin-left:30px !important;
     margin-right:30px !important;
+  }
+}
+
+/* Page-mode touch feedback: suppress browser blue tap flash and use a subtle
+   page-turn motion instead. */
+.reader-page-viewport,
+.reader-page-text,
+.reader-page-footer,
+.reader-page-footer button {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.reader-page-viewport,
+.reader-page-text {
+  touch-action: pan-y;
+}
+
+.reader-page-footer button {
+  touch-action: manipulation;
+}
+
+.reader-page-text {
+  transition:
+    opacity .16s ease,
+    transform .16s ease;
+  will-change: opacity, transform;
+}
+
+.reader-page-viewport.page-turn-forward .reader-page-text {
+  animation: readerPageTurnForward .18s ease-out;
+}
+
+.reader-page-viewport.page-turn-back .reader-page-text {
+  animation: readerPageTurnBack .18s ease-out;
+}
+
+.reader-page-footer button:active {
+  transform: scale(.97);
+  opacity:.82;
+}
+
+@keyframes readerPageTurnForward {
+  0% {
+    opacity:.68;
+    transform:translateX(8px);
+  }
+  100% {
+    opacity:1;
+    transform:translateX(0);
+  }
+}
+
+@keyframes readerPageTurnBack {
+  0% {
+    opacity:.68;
+    transform:translateX(-8px);
+  }
+  100% {
+    opacity:1;
+    transform:translateX(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-page-text {
+    transition:none !important;
+  }
+
+  .reader-page-viewport.page-turn-forward .reader-page-text,
+  .reader-page-viewport.page-turn-back .reader-page-text {
+    animation:none !important;
+  }
+
+  .reader-page-footer button:active {
+    transform:none;
   }
 }

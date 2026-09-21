@@ -31,6 +31,7 @@ const state = {
   readerPageTouchStartX: null,
   readerPageTouchStartY: null,
   readerPageLastSwipeAt: 0,
+  readerPageAnimationTimer: 0,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -2197,6 +2198,12 @@ function resetReaderPageState() {
   state.readerPageTouchStartY = null;
   window.clearTimeout(state.readerPageResizeTimer);
   state.readerPageResizeTimer = 0;
+  window.clearTimeout(state.readerPageAnimationTimer);
+  state.readerPageAnimationTimer = 0;
+  els.readerPageViewport?.classList.remove(
+    "page-turn-forward",
+    "page-turn-back"
+  );
 }
 
 function getReaderTextLength() {
@@ -2602,6 +2609,28 @@ async function setReaderDisplayMode(mode, options = {}) {
   }
 }
 
+function animateReaderPageTurn(direction) {
+  if (!els.readerPageViewport) return;
+
+  const className =
+    direction < 0 ? "page-turn-back" : "page-turn-forward";
+
+  window.clearTimeout(state.readerPageAnimationTimer);
+  els.readerPageViewport.classList.remove(
+    "page-turn-forward",
+    "page-turn-back"
+  );
+
+  // Force a style flush so repeated taps replay the animation.
+  void els.readerPageViewport.offsetWidth;
+  els.readerPageViewport.classList.add(className);
+
+  state.readerPageAnimationTimer = window.setTimeout(() => {
+    els.readerPageViewport?.classList.remove(className);
+    state.readerPageAnimationTimer = 0;
+  }, 190);
+}
+
 async function turnReaderPage(direction) {
   if (
     state.readerDisplayMode !== "page" ||
@@ -2624,6 +2653,7 @@ async function turnReaderPage(direction) {
     renderReaderPageAt(state.readerPageEnd, {
       navigated: true,
     });
+    animateReaderPageTurn(1);
   } else {
     if (state.readerPageStart <= 0) return;
 
@@ -2634,6 +2664,7 @@ async function turnReaderPage(direction) {
     renderReaderPageAt(previousStart, {
       navigated: true,
     });
+    animateReaderPageTurn(-1);
   }
 
   const saved = saveReaderProgress();
