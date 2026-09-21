@@ -2430,10 +2430,16 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.25 canonical mobile page-mode layout
+   v7.26 canonical mobile page-mode layout
    ========================= */
 
-/* Page mode removes the legacy scroll body from layout. */
+.reader.reader-page-mode {
+  box-sizing:border-box !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow-x:hidden !important;
+}
+
 .reader.reader-page-mode #readerBody,
 .reader.reader-page-mode .reader-body {
   display:none !important;
@@ -2449,9 +2455,9 @@ html.theme-dark .library-modal {
   display:grid !important;
   grid-template-rows:minmax(0,1fr) auto;
   flex:0 0 auto !important;
-  align-self:stretch !important;
-  width:auto !important;
-  max-width:calc(100% - 56px) !important;
+  align-self:auto !important;
+  width:calc(100% - 56px) !important;
+  max-width:none !important;
   min-width:0 !important;
   margin:8px 28px 14px !important;
   box-sizing:border-box !important;
@@ -2462,22 +2468,24 @@ html.theme-dark .library-modal {
 
 .reader-page-text,
 .reader-page-measure {
-  box-sizing:border-box;
-  width:100%;
-  min-width:0;
+  box-sizing:border-box !important;
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
   padding:24px 26px 18px;
   font-family:'Ridibatang', "Batang", serif;
   font-size:17px;
   line-height:2.05;
   letter-spacing:-0.01em;
   white-space:pre-wrap;
-  word-break:keep-all;
+  word-break:break-word;
   overflow-wrap:anywhere;
 }
 
 .reader-page-text {
   display:block !important;
-  overflow:hidden;
+  overflow-x:hidden !important;
+  overflow-y:hidden !important;
   text-align:left !important;
   vertical-align:top !important;
   user-select:text;
@@ -2513,11 +2521,13 @@ html[data-reader-spacing="wide"] .reader-page-measure {
   grid-template-columns:minmax(82px,108px) minmax(0,1fr) minmax(82px,108px);
   align-items:center;
   gap:8px;
-  width:100%;
-  min-width:0;
+  width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
   min-height:48px;
   padding:7px 10px;
-  box-sizing:border-box;
+  box-sizing:border-box !important;
+  overflow:hidden !important;
   border-top:1px solid var(--theme-line-soft);
   background:var(--theme-surface-soft);
 }
@@ -2552,11 +2562,13 @@ html[data-reader-spacing="wide"] .reader-page-measure {
   font-variant-numeric:tabular-nums;
 }
 
-/* Page mode never uses compact/absolute header action positioning. */
 .reader.reader-page-mode .reader-header {
   position:relative !important;
   display:flex !important;
   flex-direction:column !important;
+  width:100% !important;
+  max-width:100% !important;
+  box-sizing:border-box !important;
   height:auto !important;
   min-height:0 !important;
   overflow:visible !important;
@@ -2566,14 +2578,12 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 .reader.reader-page-mode.reader-compact .reader-header-actions {
   position:static !important;
   inset:auto !important;
-  top:auto !important;
-  right:auto !important;
-  bottom:auto !important;
-  left:auto !important;
   transform:none !important;
   order:-2 !important;
   width:100% !important;
+  max-width:100% !important;
   margin:0 !important;
+  box-sizing:border-box !important;
   display:flex !important;
   align-items:center !important;
   justify-content:flex-end !important;
@@ -2592,7 +2602,8 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     flex-direction:column !important;
     justify-content:flex-start !important;
     align-items:stretch !important;
-    overflow:hidden !important;
+    overflow-x:hidden !important;
+    overflow-y:hidden !important;
   }
 
   .reader.reader-page-mode .reader-header {
@@ -2631,12 +2642,18 @@ html[data-reader-spacing="wide"] .reader-page-measure {
   .reader.reader-page-mode .reader-resume {
     position:relative !important;
     z-index:1 !important;
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
     margin-top:0 !important;
   }
 
   .reader.reader-page-mode .reader-mode-bar {
     position:relative !important;
     flex:0 0 auto !important;
+    width:100% !important;
+    max-width:100% !important;
+    box-sizing:border-box !important;
     justify-content:space-between !important;
     padding:7px 12px 0 !important;
     margin:0 !important;
@@ -2644,34 +2661,52 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 
   .reader.reader-page-mode #readerPageViewport:not([hidden]),
   .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
-    width:auto !important;
-    max-width:calc(100% - 24px) !important;
-    margin:6px 12px calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    width:calc(100% - 24px) !important;
+    max-width:none !important;
+    min-width:0 !important;
+    margin-left:12px !important;
+    margin-right:12px !important;
+    margin-top:6px !important;
+    margin-bottom:calc(10px + env(safe-area-inset-bottom, 0px)) !important;
+    box-sizing:border-box !important;
     border-radius:15px;
   }
 
   .reader-page-text,
   .reader-page-measure {
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
     padding:18px 16px 14px;
     font-size:16px;
+    box-sizing:border-box !important;
   }
 
   .reader-page-footer {
-    grid-template-columns:minmax(72px,96px) minmax(0,1fr) minmax(72px,96px);
-    gap:7px;
+    grid-template-columns:minmax(68px,92px) minmax(0,1fr) minmax(68px,92px);
+    gap:6px;
+    width:100% !important;
+    max-width:100% !important;
+    min-width:0 !important;
     padding:7px 8px calc(7px + env(safe-area-inset-bottom, 0px));
+    box-sizing:border-box !important;
   }
 
   .reader-page-footer button {
     width:100%;
-    max-width:96px;
+    max-width:92px;
     min-width:0;
     min-height:40px;
-    padding:0 7px;
+    padding:0 6px;
     font-size:9px;
+    box-sizing:border-box !important;
   }
 
   #readerPageStatus {
+    min-width:0 !important;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
     font-size:9px;
   }
 }
@@ -2679,7 +2714,8 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 @media (min-width:641px) and (max-width:1024px) {
   .reader.reader-page-mode #readerPageViewport:not([hidden]),
   .reader.reader-page-mode .reader-page-viewport:not([hidden]) {
-    max-width:calc(100% - 60px) !important;
+    width:calc(100% - 60px) !important;
+    max-width:none !important;
     margin-left:30px !important;
     margin-right:30px !important;
   }

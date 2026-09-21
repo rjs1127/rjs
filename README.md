@@ -3,6 +3,27 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.26 — 모바일 페이지 모드 오른쪽 잘림 수정
+
+### 문제
+- 모바일에서 페이지 카드/본문의 오른쪽 영역이 화면 밖으로 밀리거나 일부 잘려 보이는 현상
+- `width:auto + max-width + 좌우 margin` 조합이 기존 reader 폭/box model과 겹치면서 일부 모바일 브라우저에서 실제 사용 폭보다 크게 계산될 가능성이 있었음
+
+### 수정
+- 모바일 페이지 카드 폭을 명시적으로 `calc(100% - 24px)`로 고정
+- 좌우 margin 12px와 합쳐 정확히 부모 폭 100% 안에 들어오도록 변경
+- `max-width:none`, `min-width:0`, `box-sizing:border-box`를 viewport/text/footer에 강제
+- reader / header / resume / mode-bar도 `width:100%; max-width:100%`로 제한
+- 본문에 `word-break:break-word`, `overflow-wrap:anywhere`, `overflow-x:hidden` 적용
+- 하단 네비 버튼 최대폭도 모바일에서 92px로 조금 축소해 작은 화면의 가로 여유 확보
+- reader 전체의 horizontal overflow 차단
+
+### 영향
+- 서버/API/KV/D1 변경 없음
+- 페이지 계산/이어보기/진도/읽음 로직 변경 없음
+- 모바일 가로 레이아웃만 수정
+
+
 ## v7.25 — 모바일 페이지 모드 상단 액션 / 하단 네비 수정
 
 ### 상단 액션 버튼 겹침
