@@ -319,6 +319,387 @@ async function inspectR2(bucket) {
   };
 }
 
+
+const CLOUDFLARE_GRAPHQL_ENDPOINT =
+  "https://api.cloudflare.com/client/v4/graphql";
+
+function utcDateString(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function analyticsDateRange() {
+  const end = new Date();
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - 29);
+
+  return {
+    start: utcDateString(start),
+    end: utcDateString(end),
+  };
+}
+
+async function cloudflareGraphql(token, query, variables) {
+  const response = await fetch(CLOUDFLARE_GRAPHQL_ENDPOINT, {
+    method: "POST",
+    headers: {
+      authorization: `Bearer ${token}`,
+      "content-type": "application/json",
+      accept: "application/json",
+    },
+    body: JSON.stringify({
+      query,
+      variables,
+    }),
+  });
+
+  let payload = null;
+
+  try {
+    payload = await response.json();
+  } catch {
+    throw new Error(
+      `Cloudflare Analytics 응답을 해석하지 못했습니다. HTTP ${response.status}`
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.errors?.[0]?.message ||
+      `Cloudflare Analytics 요청 실패 · HTTP ${response.status}`
+    );
+  }
+
+  if (Array.isArray(payload?.errors) && payload.errors.length) {
+    throw new Error(
+      payload.errors
+        .map((item) => item?.message)
+        .filter(Boolean)
+        .join(" / ") ||
+      "Cloudflare Analytics GraphQL 오류"
+    );
+  }
+
+  return payload?.data || {};
+}
+
+function accountRows(data, fieldName) {
+  const accounts = data?.viewer?.accounts;
+  const account = Array.isArray(accounts) ? accounts[0] : null;
+  const rows = account?.[fieldName];
+  return Array.isArray(rows) ? rows : [];
+}
+
+function addDailyMetric(map, date, values) {
+  if (!date) return;
+
+  const current = map.get(date) || {};
+  for (const [key, raw] of Object.entries(values || {})) {
+    const value = Number(raw || 0);
+    current[key] = Number(current[key] || 0) + (
+      Number.isFinite(value) ? value : 0
+    );
+  }
+  map.set(date, current);
+}
+
+function sumDailyWindow(dailyMap, endDate, days, keys) {
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  const start = new Date(end);
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const startDate = utcDateString(start);
+
+  const result = Object.fromEntries(
+    keys.map((key) => [key, 0])
+  );
+
+  for (const [date, row] of dailyMap.entries()) {
+    if (date < startDate || date > endDate) continue;
+
+    for (const key of keys) {
+      result[key] += Number(row?.[key] || 0);
+    }
+  }
+
+  return result;
+}
+
+function buildPeriods(dailyMap, endDate, keys) {
+  return {
+    today: sumDailyWindow(dailyMap, endDate, 1, keys),
+    "7d": sumDailyWindow(dailyMap, endDate, 7, keys),
+    "30d": sumDailyWindow(dailyMap, endDate, 30, keys),
+  };
+}
+
+function analyticsErrorMessage(error) {
+  const message = String(
+    error?.message ||
+    "Cloudflare Analytics 조회 실패"
+  );
+
+  // Never return auth headers or secret material.
+  return message
+    .replace(/Bearer\s+[A-Za-z0-9._~-]+/gi, "Bearer [REDACTED]")
+    .slice(0, 500);
+}
+
+async function queryCloudflareAnalytics(env) {
+  const token = String(
+    env.CLOUDFLARE_ANALYTICS_TOKEN || ""
+  ).trim();
+  const accountId = String(
+    env.CLOUDFLARE_ACCOUNT_ID || ""
+  ).trim();
+
+  if (!token || !accountId) {
+    return {
+      configured: false,
+      connected: false,
+      partial: false,
+      apiRequests: 0,
+      range: analyticsDateRange(),
+      timezone: "UTC",
+      note:
+        "CLOUDFLARE_ANALYTICS_TOKEN 또는 CLOUDFLARE_ACCOUNT_ID가 등록되지 않았습니다.",
+      products: {},
+    };
+  }
+
+  const range = analyticsDateRange();
+  const variables = {
+    accountTag: accountId,
+    start: range.start,
+    end: range.end,
+  };
+
+  const kvQuery = `
+    query KvUsage(
+      $accountTag: string!
+      $start: Date!
+      $end: Date!
+    ) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          kvOperationsAdaptiveGroups(
+            filter: {
+              date_geq: $start
+              date_leq: $end
+            }
+            limit: 10000
+            orderBy: [date_ASC]
+          ) {
+            sum {
+              requests
+            }
+            dimensions {
+              date
+              actionType
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const d1Query = `
+    query D1Usage(
+      $accountTag: string!
+      $start: Date!
+      $end: Date!
+    ) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          d1AnalyticsAdaptiveGroups(
+            filter: {
+              date_geq: $start
+              date_leq: $end
+            }
+            limit: 10000
+            orderBy: [date_ASC]
+          ) {
+            sum {
+              readQueries
+              writeQueries
+              rowsRead
+              rowsWritten
+            }
+            dimensions {
+              date
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const pagesQuery = `
+    query PagesFunctionsUsage(
+      $accountTag: string!
+      $start: Date!
+      $end: Date!
+    ) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          pagesFunctionsInvocationsAdaptiveGroups(
+            filter: {
+              date_geq: $start
+              date_leq: $end
+            }
+            limit: 10000
+            orderBy: [date_ASC]
+          ) {
+            sum {
+              requests
+              errors
+              subrequests
+            }
+            dimensions {
+              date
+            }
+          }
+        }
+      }
+    }
+  `;
+
+  const [kvSettled, d1Settled, pagesSettled] =
+    await Promise.allSettled([
+      cloudflareGraphql(token, kvQuery, variables),
+      cloudflareGraphql(token, d1Query, variables),
+      cloudflareGraphql(token, pagesQuery, variables),
+    ]);
+
+  const products = {};
+
+  if (kvSettled.status === "fulfilled") {
+    const rows = accountRows(
+      kvSettled.value,
+      "kvOperationsAdaptiveGroups"
+    );
+    const daily = new Map();
+
+    for (const row of rows) {
+      const date = String(row?.dimensions?.date || "");
+      const action = String(
+        row?.dimensions?.actionType || "other"
+      ).toLowerCase();
+      const requests = Number(row?.sum?.requests || 0);
+
+      const metric =
+        action === "read" ? "reads" :
+        action === "write" ? "writes" :
+        action === "delete" ? "deletes" :
+        action === "list" ? "lists" :
+        "other";
+
+      addDailyMetric(daily, date, {
+        total: requests,
+        [metric]: requests,
+      });
+    }
+
+    products.kv = {
+      available: true,
+      periods: buildPeriods(
+        daily,
+        range.end,
+        ["total", "reads", "writes", "lists", "deletes", "other"]
+      ),
+    };
+  } else {
+    products.kv = {
+      available: false,
+      error: analyticsErrorMessage(kvSettled.reason),
+    };
+  }
+
+  if (d1Settled.status === "fulfilled") {
+    const rows = accountRows(
+      d1Settled.value,
+      "d1AnalyticsAdaptiveGroups"
+    );
+    const daily = new Map();
+
+    for (const row of rows) {
+      addDailyMetric(
+        daily,
+        String(row?.dimensions?.date || ""),
+        {
+          readQueries: row?.sum?.readQueries,
+          writeQueries: row?.sum?.writeQueries,
+          rowsRead: row?.sum?.rowsRead,
+          rowsWritten: row?.sum?.rowsWritten,
+        }
+      );
+    }
+
+    products.d1 = {
+      available: true,
+      periods: buildPeriods(
+        daily,
+        range.end,
+        ["readQueries", "writeQueries", "rowsRead", "rowsWritten"]
+      ),
+    };
+  } else {
+    products.d1 = {
+      available: false,
+      error: analyticsErrorMessage(d1Settled.reason),
+    };
+  }
+
+  if (pagesSettled.status === "fulfilled") {
+    const rows = accountRows(
+      pagesSettled.value,
+      "pagesFunctionsInvocationsAdaptiveGroups"
+    );
+    const daily = new Map();
+
+    for (const row of rows) {
+      addDailyMetric(
+        daily,
+        String(row?.dimensions?.date || ""),
+        {
+          requests: row?.sum?.requests,
+          errors: row?.sum?.errors,
+          subrequests: row?.sum?.subrequests,
+        }
+      );
+    }
+
+    products.pagesFunctions = {
+      available: true,
+      periods: buildPeriods(
+        daily,
+        range.end,
+        ["requests", "errors", "subrequests"]
+      ),
+    };
+  } else {
+    products.pagesFunctions = {
+      available: false,
+      error: analyticsErrorMessage(pagesSettled.reason),
+    };
+  }
+
+  const availableCount = Object.values(products).filter(
+    (product) => product?.available
+  ).length;
+
+  return {
+    configured: true,
+    connected: availableCount > 0,
+    partial: availableCount > 0 && availableCount < 3,
+    apiRequests: 3,
+    range,
+    timezone: "UTC",
+    generatedAt: new Date().toISOString(),
+    products,
+    note:
+      "Cloudflare GraphQL Analytics 관측값입니다. Cloudflare 청구용 billing counter와 완전히 동일한 값은 아닐 수 있습니다.",
+  };
+}
+
 export async function onRequestGet(context) {
   try {
     await requireAdminSession(context);
@@ -361,10 +742,12 @@ export async function onRequestGet(context) {
       };
     }
 
-    const [d1Result, r2Result] = await Promise.all([
-      inspectD1(db),
-      inspectR2(bucket),
-    ]);
+    const [d1Result, r2Result, analyticsResult] =
+      await Promise.all([
+        inspectD1(db),
+        inspectR2(bucket),
+        queryCloudflareAnalytics(context.env),
+      ]);
 
     return jsonResponse({
       ok: true,
@@ -373,10 +756,13 @@ export async function onRequestGet(context) {
       kv: kvResult,
       d1: d1Result,
       r2: r2Result,
+      analytics: analyticsResult,
       functions: {
-        measurableInsideApp: false,
-        note:
-          "Workers/Pages Functions의 오늘 실제 호출수·CPU·KV/D1 일일 quota 소비량은 현재 앱 binding만으로 조회할 수 없습니다. Cloudflare Analytics API credential을 별도로 연결해야 관리자 화면에서 실제 계정 사용량을 가져올 수 있습니다.",
+        measurableInsideApp: Boolean(analyticsResult?.connected),
+        note: analyticsResult?.connected
+          ? "Cloudflare Analytics API가 연결되어 Pages Functions / KV / D1의 최근 사용량을 조회합니다."
+          : analyticsResult?.note ||
+            "Cloudflare Analytics API 연결 상태를 확인해 주세요.",
       },
       external: {
         googleDrive:

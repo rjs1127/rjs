@@ -3,6 +3,44 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.14 — Cloudflare Analytics 실제 사용량 연결
+
+### Cloudflare Analytics 연결
+- 등록된 `CLOUDFLARE_ANALYTICS_TOKEN`과 `CLOUDFLARE_ACCOUNT_ID`를 서버에서만 사용
+- 토큰은 브라우저/관리자 HTML/응답 JSON에 노출하지 않음
+- 관리자 `리소스` 탭을 열거나 새로고침할 때 Cloudflare GraphQL Analytics API 조회
+- 한 번의 리소스 조회당 GraphQL 요청 3회
+  - Pages Functions
+  - Workers KV
+  - D1
+- Analytics 조회를 기록하기 위한 별도 KV/D1 write는 추가하지 않음
+
+### 기간별 실제 운영 관측값
+- `오늘 / 7일 / 30일` 전환 버튼 추가
+- Pages Functions
+  - requests
+  - errors
+  - subrequests
+- KV
+  - 전체 operations
+  - read / write / list / delete
+- D1
+  - rows read
+  - rows written
+  - read queries / write queries
+- 최근 30일 데이터를 한 번 조회한 뒤 관리자 브라우저에서 기간별 합계를 전환하므로 기간 버튼을 누를 때 API 요청이 추가되지 않음
+
+### 현재 저장 상태와 분리
+- v7.13의 현재 KV key 수 / 본문 cache key 수 / D1 row 수 / R2 상태는 그대로 유지
+- `현재 저장상태`와 `실제 운영 사용량`을 한 화면에서 함께 비교 가능
+- KV 정밀 byte 측정은 기존처럼 사용자가 명시적으로 실행할 때만 value read 수행
+
+### 정확성 안내
+- Cloudflare GraphQL Analytics는 Cloudflare Dashboard와 같은 운영 관측 데이터 계열이지만 billing counter 자체는 아님
+- adaptive sampling, 최신 데이터 집계 지연, Cloudflare billing 제외 규칙에 따라 최종 청구/무료한도 계산값과 차이가 있을 수 있음을 관리자 화면에 명시
+- KV와 D1 Analytics의 31일 보존 범위 안에서 30일을 표시
+
+
 ## v7.13 — 관리자 리소스 사용 현황 대시보드
 
 ### 관리자 `리소스` 탭

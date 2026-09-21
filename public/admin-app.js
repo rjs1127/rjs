@@ -110,6 +110,17 @@ const els = {
   resourceR2State: document.getElementById("resourceR2State"),
   resourceR2Meta: document.getElementById("resourceR2Meta"),
   resourceFunctionsState: document.getElementById("resourceFunctionsState"),
+  resourceFunctionsMeta: document.getElementById("resourceFunctionsMeta"),
+  resourceAnalyticsRange: document.getElementById("resourceAnalyticsRange"),
+  resourcePeriodTabs: document.getElementById("resourcePeriodTabs"),
+  resourcePagesRequests: document.getElementById("resourcePagesRequests"),
+  resourcePagesMeta: document.getElementById("resourcePagesMeta"),
+  resourceKvOperations: document.getElementById("resourceKvOperations"),
+  resourceKvOperationsMeta: document.getElementById("resourceKvOperationsMeta"),
+  resourceD1RowsRead: document.getElementById("resourceD1RowsRead"),
+  resourceD1UsageMeta: document.getElementById("resourceD1UsageMeta"),
+  resourceAnalyticsApiCalls: document.getElementById("resourceAnalyticsApiCalls"),
+  resourceAnalyticsNotice: document.getElementById("resourceAnalyticsNotice"),
   resourceMeasurementNotice: document.getElementById("resourceMeasurementNotice"),
   resourceKvTotal: document.getElementById("resourceKvTotal"),
   resourceKvBreakdown: document.getElementById("resourceKvBreakdown"),
@@ -146,6 +157,7 @@ let driveAdminPage = 1;
 let driveAdminFilter = "all";
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
+let resourceAnalyticsPeriod = "today";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -465,6 +477,144 @@ function formatResourceBytes(value) {
   })} GB`;
 }
 
+function formatResourceNumber(value) {
+  const number = Number(value || 0);
+  return Number.isFinite(number)
+    ? number.toLocaleString("ko-KR")
+    : "0";
+}
+
+function getResourceAnalyticsPeriod(data, productName) {
+  return (
+    data?.analytics?.products?.[productName]?.periods?.[
+      resourceAnalyticsPeriod
+    ] || null
+  );
+}
+
+function renderResourceAnalytics(data) {
+  const analytics = data?.analytics || {};
+  const products = analytics?.products || {};
+
+  const periodLabels = {
+    today: "오늘",
+    "7d": "최근 7일",
+    "30d": "최근 30일",
+  };
+
+  els.resourcePeriodTabs
+    ?.querySelectorAll("[data-resource-period]")
+    .forEach((button) => {
+      button.classList.toggle(
+        "active",
+        button.dataset.resourcePeriod === resourceAnalyticsPeriod
+      );
+    });
+
+  if (!analytics.configured) {
+    els.resourceFunctionsState.textContent = "미설정";
+    els.resourceFunctionsMeta.textContent =
+      "Analytics secret / Account ID 확인 필요";
+    els.resourceAnalyticsRange.textContent =
+      "Cloudflare Analytics 미연결";
+    els.resourcePagesRequests.textContent = "-";
+    els.resourcePagesMeta.textContent = "데이터 없음";
+    els.resourceKvOperations.textContent = "-";
+    els.resourceKvOperationsMeta.textContent = "데이터 없음";
+    els.resourceD1RowsRead.textContent = "-";
+    els.resourceD1UsageMeta.textContent = "데이터 없음";
+    els.resourceAnalyticsApiCalls.textContent = "0회";
+    els.resourceAnalyticsNotice.textContent =
+      analytics.note ||
+      "Cloudflare Analytics 환경변수를 확인해 주세요.";
+    els.resourceAnalyticsNotice.classList.add("is-error");
+    return;
+  }
+
+  const availableCount = Object.values(products).filter(
+    (item) => item?.available
+  ).length;
+
+  els.resourceFunctionsState.textContent =
+    analytics.partial
+      ? "일부 연결"
+      : analytics.connected
+        ? "연결됨"
+        : "조회 실패";
+
+  els.resourceFunctionsMeta.textContent =
+    `${availableCount}/3 dataset · GraphQL ${Number(
+      analytics.apiRequests || 0
+    ).toLocaleString("ko-KR")}회`;
+
+  els.resourceAnalyticsRange.textContent =
+    `${analytics.range?.start || "-"} ~ ${
+      analytics.range?.end || "-"
+    } · ${analytics.timezone || "UTC"} 기준 · ${
+      periodLabels[resourceAnalyticsPeriod] || "선택 기간"
+    }`;
+
+  const pages = getResourceAnalyticsPeriod(
+    data,
+    "pagesFunctions"
+  );
+  if (products.pagesFunctions?.available && pages) {
+    els.resourcePagesRequests.textContent =
+      `${formatResourceNumber(pages.requests)}회`;
+    els.resourcePagesMeta.textContent =
+      `오류 ${formatResourceNumber(pages.errors)} · subrequest ${formatResourceNumber(pages.subrequests)}`;
+  } else {
+    els.resourcePagesRequests.textContent = "-";
+    els.resourcePagesMeta.textContent =
+      products.pagesFunctions?.error || "Pages Functions 데이터 없음";
+  }
+
+  const kv = getResourceAnalyticsPeriod(data, "kv");
+  if (products.kv?.available && kv) {
+    els.resourceKvOperations.textContent =
+      `${formatResourceNumber(kv.total)}회`;
+    els.resourceKvOperationsMeta.textContent =
+      `read ${formatResourceNumber(kv.reads)} · write ${formatResourceNumber(kv.writes)} · list ${formatResourceNumber(kv.lists)} · delete ${formatResourceNumber(kv.deletes)}`;
+  } else {
+    els.resourceKvOperations.textContent = "-";
+    els.resourceKvOperationsMeta.textContent =
+      products.kv?.error || "KV Analytics 데이터 없음";
+  }
+
+  const d1 = getResourceAnalyticsPeriod(data, "d1");
+  if (products.d1?.available && d1) {
+    els.resourceD1RowsRead.textContent =
+      `${formatResourceNumber(d1.rowsRead)} rows`;
+    els.resourceD1UsageMeta.textContent =
+      `written ${formatResourceNumber(d1.rowsWritten)} · query R ${formatResourceNumber(d1.readQueries)} / W ${formatResourceNumber(d1.writeQueries)}`;
+  } else {
+    els.resourceD1RowsRead.textContent = "-";
+    els.resourceD1UsageMeta.textContent =
+      products.d1?.error || "D1 Analytics 데이터 없음";
+  }
+
+  els.resourceAnalyticsApiCalls.textContent =
+    `${Number(analytics.apiRequests || 0).toLocaleString("ko-KR")}회`;
+
+  const failed = Object.entries(products)
+    .filter(([, item]) => item && !item.available)
+    .map(([name]) => name);
+
+  if (!analytics.connected) {
+    els.resourceAnalyticsNotice.classList.add("is-error");
+    els.resourceAnalyticsNotice.textContent =
+      "Analytics API 인증 또는 dataset 조회에 실패했습니다. Token 권한과 Account ID를 확인해 주세요.";
+  } else if (failed.length) {
+    els.resourceAnalyticsNotice.classList.add("is-error");
+    els.resourceAnalyticsNotice.textContent =
+      `일부 dataset만 조회되었습니다: ${failed.join(", ")}. 아래 표시된 오류 메시지를 확인해 주세요.`;
+  } else {
+    els.resourceAnalyticsNotice.classList.remove("is-error");
+    els.resourceAnalyticsNotice.textContent =
+      `Cloudflare GraphQL Analytics 연결 정상 · ${periodLabels[resourceAnalyticsPeriod]} 관측값을 표시 중입니다. 이 값은 운영 Analytics이며 청구용 billing counter와 완전히 동일하지 않을 수 있습니다.`;
+  }
+}
+
 function renderResourceUsage(data) {
   resourceUsageData = data;
   resourceUsageLoaded = true;
@@ -502,7 +652,7 @@ function renderResourceUsage(data) {
     ? `${formatResourceBytes(r2.bytes || 0)} · 현재 코드에서는 R2 미사용`
     : "ARCHIVE_BODY 미연결 · 현재 코드에서는 R2 미사용";
 
-  els.resourceFunctionsState.textContent = "Analytics 미연결";
+  renderResourceAnalytics(data);
 
   els.resourceKvTotal.textContent = kv.bound
     ? `${Number(kv.keyCount || 0).toLocaleString("ko-KR")} keys${
@@ -572,8 +722,10 @@ function renderResourceUsage(data) {
   `).join("");
 
   els.resourceFunctionsNote.textContent =
-    data?.functions?.note ||
-    "Cloudflare Analytics API를 연결하지 않아 실제 일일 quota 사용량은 앱 안에서 조회하지 않습니다.";
+    data?.analytics?.connected
+      ? "Cloudflare GraphQL Analytics의 운영 관측값을 표시합니다. Adaptive dataset의 sampling, 최근 데이터 집계 지연, billing 제외 규칙 때문에 Cloudflare의 최종 청구·quota counter와 완전히 같지는 않을 수 있습니다."
+      : data?.functions?.note ||
+        "Cloudflare Analytics 연결 상태를 확인해 주세요.";
 
   if (data?.measurement === "precise") {
     els.resourceMeasurementNotice.classList.add("is-precise");
@@ -1719,6 +1871,19 @@ els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
 });
 
+
+els.resourcePeriodTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-resource-period]");
+  if (!button) return;
+
+  const period = String(button.dataset.resourcePeriod || "");
+  if (!["today", "7d", "30d"].includes(period)) return;
+
+  resourceAnalyticsPeriod = period;
+  if (resourceUsageData) {
+    renderResourceAnalytics(resourceUsageData);
+  }
+});
 
 els.resourceRefreshButton?.addEventListener("click", async () => {
   try {

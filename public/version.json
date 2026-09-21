@@ -1,5 +1,5 @@
 {
-  "version": "v7.13",
+  "version": "v7.14",
   "releasedAt": "2026-09-21",
-  "label": "admin-resource-usage-dashboard"
+  "label": "cloudflare-analytics-dashboard"
 }

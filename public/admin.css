@@ -1611,3 +1611,153 @@ button.primary,
     font-size:16px;
   }
 }
+
+/* =====================================================================
+   V7.14 CLOUDFLARE ANALYTICS
+   ===================================================================== */
+.resource-analytics-section {
+  margin-top:16px;
+}
+
+.resource-analytics-head {
+  align-items:center;
+}
+
+.resource-analytics-range {
+  margin:5px 0 0;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.4;
+}
+
+.resource-period-tabs {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+  padding:3px;
+  border:1px solid #ded6cd;
+  border-radius:10px;
+  background:#ece7e0;
+}
+
+.resource-period-button {
+  appearance:none;
+  min-width:46px;
+  height:29px;
+  padding:0 9px;
+  border:0;
+  border-radius:7px;
+  background:transparent;
+  color:#746b62;
+  font:inherit;
+  font-size:9px;
+  font-weight:850;
+  cursor:pointer;
+}
+
+.resource-period-button.active {
+  background:#2f2a25;
+  color:#fff;
+  box-shadow:0 2px 7px rgba(40,34,29,.14);
+}
+
+.resource-analytics-grid {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:0;
+}
+
+.resource-analytics-card {
+  min-width:0;
+  padding:16px 15px;
+  border-right:1px solid #eee8e1;
+  background:#fff;
+}
+
+.resource-analytics-card:last-child {
+  border-right:0;
+}
+
+.resource-analytics-card > span {
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.3;
+  font-weight:850;
+}
+
+.resource-analytics-card > strong {
+  display:block;
+  margin-top:8px;
+  color:var(--ink);
+  font-size:21px;
+  line-height:1;
+  letter-spacing:-.035em;
+  font-variant-numeric:tabular-nums;
+}
+
+.resource-analytics-card > small {
+  display:block;
+  min-height:30px;
+  margin-top:8px;
+  color:#756c63;
+  font-size:8px;
+  line-height:1.55;
+  word-break:break-word;
+}
+
+.resource-analytics-notice {
+  padding:10px 14px;
+  border-top:1px solid #eee8e1;
+  background:#f8f5f0;
+  color:#625b53;
+  font-size:9px;
+  line-height:1.55;
+}
+
+.resource-analytics-notice.is-error {
+  background:#fbf0ed;
+  color:#8a4034;
+}
+
+@media(max-width:900px) {
+  .resource-analytics-grid {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+
+  .resource-analytics-card:nth-child(2) {
+    border-right:0;
+  }
+
+  .resource-analytics-card:nth-child(-n+2) {
+    border-bottom:1px solid #eee8e1;
+  }
+}
+
+@media(max-width:560px) {
+  .resource-analytics-head {
+    display:block;
+  }
+
+  .resource-period-tabs {
+    margin-top:10px;
+  }
+
+  .resource-analytics-grid {
+    grid-template-columns:1fr;
+  }
+
+  .resource-analytics-card {
+    border-right:0;
+    border-bottom:1px solid #eee8e1;
+    padding:13px 14px;
+  }
+
+  .resource-analytics-card:last-child {
+    border-bottom:0;
+  }
+
+  .resource-analytics-card > strong {
+    font-size:18px;
+  }
+}
