@@ -2135,3 +2135,95 @@ html.theme-dark .reader.reader-compact .reader-close {
     letter-spacing: .02em;
   }
 }
+
+
+/* =========================
+   v7.18 My Library modal
+   ========================= */
+html.theme-light .library-modal,
+html.theme-dark .library-modal {
+  display: flex;
+  flex-direction: column;
+}
+
+.library-modal-summary-row {
+  margin-top: 8px;
+}
+
+.library-modal-meta {
+  margin: 0;
+  font-size: .92rem;
+  color: var(--theme-muted);
+}
+
+.library-modal-list-shell {
+  margin-top: 10px;
+  border: 1px solid var(--theme-line);
+  border-radius: 20px;
+  background: var(--theme-surface-soft);
+  max-height: min(52vh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.library-modal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+}
+
+.library-empty {
+  display: grid;
+  place-items: center;
+  min-height: 180px;
+  padding: 20px;
+  text-align: center;
+  color: var(--theme-muted);
+}
+
+.library-more-wrap {
+  margin-top: 12px;
+}
+
+.library-more-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 18px;
+  border-radius: 16px;
+  border: 1px solid var(--theme-line);
+  background: var(--theme-secondary-bg);
+  color: var(--theme-secondary-text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.library-more-button small {
+  font-size: .82rem;
+  color: var(--theme-muted);
+}
+
+.library-more-button:hover {
+  background: var(--theme-hover);
+}
+
+@media (max-width: 720px) {
+  .library-modal-list-shell {
+    max-height: min(48vh, 440px);
+    border-radius: 18px;
+  }
+
+  .library-modal-list {
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .library-more-button {
+    padding: 12px 14px;
+    border-radius: 14px;
+    font-size: .95rem;
+  }
+}

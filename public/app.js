@@ -31,6 +31,7 @@ const state = {
   lastExitProgressAt: 0,
   libraryKind: "bookmarks",
   librarySearch: "",
+  libraryVisibleLimit: 20,
   visitRecordedUserId: "",
   remoteProgressState: new Map(),
   bookmarkSaveTimers: new Map(),
@@ -49,6 +50,7 @@ const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 10; // 0.1% 단위 저장
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
+const LIBRARY_PAGE_SIZE = 20;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
@@ -204,7 +206,12 @@ const els = {
   libraryModalDescription: document.getElementById("libraryModalDescription"),
   librarySearchInput: document.getElementById("librarySearchInput"),
   libraryClearButton: document.getElementById("libraryClearButton"),
+  libraryModalMeta: document.getElementById("libraryModalMeta"),
   libraryModalList: document.getElementById("libraryModalList"),
+  libraryMoreWrap: document.getElementById("libraryMoreWrap"),
+  libraryMoreButton: document.getElementById("libraryMoreButton"),
+  libraryMoreLabel: document.getElementById("libraryMoreLabel"),
+  libraryMoreProgress: document.getElementById("libraryMoreProgress"),
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
   darkModeToggle: document.getElementById("darkModeToggle"),
@@ -974,18 +981,50 @@ function getLibraryVisibleEntries(kind = state.libraryKind, query = state.librar
         `${item.title || ""} ${item.author || ""} ${item.fileName || ""}`
       );
       return haystack.includes(normalizedQuery);
-    })
-    .slice(0, 100);
+    });
+}
+
+function resetUserLibraryScroll() {
+  const shell = document.querySelector(".library-modal-list-shell");
+  if (shell) shell.scrollTop = 0;
 }
 
 function renderUserLibraryModal() {
   const kind = state.libraryKind;
-  const visible = getLibraryVisibleEntries();
+  const allVisible = getLibraryVisibleEntries();
+  const totalCount = allVisible.length;
+  const shownCount = Math.min(totalCount, state.libraryVisibleLimit || LIBRARY_PAGE_SIZE);
+  const visible = allVisible.slice(0, shownCount);
+  const remainingCount = Math.max(0, totalCount - shownCount);
 
   if (els.libraryClearButton) {
     els.libraryClearButton.textContent =
       kind === "bookmarks" ? "북마크 전체 해제" : "최근 조회 전체 삭제";
-    els.libraryClearButton.disabled = !visible.length && !state.librarySearch;
+    els.libraryClearButton.disabled = !totalCount && !state.librarySearch;
+  }
+
+  if (els.libraryModalMeta) {
+    if (!totalCount) {
+      els.libraryModalMeta.textContent = state.librarySearch
+        ? "검색 결과가 없습니다."
+        : kind === "bookmarks"
+          ? "저장된 북마크가 없습니다."
+          : "최근 조회 기록이 없습니다.";
+    } else {
+      els.libraryModalMeta.textContent = `총 ${totalCount}개 중 ${shownCount}개 표시`;
+    }
+  }
+
+  if (els.libraryMoreWrap) {
+    els.libraryMoreWrap.hidden = remainingCount <= 0;
+  }
+
+  if (els.libraryMoreLabel) {
+    els.libraryMoreLabel.textContent = `더보기 ${Math.min(LIBRARY_PAGE_SIZE, remainingCount)}개`;
+  }
+
+  if (els.libraryMoreProgress) {
+    els.libraryMoreProgress.textContent = `${shownCount} / ${totalCount}`;
   }
 
   if (!visible.length) {
@@ -1042,6 +1081,7 @@ function showUserLibrary(kind) {
 
   state.libraryKind = kind === "recent" ? "recent" : "bookmarks";
   state.librarySearch = "";
+  state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
 
   els.libraryModalTitle.textContent =
     state.libraryKind === "bookmarks" ? "북마크" : "최근 조회";
@@ -1056,6 +1096,7 @@ function showUserLibrary(kind) {
 
   renderUserLibraryModal();
   openModal(els.libraryModal);
+  resetUserLibraryScroll();
 }
 
 
@@ -3149,6 +3190,13 @@ els.readerBookmarkButton?.addEventListener("click", () => {
 
 els.librarySearchInput?.addEventListener("input", (event) => {
   state.librarySearch = event.target.value || "";
+  state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
+  renderUserLibraryModal();
+  resetUserLibraryScroll();
+});
+
+els.libraryMoreButton?.addEventListener("click", () => {
+  state.libraryVisibleLimit += LIBRARY_PAGE_SIZE;
   renderUserLibraryModal();
 });
 
@@ -3183,7 +3231,9 @@ els.libraryClearButton?.addEventListener("click", async () => {
 
     state.librarySearch = "";
     if (els.librarySearchInput) els.librarySearchInput.value = "";
+    state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
     renderUserLibraryModal();
+    resetUserLibraryScroll();
     render();
     updateReaderBookmarkButton();
   } catch (error) {
@@ -3224,6 +3274,7 @@ els.libraryModalList?.addEventListener("click", async (event) => {
         );
       }
 
+      state.libraryVisibleLimit = Math.max(LIBRARY_PAGE_SIZE, Math.min(state.libraryVisibleLimit, getLibraryVisibleEntries().length || LIBRARY_PAGE_SIZE));
       renderUserLibraryModal();
       render();
       updateReaderBookmarkButton();

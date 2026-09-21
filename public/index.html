@@ -9,7 +9,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="/style.css" />
-  <link rel="stylesheet" href="/theme.css?v=717" />
+  <link rel="stylesheet" href="/theme.css?v=718" />
 </head>
 <body>
   <div class="app-shell">
@@ -255,7 +255,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.17</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v7.18</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -527,7 +527,20 @@
         <button id="libraryClearButton" class="library-clear-button" type="button">전체 삭제</button>
       </div>
 
-      <div id="libraryModalList" class="library-modal-list"></div>
+      <div class="library-modal-summary-row">
+        <p id="libraryModalMeta" class="library-modal-meta" aria-live="polite"></p>
+      </div>
+
+      <div class="library-modal-list-shell">
+        <div id="libraryModalList" class="library-modal-list"></div>
+      </div>
+
+      <div id="libraryMoreWrap" class="library-more-wrap" hidden>
+        <button id="libraryMoreButton" class="library-more-button" type="button">
+          <span id="libraryMoreLabel">더보기 20개</span>
+          <small id="libraryMoreProgress">0 / 0</small>
+        </button>
+      </div>
     </section>
   </div>
 
