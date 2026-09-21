@@ -59,6 +59,7 @@ const els = {
   driveSummaryFilters: document.getElementById("driveSummaryFilters"),
   settingsForm: document.getElementById("settingsForm"),
   siteNameInput: document.getElementById("siteNameInput"),
+  brandNamePreviewText: document.getElementById("brandNamePreviewText"),
   faviconUrlInput: document.getElementById("faviconUrlInput"),
   eyebrowInput: document.getElementById("eyebrowInput"),
   titleInput: document.getElementById("titleInput"),
@@ -111,14 +112,12 @@ const els = {
   resourceR2Meta: document.getElementById("resourceR2Meta"),
   resourceFunctionsState: document.getElementById("resourceFunctionsState"),
   resourceFunctionsMeta: document.getElementById("resourceFunctionsMeta"),
+  resourceOverallCard: document.getElementById("resourceOverallCard"),
+  resourceOverallState: document.getElementById("resourceOverallState"),
+  resourceOverallMeta: document.getElementById("resourceOverallMeta"),
   resourceAnalyticsRange: document.getElementById("resourceAnalyticsRange"),
   resourcePeriodTabs: document.getElementById("resourcePeriodTabs"),
-  resourcePagesRequests: document.getElementById("resourcePagesRequests"),
-  resourcePagesMeta: document.getElementById("resourcePagesMeta"),
-  resourceKvOperations: document.getElementById("resourceKvOperations"),
-  resourceKvOperationsMeta: document.getElementById("resourceKvOperationsMeta"),
-  resourceD1RowsRead: document.getElementById("resourceD1RowsRead"),
-  resourceD1UsageMeta: document.getElementById("resourceD1UsageMeta"),
+  resourceQuotaList: document.getElementById("resourceQuotaList"),
   resourceAnalyticsApiCalls: document.getElementById("resourceAnalyticsApiCalls"),
   resourceAnalyticsNotice: document.getElementById("resourceAnalyticsNotice"),
   resourceMeasurementNotice: document.getElementById("resourceMeasurementNotice"),
@@ -492,6 +491,132 @@ function getResourceAnalyticsPeriod(data, productName) {
   );
 }
 
+const RESOURCE_FREE_DAILY_LIMITS = {
+  pagesRequests: 100000,
+  kvReads: 100000,
+  kvWrites: 1000,
+  kvLists: 1000,
+  d1RowsRead: 5000000,
+  d1RowsWritten: 100000,
+};
+
+function resourcePeriodDays() {
+  return resourceAnalyticsPeriod === "30d"
+    ? 30
+    : resourceAnalyticsPeriod === "7d"
+      ? 7
+      : 1;
+}
+
+function formatResourcePercent(percent) {
+  const value = Number(percent || 0);
+  if (!Number.isFinite(value) || value <= 0) return "0%";
+  if (value < 0.01) return `${value.toFixed(4)}%`;
+  if (value < 0.1) return `${value.toFixed(3)}%`;
+  if (value < 1) return `${value.toFixed(2)}%`;
+  if (value < 10) return `${value.toFixed(1)}%`;
+  return `${Math.round(value).toLocaleString("ko-KR")}%`;
+}
+
+function resourceUsageTone(percent) {
+  const value = Number(percent || 0);
+
+  if (value <= 10) {
+    return {
+      className: "is-very-safe",
+      label: "매우 안전",
+    };
+  }
+  if (value <= 50) {
+    return {
+      className: "is-safe",
+      label: "안전",
+    };
+  }
+  if (value <= 80) {
+    return {
+      className: "is-watch",
+      label: "주의",
+    };
+  }
+  return {
+    className: "is-danger",
+    label: "한도 근접",
+  };
+}
+
+function makeResourceQuotaRow({
+  name,
+  value,
+  dailyLimit,
+  unit = "회",
+  detail = "",
+  available = true,
+}) {
+  const days = resourcePeriodDays();
+  const limit = Number(dailyLimit || 0) * days;
+  const numericValue = Number(value || 0);
+  const percent = limit > 0
+    ? (numericValue / limit) * 100
+    : 0;
+  const tone = resourceUsageTone(percent);
+  const barPercent = Math.min(100, Math.max(0, percent));
+
+  return {
+    name,
+    value: numericValue,
+    limit,
+    unit,
+    detail,
+    available,
+    percent,
+    tone,
+    html: available
+      ? `
+        <article class="resource-quota-row ${tone.className}">
+          <div class="resource-quota-name">
+            <strong>${escapeHtml(name)}</strong>
+            <span>Free 한도 ${formatResourceNumber(limit)}${escapeHtml(unit)}</span>
+          </div>
+
+          <div class="resource-quota-main">
+            <div class="resource-quota-value-line">
+              <b>${formatResourceNumber(numericValue)}${escapeHtml(unit)}</b>
+              <span>/ ${formatResourceNumber(limit)}${escapeHtml(unit)}</span>
+            </div>
+            <div class="resource-quota-track" aria-hidden="true">
+              <i style="width:max(${barPercent.toFixed(4)}%, ${numericValue > 0 ? "2px" : "0px"})"></i>
+            </div>
+            ${detail ? `<small>${escapeHtml(detail)}</small>` : ""}
+          </div>
+
+          <div class="resource-quota-status">
+            <b>${formatResourcePercent(percent)}</b>
+            <span>${escapeHtml(tone.label)}</span>
+          </div>
+        </article>
+      `
+      : `
+        <article class="resource-quota-row is-unavailable">
+          <div class="resource-quota-name">
+            <strong>${escapeHtml(name)}</strong>
+            <span>Free 한도 ${formatResourceNumber(limit)}${escapeHtml(unit)}</span>
+          </div>
+          <div class="resource-quota-main">
+            <div class="resource-quota-value-line">
+              <b>-</b>
+              <span>데이터 없음</span>
+            </div>
+            <small>${escapeHtml(detail || "Analytics dataset을 확인할 수 없습니다.")}</small>
+          </div>
+          <div class="resource-quota-status">
+            <span>확인 필요</span>
+          </div>
+        </article>
+      `,
+  };
+}
+
 function renderResourceAnalytics(data) {
   const analytics = data?.analytics || {};
   const products = analytics?.products || {};
@@ -515,14 +640,15 @@ function renderResourceAnalytics(data) {
     els.resourceFunctionsState.textContent = "미설정";
     els.resourceFunctionsMeta.textContent =
       "Analytics secret / Account ID 확인 필요";
+    els.resourceOverallState.textContent = "확인 필요";
+    els.resourceOverallMeta.textContent =
+      "Analytics 연결 상태를 확인해 주세요.";
+    els.resourceOverallCard.className =
+      "resource-overview-card resource-overview-card-status is-watch";
     els.resourceAnalyticsRange.textContent =
       "Cloudflare Analytics 미연결";
-    els.resourcePagesRequests.textContent = "-";
-    els.resourcePagesMeta.textContent = "데이터 없음";
-    els.resourceKvOperations.textContent = "-";
-    els.resourceKvOperationsMeta.textContent = "데이터 없음";
-    els.resourceD1RowsRead.textContent = "-";
-    els.resourceD1UsageMeta.textContent = "데이터 없음";
+    els.resourceQuotaList.innerHTML =
+      `<div class="resource-empty">Cloudflare Analytics 환경변수를 확인해 주세요.</div>`;
     els.resourceAnalyticsApiCalls.textContent = "0회";
     els.resourceAnalyticsNotice.textContent =
       analytics.note ||
@@ -558,43 +684,88 @@ function renderResourceAnalytics(data) {
     data,
     "pagesFunctions"
   );
-  if (products.pagesFunctions?.available && pages) {
-    els.resourcePagesRequests.textContent =
-      `${formatResourceNumber(pages.requests)}회`;
-    els.resourcePagesMeta.textContent =
-      `오류 ${formatResourceNumber(pages.errors)} · subrequest ${formatResourceNumber(pages.subrequests)}`;
-  } else {
-    els.resourcePagesRequests.textContent = "-";
-    els.resourcePagesMeta.textContent =
-      products.pagesFunctions?.error || "Pages Functions 데이터 없음";
-  }
-
   const kv = getResourceAnalyticsPeriod(data, "kv");
-  if (products.kv?.available && kv) {
-    els.resourceKvOperations.textContent =
-      `${formatResourceNumber(kv.total)}회`;
-    els.resourceKvOperationsMeta.textContent =
-      `read ${formatResourceNumber(kv.reads)} · write ${formatResourceNumber(kv.writes)} · list ${formatResourceNumber(kv.lists)} · delete ${formatResourceNumber(kv.deletes)}`;
-  } else {
-    els.resourceKvOperations.textContent = "-";
-    els.resourceKvOperationsMeta.textContent =
-      products.kv?.error || "KV Analytics 데이터 없음";
-  }
-
   const d1 = getResourceAnalyticsPeriod(data, "d1");
-  if (products.d1?.available && d1) {
-    els.resourceD1RowsRead.textContent =
-      `${formatResourceNumber(d1.rowsRead)} rows`;
-    els.resourceD1UsageMeta.textContent =
-      `written ${formatResourceNumber(d1.rowsWritten)} · query R ${formatResourceNumber(d1.readQueries)} / W ${formatResourceNumber(d1.writeQueries)}`;
-  } else {
-    els.resourceD1RowsRead.textContent = "-";
-    els.resourceD1UsageMeta.textContent =
-      products.d1?.error || "D1 Analytics 데이터 없음";
-  }
+
+  const rows = [
+    makeResourceQuotaRow({
+      name: "Pages Functions",
+      value: pages?.requests,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.pagesRequests,
+      detail: products.pagesFunctions?.available
+        ? `오류 ${formatResourceNumber(pages?.errors)} · subrequest ${formatResourceNumber(pages?.subrequests)}`
+        : products.pagesFunctions?.error || "Pages Functions 데이터 없음",
+      available: Boolean(products.pagesFunctions?.available && pages),
+    }),
+    makeResourceQuotaRow({
+      name: "KV Read",
+      value: kv?.reads,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.kvReads,
+      detail: "KV key 읽기",
+      available: Boolean(products.kv?.available && kv),
+    }),
+    makeResourceQuotaRow({
+      name: "KV Write",
+      value: kv?.writes,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.kvWrites,
+      detail: "KV key 생성·갱신",
+      available: Boolean(products.kv?.available && kv),
+    }),
+    makeResourceQuotaRow({
+      name: "KV List",
+      value: kv?.lists,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.kvLists,
+      detail: `delete ${formatResourceNumber(kv?.deletes)} · 기타 ${formatResourceNumber(kv?.other)}`,
+      available: Boolean(products.kv?.available && kv),
+    }),
+    makeResourceQuotaRow({
+      name: "D1 Rows Read",
+      value: d1?.rowsRead,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.d1RowsRead,
+      unit: " rows",
+      detail: `read query ${formatResourceNumber(d1?.readQueries)}`,
+      available: Boolean(products.d1?.available && d1),
+    }),
+    makeResourceQuotaRow({
+      name: "D1 Rows Written",
+      value: d1?.rowsWritten,
+      dailyLimit: RESOURCE_FREE_DAILY_LIMITS.d1RowsWritten,
+      unit: " rows",
+      detail: `write query ${formatResourceNumber(d1?.writeQueries)}`,
+      available: Boolean(products.d1?.available && d1),
+    }),
+  ];
+
+  els.resourceQuotaList.innerHTML = rows
+    .map((row) => row.html)
+    .join("");
 
   els.resourceAnalyticsApiCalls.textContent =
     `${Number(analytics.apiRequests || 0).toLocaleString("ko-KR")}회`;
+
+  const availableRows = rows.filter((row) => row.available);
+  const highest = availableRows.reduce(
+    (best, row) =>
+      !best || row.percent > best.percent
+        ? row
+        : best,
+    null
+  );
+
+  if (highest) {
+    const overall = resourceUsageTone(highest.percent);
+    els.resourceOverallState.textContent = overall.label;
+    els.resourceOverallMeta.textContent =
+      `${highest.name}이(가) 가장 높음 · ${formatResourcePercent(highest.percent)}`;
+    els.resourceOverallCard.className =
+      `resource-overview-card resource-overview-card-status ${overall.className}`;
+  } else {
+    els.resourceOverallState.textContent = "확인 필요";
+    els.resourceOverallMeta.textContent =
+      "사용량 dataset을 확인할 수 없습니다.";
+    els.resourceOverallCard.className =
+      "resource-overview-card resource-overview-card-status is-watch";
+  }
 
   const failed = Object.entries(products)
     .filter(([, item]) => item && !item.available)
@@ -607,13 +778,22 @@ function renderResourceAnalytics(data) {
   } else if (failed.length) {
     els.resourceAnalyticsNotice.classList.add("is-error");
     els.resourceAnalyticsNotice.textContent =
-      `일부 dataset만 조회되었습니다: ${failed.join(", ")}. 아래 표시된 오류 메시지를 확인해 주세요.`;
+      `일부 dataset만 조회되었습니다: ${failed.join(", ")}. 표시된 오류 메시지를 확인해 주세요.`;
+  } else if (highest && highest.percent <= 10) {
+    els.resourceAnalyticsNotice.classList.remove("is-error");
+    els.resourceAnalyticsNotice.textContent =
+      `현재 선택 기간의 최고 사용률은 ${highest.name} ${formatResourcePercent(highest.percent)}입니다. Free 한도 대비 매우 낮은 수준입니다.`;
+  } else if (highest && highest.percent <= 50) {
+    els.resourceAnalyticsNotice.classList.remove("is-error");
+    els.resourceAnalyticsNotice.textContent =
+      `현재 선택 기간의 최고 사용률은 ${highest.name} ${formatResourcePercent(highest.percent)}입니다. 아직 충분한 여유가 있습니다.`;
   } else {
     els.resourceAnalyticsNotice.classList.remove("is-error");
     els.resourceAnalyticsNotice.textContent =
-      `Cloudflare GraphQL Analytics 연결 정상 · ${periodLabels[resourceAnalyticsPeriod]} 관측값을 표시 중입니다. 이 값은 운영 Analytics이며 청구용 billing counter와 완전히 동일하지 않을 수 있습니다.`;
+      `현재 선택 기간의 최고 사용률은 ${highest?.name || "-"} ${formatResourcePercent(highest?.percent || 0)}입니다. 사용량 추이를 확인해 주세요.`;
   }
 }
+
 
 function renderResourceUsage(data) {
   resourceUsageData = data;
@@ -723,7 +903,7 @@ function renderResourceUsage(data) {
 
   els.resourceFunctionsNote.textContent =
     data?.analytics?.connected
-      ? "Cloudflare GraphQL Analytics의 운영 관측값을 표시합니다. Adaptive dataset의 sampling, 최근 데이터 집계 지연, billing 제외 규칙 때문에 Cloudflare의 최종 청구·quota counter와 완전히 같지는 않을 수 있습니다."
+      ? "Workers Free 공식 한도 기준입니다. Pages Functions 100,000 requests/day · KV Read 100,000/day · KV Write/List 1,000/day · D1 Rows Read 5,000,000/day · Rows Written 100,000/day. 7일/30일은 일일 한도에 기간 일수를 곱해 비교합니다. Analytics 값은 billing counter와 완전히 같지는 않을 수 있습니다."
       : data?.functions?.note ||
         "Cloudflare Analytics 연결 상태를 확인해 주세요.";
 
@@ -1575,6 +1755,10 @@ async function loadAdmin() {
   els.statusReviewCount.textContent = `${reviewCount.toLocaleString("ko-KR")}개`;
 
   els.siteNameInput.value = data.settings?.siteName || "RJS BOOK";
+  if (els.brandNamePreviewText) {
+    els.brandNamePreviewText.textContent =
+      els.siteNameInput.value.trim() || "RJS BOOK";
+  }
   els.faviconUrlInput.value = data.settings?.faviconUrl || "";
   els.eyebrowInput.value = data.settings?.eyebrow || "";
   els.titleInput.value = data.settings?.title || "";
@@ -2528,6 +2712,12 @@ els.postypeSyncButton?.addEventListener("click", async () => {
   }
 });
 
+els.siteNameInput?.addEventListener("input", () => {
+  if (!els.brandNamePreviewText) return;
+  els.brandNamePreviewText.textContent =
+    els.siteNameInput.value.trim() || "RJS BOOK";
+});
+
 els.settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   els.settingsMessage.hidden = false;
@@ -2543,7 +2733,7 @@ els.settingsForm.addEventListener("submit", async (event) => {
         title: els.titleInput.value,
       }),
     });
-    els.settingsMessage.textContent = "저장했습니다. 사이트를 새로고침하면 이름·파비콘·메인 문구에 반영됩니다.";
+    els.settingsMessage.textContent = "저장했습니다. 사이트를 새로고침하면 상단 로고 텍스트·브라우저 탭 제목·파비콘·메인 문구에 반영됩니다.";
   } catch (error) {
     els.settingsMessage.textContent = error.message;
   }
