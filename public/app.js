@@ -123,7 +123,7 @@ function getSavedReaderFontFamily() {
   const value = getViewerPreferenceStorage().getItem(READER_FONT_FAMILY_KEY);
   return Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, value)
     ? value
-    : "default";
+    : "ridibatang";
 }
 
 function setViewerPreference(key, value) {
@@ -2977,8 +2977,13 @@ function showReaderLoading(item) {
     <div id="readerRenderShell" class="reader-render-shell">
       <div id="readerContent" class="reader-content" aria-live="off"></div>
 
-      <div id="readerLoadingOverlay" class="reader-loading-overlay">
-        <div class="reader-loading rich-loading">
+      <div id="readerLoadingOverlay" class="reader-loading-overlay reader-pending-overlay">
+        <div class="reader-loading rich-loading reader-pending-loading" role="status" aria-live="polite">
+          <div class="reader-pending-head">
+            <span class="reader-pending-spinner" aria-hidden="true"></span>
+            <strong class="reader-pending-label">PENDING</strong>
+            <span id="readerProgressLabel" class="reader-progress-label">4%</span>
+          </div>
           <div class="loading-copy">
             <strong id="readerLoadingTitle">본문을 불러오는 중…</strong>
             <span id="readerLoadingText">${
@@ -2990,7 +2995,6 @@ function showReaderLoading(item) {
           <div class="reader-progress" aria-hidden="true">
             <span id="readerProgressBar"></span>
           </div>
-          <span id="readerProgressLabel" class="reader-progress-label">4%</span>
         </div>
       </div>
     </div>
@@ -3019,6 +3023,13 @@ function showReaderLoading(item) {
   els.readerLoadingText = document.getElementById("readerLoadingText");
   els.readerProgressBar = document.getElementById("readerProgressBar");
   els.readerProgressLabel = document.getElementById("readerProgressLabel");
+
+  const pendingOverlay = els.readerLoadingOverlay;
+  window.setTimeout(() => {
+    if (pendingOverlay?.isConnected && pendingOverlay === els.readerLoadingOverlay) {
+      pendingOverlay.classList.add("is-visible");
+    }
+  }, 180);
 
   setReaderLoadingProgress(4);
 }
@@ -5869,6 +5880,14 @@ function ensureReaderShareUi() {
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
+  input.addEventListener("blur", () => {
+    const normalized = normalizeReaderShareText(input.value);
+    if (normalized && normalized !== input.value) {
+      input.value = normalized;
+      state.readerShareText = normalized;
+      updateReaderSharePreview();
+    }
+  });
 
   saveButton?.addEventListener("click", async () => {
     await handleReaderShareExport("save");
@@ -5906,7 +5925,7 @@ function getReaderShareRenderModel() {
   ensureReaderShareState();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = state.activeReaderItem || {};
-  const text = String(state.readerShareText || "").trim();
+  const text = normalizeReaderShareText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
@@ -5986,18 +6005,26 @@ function computeReaderShareTextLayout(ctx, model, width, height) {
   const boxHeight = height - top - bottom;
   const scale = width / 380;
   let fontSize = model.sizePx * scale;
-  let lineHeight = fontSize * 1.56;
+  let lineHeight = fontSize * 1.42;
   let lines = [];
   for (let i = 0; i < 24; i += 1) {
     ctx.font = `${model.font.weight || 400} ${fontSize}px ${model.font.css}`;
     lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
-    lineHeight = fontSize * 1.56;
+    lineHeight = fontSize * 1.42;
     const totalHeight = lines.length * lineHeight;
     const maxLineWidth = Math.max(0, ...lines.map((line) => ctx.measureText(line).width));
     if (totalHeight <= boxHeight && maxLineWidth <= boxWidth) break;
     fontSize -= Math.max(1, scale * 0.7);
-    if (fontSize < 28) break;
+    if (fontSize < 22) break;
   }
+
+  const maxLines = Math.max(1, Math.floor(boxHeight / lineHeight));
+  if (lines.length > maxLines) {
+    lines = lines.slice(0, maxLines);
+    const last = Math.max(0, lines.length - 1);
+    lines[last] = `${String(lines[last] || "").replace(/[.…\s]+$/u, "")}…`;
+  }
+
   return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines };
 }
 
@@ -6106,15 +6133,31 @@ function updateReaderShareActionLabel() {
   }
 }
 
-async function copyReaderShareBlobToClipboard(blob) {
-  if (!navigator.clipboard?.write || !window.ClipboardItem) {
+function createReaderShareBlobPromise() {
+  return renderReaderShareCanvas().then((canvas) => new Promise((resolve, reject) => {
+    canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
+  }));
+}
+
+async function copyReaderShareImageToClipboard() {
+  if (!window.isSecureContext || !navigator.clipboard?.write || !window.ClipboardItem) {
     throw new Error("clipboard_image_unsupported");
   }
-  const item = new ClipboardItem({ "image/png": blob });
+
+  // Mobile browsers can drop transient user activation while we await canvas/blob
+  // generation. Start clipboard.write() synchronously from the button click and
+  // hand ClipboardItem a Promise for the PNG instead.
+  const blobPromise = createReaderShareBlobPromise();
+  let item;
+  try {
+    item = new ClipboardItem({ "image/png": blobPromise });
+  } catch (error) {
+    throw new Error("clipboard_image_unsupported", { cause: error });
+  }
   await navigator.clipboard.write([item]);
 }
 
-async function setReaderShareBusy(isBusy) {
+function setReaderShareBusy(isBusy) {
   const ui = ensureReaderShareUi();
   for (const button of [ui.saveButton, ui.clipboardButton, ui.shareButton]) {
     if (button) button.disabled = isBusy;
@@ -6134,23 +6177,23 @@ async function handleReaderShareExport(mode) {
     window.alert("공유할 문구가 없습니다.");
     return;
   }
-  await setReaderShareBusy(true);
+  setReaderShareBusy(true);
   try {
-    const canvas = await renderReaderShareCanvas();
-    const blob = await new Promise((resolve, reject) => {
-      canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
-    });
-    const filename = getReaderShareFilename();
-    if (mode === "save") {
-      downloadReaderShareBlob(blob, filename);
-      return;
-    }
+    // Clipboard write must be started while the original tap/click still owns
+    // transient user activation. Do not await canvas generation beforehand.
     if (mode === "clipboard") {
-      await copyReaderShareBlobToClipboard(blob);
+      await copyReaderShareImageToClipboard();
       if (ui.clipboardButton) {
         ui.clipboardButton.textContent = "복사 완료";
         window.setTimeout(updateReaderShareActionLabel, 1200);
       }
+      return;
+    }
+
+    const blob = await createReaderShareBlobPromise();
+    const filename = getReaderShareFilename();
+    if (mode === "save") {
+      downloadReaderShareBlob(blob, filename);
       return;
     }
     const file = new File([blob], filename, { type: "image/png" });
@@ -6173,8 +6216,27 @@ async function handleReaderShareExport(mode) {
       window.alert("이미지를 생성하지 못했습니다. 다시 시도해 주세요.");
     }
   } finally {
-    await setReaderShareBusy(false);
+    setReaderShareBusy(false);
   }
+}
+
+function fitReaderSharePreviewText(ui, startPx) {
+  if (!ui?.quote) return;
+  const quote = ui.quote;
+  let px = Math.max(10, Number(startPx) || 13);
+  quote.style.fontSize = `${px}px`;
+  quote.style.alignItems = "center";
+
+  // Long selections must keep the beginning visible. Shrink first; if the
+  // preview still overflows at the compact minimum, anchor at the top rather
+  // than clipping the opening lines from a vertically centered block.
+  while (px > 10 && quote.scrollHeight > quote.clientHeight + 1) {
+    px -= 0.5;
+    quote.style.fontSize = `${px}px`;
+  }
+  quote.style.alignItems = quote.scrollHeight > quote.clientHeight + 1
+    ? "flex-start"
+    : "center";
 }
 
 function updateReaderSharePreview() {
@@ -6182,7 +6244,7 @@ function updateReaderSharePreview() {
   const ui = ensureReaderShareUi();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = state.activeReaderItem || {};
-  const text = String(state.readerShareText || "").trim();
+  const text = normalizeReaderShareText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
   const textColor = background.text;
@@ -6197,11 +6259,14 @@ function updateReaderSharePreview() {
   ui.quote.textContent = text;
   ui.quote.style.fontFamily = font.css;
   ui.quote.style.fontWeight = String(font.weight || 400);
+  ui.quote.style.lineHeight = "1.42";
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
-  ui.quote.style.fontSize = `${Math.max(13, size.px - lengthPenalty)}px`;
+  const previewFontSize = Math.max(13, size.px - lengthPenalty);
+  ui.quote.style.fontSize = `${previewFontSize}px`;
   ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
   ui.quote.style.wordBreak = state.readerShareAutoWrap ? "keep-all" : "normal";
   ui.quote.style.overflowWrap = state.readerShareAutoWrap ? "break-word" : "normal";
+  fitReaderSharePreviewText(ui, previewFontSize);
   ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
   ui.brand.textContent = getReaderShareBrandName();
 
@@ -6280,7 +6345,7 @@ function normalizeReaderShareText(rawText) {
     current.push(line);
   }
   flush();
-  return paragraphs.join("\n\n").trim();
+  return paragraphs.join("\n").trim();
 }
 
 function getReaderTextSelection() {
@@ -6288,7 +6353,7 @@ function getReaderTextSelection() {
   const selection = window.getSelection?.();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
 
-  const text = String(selection.toString() || "").replace(/\u00a0/g, " ").trim();
+  const text = normalizeReaderShareText(selection.toString()).slice(0, 700);
   if (!text) return null;
 
   const range = selection.getRangeAt(0);
@@ -6303,7 +6368,7 @@ function getReaderTextSelection() {
   if (!rect || (!rect.width && !rect.height)) return null;
 
   return {
-    text: text.slice(0, 700),
+    text,
     rect,
   };
 }

@@ -125,6 +125,17 @@ const els = {
   resourceD1Breakdown: document.getElementById("resourceD1Breakdown"),
   resourceOperationBody: document.getElementById("resourceOperationBody"),
   resourceFunctionsNote: document.getElementById("resourceFunctionsNote"),
+  resourcePagesBuildCard: document.getElementById("resourcePagesBuildCard"),
+  resourcePagesBuildState: document.getElementById("resourcePagesBuildState"),
+  resourcePagesBuildMeta: document.getElementById("resourcePagesBuildMeta"),
+  resourcePagesBuildRange: document.getElementById("resourcePagesBuildRange"),
+  resourcePagesBuildUsed: document.getElementById("resourcePagesBuildUsed"),
+  resourcePagesBuildPercent: document.getElementById("resourcePagesBuildPercent"),
+  resourcePagesBuildRemaining: document.getElementById("resourcePagesBuildRemaining"),
+  resourcePagesBuildResult: document.getElementById("resourcePagesBuildResult"),
+  resourcePagesDeploymentList: document.getElementById("resourcePagesDeploymentList"),
+  resourcePagesMoreButton: document.getElementById("resourcePagesMoreButton"),
+  resourcePagesBuildNotice: document.getElementById("resourcePagesBuildNotice"),
   resourceMessage: document.getElementById("resourceMessage"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
   panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
@@ -155,6 +166,7 @@ let driveAdminFilter = "all";
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
 let resourceAnalyticsPeriod = "today";
+let resourcePagesVisibleLimit = 10;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -793,6 +805,133 @@ function renderResourceAnalytics(data) {
 }
 
 
+function resourceDeploymentStatusLabel(item) {
+  if (item?.skipped) return { label: "건너뜀", className: "is-skipped" };
+
+  const status = String(item?.status || "unknown").toLowerCase();
+  if (status === "success") return { label: "성공", className: "is-success" };
+  if (status === "failure") return { label: "실패", className: "is-failure" };
+  if (status === "canceled") return { label: "취소", className: "is-canceled" };
+  if (status === "active") return { label: "진행 중", className: "is-active" };
+  if (status === "idle") return { label: "대기", className: "is-active" };
+  return { label: status || "확인 중", className: "is-unknown" };
+}
+
+function renderResourcePagesDeployments(data) {
+  const pages = data?.pagesDeployments || {};
+  const limit = Number(pages.limit || 500);
+
+  if (!pages.configured || !pages.connected) {
+    if (els.resourcePagesBuildCard) {
+      els.resourcePagesBuildCard.className =
+        "resource-overview-card resource-overview-card-status is-watch";
+    }
+    if (els.resourcePagesBuildState) els.resourcePagesBuildState.textContent = "조회 실패";
+    if (els.resourcePagesBuildMeta) {
+      els.resourcePagesBuildMeta.textContent = pages.note || "Pages Read 권한을 확인해 주세요.";
+    }
+    if (els.resourcePagesBuildRange) {
+      els.resourcePagesBuildRange.textContent = "Cloudflare Pages 배포 목록 미연결";
+    }
+    if (els.resourcePagesBuildUsed) els.resourcePagesBuildUsed.textContent = "-";
+    if (els.resourcePagesBuildPercent) els.resourcePagesBuildPercent.textContent = "-";
+    if (els.resourcePagesBuildRemaining) els.resourcePagesBuildRemaining.textContent = "-";
+    if (els.resourcePagesBuildResult) els.resourcePagesBuildResult.textContent = "-";
+    if (els.resourcePagesDeploymentList) {
+      els.resourcePagesDeploymentList.innerHTML =
+        `<div class="resource-empty">${escapeHtml(pages.note || "Cloudflare Pages 배포 기록을 조회하지 못했습니다.")}</div>`;
+    }
+    if (els.resourcePagesMoreButton) els.resourcePagesMoreButton.hidden = true;
+    if (els.resourcePagesBuildNotice) {
+      els.resourcePagesBuildNotice.classList.add("is-error");
+      els.resourcePagesBuildNotice.textContent =
+        pages.note || "CLOUDFLARE_ANALYTICS_TOKEN의 Cloudflare Pages Read 권한을 확인해 주세요.";
+    }
+    return;
+  }
+
+  const used = Number(pages.used || 0);
+  const remaining = Number(pages.remaining ?? Math.max(0, limit - used));
+  const percent = Number(pages.percent || 0);
+  const tone = resourceUsageTone(percent);
+  const deployments = Array.isArray(pages.deployments) ? pages.deployments : [];
+  const visible = deployments.slice(0, resourcePagesVisibleLimit);
+
+  if (els.resourcePagesBuildCard) {
+    els.resourcePagesBuildCard.className =
+      `resource-overview-card resource-overview-card-status ${tone.className}`;
+  }
+  if (els.resourcePagesBuildState) {
+    els.resourcePagesBuildState.textContent = `${formatResourceNumber(used)} / ${formatResourceNumber(limit)}`;
+  }
+  if (els.resourcePagesBuildMeta) {
+    els.resourcePagesBuildMeta.textContent =
+      `${formatResourcePercent(percent)} 사용 · ${formatResourceNumber(remaining)}회 남음`;
+  }
+  if (els.resourcePagesBuildRange) {
+    els.resourcePagesBuildRange.textContent =
+      `${pages.range?.label || "이번 달"} · ${pages.range?.timezone || "Asia/Seoul"} 기준 · API ${formatResourceNumber(pages.apiRequests)}회`;
+  }
+  if (els.resourcePagesBuildUsed) {
+    els.resourcePagesBuildUsed.textContent = `${formatResourceNumber(used)} / ${formatResourceNumber(limit)}`;
+  }
+  if (els.resourcePagesBuildPercent) {
+    els.resourcePagesBuildPercent.textContent = formatResourcePercent(percent);
+  }
+  if (els.resourcePagesBuildRemaining) {
+    els.resourcePagesBuildRemaining.textContent = `${formatResourceNumber(remaining)}회`;
+  }
+  if (els.resourcePagesBuildResult) {
+    els.resourcePagesBuildResult.textContent =
+      `${formatResourceNumber(pages.success)} / ${formatResourceNumber(pages.failure)}`;
+  }
+
+  if (els.resourcePagesDeploymentList) {
+    els.resourcePagesDeploymentList.innerHTML = visible.length
+      ? visible.map((item) => {
+          const status = resourceDeploymentStatusLabel(item);
+          const environment = item?.environment === "production" ? "production" : "preview";
+          const message = String(item?.commitMessage || "").trim();
+          const branch = String(item?.branch || "").trim();
+          return `
+            <article class="resource-pages-deployment-row">
+              <div class="resource-pages-deployment-main">
+                <div class="resource-pages-deployment-badges">
+                  <span class="resource-pages-status ${status.className}">${escapeHtml(status.label)}</span>
+                  <span class="resource-pages-env">${escapeHtml(environment)}</span>
+                </div>
+                <strong>${escapeHtml(message || branch || item?.shortId || "Pages deployment")}</strong>
+                <small>${escapeHtml(branch || "-")}${item?.shortId ? ` · ${escapeHtml(item.shortId)}` : ""}</small>
+              </div>
+              <time datetime="${escapeHtml(item?.createdOn || "")}">${escapeHtml(formatSummaryDate(item?.createdOn))}</time>
+            </article>
+          `;
+        }).join("")
+      : `<div class="resource-empty">이번 달 Pages 배포 기록이 없습니다.</div>`;
+  }
+
+  if (els.resourcePagesMoreButton) {
+    const hasMore = deployments.length > resourcePagesVisibleLimit;
+    els.resourcePagesMoreButton.hidden = !hasMore;
+    els.resourcePagesMoreButton.textContent = hasMore
+      ? `10개 더보기 (${formatResourceNumber(resourcePagesVisibleLimit)} / ${formatResourceNumber(deployments.length)})`
+      : "";
+  }
+
+  if (els.resourcePagesBuildNotice) {
+    els.resourcePagesBuildNotice.classList.remove("is-error");
+    const extras = [
+      `production ${formatResourceNumber(pages.production)}`,
+      `preview ${formatResourceNumber(pages.preview)}`,
+      pages.canceled ? `취소 ${formatResourceNumber(pages.canceled)}` : "",
+      pages.active ? `진행/대기 ${formatResourceNumber(pages.active)}` : "",
+      pages.skipped ? `건너뜀 ${formatResourceNumber(pages.skipped)}` : "",
+    ].filter(Boolean).join(" · ");
+    els.resourcePagesBuildNotice.textContent =
+      `${pages.note || "Cloudflare Pages 배포 목록 기준 집계입니다."}${extras ? ` · ${extras}` : ""}`;
+  }
+}
+
 function renderResourceUsage(data) {
   resourceUsageData = data;
   resourceUsageLoaded = true;
@@ -831,6 +970,7 @@ function renderResourceUsage(data) {
     : "ARCHIVE_BODY 미연결 · 현재 코드에서는 R2 미사용";
 
   renderResourceAnalytics(data);
+  renderResourcePagesDeployments(data);
 
   els.resourceKvTotal.textContent = kv.bound
     ? `${Number(kv.keyCount || 0).toLocaleString("ko-KR")} keys${
@@ -918,6 +1058,7 @@ function renderResourceUsage(data) {
 
 async function loadResourceUsage(precise = false) {
   const refreshButton = els.resourceRefreshButton;
+  if (!precise) resourcePagesVisibleLimit = 10;
   const preciseButton = els.resourcePreciseButton;
 
   if (refreshButton) refreshButton.disabled = true;
@@ -2071,6 +2212,11 @@ els.resourceRefreshButton?.addEventListener("click", async () => {
     els.resourceMessage.textContent =
       error.message || "리소스 현황을 새로고침하지 못했습니다.";
   }
+});
+
+els.resourcePagesMoreButton?.addEventListener("click", () => {
+  resourcePagesVisibleLimit += 10;
+  if (resourceUsageData) renderResourcePagesDeployments(resourceUsageData);
 });
 
 els.resourcePreciseButton?.addEventListener("click", async () => {

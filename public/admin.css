@@ -2235,3 +2235,207 @@ button.primary,
   font-size: 9px;
   line-height: 1.55;
 }
+
+/* =====================================================================
+   V7.72 CLOUDFLARE PAGES MONTHLY DEPLOYMENTS
+   ===================================================================== */
+@media(min-width:801px) {
+  .resource-overview-grid {
+    grid-template-columns:repeat(4,minmax(0,1fr));
+  }
+}
+
+.resource-pages-deployments {
+  margin-top:14px;
+}
+
+.resource-pages-deployments-head {
+  margin-bottom:13px;
+}
+
+.resource-pages-build-summary {
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+  gap:8px;
+  margin-bottom:13px;
+}
+
+.resource-pages-build-summary article {
+  min-width:0;
+  padding:12px 13px;
+  border:1px solid #eee8e1;
+  border-radius:13px;
+  background:#fff;
+}
+
+.resource-pages-build-summary span {
+  display:block;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:800;
+  line-height:1.25;
+}
+
+.resource-pages-build-summary strong {
+  display:block;
+  margin-top:6px;
+  color:var(--ink);
+  font-size:17px;
+  line-height:1.15;
+  letter-spacing:-.02em;
+}
+
+.resource-pages-deployment-list {
+  overflow:hidden;
+  border:1px solid #eee8e1;
+  border-radius:14px;
+  background:#fff;
+}
+
+.resource-pages-deployment-row {
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:14px;
+  align-items:center;
+  padding:11px 13px;
+  border-bottom:1px solid #f0ebe5;
+}
+
+.resource-pages-deployment-row:last-child {
+  border-bottom:0;
+}
+
+.resource-pages-deployment-main {
+  min-width:0;
+}
+
+.resource-pages-deployment-badges {
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin-bottom:5px;
+}
+
+.resource-pages-status,
+.resource-pages-env {
+  display:inline-flex;
+  align-items:center;
+  min-height:18px;
+  padding:2px 6px;
+  border-radius:999px;
+  font-size:8px;
+  line-height:1;
+  font-weight:850;
+  white-space:nowrap;
+}
+
+.resource-pages-status {
+  background:#f2f0ed;
+  color:#6f675f;
+}
+
+.resource-pages-status.is-success {
+  background:#edf8ef;
+  color:#2c7a3f;
+}
+
+.resource-pages-status.is-failure {
+  background:#fff0ef;
+  color:#b34038;
+}
+
+.resource-pages-status.is-canceled,
+.resource-pages-status.is-skipped {
+  background:#f4f1ed;
+  color:#7b736b;
+}
+
+.resource-pages-status.is-active {
+  background:#fff6dc;
+  color:#8a6500;
+}
+
+.resource-pages-env {
+  background:#f2f5fa;
+  color:#53657c;
+}
+
+.resource-pages-deployment-main > strong {
+  display:block;
+  overflow:hidden;
+  color:var(--ink);
+  font-size:11px;
+  line-height:1.35;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.resource-pages-deployment-main > small {
+  display:block;
+  overflow:hidden;
+  margin-top:3px;
+  color:var(--muted);
+  font-size:8px;
+  line-height:1.35;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.resource-pages-deployment-row > time {
+  color:var(--muted);
+  font-size:9px;
+  line-height:1.3;
+  white-space:nowrap;
+}
+
+.resource-pages-more-button {
+  display:block;
+  min-width:118px;
+  margin:10px auto 0;
+  padding:7px 11px;
+  border:1px solid var(--line);
+  border-radius:999px;
+  background:#fff;
+  color:var(--ink);
+  font:inherit;
+  font-size:9px;
+  font-weight:800;
+  cursor:pointer;
+}
+
+.resource-pages-more-button[hidden] {
+  display:none;
+}
+
+.resource-pages-deployments .resource-analytics-notice {
+  margin-top:10px;
+}
+
+@media(max-width:800px) {
+  .resource-pages-build-summary {
+    grid-template-columns:repeat(2,minmax(0,1fr));
+  }
+}
+
+@media(max-width:560px) {
+  .resource-pages-build-summary {
+    gap:6px;
+  }
+
+  .resource-pages-build-summary article {
+    padding:10px 11px;
+  }
+
+  .resource-pages-build-summary strong {
+    font-size:15px;
+  }
+
+  .resource-pages-deployment-row {
+    grid-template-columns:1fr;
+    gap:6px;
+  }
+
+  .resource-pages-deployment-row > time {
+    justify-self:start;
+  }
+}

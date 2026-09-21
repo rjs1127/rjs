@@ -322,6 +322,178 @@ async function inspectR2(bucket) {
 
 const CLOUDFLARE_GRAPHQL_ENDPOINT =
   "https://api.cloudflare.com/client/v4/graphql";
+const CLOUDFLARE_API_ENDPOINT =
+  "https://api.cloudflare.com/client/v4";
+const DEFAULT_PAGES_PROJECT_NAME = "google-drive-archive-site";
+const PAGES_FREE_MONTHLY_BUILD_LIMIT = 500;
+const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+
+function kstMonthRange(now = new Date()) {
+  const shifted = new Date(now.getTime() + KST_OFFSET_MS);
+  const year = shifted.getUTCFullYear();
+  const month = shifted.getUTCMonth();
+  const start = new Date(Date.UTC(year, month, 1) - KST_OFFSET_MS);
+  const end = new Date(Date.UTC(year, month + 1, 1) - KST_OFFSET_MS);
+
+  return {
+    year,
+    month: month + 1,
+    start: start.toISOString(),
+    end: end.toISOString(),
+    label: `${year}.${String(month + 1).padStart(2, "0")}`,
+    timezone: "Asia/Seoul",
+  };
+}
+
+function summarizePagesDeployment(item) {
+  const metadata = item?.deployment_trigger?.metadata || {};
+  const latestStage = item?.latest_stage || {};
+
+  return {
+    id: String(item?.id || ""),
+    shortId: String(item?.short_id || ""),
+    createdOn: String(item?.created_on || ""),
+    environment: String(item?.environment || ""),
+    status: String(latestStage?.status || (item?.is_skipped ? "skipped" : "unknown")),
+    stage: String(latestStage?.name || ""),
+    skipped: Boolean(item?.is_skipped),
+    triggerType: String(item?.deployment_trigger?.type || ""),
+    branch: String(metadata?.branch || ""),
+    commitHash: String(metadata?.commit_hash || ""),
+    commitMessage: String(metadata?.commit_message || "").slice(0, 160),
+  };
+}
+
+async function queryCloudflarePagesDeployments(env) {
+  const token = String(env.CLOUDFLARE_ANALYTICS_TOKEN || "").trim();
+  const accountId = String(env.CLOUDFLARE_ACCOUNT_ID || "").trim();
+  const projectName = String(
+    env.CLOUDFLARE_PAGES_PROJECT_NAME || DEFAULT_PAGES_PROJECT_NAME
+  ).trim();
+  const range = kstMonthRange();
+
+  if (!token || !accountId || !projectName) {
+    return {
+      configured: false,
+      connected: false,
+      projectName,
+      limit: PAGES_FREE_MONTHLY_BUILD_LIMIT,
+      range,
+      apiRequests: 0,
+      deployments: [],
+      note: "Pages 배포 조회에 필요한 Token, Account ID 또는 Project Name을 확인해 주세요.",
+    };
+  }
+
+  const deployments = [];
+  let apiRequests = 0;
+  let page = 1;
+  const perPage = 100;
+  const maxPages = 10;
+  const monthStart = Date.parse(range.start);
+  const monthEnd = Date.parse(range.end);
+
+  try {
+    while (page <= maxPages) {
+      const endpoint =
+        `${CLOUDFLARE_API_ENDPOINT}/accounts/${encodeURIComponent(accountId)}` +
+        `/pages/projects/${encodeURIComponent(projectName)}/deployments` +
+        `?page=${page}&per_page=${perPage}`;
+
+      const response = await fetch(endpoint, {
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/json",
+        },
+      });
+      apiRequests += 1;
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch {
+        throw new Error(`Cloudflare Pages 응답을 해석하지 못했습니다. HTTP ${response.status}`);
+      }
+
+      if (!response.ok || payload?.success === false) {
+        throw new Error(
+          payload?.errors?.[0]?.message ||
+          `Cloudflare Pages 배포 조회 실패 · HTTP ${response.status}`
+        );
+      }
+
+      const rows = Array.isArray(payload?.result) ? payload.result : [];
+      let reachedBeforeMonth = false;
+
+      for (const row of rows) {
+        const created = Date.parse(String(row?.created_on || ""));
+        if (!Number.isFinite(created)) continue;
+        if (created < monthStart) {
+          reachedBeforeMonth = true;
+          continue;
+        }
+        if (created >= monthEnd) continue;
+        deployments.push(summarizePagesDeployment(row));
+      }
+
+      const totalPages = Number(payload?.result_info?.total_pages || 0);
+      if (reachedBeforeMonth || rows.length < perPage || (totalPages && page >= totalPages)) {
+        break;
+      }
+      page += 1;
+    }
+
+    deployments.sort((a, b) =>
+      Date.parse(b.createdOn || 0) - Date.parse(a.createdOn || 0)
+    );
+
+    const counted = deployments.filter((item) => !item.skipped);
+    const used = counted.length;
+    const success = counted.filter((item) => item.status === "success").length;
+    const failure = counted.filter((item) => item.status === "failure").length;
+    const canceled = counted.filter((item) => item.status === "canceled").length;
+    const active = counted.filter((item) => item.status === "active" || item.status === "idle").length;
+    const production = counted.filter((item) => item.environment === "production").length;
+    const preview = counted.filter((item) => item.environment === "preview").length;
+    const skipped = deployments.length - used;
+    const remaining = Math.max(0, PAGES_FREE_MONTHLY_BUILD_LIMIT - used);
+    const percent = PAGES_FREE_MONTHLY_BUILD_LIMIT > 0
+      ? (used / PAGES_FREE_MONTHLY_BUILD_LIMIT) * 100
+      : 0;
+
+    return {
+      configured: true,
+      connected: true,
+      projectName,
+      limit: PAGES_FREE_MONTHLY_BUILD_LIMIT,
+      range,
+      apiRequests,
+      used,
+      remaining,
+      percent,
+      success,
+      failure,
+      canceled,
+      active,
+      skipped,
+      production,
+      preview,
+      deployments,
+      note: "Cloudflare Pages 배포 목록 기준 집계입니다. Git 연동에서는 배포 기록이 월 빌드 사용량을 확인하는 실용적인 기준이며, Cloudflare의 최종 billing counter와 소폭 차이가 있을 수 있습니다.",
+    };
+  } catch (error) {
+    return {
+      configured: true,
+      connected: false,
+      projectName,
+      limit: PAGES_FREE_MONTHLY_BUILD_LIMIT,
+      range,
+      apiRequests,
+      deployments: [],
+      note: analyticsErrorMessage(error),
+    };
+  }
+}
 
 function utcDateString(date) {
   return date.toISOString().slice(0, 10);
@@ -742,11 +914,12 @@ export async function onRequestGet(context) {
       };
     }
 
-    const [d1Result, r2Result, analyticsResult] =
+    const [d1Result, r2Result, analyticsResult, pagesDeploymentsResult] =
       await Promise.all([
         inspectD1(db),
         inspectR2(bucket),
         queryCloudflareAnalytics(context.env),
+        queryCloudflarePagesDeployments(context.env),
       ]);
 
     return jsonResponse({
@@ -757,6 +930,7 @@ export async function onRequestGet(context) {
       d1: d1Result,
       r2: r2Result,
       analytics: analyticsResult,
+      pagesDeployments: pagesDeploymentsResult,
       functions: {
         measurableInsideApp: Boolean(analyticsResult?.connected),
         note: analyticsResult?.connected

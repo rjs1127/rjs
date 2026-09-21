@@ -3165,3 +3165,62 @@ html.safari-reader .reader:not(.reader-page-mode) .reader-content {
   stroke-linecap:round;
   stroke-linejoin:round;
 }
+
+
+/* v7.70 - compact delayed reader pending state + quote-card readability */
+.reader-pending-overlay {
+  position: absolute !important;
+  inset: 0 0 auto 0 !important;
+  top: 0 !important;
+  display: grid !important;
+  place-items: center !important;
+  min-height: clamp(260px, 55vh, 540px) !important;
+  padding: 0 16px !important;
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.reader-pending-overlay.is-visible { opacity: 1; }
+.reader-pending-overlay.done { opacity: 0; }
+.reader-loading-overlay .reader-pending-loading {
+  width: min(calc(100% - 32px), 320px);
+  margin: 0 auto;
+  padding: 14px 16px 13px;
+  border-radius: 16px;
+  box-shadow: 0 10px 30px var(--theme-shadow, rgba(37,33,28,.08));
+}
+.reader-pending-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.reader-pending-spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 13px;
+  border: 2px solid rgba(119,113,106,.28);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: readerPendingSpin .72s linear infinite;
+}
+.reader-pending-label {
+  font-size: 10px;
+  line-height: 1;
+  letter-spacing: .12em;
+}
+.reader-pending-head .reader-progress-label {
+  margin: 0 0 0 auto;
+  font-size: 9px;
+  line-height: 1;
+}
+.reader-pending-loading .loading-copy {
+  gap: 3px;
+  margin-bottom: 9px;
+}
+.reader-pending-loading .loading-copy strong { font-size: 12px; }
+.reader-pending-loading .loading-copy span { font-size: 10px; line-height: 1.35; }
+.reader-pending-loading .reader-progress { height: 4px; }
+@keyframes readerPendingSpin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) {
+  .reader-pending-spinner { animation-duration: 1.8s; }
+}
