@@ -2332,11 +2332,9 @@ function isLargeReaderFile(item) {
 }
 
 function isReaderPageModeEligible(item = state.activeReaderItem) {
-  if (!item || item.source === "postype") return false;
-  return (
-    isLargeReaderFile(item) ||
-    getItemContentType(item) === "연재물"
-  );
+  // TXT 리더는 단편/연재 구분 없이 사용자가 선택한 읽기 모드를 따른다.
+  // 포스타입 원문은 별도 표시 구조를 사용하므로 기존처럼 스크롤 전용으로 유지한다.
+  return Boolean(item && item.source !== "postype");
 }
 
 function resetReaderPageState() {
@@ -2868,11 +2866,23 @@ async function setReaderDisplayMode(mode, options = {}) {
     setReaderCompactActive(false);
     els.readerScrollTop?.classList.remove("visible");
 
+    // 본문 스크롤 화면이 한 프레임 노출되지 않도록, page viewport를
+    // 활성화한 같은 렌더 사이클에서 첫 페이지를 먼저 만든다.
+    resizeReaderPageViewport();
+    renderReaderPageAt(positionOffset, {
+      navigated: Boolean(options.navigated),
+    });
+
     await nextFrame();
     resizeReaderPageViewport();
     renderReaderPageAt(positionOffset, {
       navigated: Boolean(options.navigated),
     });
+
+    if (els.readerLoadingOverlay) {
+      els.readerLoadingOverlay.remove();
+      els.readerLoadingOverlay = null;
+    }
     return;
   }
 
@@ -3325,6 +3335,12 @@ function getReaderChunkTextY(section, charOffset) {
 }
 
 
+function getReaderResumeTopOffset(panel = els.readerPanel) {
+  if (!panel) return 64;
+  // 기존보다 약간 위쪽에 문맥이 보이도록 하되 기기별 높이 차이는 작게 흡수한다.
+  return Math.min(76, Math.max(56, panel.clientHeight * 0.065));
+}
+
 async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) {
   if (!els.readerPanel || !textNode) return false;
 
@@ -3358,10 +3374,7 @@ async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) 
     for (let pass = 0; pass < 6; pass += 1) {
       const panelRect = panel.getBoundingClientRect();
       const targetRect = range.getBoundingClientRect();
-      const margin = Math.min(
-        96,
-        Math.max(56, panel.clientHeight * 0.08)
-      );
+      const margin = getReaderResumeTopOffset(panel);
       const desiredViewportY = panelRect.top + margin;
       const delta = targetRect.top - desiredViewportY;
       const tolerance = Math.max(18, panel.clientHeight * 0.018);
@@ -3405,10 +3418,7 @@ async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) 
     if (!reached) {
       const panelRect = panel.getBoundingClientRect();
       const targetRect = range.getBoundingClientRect();
-      const margin = Math.min(
-        96,
-        Math.max(56, panel.clientHeight * 0.08)
-      );
+      const margin = getReaderResumeTopOffset(panel);
       const tolerance = Math.max(26, panel.clientHeight * 0.03);
       reached = Math.abs(
         targetRect.top - (panelRect.top + margin)
@@ -3552,7 +3562,8 @@ function getLargeReaderTargetScrollTop(section, chunkRatio = 0) {
   if (Number.isFinite(targetY)) {
     return Math.max(
       0,
-      els.readerPanel.scrollTop + targetY - panelRect.top - 92
+      els.readerPanel.scrollTop +
+      targetY - panelRect.top - getReaderResumeTopOffset(els.readerPanel)
     );
   }
 
@@ -3564,7 +3575,7 @@ function getLargeReaderTargetScrollTop(section, chunkRatio = 0) {
     els.readerPanel.scrollTop +
       sectionRect.top - panelRect.top +
       sectionRect.height * ratio -
-      92
+      getReaderResumeTopOffset(els.readerPanel)
   );
 }
 
@@ -3682,6 +3693,9 @@ async function renderLongText(text, renderToken) {
 
   const item = state.activeReaderItem;
   const isLarge = isLargeReaderFile(item);
+  const openingInPageMode =
+    isReaderPageModeEligible(item) &&
+    getPreferredReaderDisplayMode() === "page";
 
   if (isLarge) {
     state.largeReaderChunks = splitLargeReaderText(text);
@@ -3730,7 +3744,7 @@ async function renderLongText(text, renderToken) {
     els.readerLoadingOverlay?.classList.add("done");
     await new Promise((resolve) => setTimeout(resolve, 180));
 
-    if (els.readerLoadingOverlay) {
+    if (!openingInPageMode && els.readerLoadingOverlay) {
       els.readerLoadingOverlay.remove();
       els.readerLoadingOverlay = null;
     }
@@ -3777,7 +3791,7 @@ async function renderLongText(text, renderToken) {
   els.readerLoadingOverlay?.classList.add("done");
   await new Promise((resolve) => setTimeout(resolve, 150));
 
-  if (els.readerLoadingOverlay) {
+  if (!openingInPageMode && els.readerLoadingOverlay) {
     els.readerLoadingOverlay.remove();
     els.readerLoadingOverlay = null;
   }
