@@ -3926,15 +3926,44 @@ async function openReader(item) {
 
 function finalizeReaderClose() {
   unlockReaderScroll();
-  state.suspendReaderProgressSave = false;
+
+  // If the reader was opened on a saved resume point and the user closes it
+  // without choosing "resume" / "restart" or actually moving away from
+  // the initial top position, preserve the existing saved progress. Closing
+  // the modal itself must never turn the temporary 0-position layout into a
+  // new reading position.
+  const hasPendingResume = Boolean(
+    state.readerResumeSaved &&
+    els.readerResume &&
+    !els.readerResume.hidden
+  );
+  const untouchedScrollResume =
+    state.readerDisplayMode !== "page" &&
+    Math.max(0, Number(els.readerPanel?.scrollTop || 0)) <
+      READER_MIN_MEANINGFUL_SCROLL_PX;
+  const untouchedPageResume =
+    state.readerDisplayMode === "page" &&
+    !state.readerPageHasNavigated &&
+    Math.max(0, Number(state.readerPageStart || 0)) === 0;
+  const preserveExistingResume =
+    hasPendingResume &&
+    (untouchedScrollResume || untouchedPageResume);
+
+  window.clearTimeout(readerProgressSaveTimer);
+  readerProgressSaveTimer = 0;
+  state.suspendReaderProgressSave = preserveExistingResume;
 
   const closingItem = state.activeReaderItem;
-  state.readerResumeSaved = null;
-  const savedProgress = saveReaderProgress();
+  const savedProgress = preserveExistingResume
+    ? null
+    : saveReaderProgress();
 
   if (closingItem && savedProgress && state.user) {
     persistProgress(closingItem, savedProgress);
   }
+
+  state.readerResumeSaved = null;
+  state.suspendReaderProgressSave = false;
 
   state.readerRenderToken += 1;
   state.activeReaderItem = null;
