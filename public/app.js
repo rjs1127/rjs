@@ -189,9 +189,11 @@ function applyUserPreferences() {
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
 
-  if (els.readerFontFamilySelect) {
-    els.readerFontFamilySelect.value = fontFamily;
-  }
+  els.readerFontFamilyButtons?.forEach((button) => {
+    const active = button.dataset.readerFontFamily === fontFamily;
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
 
   if (els.viewerSettingsScopeText) {
     els.viewerSettingsScopeText.textContent = state.user
@@ -340,7 +342,7 @@ const els = {
   darkModeToggle: document.getElementById("darkModeToggle"),
   readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
   readerFontSizeButtons: Array.from(document.querySelectorAll("[data-reader-font-size]")),
-  readerFontFamilySelect: document.getElementById("readerFontFamilySelect"),
+  readerFontFamilyButtons: Array.from(document.querySelectorAll("[data-reader-font-family]")),
   logoutButton: document.getElementById("logoutButton"),
 };
 
@@ -4745,11 +4747,13 @@ els.readerFontSizeButtons?.forEach((button) => {
   });
 });
 
-els.readerFontFamilySelect?.addEventListener("change", () => {
-  const fontFamily = els.readerFontFamilySelect.value;
-  if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
-  setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
-  applyUserPreferences();
+els.readerFontFamilyButtons?.forEach((button) => {
+  button.addEventListener("click", () => {
+    const fontFamily = button.dataset.readerFontFamily;
+    if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
+    setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
+    applyUserPreferences();
+  });
 });
 
 els.viewerSettingsButton?.addEventListener("click", () => {
@@ -6297,6 +6301,43 @@ function closeReaderShareUi() {
   readerShareUi.backdrop.hidden = true;
   readerShareUi.floatButton.hidden = true;
   state.readerShareText = "";
+}
+
+function normalizeReaderShareText(rawText) {
+  const source = String(rawText || "")
+    .replace(/\u00a0/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\t\f\v]+/g, " ");
+  const lines = source.split("\n").map((line) => line.replace(/[ ]+/g, " ").trim());
+  const paragraphs = [];
+  let current = [];
+  let blankSeen = false;
+
+  const flush = () => {
+    if (!current.length) return;
+    const paragraph = current.join(" ")
+      .replace(/\s+([,.!?;:，。！？])/g, "$1")
+      .replace(/([([{“‘])\s+/g, "$1")
+      .replace(/\s+([)\]}”’])/g, "$1")
+      .replace(/ {2,}/g, " ")
+      .trim();
+    if (paragraph) paragraphs.push(paragraph);
+    current = [];
+  };
+
+  for (const line of lines) {
+    if (!line) {
+      if (current.length) blankSeen = true;
+      continue;
+    }
+    if (blankSeen) {
+      flush();
+      blankSeen = false;
+    }
+    current.push(line);
+  }
+  flush();
+  return paragraphs.join("\n\n").trim();
 }
 
 function getReaderTextSelection() {

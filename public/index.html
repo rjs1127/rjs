@@ -17,31 +17,49 @@
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=763" />
+  <link rel="stylesheet" href="/theme.css?v=764" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
     @font-face { font-family:'Ridibatang'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
     @font-face { font-family:'InkLiquid'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
     #readerContent, #readerPageText { font-family: var(--reader-font-family, inherit) !important; }
-    .viewer-settings-modal { overflow: visible !important; max-height: none !important; }
-    .viewer-settings-modal .viewer-settings-list { display:grid !important; gap:7px !important; }
+    .viewer-settings-modal { overflow: visible !important; max-height: none !important; width:min(94vw,560px) !important; }
+    .viewer-settings-modal .viewer-settings-list { display:grid !important; gap:6px !important; }
     .viewer-settings-modal .account-preference-row,
-    .viewer-settings-modal .account-preference-row-stack { display:grid !important; grid-template-columns:92px minmax(0,1fr) !important; align-items:center !important; gap:10px !important; padding:8px 0 !important; }
+    .viewer-settings-modal .account-preference-row-stack { display:grid !important; grid-template-columns:88px minmax(0,1fr) !important; align-items:center !important; gap:9px !important; padding:6px 0 !important; }
     .viewer-settings-modal .account-preference-row > div:first-child span { display:none !important; }
-    .viewer-settings-modal .account-preference-row strong { font-size:13px !important; white-space:nowrap; }
-    .viewer-settings-modal .preference-segmented { width:100%; }
-    .viewer-font-select { width:100%; min-width:0; height:34px; padding:0 10px; border:1px solid var(--theme-line,#ddd7ce); border-radius:10px; background:var(--theme-surface-strong,#fff); color:var(--theme-text,#191816); font:inherit; font-size:12px; }
+    .viewer-settings-modal .account-preference-row strong { font-size:12px !important; white-space:nowrap; }
+    .viewer-settings-modal .preference-segmented { width:100%; min-height:32px; }
+    .viewer-settings-modal .preference-segmented button { min-height:32px !important; padding:5px 7px !important; font-size:11px !important; }
+    .viewer-font-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+    .viewer-font-option { min-width:0; min-height:32px; padding:5px 6px; border:1px solid var(--theme-line,#ddd7ce); border-radius:9px; background:var(--theme-surface-strong,#fff); color:var(--theme-text,#191816); font-size:11px; line-height:1.2; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .viewer-font-option.active { background:var(--theme-primary-bg,#191816); color:var(--theme-primary-text,#fff); border-color:var(--theme-primary-bg,#191816); }
+    .viewer-font-option[data-reader-font-family="paperlogy"] { font-family:'Paperozi',sans-serif; font-weight:500; }
+    .viewer-font-option[data-reader-font-family="ridibatang"] { font-family:'Ridibatang',serif; }
+    .viewer-font-option[data-reader-font-family="chosunilbo"] { font-family:'ChosunIlboMyungjo',serif; }
+    .viewer-font-option[data-reader-font-family="inkliquid"] { font-family:'InkLiquid',cursive; }
+    .viewer-font-option[data-reader-font-family="kopubbatang"] { font-family:'KoPub Batang',serif; }
     .library-more-wrap { padding-top:7px !important; }
     .library-more-button { min-height:32px !important; padding:5px 10px !important; border-radius:9px !important; font-size:11px !important; gap:6px !important; }
     .library-more-button small { font-size:9px !important; opacity:.7; }
+    @media (min-width: 1024px) {
+      #controlsGrid { grid-template-columns:minmax(0,1.5fr) repeat(4,minmax(0,.82fr)) !important; gap:8px !important; align-items:start; }
+      #controlsGrid .control-card { min-width:0 !important; padding-left:10px !important; padding-right:10px !important; }
+      #controlsGrid .filter-label { font-size:11px !important; white-space:nowrap; }
+      #controlsGrid .chips { display:flex !important; flex-wrap:nowrap !important; gap:5px !important; min-width:0; overflow:visible; }
+      #controlsGrid .chip { min-width:0 !important; padding:6px 8px !important; font-size:11px !important; white-space:nowrap !important; flex:0 1 auto; }
+      #sourceFilters .chip { padding-left:7px !important; padding-right:7px !important; }
+    }
     @media (max-width: 520px) {
       .viewer-settings-modal { padding-top:18px !important; padding-bottom:18px !important; }
       .viewer-settings-modal .simple-modal-kicker { margin-bottom:2px !important; }
       .viewer-settings-modal h2 { margin-bottom:4px !important; }
       .viewer-settings-modal .simple-modal-description { margin-bottom:8px !important; font-size:11px !important; }
       .viewer-settings-modal .account-preference-row,
-      .viewer-settings-modal .account-preference-row-stack { grid-template-columns:82px minmax(0,1fr) !important; padding:6px 0 !important; }
+      .viewer-settings-modal .account-preference-row-stack { grid-template-columns:76px minmax(0,1fr) !important; padding:5px 0 !important; gap:7px !important; }
+      .viewer-font-options { grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+      .viewer-font-option { min-height:30px; padding:4px 4px; font-size:10px; }
     }
   </style>
 </head>
@@ -627,14 +645,14 @@
             <strong>뷰어 글꼴</strong>
             <span>본문에 사용할 글꼴을 선택합니다.</span>
           </div>
-          <select id="readerFontFamilySelect" class="viewer-font-select" aria-label="뷰어 글꼴">
-            <option value="default">기본</option>
-            <option value="paperlogy">페이퍼로지</option>
-            <option value="ridibatang">리디바탕</option>
-            <option value="chosunilbo">조선일보명조</option>
-            <option value="inkliquid">잉크립퀴드</option>
-            <option value="kopubbatang">KoPub 바탕</option>
-          </select>
+          <div class="viewer-font-options" role="group" aria-label="뷰어 글꼴">
+            <button type="button" class="viewer-font-option" data-reader-font-family="default">기본</button>
+            <button type="button" class="viewer-font-option" data-reader-font-family="paperlogy">페이퍼로지</button>
+            <button type="button" class="viewer-font-option" data-reader-font-family="ridibatang">리디바탕</button>
+            <button type="button" class="viewer-font-option" data-reader-font-family="chosunilbo">조선일보명조</button>
+            <button type="button" class="viewer-font-option" data-reader-font-family="inkliquid">잉크립퀴드</button>
+            <button type="button" class="viewer-font-option" data-reader-font-family="kopubbatang">KoPub 바탕</button>
+          </div>
         </div>
 
         <div class="account-preference-row">
@@ -683,6 +701,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=751" defer></script>
+  <script src="/app.js?v=764" defer></script>
 </body>
 </html>
