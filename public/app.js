@@ -2982,6 +2982,22 @@ async function turnReaderPage(direction) {
     !state.readerText
   ) return;
 
+  // Page mode should enter the same compact reading state for every content
+  // type on the first real page navigation. Preserve the already-rendered
+  // viewport height while the header compacts so the first page and later
+  // pages keep the same text area instead of jumping in size.
+  if (!readerCompactActive && els.readerPageViewport) {
+    const stablePageHeight = Math.max(
+      0,
+      Math.round(els.readerPageViewport.getBoundingClientRect().height)
+    );
+    setReaderCompactActive(true);
+    await nextFrame();
+    if (stablePageHeight > 0) {
+      els.readerPageViewport.style.height = `${stablePageHeight}px`;
+    }
+  }
+
   if (direction > 0) {
     if (state.readerPageEnd >= getReaderTextLength()) return;
 
@@ -6381,15 +6397,34 @@ function syncReaderShareSelection() {
     state.readerShareText = selected.text;
     const margin = 24;
     const buttonSize = 38;
-    const preferredX = selected.rect.right + (buttonSize * 0.42);
-    const x = Math.min(
-      window.innerWidth - margin,
-      Math.max(margin, preferredX)
-    );
-    const belowY = selected.rect.bottom + 8;
-    const aboveY = selected.rect.top - buttonSize - 8;
-    const hasRoomBelow = belowY + buttonSize + 8 < window.innerHeight;
-    const y = hasRoomBelow ? belowY : Math.max(54, aboveY);
+    let x;
+    let y;
+
+    if (isTouchLike) {
+      // Android/iOS selection handles extend below the text selection. Keep the
+      // custom share button away from both end handles by centering it on the
+      // last selected line and leaving a generous vertical clearance.
+      const handleClearance = 54;
+      const preferredX = selected.rect.left + (selected.rect.width / 2);
+      x = Math.min(
+        window.innerWidth - margin,
+        Math.max(margin, preferredX)
+      );
+      const belowY = selected.rect.bottom + handleClearance;
+      const aboveY = selected.rect.top - buttonSize - handleClearance;
+      const hasRoomBelow = belowY + buttonSize + 12 < window.innerHeight;
+      y = hasRoomBelow ? belowY : Math.max(54, aboveY);
+    } else {
+      const preferredX = selected.rect.right + (buttonSize * 0.42);
+      x = Math.min(
+        window.innerWidth - margin,
+        Math.max(margin, preferredX)
+      );
+      const belowY = selected.rect.bottom + 8;
+      const aboveY = selected.rect.top - buttonSize - 8;
+      const hasRoomBelow = belowY + buttonSize + 8 < window.innerHeight;
+      y = hasRoomBelow ? belowY : Math.max(54, aboveY);
+    }
 
     ui.floatButton.style.left = `${x}px`;
     ui.floatButton.style.top = `${y}px`;
