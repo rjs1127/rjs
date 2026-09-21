@@ -1,5 +1,5 @@
 {
-  "version": "v7.27",
+  "version": "v7.28",
   "releasedAt": "2026-09-21",
-  "label": "page-mode-regression-restore"
+  "label": "compact-header-fixed-layout"
 }

@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.27 canonical page-mode layout
+   v7.28 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -2578,18 +2578,25 @@ html[data-reader-spacing="wide"] .reader-page-measure {
   inset:auto !important;
 }
 
-/* Compact page header after reading begins */
+/* Compact page header:
+   left column is title, right column is fixed action zone.
+   Neither is allowed to move into the other's area. */
 .reader.reader-page-mode.reader-compact .reader-header {
   position:relative !important;
   display:grid !important;
-  grid-template-columns:minmax(0,1fr) auto !important;
+  grid-template-columns:minmax(0,1fr) max-content !important;
+  grid-template-areas:"title actions" !important;
   align-items:center !important;
-  gap:8px !important;
+  column-gap:10px !important;
+  row-gap:0 !important;
   width:100% !important;
+  max-width:100% !important;
+  min-width:0 !important;
   min-height:58px !important;
   height:auto !important;
   padding:9px 12px !important;
   box-sizing:border-box !important;
+  overflow:visible !important;
 }
 
 .reader.reader-page-mode.reader-compact .reader-meta-top,
@@ -2599,25 +2606,44 @@ html[data-reader-spacing="wide"] .reader-page-measure {
 }
 
 .reader.reader-page-mode.reader-compact .reader-header h2 {
-  min-width:0 !important;
+  grid-area:title !important;
+  justify-self:start !important;
+  align-self:center !important;
+  width:100% !important;
   max-width:100% !important;
+  min-width:0 !important;
   margin:0 !important;
   padding:0 !important;
   font-size:11px !important;
   line-height:1.32 !important;
+  text-align:left !important;
   white-space:normal !important;
+  overflow:hidden !important;
+  text-overflow:ellipsis !important;
+  display:-webkit-box !important;
+  -webkit-line-clamp:2 !important;
+  -webkit-box-orient:vertical !important;
   overflow-wrap:anywhere !important;
 }
 
 .reader.reader-page-mode.reader-compact .reader-header-actions {
+  grid-area:actions !important;
+  justify-self:end !important;
+  align-self:center !important;
   position:static !important;
   width:auto !important;
+  min-width:max-content !important;
+  max-width:none !important;
   margin:0 !important;
+  padding:0 !important;
   display:flex !important;
+  flex-wrap:nowrap !important;
+  align-items:center !important;
   justify-content:flex-end !important;
   gap:6px !important;
   transform:none !important;
   inset:auto !important;
+  z-index:2 !important;
 }
 
 .reader.reader-page-mode .reader-scroll-top {
@@ -2652,11 +2678,35 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     padding:0 !important;
     margin:0 !important;
     flex:0 0 40px !important;
+    box-sizing:border-box !important;
   }
 
   .reader.reader-page-mode .reader-download-label,
   .reader.reader-page-mode .reader-bookmark-label {
     display:none !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-header {
+    grid-template-columns:minmax(0,1fr) 132px !important;
+    column-gap:8px !important;
+    min-height:58px !important;
+    padding:9px 10px 9px 12px !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-header-actions {
+    width:132px !important;
+    min-width:132px !important;
+    max-width:132px !important;
+    gap:6px !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-download-button,
+  .reader.reader-page-mode.reader-compact .reader-bookmark-button,
+  .reader.reader-page-mode.reader-compact .reader-close {
+    width:40px !important;
+    min-width:40px !important;
+    max-width:40px !important;
+    flex:0 0 40px !important;
   }
 
   .reader.reader-page-mode .reader-resume {
@@ -2707,6 +2757,33 @@ html[data-reader-spacing="wide"] .reader-page-measure {
     text-overflow:ellipsis;
     white-space:nowrap;
     font-size:9px;
+  }
+}
+
+@media (max-width:390px) {
+  .reader.reader-page-mode.reader-compact .reader-header {
+    grid-template-columns:minmax(0,1fr) 114px !important;
+    padding-left:10px !important;
+    padding-right:8px !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-header-actions {
+    width:114px !important;
+    min-width:114px !important;
+    max-width:114px !important;
+    gap:3px !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-download-button,
+  .reader.reader-page-mode.reader-compact .reader-bookmark-button,
+  .reader.reader-page-mode.reader-compact .reader-close {
+    width:36px !important;
+    min-width:36px !important;
+    max-width:36px !important;
+    height:36px !important;
+    min-height:36px !important;
+    max-height:36px !important;
+    flex:0 0 36px !important;
   }
 }
 
