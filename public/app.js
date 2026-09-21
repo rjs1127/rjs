@@ -2118,34 +2118,60 @@ function temporarilySuspendProgressSave(duration = 700) {
 }
 
 async function jumpReaderPanelTo(targetTop, options = {}) {
-  if (!els.readerPanel) return;
-
-  const maxScroll = Math.max(
-    0,
-    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
-  );
-  const target = Math.max(
-    0,
-    Math.min(maxScroll, Number(targetTop) || 0)
-  );
+  if (!els.readerPanel) return false;
 
   state.suspendReaderProgressSave = true;
-  els.readerPanel.scrollTop = target;
 
-  await nextFrame();
-  await nextFrame();
+  let requestedTop = Math.max(0, Number(targetTop) || 0);
+  let reached = false;
 
-  const remaining = Math.abs(els.readerPanel.scrollTop - target);
-  if (remaining > 24) {
+  for (let pass = 0; pass < 4; pass += 1) {
+    const maxScroll = Math.max(
+      0,
+      els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+    );
+    const target = Math.max(
+      0,
+      Math.min(maxScroll, requestedTop)
+    );
+
     els.readerPanel.scrollTop = target;
+
+    // Also call scrollTo with auto behavior. Some WebKit builds update
+    // scrollTop only after the nested scroller is explicitly addressed.
+    try {
+      els.readerPanel.scrollTo({
+        top: target,
+        behavior: "auto",
+      });
+    } catch {}
+
     await nextFrame();
+    await nextFrame();
+
+    const actual = Math.max(0, els.readerPanel.scrollTop);
+    const tolerance = Math.max(28, els.readerPanel.clientHeight * 0.03);
+
+    if (Math.abs(actual - target) <= tolerance) {
+      reached = true;
+      break;
+    }
+
+    // Give late font/layout calculation a moment before retrying.
+    await new Promise((resolve) =>
+      setTimeout(resolve, pass === 0 ? 60 : 120)
+    );
   }
 
-  const releaseAfter = Number(options.releaseAfter || 420);
+  updateReaderScrollUi();
+
+  const releaseAfter = Number(options.releaseAfter || 520);
   window.setTimeout(() => {
     state.suspendReaderProgressSave = false;
     saveReaderProgress();
   }, releaseAfter);
+
+  return reached;
 }
 
 function saveReaderProgress() {
@@ -2994,11 +3020,27 @@ function appendLargeReaderChunk(index) {
 async function renderLargeReaderThrough(targetIndex, renderToken) {
   if (
     !state.largeReaderChunks ||
-    state.largeReaderRendering ||
     renderToken !== state.readerRenderToken
   ) {
     return;
   }
+
+  // If another render pass is already appending chunks, wait for it instead
+  // of returning immediately. Resume used to race with background pre-render
+  // and could fail because the requested chunk never existed in the DOM.
+  if (state.largeReaderRendering) {
+    const startedAt = performance.now();
+
+    while (
+      state.largeReaderRendering &&
+      performance.now() - startedAt < 5000
+    ) {
+      if (renderToken !== state.readerRenderToken) return;
+      await nextFrame();
+    }
+  }
+
+  if (state.largeReaderRendering) return;
 
   const finalIndex = Math.min(
     state.largeReaderChunks.length - 1,
@@ -3021,6 +3063,48 @@ async function renderLargeReaderThrough(targetIndex, renderToken) {
   } finally {
     state.largeReaderRendering = false;
   }
+}
+
+async function ensureLargeReaderChunkRendered(
+  targetIndex,
+  renderToken
+) {
+  if (!state.largeReaderChunks) return false;
+
+  const safeTarget = Math.max(
+    0,
+    Math.min(
+      state.largeReaderChunks.length - 1,
+      Number(targetIndex) || 0
+    )
+  );
+
+  const startedAt = performance.now();
+
+  while (performance.now() - startedAt < 8000) {
+    if (renderToken !== state.readerRenderToken) return false;
+
+    if (state.largeReaderRenderedCount > safeTarget) {
+      const targetChunk = els.readerContent?.querySelector(
+        `.reader-virtual-chunk[data-reader-chunk-index="${safeTarget}"]`
+      );
+      if (targetChunk) return true;
+    }
+
+    await renderLargeReaderThrough(safeTarget, renderToken);
+
+    if (state.largeReaderRenderedCount > safeTarget) {
+      const targetChunk = els.readerContent?.querySelector(
+        `.reader-virtual-chunk[data-reader-chunk-index="${safeTarget}"]`
+      );
+      if (targetChunk) return true;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, 40));
+    await nextFrame();
+  }
+
+  return false;
 }
 
 async function maybeRenderMoreLargeReader() {
@@ -3795,12 +3879,19 @@ els.readerResume?.addEventListener("click", async (event) => {
       els.readerResume.hidden = true;
       setReaderCompactActive(true);
       await nextFrame();
+      await nextFrame();
       resizeReaderPageViewport();
 
-      renderReaderPageAt(
+      const resumed = renderReaderPageAt(
         savedProgressToReaderOffset(saved),
         { navigated: false }
       );
+
+      if (!resumed) {
+        els.readerResume.hidden = false;
+        els.readerResumeText.textContent =
+          "위치 이동을 다시 시도해 주세요.";
+      }
 
       window.setTimeout(() => {
         state.suspendReaderProgressSave = false;
@@ -3829,16 +3920,23 @@ els.readerResume?.addEventListener("click", async (event) => {
       els.readerRestartButton.disabled = true;
       els.readerResumeText.textContent = "읽던 위치까지 준비하고 있습니다…";
 
-      await renderLargeReaderThrough(
+      // Compact first so the final header height is already reflected in
+      // targetChunk.offsetTop before calculating the resume coordinate.
+      setReaderCompactActive(true);
+      await nextFrame();
+
+      const ready = await ensureLargeReaderChunkRendered(
         targetIndex,
         state.readerRenderToken
       );
 
       await nextFrame();
 
-      const targetChunk = els.readerContent?.querySelector(
-        `.reader-virtual-chunk[data-reader-chunk-index="${targetIndex}"]`
-      );
+      const targetChunk = ready
+        ? els.readerContent?.querySelector(
+            `.reader-virtual-chunk[data-reader-chunk-index="${targetIndex}"]`
+          )
+        : null;
 
       if (targetChunk) {
         const ratio = Math.max(
@@ -3846,16 +3944,24 @@ els.readerResume?.addEventListener("click", async (event) => {
           Math.min(1, Number(position.ratio || 0))
         );
 
-        els.readerResume.hidden = true;
-
         const targetTop =
           targetChunk.offsetTop +
           targetChunk.offsetHeight * ratio -
           92;
 
-        await jumpReaderPanelTo(targetTop, {
-          releaseAfter: IS_SAFARI_READER ? 650 : 420,
+        const reached = await jumpReaderPanelTo(targetTop, {
+          releaseAfter: IS_SAFARI_READER ? 750 : 520,
         });
+
+        if (reached) {
+          els.readerResume.hidden = true;
+        } else {
+          els.readerResumeText.textContent =
+            "위치 이동을 다시 시도해 주세요.";
+        }
+      } else {
+        els.readerResumeText.textContent =
+          "읽던 위치를 준비하지 못했습니다. 다시 시도해 주세요.";
       }
 
       els.readerResumeButton.disabled = false;
@@ -3865,10 +3971,19 @@ els.readerResume?.addEventListener("click", async (event) => {
 
     const target = getResumeTarget(saved);
 
-    els.readerResume.hidden = true;
-    await jumpReaderPanelTo(target, {
-      releaseAfter: IS_SAFARI_READER ? 650 : 420,
+    setReaderCompactActive(true);
+    await nextFrame();
+
+    const reached = await jumpReaderPanelTo(target, {
+      releaseAfter: IS_SAFARI_READER ? 750 : 520,
     });
+
+    if (reached) {
+      els.readerResume.hidden = true;
+    } else {
+      els.readerResumeText.textContent =
+        "위치 이동을 다시 시도해 주세요.";
+    }
 
     return;
   }

@@ -2430,7 +2430,7 @@ html.theme-dark .library-modal {
 }
 
 /* =========================
-   v7.34 canonical page-mode layout
+   v7.35 canonical page-mode layout
    ========================= */
 
 .reader.reader-page-mode {
@@ -3161,5 +3161,14 @@ html.safari-reader .reader:not(.reader-page-mode) .reader-content {
    ========================= */
 .reader-resume-actions button:disabled {
   opacity:.55;
+  cursor:wait;
+}
+
+
+/* =========================
+   v7.35 resume jump state
+   ========================= */
+.reader-resume-actions button:disabled {
+  opacity:.52;
   cursor:wait;
 }

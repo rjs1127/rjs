@@ -1,5 +1,5 @@
 {
-  "version": "v7.34",
+  "version": "v7.35",
   "releasedAt": "2026-09-21",
-  "label": "resume-position-fix"
+  "label": "resume-jump-hardening"
 }
