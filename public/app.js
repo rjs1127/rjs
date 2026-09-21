@@ -22,6 +22,14 @@ const state = {
   largeReaderChunks: null,
   largeReaderRenderedCount: 0,
   largeReaderRendering: false,
+  readerText: "",
+  readerDisplayMode: localStorage.getItem("rjsReaderDisplayModeV1") === "page" ? "page" : "scroll",
+  readerPageStart: 0,
+  readerPageEnd: 0,
+  readerPageHasNavigated: false,
+  readerPageResizeTimer: 0,
+  readerPageTouchStartX: null,
+  readerPageTouchStartY: null,
   user: null,
   userLibrary: new Map(),
   authMode: "login",
@@ -51,6 +59,9 @@ const READER_PROGRESS_PRECISION = 10; // 0.1% 단위 저장
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
 const LIBRARY_PAGE_SIZE = 20;
+const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
+const READER_PAGE_PROBE_CHARS = 14000;
+const READER_PAGE_SWIPE_PX = 48;
 
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
@@ -165,6 +176,9 @@ const els = {
   readerResumeText: document.getElementById("readerResumeText"),
   readerResumeButton: document.getElementById("readerResumeButton"),
   readerRestartButton: document.getElementById("readerRestartButton"),
+  readerModeBar: document.getElementById("readerModeBar"),
+  readerScrollModeButton: document.getElementById("readerScrollModeButton"),
+  readerPageModeButton: document.getElementById("readerPageModeButton"),
   readerLoadingTitle: document.getElementById("readerLoadingTitle"),
   readerLoadingText: document.getElementById("readerLoadingText"),
   readerProgressBar: document.getElementById("readerProgressBar"),
@@ -788,6 +802,16 @@ function getReaderProgressDisplayPercent(value) {
 
 function isReaderAtActualEnd(item) {
   if (!item || !els.readerPanel) return false;
+
+  if (
+    state.readerDisplayMode === "page" &&
+    state.readerText
+  ) {
+    return Boolean(
+      state.readerPageHasNavigated &&
+      state.readerPageEnd >= getReaderTextLength()
+    );
+  }
 
   const panel = els.readerPanel;
   const maxScroll = Math.max(
@@ -2022,7 +2046,43 @@ function saveReaderProgress() {
 
   let saved = null;
 
-  if (isLargeReaderFile(item) && state.largeReaderChunks) {
+  if (
+    state.readerDisplayMode === "page" &&
+    state.readerText
+  ) {
+    const length = Math.max(1, getReaderTextLength());
+    const offset = clampReaderTextOffset(
+      state.readerPageStart
+    );
+    let percent = normalizeReaderProgressPercent(
+      (offset / length) * 100
+    );
+
+    if (
+      state.readerPageHasNavigated &&
+      offset > 0 &&
+      percent <= 0
+    ) {
+      percent = 0.1;
+    }
+
+    if (isLargeReaderFile(item) && state.largeReaderChunks) {
+      const position = readerOffsetToLargePosition(offset);
+
+      saved = {
+        mode: "chunk",
+        chunkIndex: position?.index || 0,
+        chunkRatio: position?.ratio || 0,
+        percent,
+      };
+    } else {
+      saved = {
+        mode: "scroll",
+        scrollTop: 0,
+        percent,
+      };
+    }
+  } else if (isLargeReaderFile(item) && state.largeReaderChunks) {
     const position = getLargeReaderPosition();
     if (!position) return null;
 
@@ -2113,6 +2173,443 @@ function isLargeReaderFile(item) {
   return Number(item?.size || 0) >= LARGE_FILE_LOADING_THRESHOLD_BYTES;
 }
 
+function isReaderPageModeEligible(item = state.activeReaderItem) {
+  if (!item || item.source === "postype") return false;
+  return (
+    isLargeReaderFile(item) ||
+    getItemContentType(item) === "연재물"
+  );
+}
+
+function resetReaderPageState() {
+  state.readerPageStart = 0;
+  state.readerPageEnd = 0;
+  state.readerPageHasNavigated = false;
+  state.readerPageTouchStartX = null;
+  state.readerPageTouchStartY = null;
+  window.clearTimeout(state.readerPageResizeTimer);
+  state.readerPageResizeTimer = 0;
+}
+
+function getReaderTextLength() {
+  return Math.max(0, String(state.readerText || "").length);
+}
+
+function clampReaderTextOffset(offset) {
+  return Math.max(
+    0,
+    Math.min(getReaderTextLength(), Math.floor(Number(offset) || 0))
+  );
+}
+
+function readerOffsetToLargePosition(offset) {
+  const chunks = state.largeReaderChunks;
+  if (!Array.isArray(chunks) || !chunks.length) return null;
+
+  let remaining = clampReaderTextOffset(offset);
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const length = String(chunks[index] || "").length;
+    if (remaining <= length || index === chunks.length - 1) {
+      return {
+        index,
+        ratio: length > 0
+          ? Math.max(0, Math.min(1, remaining / length))
+          : 0,
+      };
+    }
+    remaining -= length;
+  }
+
+  return {
+    index: chunks.length - 1,
+    ratio: 1,
+  };
+}
+
+function largePositionToReaderOffset(index, ratio = 0) {
+  const chunks = state.largeReaderChunks;
+  if (!Array.isArray(chunks) || !chunks.length) return 0;
+
+  const safeIndex = Math.max(
+    0,
+    Math.min(chunks.length - 1, Number(index) || 0)
+  );
+
+  let offset = 0;
+  for (let i = 0; i < safeIndex; i += 1) {
+    offset += String(chunks[i] || "").length;
+  }
+
+  const chunk = String(chunks[safeIndex] || "");
+  offset += chunk.length * Math.max(
+    0,
+    Math.min(1, Number(ratio) || 0)
+  );
+
+  return clampReaderTextOffset(offset);
+}
+
+function savedProgressToReaderOffset(saved) {
+  if (!saved) return 0;
+
+  if (
+    saved.mode === "chunk" &&
+    Array.isArray(state.largeReaderChunks)
+  ) {
+    return largePositionToReaderOffset(
+      saved.chunkIndex,
+      saved.chunkRatio
+    );
+  }
+
+  const percent = Math.max(
+    0,
+    Math.min(99.9, Number(saved.percent || 0))
+  );
+
+  return clampReaderTextOffset(
+    getReaderTextLength() * (percent / 100)
+  );
+}
+
+function currentScrollToReaderOffset() {
+  const item = state.activeReaderItem;
+  if (!item || !els.readerPanel) return 0;
+
+  if (isLargeReaderFile(item) && state.largeReaderChunks) {
+    const position = getLargeReaderPosition();
+    if (position) {
+      return largePositionToReaderOffset(
+        position.index,
+        position.ratio
+      );
+    }
+  }
+
+  const maxScroll = Math.max(
+    0,
+    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+  );
+  if (maxScroll <= 0) return 0;
+
+  const ratio = Math.max(
+    0,
+    Math.min(1, els.readerPanel.scrollTop / maxScroll)
+  );
+  return clampReaderTextOffset(getReaderTextLength() * ratio);
+}
+
+function resizeReaderPageViewport() {
+  if (
+    !els.readerPageViewport ||
+    els.readerPageViewport.hidden ||
+    !els.readerPanel
+  ) return;
+
+  const panelRect = els.readerPanel.getBoundingClientRect();
+  const viewportRect = els.readerPageViewport.getBoundingClientRect();
+  const available = Math.max(
+    250,
+    Math.floor(panelRect.bottom - viewportRect.top - 18)
+  );
+
+  els.readerPageViewport.style.height = `${available}px`;
+}
+
+function pageSegmentFits(start, end) {
+  if (!els.readerPageMeasure) return true;
+
+  const text = String(state.readerText || "").slice(start, end);
+  els.readerPageMeasure.textContent = text || " ";
+
+  return (
+    els.readerPageMeasure.scrollHeight <=
+    els.readerPageMeasure.clientHeight + 1
+  );
+}
+
+function findReaderPageEnd(start) {
+  const textLength = getReaderTextLength();
+  const safeStart = clampReaderTextOffset(start);
+
+  if (safeStart >= textLength) return textLength;
+
+  let low = Math.min(textLength, safeStart + 1);
+  let high = Math.min(
+    textLength,
+    safeStart + READER_PAGE_PROBE_CHARS
+  );
+
+  if (pageSegmentFits(safeStart, high)) {
+    return high;
+  }
+
+  let best = low;
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+
+    if (pageSegmentFits(safeStart, mid)) {
+      best = mid;
+      low = mid + 1;
+    } else {
+      high = mid - 1;
+    }
+  }
+
+  return Math.max(safeStart + 1, best);
+}
+
+function findReaderPreviousPageStart(end) {
+  const safeEnd = clampReaderTextOffset(end);
+  if (safeEnd <= 0) return 0;
+
+  let low = Math.max(0, safeEnd - READER_PAGE_PROBE_CHARS);
+  let high = Math.max(0, safeEnd - 1);
+  let best = high;
+
+  while (low <= high) {
+    const mid = Math.floor((low + high) / 2);
+
+    if (pageSegmentFits(mid, safeEnd)) {
+      best = mid;
+      high = mid - 1;
+    } else {
+      low = mid + 1;
+    }
+  }
+
+  return Math.max(0, best);
+}
+
+function updateReaderPageControls() {
+  const length = getReaderTextLength();
+  const start = clampReaderTextOffset(state.readerPageStart);
+  const end = clampReaderTextOffset(state.readerPageEnd);
+  const percent = length > 0
+    ? Math.min(100, Math.max(0, (end / length) * 100))
+    : 0;
+
+  if (els.readerPagePrev) {
+    els.readerPagePrev.disabled = start <= 0;
+  }
+
+  if (els.readerPageNext) {
+    els.readerPageNext.disabled = end >= length;
+    els.readerPageNext.textContent =
+      end >= length ? "마지막" : "다음 ›";
+  }
+
+  if (els.readerPageStatus) {
+    els.readerPageStatus.textContent =
+      end >= length
+        ? "마지막 페이지"
+        : `${getReaderProgressDisplayPercent(percent)}%`;
+  }
+}
+
+function renderReaderPageAt(start, options = {}) {
+  if (
+    !els.readerPageViewport ||
+    !els.readerPageText ||
+    !state.readerText
+  ) return false;
+
+  resizeReaderPageViewport();
+
+  const safeStart = clampReaderTextOffset(start);
+  const end = findReaderPageEnd(safeStart);
+
+  state.readerPageStart = safeStart;
+  state.readerPageEnd = end;
+
+  els.readerPageText.textContent =
+    String(state.readerText).slice(safeStart, end);
+
+  updateReaderPageControls();
+
+  if (options.navigated) {
+    state.readerPageHasNavigated = true;
+  }
+
+  return true;
+}
+
+async function syncScrollReaderToOffset(offset) {
+  const item = state.activeReaderItem;
+  if (!item || !els.readerPanel) return;
+
+  const safeOffset = clampReaderTextOffset(offset);
+
+  if (
+    isLargeReaderFile(item) &&
+    Array.isArray(state.largeReaderChunks)
+  ) {
+    const position = readerOffsetToLargePosition(safeOffset);
+    if (!position) return;
+
+    await renderLargeReaderThrough(
+      position.index,
+      state.readerRenderToken
+    );
+
+    const targetChunk = els.readerContent?.querySelector(
+      `.reader-virtual-chunk[data-reader-chunk-index="${position.index}"]`
+    );
+
+    if (targetChunk) {
+      const targetTop =
+        targetChunk.offsetTop +
+        targetChunk.offsetHeight * position.ratio -
+        92;
+
+      els.readerPanel.scrollTop = Math.max(0, targetTop);
+    }
+
+    return;
+  }
+
+  const maxScroll = Math.max(
+    0,
+    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+  );
+  const ratio = getReaderTextLength() > 0
+    ? safeOffset / getReaderTextLength()
+    : 0;
+
+  els.readerPanel.scrollTop = Math.max(0, maxScroll * ratio);
+}
+
+function syncReaderModeButtons() {
+  const pageActive = state.readerDisplayMode === "page";
+
+  els.readerScrollModeButton?.classList.toggle(
+    "active",
+    !pageActive
+  );
+  els.readerPageModeButton?.classList.toggle(
+    "active",
+    pageActive
+  );
+
+  els.readerScrollModeButton?.setAttribute(
+    "aria-pressed",
+    pageActive ? "false" : "true"
+  );
+  els.readerPageModeButton?.setAttribute(
+    "aria-pressed",
+    pageActive ? "true" : "false"
+  );
+}
+
+async function setReaderDisplayMode(mode, options = {}) {
+  const item = state.activeReaderItem;
+  let nextMode = mode === "page" ? "page" : "scroll";
+
+  if (
+    nextMode === "page" &&
+    (!isReaderPageModeEligible(item) || !state.readerText)
+  ) {
+    nextMode = "scroll";
+  }
+
+  const previousMode = state.readerDisplayMode;
+  let positionOffset = Number(options.offset);
+
+  if (!Number.isFinite(positionOffset)) {
+    positionOffset =
+      previousMode === "page"
+        ? state.readerPageStart
+        : currentScrollToReaderOffset();
+  }
+
+  state.readerDisplayMode = nextMode;
+
+  if (options.persist !== false) {
+    localStorage.setItem(READER_DISPLAY_MODE_KEY, nextMode);
+  }
+
+  syncReaderModeButtons();
+
+  if (!els.readerPanel) return;
+
+  const pageActive = nextMode === "page";
+  els.readerPanel.classList.toggle(
+    "reader-page-mode",
+    pageActive
+  );
+
+  if (els.readerContent) {
+    els.readerContent.hidden = pageActive;
+  }
+
+  if (els.readerPageViewport) {
+    els.readerPageViewport.hidden = !pageActive;
+  }
+
+  if (pageActive) {
+    els.readerPanel.scrollTop = 0;
+    readerCompactActive = false;
+    els.readerPanel.classList.remove("reader-compact");
+    els.readerScrollTop?.classList.remove("visible");
+
+    await nextFrame();
+    resizeReaderPageViewport();
+    renderReaderPageAt(positionOffset, {
+      navigated: Boolean(options.navigated),
+    });
+    return;
+  }
+
+  if (els.readerContent) {
+    els.readerContent.hidden = false;
+  }
+
+  await nextFrame();
+
+  if (previousMode === "page" || Number.isFinite(options.offset)) {
+    temporarilySuspendProgressSave(700);
+    await syncScrollReaderToOffset(positionOffset);
+  }
+}
+
+async function turnReaderPage(direction) {
+  if (
+    state.readerDisplayMode !== "page" ||
+    !state.readerText
+  ) return;
+
+  if (direction > 0) {
+    if (state.readerPageEnd >= getReaderTextLength()) return;
+
+    renderReaderPageAt(state.readerPageEnd, {
+      navigated: true,
+    });
+  } else {
+    if (state.readerPageStart <= 0) return;
+
+    const previousStart = findReaderPreviousPageStart(
+      state.readerPageStart
+    );
+
+    renderReaderPageAt(previousStart, {
+      navigated: true,
+    });
+  }
+
+  const saved = saveReaderProgress();
+  const item = state.activeReaderItem;
+
+  if (
+    saved &&
+    item &&
+    state.user &&
+    shouldSyncProgressNow(item.id, saved)
+  ) {
+    persistProgress(item, saved);
+  }
+}
+
 function lockReaderScroll() {
   els.readerPanel?.classList.add("reader-loading-locked");
 }
@@ -2124,11 +2621,23 @@ function unlockReaderScroll() {
 function showReaderLoading(item) {
   const isLarge = isLargeReaderFile(item);
   resetLargeReaderState();
+  resetReaderPageState();
+  state.readerText = "";
   lockReaderScroll();
 
   els.readerBody.innerHTML = `
     <div id="readerRenderShell" class="reader-render-shell">
       <div id="readerContent" class="reader-content" aria-live="off"></div>
+
+      <section id="readerPageViewport" class="reader-page-viewport" hidden aria-label="페이지 읽기">
+        <div id="readerPageText" class="reader-page-text"></div>
+        <div class="reader-page-footer">
+          <button id="readerPagePrev" type="button" aria-label="이전 페이지">‹ 이전</button>
+          <span id="readerPageStatus" aria-live="polite">0%</span>
+          <button id="readerPageNext" type="button" aria-label="다음 페이지">다음 ›</button>
+        </div>
+        <div id="readerPageMeasure" class="reader-page-measure" aria-hidden="true"></div>
+      </section>
 
       <div id="readerLoadingOverlay" class="reader-loading-overlay">
         <div class="reader-loading rich-loading">
@@ -2150,6 +2659,12 @@ function showReaderLoading(item) {
   `;
 
   els.readerContent = document.getElementById("readerContent");
+  els.readerPageViewport = document.getElementById("readerPageViewport");
+  els.readerPageText = document.getElementById("readerPageText");
+  els.readerPagePrev = document.getElementById("readerPagePrev");
+  els.readerPageNext = document.getElementById("readerPageNext");
+  els.readerPageStatus = document.getElementById("readerPageStatus");
+  els.readerPageMeasure = document.getElementById("readerPageMeasure");
   els.readerLoadingOverlay = document.getElementById("readerLoadingOverlay");
   els.readerLoadingTitle = document.getElementById("readerLoadingTitle");
   els.readerLoadingText = document.getElementById("readerLoadingText");
@@ -2562,6 +3077,7 @@ async function streamTextIntoReader(response, renderToken) {
     return false;
   }
 
+  state.readerText = text;
   return renderLongText(text, renderToken);
 }
 
@@ -2665,6 +3181,14 @@ async function openReader(item) {
   els.readerScrollTop?.classList.remove("visible");
   if (els.readerResume) els.readerResume.hidden = true;
 
+  const pageEligible = isReaderPageModeEligible(item);
+  if (els.readerModeBar) {
+    els.readerModeBar.hidden = !pageEligible;
+  }
+  if (els.readerPageModeButton) {
+    els.readerPageModeButton.disabled = true;
+  }
+
   els.readerCombination.textContent = item.combination || "";
   els.readerLength.textContent = item.lengthType || "";
   els.readerTitle.textContent = item.title || "제목 미상";
@@ -2724,6 +3248,21 @@ async function openReader(item) {
 
     if (!rendered || renderToken !== state.readerRenderToken) return;
 
+    if (els.readerPageModeButton) {
+      els.readerPageModeButton.disabled = false;
+    }
+
+    const preferredMode =
+      isReaderPageModeEligible(item) &&
+      localStorage.getItem(READER_DISPLAY_MODE_KEY) === "page"
+        ? "page"
+        : "scroll";
+
+    await setReaderDisplayMode(preferredMode, {
+      persist: false,
+      offset: 0,
+    });
+
     showResumePrompt(item);
 
     window.setTimeout(() => {
@@ -2758,7 +3297,11 @@ function closeReader() {
 
   state.readerRenderToken += 1;
   state.activeReaderItem = null;
+  state.readerText = "";
+  resetReaderPageState();
   resetLargeReaderState();
+  els.readerPanel?.classList.remove("reader-page-mode");
+  if (els.readerModeBar) els.readerModeBar.hidden = true;
   els.readerOverlay.hidden = true;
   readerCompactActive = false;
   els.readerPanel?.classList.remove("reader-compact");
@@ -2874,6 +3417,99 @@ els.readerBody?.addEventListener("click", (event) => {
   if (item) openReader(item);
 });
 
+els.readerScrollModeButton?.addEventListener("click", async () => {
+  await setReaderDisplayMode("scroll");
+  const saved = saveReaderProgress();
+  if (saved && state.activeReaderItem && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
+});
+
+els.readerPageModeButton?.addEventListener("click", async () => {
+  await setReaderDisplayMode("page");
+  const saved = saveReaderProgress();
+  if (saved && state.activeReaderItem && state.user) {
+    persistProgress(state.activeReaderItem, saved);
+  }
+});
+
+els.readerBody?.addEventListener("click", async (event) => {
+  if (event.target.closest("#readerPagePrev")) {
+    await turnReaderPage(-1);
+    return;
+  }
+
+  if (event.target.closest("#readerPageNext")) {
+    await turnReaderPage(1);
+  }
+});
+
+els.readerBody?.addEventListener("touchstart", (event) => {
+  if (
+    state.readerDisplayMode !== "page" ||
+    !event.target.closest("#readerPageViewport")
+  ) return;
+
+  const touch = event.touches?.[0];
+  if (!touch) return;
+
+  state.readerPageTouchStartX = touch.clientX;
+  state.readerPageTouchStartY = touch.clientY;
+}, { passive: true });
+
+els.readerBody?.addEventListener("touchend", async (event) => {
+  if (
+    state.readerDisplayMode !== "page" ||
+    state.readerPageTouchStartX == null ||
+    state.readerPageTouchStartY == null
+  ) return;
+
+  const touch = event.changedTouches?.[0];
+  if (!touch) return;
+
+  const dx = touch.clientX - state.readerPageTouchStartX;
+  const dy = touch.clientY - state.readerPageTouchStartY;
+
+  state.readerPageTouchStartX = null;
+  state.readerPageTouchStartY = null;
+
+  if (
+    Math.abs(dx) < READER_PAGE_SWIPE_PX ||
+    Math.abs(dx) <= Math.abs(dy) * 1.2
+  ) return;
+
+  await turnReaderPage(dx < 0 ? 1 : -1);
+}, { passive: true });
+
+window.addEventListener("keydown", async (event) => {
+  if (
+    els.readerOverlay?.hidden ||
+    state.readerDisplayMode !== "page"
+  ) return;
+
+  if (event.key === "ArrowRight" || event.key === "PageDown") {
+    event.preventDefault();
+    await turnReaderPage(1);
+  } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+    event.preventDefault();
+    await turnReaderPage(-1);
+  }
+});
+
+window.addEventListener("resize", () => {
+  if (
+    state.readerDisplayMode !== "page" ||
+    els.readerOverlay?.hidden
+  ) return;
+
+  window.clearTimeout(state.readerPageResizeTimer);
+  state.readerPageResizeTimer = window.setTimeout(() => {
+    const start = state.readerPageStart;
+    resizeReaderPageViewport();
+    renderReaderPageAt(start, { navigated: false });
+  }, 160);
+});
+
 els.readerResume?.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button) return;
@@ -2888,6 +3524,24 @@ els.readerResume?.addEventListener("click", async (event) => {
     const saved = getReaderProgress(item.id);
     if (!saved) {
       els.readerResume.hidden = true;
+      return;
+    }
+
+    if (
+      state.readerDisplayMode === "page" &&
+      state.readerText
+    ) {
+      state.suspendReaderProgressSave = true;
+      els.readerResume.hidden = true;
+
+      renderReaderPageAt(
+        savedProgressToReaderOffset(saved),
+        { navigated: false }
+      );
+
+      window.setTimeout(() => {
+        state.suspendReaderProgressSave = false;
+      }, 350);
       return;
     }
 
@@ -2976,6 +3630,15 @@ els.readerResume?.addEventListener("click", async (event) => {
 
     temporarilySuspendProgressSave(500);
     els.readerResume.hidden = true;
+
+    if (
+      state.readerDisplayMode === "page" &&
+      state.readerText
+    ) {
+      resetReaderPageState();
+      renderReaderPageAt(0, { navigated: false });
+      return;
+    }
 
     requestAnimationFrame(() => {
       els.readerPanel.scrollTo({
@@ -3735,6 +4398,7 @@ function syncReaderCompactMode(scrollTop) {
 
 function updateReaderScrollUi() {
   if (!els.readerPanel) return;
+  if (state.readerDisplayMode === "page") return;
 
   const scrollTop = els.readerPanel.scrollTop;
 
