@@ -1,0 +1,10 @@
+{
+  "name": "rjs-local-dev",
+  "private": true,
+  "scripts": {
+    "dev": "node public/_build/local-dev.cjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.136.0"
+  }
+}

@@ -15,9 +15,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=770" />
+  <link rel="stylesheet" href="/style.css?v=800" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=770" />
+  <link rel="stylesheet" href="/theme.css?v=800" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -315,6 +315,42 @@
           <button id="resetFiltersButton" class="empty-reset-button" type="button">검색·필터 초기화</button>
         </div>
       </section>
+
+      <section id="profilePage" class="profile-page" hidden aria-labelledby="profilePageTitle">
+        <div class="profile-page-head">
+          <div>
+            <p class="section-kicker">MY LIBRARY</p>
+            <h2 id="profilePageTitle">내 정보</h2>
+            <p id="profileSummary" class="profile-summary"></p>
+          </div>
+          <div class="profile-head-actions">
+            <button id="profileBackButton" class="profile-secondary-button" type="button">콘텐츠로 돌아가기</button>
+            <button id="profileLogoutButton" class="profile-secondary-button danger" type="button">로그아웃</button>
+          </div>
+        </div>
+
+        <div class="profile-stats" aria-label="개인 보관함 요약">
+          <button type="button" data-profile-tab-jump="bookmarks"><span>북마크</span><strong id="profileBookmarkCount">0</strong></button>
+          <button type="button" data-profile-tab-jump="recent"><span>최근 본 작품</span><strong id="profileRecentCount">0</strong></button>
+          <button type="button" data-profile-tab-jump="likes"><span>좋아요</span><strong id="profileLikeCount">0</strong></button>
+          <button type="button" data-profile-tab-jump="quotes"><span>저장한 문장</span><strong id="profileQuoteCount">0</strong></button>
+        </div>
+
+        <div class="profile-toolbar">
+          <div class="profile-tabs" role="tablist" aria-label="내 정보 메뉴">
+            <button class="active" type="button" data-profile-tab="bookmarks">북마크</button>
+            <button type="button" data-profile-tab="recent">최근 본 작품</button>
+            <button type="button" data-profile-tab="likes">좋아요</button>
+            <button type="button" data-profile-tab="quotes">저장한 문장</button>
+          </div>
+          <label class="profile-search">
+            <span aria-hidden="true">⌕</span>
+            <input id="profileSearchInput" type="search" placeholder="현재 목록에서 검색" autocomplete="off" />
+          </label>
+        </div>
+        <p id="profileListMeta" class="profile-list-meta"></p>
+        <div id="profileList" class="profile-list"></div>
+      </section>
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
@@ -356,6 +392,12 @@
               <path d="M12 3.8 14.45 8.76l5.48.8-3.96 3.86.94 5.45L12 16.3l-4.91 2.57.94-5.45-3.96-3.86 5.48-.8L12 3.8Z"></path>
             </svg>
             <span class="reader-bookmark-label">북마크</span>
+          </button>
+          <button id="readerLikeButton" class="reader-like-button" type="button" aria-label="좋아요" title="좋아요">
+            <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M20.4 5.6a5 5 0 0 0-7.1 0L12 6.9l-1.3-1.3a5 5 0 1 0-7.1 7.1L12 21l8.4-8.3a5 5 0 0 0 0-7.1Z"></path>
+            </svg>
+            <span class="reader-like-label">좋아요</span>
           </button>
           <button id="closeReader" class="reader-close" type="button" aria-label="본문 닫기">
             <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
@@ -421,7 +463,7 @@
       <p class="simple-modal-kicker">MY RJS BOOK</p>
       <h2 id="authModalTitle">로그인</h2>
       <p id="authModalDescription" class="simple-modal-description">
-        로그인하면 다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.
+        로그인하면 다른 기기에서도 이어보기, 북마크, 최근 조회, 좋아요와 저장한 문장을 불러올 수 있어요.
       </p>
 
       <form id="authForm" class="auth-form">
@@ -522,7 +564,7 @@
         <p class="simple-modal-kicker">WELCOME</p>
         <h2>회원가입이 완료되었습니다.</h2>
         <p class="simple-modal-description">
-          이 계정으로 다른 기기에서도 이어보기, 북마크, 최근 조회 기록을 불러올 수 있어요.
+          이 계정으로 다른 기기에서도 이어보기, 북마크, 최근 조회, 좋아요와 저장한 문장을 불러올 수 있어요.
         </p>
         <div class="signup-warning compact">
           <strong>아이디와 비밀번호를 안전한 곳에 기억해 주세요.</strong>
@@ -544,8 +586,8 @@
       <div class="help-points">
         <div><strong>검색·필터</strong><span>제목·작가를 검색하고 CP, 작품형태, 상태, 출처로 빠르게 좁혀볼 수 있어요.</span></div>
         <div><strong>맞춤 뷰어</strong><span>스크롤/페이지 보기, 글꼴, 글자 크기, 줄간격, 다크모드를 설정할 수 있어요.</span></div>
-        <div><strong>이어보기·서재</strong><span>로그인하면 읽던 위치, 북마크, 최근 조회 기록을 계정에 저장합니다.</span></div>
-        <div><strong>문장 이미지</strong><span>본문을 선택해 카드 이미지로 저장하거나 클립보드·공유 기능을 사용할 수 있어요.</span></div>
+        <div><strong>이어보기·내 정보</strong><span>로그인하면 읽던 위치, 북마크, 최근 조회, 좋아요와 저장한 문장을 계정에 보관할 수 있어요.</span></div>
+        <div><strong>문장 이미지·저장</strong><span>본문을 선택해 카드 이미지로 만들거나 선택 문장 자체를 계정에 저장할 수 있어요.</span></div>
       </div>
       <button id="helpLoginButton" class="modal-primary-button" type="button">로그인하기</button>
     </section>
@@ -564,11 +606,11 @@
       <div class="privacy-notice-list">
         <div class="privacy-notice-item">
           <strong>수집·저장 항목</strong>
-          <span>계정 아이디, 비밀번호 해시, 이어보기 진도, 북마크, 최근 조회·읽음·다운로드 기록, 방문 통계 집계를 위한 접속 IP 등의 정보가 저장될 수 있습니다.</span>
+          <span>계정 아이디, 비밀번호 해시, 이어보기 진도, 북마크, 최근 조회·읽음·다운로드 기록, 좋아요, 사용자가 직접 저장한 발췌 문장, 방문 통계 집계를 위한 정보가 저장될 수 있습니다.</span>
         </div>
         <div class="privacy-notice-item">
           <strong>사용 목적</strong>
-          <span>로그인, 기기 간 독서 기록 동기화, 개인 서재 기능 제공, 서비스 이용 현황 확인과 오류·부하 점검에 사용합니다.</span>
+          <span>로그인, 기기 간 독서 기록 동기화, 북마크·좋아요·저장 문장 등 개인 보관함 제공, 서비스 이용 현황 확인과 오류·부하 점검에 사용합니다.</span>
         </div>
         <div class="privacy-notice-item">
           <strong>보관</strong>
@@ -612,12 +654,8 @@
         <div id="libraryModalList" class="library-modal-list"></div>
       </div>
 
-      <div id="libraryMoreWrap" class="library-more-wrap" hidden>
-        <button id="libraryMoreButton" class="library-more-button" type="button">
-          <span id="libraryMoreLabel">더보기 10개</span>
-          <small id="libraryMoreProgress">0 / 0</small>
-        </button>
-      </div>
+      <div id="libraryMoreWrap" class="library-more-wrap" hidden></div>
+      <button id="libraryViewAllButton" class="library-view-all-button" type="button">내 정보에서 전체 보기</button>
     </section>
   </div>
 
@@ -701,6 +739,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=770" defer></script>
+  <script src="/app.js?v=800" defer></script>
 </body>
 </html>

@@ -15,6 +15,48 @@ let schemaReadyPromise = null;
 
 let downloadSchemaReadyPromise = null;
 
+let personalizationSchemaReadyPromise = null;
+
+async function ensurePersonalizationSchema(db) {
+  if (personalizationSchemaReadyPromise) return personalizationSchemaReadyPromise;
+
+  personalizationSchemaReadyPromise = db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_likes (
+        user_id TEXT NOT NULL,
+        work_id TEXT NOT NULL,
+        title TEXT,
+        author TEXT,
+        liked_at INTEGER NOT NULL,
+        PRIMARY KEY (user_id, work_id)
+      )
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_user_likes_user_time
+      ON user_likes(user_id, liked_at DESC)
+    `),
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS user_quotes (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        user_id TEXT NOT NULL,
+        title TEXT,
+        author TEXT,
+        quote_text TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_user_quotes_user_time
+      ON user_quotes(user_id, created_at DESC)
+    `),
+  ]).catch((error) => {
+    personalizationSchemaReadyPromise = null;
+    throw error;
+  });
+
+  return personalizationSchemaReadyPromise;
+}
+
 async function ensureDownloadTrackingSchema(db) {
   if (downloadSchemaReadyPromise) return downloadSchemaReadyPromise;
 
@@ -245,6 +287,7 @@ export {
   requireUserDb,
   ensureUserSchema,
   ensureDownloadTrackingSchema,
+  ensurePersonalizationSchema,
   normalizeUserId,
   validateCredentials,
   randomHex,

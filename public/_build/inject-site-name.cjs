@@ -53,10 +53,10 @@ fs.writeFileSync(indexPath, html, "utf8");
 
 console.log(`[build] SITE_NAME injected: ${siteName}`);
 
-// Do not publish the build helper itself.
+// Do not publish local/build helpers with the public site. The Git working
+// tree remains unchanged; this cleanup only affects the build output clone.
 try {
-  fs.unlinkSync(__filename);
-  fs.rmdirSync(__dirname);
+  fs.rmSync(__dirname, { recursive: true, force: true });
 } catch {
   // Cleanup failure is non-fatal.
 }

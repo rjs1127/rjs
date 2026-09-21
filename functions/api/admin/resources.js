@@ -203,6 +203,16 @@ async function inspectD1(db) {
       purpose: "이어보기·북마크·최근조회·읽음·다운로드 기록",
     },
     {
+      name: "user_likes",
+      label: "작품 좋아요",
+      purpose: "사용자별 좋아요 작품 목록",
+    },
+    {
+      name: "user_quotes",
+      label: "저장한 문장",
+      purpose: "사용자별 텍스트 발췌 문장",
+    },
+    {
       name: "user_visits",
       label: "방문 원본 기록",
       purpose: "로그인 사용자 방문 이벤트",
@@ -364,6 +374,9 @@ function summarizePagesDeployment(item) {
   };
 }
 
+const PAGES_DEPLOYMENTS_CACHE_TTL_MS = 5 * 60 * 1000;
+let pagesDeploymentsCache = null;
+
 async function queryCloudflarePagesDeployments(env) {
   const token = String(env.CLOUDFLARE_PAGES_TOKEN || "").trim();
   const accountId = String(env.CLOUDFLARE_ACCOUNT_ID || "").trim();
@@ -371,6 +384,18 @@ async function queryCloudflarePagesDeployments(env) {
     env.CLOUDFLARE_PAGES_PROJECT_NAME || DEFAULT_PAGES_PROJECT_NAME
   ).trim();
   const range = kstMonthRange();
+  const cacheKey = `${accountId}:${projectName}:${range.label}`;
+  if (
+    pagesDeploymentsCache &&
+    pagesDeploymentsCache.key === cacheKey &&
+    Date.now() - pagesDeploymentsCache.savedAt < PAGES_DEPLOYMENTS_CACHE_TTL_MS
+  ) {
+    return {
+      ...pagesDeploymentsCache.value,
+      cached: true,
+      cacheAgeMs: Date.now() - pagesDeploymentsCache.savedAt,
+    };
+  }
 
   if (!token || !accountId || !projectName) {
     return {
@@ -461,7 +486,7 @@ async function queryCloudflarePagesDeployments(env) {
       ? (used / PAGES_FREE_MONTHLY_BUILD_LIMIT) * 100
       : 0;
 
-    return {
+    const result = {
       configured: true,
       connected: true,
       projectName,
@@ -479,8 +504,12 @@ async function queryCloudflarePagesDeployments(env) {
       production,
       preview,
       deployments,
-      note: "Cloudflare Pages 배포 목록 기준 집계입니다. Git 연동에서는 배포 기록이 월 빌드 사용량을 확인하는 실용적인 기준이며, Cloudflare의 최종 billing counter와 소폭 차이가 있을 수 있습니다.",
+      cached: false,
+      cacheAgeMs: 0,
+      note: "Cloudflare Pages 배포 목록 기준 집계입니다. 5분 캐시를 사용해 관리자 새로고침 시 불필요한 API 재호출을 줄입니다.",
     };
+    pagesDeploymentsCache = { key: cacheKey, savedAt: Date.now(), value: result };
+    return result;
   } catch (error) {
     const detail = analyticsErrorMessage(error);
     return {

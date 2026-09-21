@@ -35,6 +35,12 @@ const state = {
   readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
+  userLikes: new Map(),
+  savedQuotes: [],
+  profileUserCreatedAt: null,
+  profileTab: "bookmarks",
+  profileSearch: "",
+  profileOpen: false,
   authMode: "login",
   pendingAuthReason: "",
   remoteProgressSyncedAt: new Map(),
@@ -295,6 +301,7 @@ const els = {
   signupButton: document.getElementById("signupButton"),
   loginButton: document.getElementById("loginButton"),
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
+  readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
@@ -335,6 +342,18 @@ const els = {
   libraryMoreButton: document.getElementById("libraryMoreButton"),
   libraryMoreLabel: document.getElementById("libraryMoreLabel"),
   libraryMoreProgress: document.getElementById("libraryMoreProgress"),
+  libraryViewAllButton: document.getElementById("libraryViewAllButton"),
+  profilePage: document.getElementById("profilePage"),
+  profileSummary: document.getElementById("profileSummary"),
+  profileBookmarkCount: document.getElementById("profileBookmarkCount"),
+  profileRecentCount: document.getElementById("profileRecentCount"),
+  profileLikeCount: document.getElementById("profileLikeCount"),
+  profileQuoteCount: document.getElementById("profileQuoteCount"),
+  profileSearchInput: document.getElementById("profileSearchInput"),
+  profileListMeta: document.getElementById("profileListMeta"),
+  profileList: document.getElementById("profileList"),
+  profileBackButton: document.getElementById("profileBackButton"),
+  profileLogoutButton: document.getElementById("profileLogoutButton"),
   viewerSettingsModal: document.getElementById("viewerSettingsModal"),
   viewerSettingsScopeText: document.getElementById("viewerSettingsScopeText"),
   accountModal: document.getElementById("accountModal"),
@@ -608,6 +627,10 @@ function clearUserSession(clearToken = true) {
   if (clearToken) setAuthToken("");
   state.user = null;
   state.userLibrary = new Map();
+  state.userLikes = new Map();
+  state.savedQuotes = [];
+  state.profileUserCreatedAt = null;
+  state.profileOpen = false;
   state.remoteProgressState = new Map();
   state.remoteProgressSyncedAt = new Map();
   state.lastExitProgressSignature = "";
@@ -621,6 +644,8 @@ function clearUserSession(clearToken = true) {
   updateResumeShortcut();
   updateAccountUi();
   updateReaderBookmarkButton();
+  updateReaderLikeButton();
+  hideProfilePage();
 
   if (state.items.length) {
     render();
@@ -803,12 +828,278 @@ async function loadUserLibrary() {
   state.remoteProgressSyncedAt = new Map();
 
   updateReaderBookmarkButton();
+  updateReaderLikeButton();
   syncQuickFilterButtons();
   updateResumeShortcut();
 
   if (state.items.length) {
     render();
   }
+}
+
+
+function normalizeProfileLike(row) {
+  return {
+    workId: String(row?.work_id || ""),
+    title: String(row?.title || ""),
+    author: String(row?.author || ""),
+    likedAt: row?.liked_at == null ? null : Number(row.liked_at),
+  };
+}
+
+function normalizeSavedQuote(row) {
+  return {
+    id: Number(row?.id || 0),
+    title: String(row?.title || ""),
+    author: String(row?.author || ""),
+    quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
+    createdAt: Number(row?.created_at ?? row?.createdAt ?? 0),
+  };
+}
+
+async function loadUserProfileData() {
+  if (!state.user) {
+    state.userLikes = new Map();
+    state.savedQuotes = [];
+    state.profileUserCreatedAt = null;
+    return;
+  }
+
+  try {
+    const data = await userApi("/api/user/profile");
+    state.userLikes = new Map(
+      (data.likes || []).map((row) => {
+        const like = normalizeProfileLike(row);
+        return [like.workId, like];
+      })
+    );
+    state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+    state.profileUserCreatedAt = data.user?.createdAt == null
+      ? null
+      : Number(data.user.createdAt);
+  } catch (error) {
+    console.warn("개인화 데이터 불러오기 실패", error);
+    state.userLikes = new Map();
+    state.savedQuotes = [];
+  }
+
+  updateReaderLikeButton();
+  if (state.profileOpen) renderProfilePage();
+  if (state.items.length) render();
+}
+
+function isItemLiked(itemOrId) {
+  const id = typeof itemOrId === "string" ? itemOrId : itemOrId?.id;
+  return Boolean(id && state.userLikes.has(id));
+}
+
+function formatProfileDate(timestamp) {
+  if (!timestamp) return "";
+  try {
+    return new Intl.DateTimeFormat("ko-KR", {
+      year: "numeric",
+      month: "numeric",
+      day: "numeric",
+    }).format(new Date(timestamp));
+  } catch {
+    return "";
+  }
+}
+
+async function toggleItemLike(item) {
+  if (!item?.id) return;
+  if (!state.user) {
+    openAuthModal("login", "좋아요를 저장하려면 로그인해 주세요.");
+    return;
+  }
+
+  const liked = !isItemLiked(item);
+  if (liked) {
+    state.userLikes.set(item.id, {
+      workId: item.id,
+      title: item.title || "",
+      author: item.author || "",
+      likedAt: Date.now(),
+    });
+  } else {
+    state.userLikes.delete(item.id);
+  }
+  updateReaderLikeButton();
+  render();
+  if (state.profileOpen) renderProfilePage();
+
+  try {
+    await userApi("/api/user/profile", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "like",
+        workId: item.id,
+        title: item.title || "",
+        author: item.author || "",
+        liked,
+      }),
+    });
+  } catch (error) {
+    if (liked) state.userLikes.delete(item.id);
+    else state.userLikes.set(item.id, {
+      workId: item.id,
+      title: item.title || "",
+      author: item.author || "",
+      likedAt: Date.now(),
+    });
+    updateReaderLikeButton();
+    render();
+    if (state.profileOpen) renderProfilePage();
+    window.alert("좋아요를 저장하지 못했습니다. 다시 시도해 주세요.");
+  }
+}
+
+function updateReaderLikeButton() {
+  if (!els.readerLikeButton) return;
+  const liked = Boolean(state.user && state.activeReaderItem && isItemLiked(state.activeReaderItem));
+  els.readerLikeButton.classList.toggle("active", liked);
+  els.readerLikeButton.setAttribute("aria-pressed", liked ? "true" : "false");
+  els.readerLikeButton.title = liked ? "좋아요 취소" : "좋아요";
+  const label = els.readerLikeButton.querySelector(".reader-like-label");
+  if (label) label.textContent = liked ? "좋아요됨" : "좋아요";
+}
+
+function getProfileWorkEntry(item, entry, kind) {
+  const progress = Number(entry?.progressPercent || 0);
+  const meta = [item.author || "작성자 미상"];
+  if (kind === "recent" && progress > 0 && !entry?.readAt) {
+    meta.push(`${getReaderProgressDisplayPercent(progress)}%`);
+  }
+  return `
+    <div class="profile-entry" data-profile-work-id="${escapeHtml(item.id)}">
+      <div class="profile-entry-main">
+        <span class="profile-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
+        <span class="profile-entry-meta">${escapeHtml(meta.join(" · "))}</span>
+      </div>
+      <div class="profile-entry-actions">
+        <button type="button" data-profile-open="${escapeHtml(item.id)}">열기</button>
+        ${kind === "bookmarks" ? `<button type="button" data-profile-bookmark-remove="${escapeHtml(item.id)}">해제</button>` : ""}
+        ${kind === "recent" ? `<button type="button" data-profile-recent-remove="${escapeHtml(item.id)}">삭제</button>` : ""}
+      </div>
+    </div>`;
+}
+
+function renderProfilePage() {
+  if (!els.profilePage || !state.user) return;
+  const q = normalizeSearchText(state.profileSearch);
+  const bookmarked = getLibraryVisibleEntries("bookmarks", "");
+  const recent = getLibraryVisibleEntries("recent", "");
+  const likes = [...state.userLikes.values()]
+    .sort((a,b) => Number(b.likedAt||0) - Number(a.likedAt||0));
+  const quotes = [...state.savedQuotes]
+    .sort((a,b) => Number(b.createdAt||0) - Number(a.createdAt||0));
+
+  if (els.profileBookmarkCount) els.profileBookmarkCount.textContent = String(bookmarked.length);
+  if (els.profileRecentCount) els.profileRecentCount.textContent = String(recent.length);
+  if (els.profileLikeCount) els.profileLikeCount.textContent = String(likes.length);
+  if (els.profileQuoteCount) els.profileQuoteCount.textContent = String(quotes.length);
+  if (els.profileSummary) {
+    const joined = formatProfileDate(state.profileUserCreatedAt);
+    els.profileSummary.textContent = joined
+      ? `${state.user.userId} · 가입 ${joined}`
+      : `${state.user.userId} 계정`;
+  }
+
+  document.querySelectorAll("[data-profile-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.profileTab === state.profileTab);
+  });
+
+  let rows = [];
+  if (state.profileTab === "bookmarks") {
+    rows = bookmarked.filter(({item}) => !q || normalizeSearchText(`${item?.title||""} ${item?.author||""}`).includes(q));
+    els.profileList.innerHTML = rows.length
+      ? rows.map(({item,entry}) => getProfileWorkEntry(item,entry,"bookmarks")).join("")
+      : '<div class="profile-empty">저장된 북마크가 없습니다.</div>';
+  } else if (state.profileTab === "recent") {
+    rows = recent.filter(({item}) => !q || normalizeSearchText(`${item?.title||""} ${item?.author||""}`).includes(q));
+    els.profileList.innerHTML = rows.length
+      ? rows.map(({item,entry}) => getProfileWorkEntry(item,entry,"recent")).join("")
+      : '<div class="profile-empty">최근 본 작품이 없습니다.</div>';
+  } else if (state.profileTab === "likes") {
+    rows = likes.filter((like) => !q || normalizeSearchText(`${like.title} ${like.author}`).includes(q));
+    els.profileList.innerHTML = rows.length ? rows.map((like) => {
+      const item = state.items.find((candidate) => candidate.id === like.workId);
+      return `
+        <div class="profile-entry">
+          <div class="profile-entry-main">
+            <span class="profile-entry-title">${escapeHtml(item?.title || like.title || "제목 미상")}</span>
+            <span class="profile-entry-meta">${escapeHtml(item?.author || like.author || "작성자 미상")}</span>
+          </div>
+          <div class="profile-entry-actions">
+            ${item ? `<button type="button" data-profile-open="${escapeHtml(item.id)}">열기</button>` : ""}
+            <button type="button" data-profile-like-remove="${escapeHtml(like.workId)}">좋아요 취소</button>
+          </div>
+        </div>`;
+    }).join("") : '<div class="profile-empty">좋아요한 작품이 없습니다.</div>';
+  } else {
+    rows = quotes.filter((quote) => !q || normalizeSearchText(`${quote.title} ${quote.author} ${quote.quoteText}`).includes(q));
+    els.profileList.innerHTML = rows.length ? rows.map((quote) => `
+      <div class="profile-entry quote-entry">
+        <div class="profile-entry-main">
+          <span class="profile-entry-title">${escapeHtml(quote.title || "제목 미상")}</span>
+          <span class="profile-entry-meta">${escapeHtml(quote.author || "작성자 미상")}</span>
+          <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
+        </div>
+        <div class="profile-entry-actions">
+          <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
+          <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
+        </div>
+      </div>`).join("") : '<div class="profile-empty">저장한 문장이 없습니다.</div>';
+  }
+  if (els.profileListMeta) els.profileListMeta.textContent = `${rows.length}개`;
+}
+
+function showProfilePage(tab = "bookmarks") {
+  if (!state.user) {
+    openAuthModal("login", "내 정보를 보려면 로그인해 주세요.");
+    return;
+  }
+  state.profileOpen = true;
+  state.profileTab = ["bookmarks","recent","likes","quotes"].includes(tab) ? tab : "bookmarks";
+  state.profileSearch = "";
+  setMobileFiltersOpen(false);
+  if (els.profileSearchInput) els.profileSearchInput.value = "";
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
+    if (el) el.hidden = true;
+  }
+  els.profilePage.hidden = false;
+  renderProfilePage();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hideProfilePage() {
+  state.profileOpen = false;
+  if (els.profilePage) els.profilePage.hidden = true;
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
+    if (el) el.hidden = false;
+  }
+}
+
+async function saveCurrentReaderQuote() {
+  if (!state.user) {
+    openAuthModal("login", "문장을 저장하려면 로그인해 주세요.");
+    return false;
+  }
+  const quoteText = getReaderShareEditedText(state.readerShareText).trim();
+  if (!quoteText) return false;
+  const item = state.activeReaderItem || {};
+  const data = await userApi("/api/user/profile", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "quote_save",
+      title: item.title || "",
+      author: item.author || "",
+      quoteText,
+    }),
+  });
+  if (data.quote) state.savedQuotes.unshift(normalizeSavedQuote(data.quote));
+  if (state.profileOpen) renderProfilePage();
+  return true;
 }
 
 async function restoreAuth() {
@@ -825,6 +1116,7 @@ async function restoreAuth() {
     applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
+    await loadUserProfileData();
     await recordLoggedInVisit();
   } catch {
     clearUserSession(true);
@@ -1128,7 +1420,7 @@ function renderUserLibraryModal() {
   const kind = state.libraryKind;
   const allVisible = getLibraryVisibleEntries();
   const totalCount = allVisible.length;
-  const shownCount = Math.min(totalCount, state.libraryVisibleLimit || LIBRARY_PAGE_SIZE);
+  const shownCount = Math.min(totalCount, LIBRARY_PAGE_SIZE);
   const visible = allVisible.slice(0, shownCount);
   const remainingCount = Math.max(0, totalCount - shownCount);
 
@@ -1146,12 +1438,12 @@ function renderUserLibraryModal() {
           ? "저장된 북마크가 없습니다."
           : "최근 조회 기록이 없습니다.";
     } else {
-      els.libraryModalMeta.textContent = `총 ${totalCount}개 중 ${shownCount}개 표시`;
+      els.libraryModalMeta.textContent = totalCount > shownCount ? `최근 ${shownCount}개 · 전체 ${totalCount}개` : `총 ${totalCount}개`;
     }
   }
 
   if (els.libraryMoreWrap) {
-    els.libraryMoreWrap.hidden = remainingCount <= 0;
+    els.libraryMoreWrap.hidden = true;
   }
 
   if (els.libraryMoreLabel) {
@@ -1222,8 +1514,8 @@ function showUserLibrary(kind) {
     state.libraryKind === "bookmarks" ? "북마크" : "최근 조회";
   els.libraryModalDescription.textContent =
     state.libraryKind === "bookmarks"
-      ? "저장해 둔 작품입니다. 검색하거나 필요 없는 북마크를 해제할 수 있어요."
-      : "최근 열어본 작품입니다. 검색하거나 기록을 정리할 수 있어요.";
+      ? "최근 북마크 10개를 빠르게 보여줍니다. 전체 목록은 내 정보에서 확인할 수 있어요."
+      : "최근 조회 작품 10개를 빠르게 보여줍니다. 전체 목록은 내 정보에서 확인할 수 있어요.";
 
   if (els.librarySearchInput) {
     els.librarySearchInput.value = "";
@@ -1731,6 +2023,7 @@ function render() {
     els.loadMoreWrap.hidden = true;
     els.emptyState.hidden = false;
     syncViewButtons();
+    if (state.profileOpen) renderProfilePage();
     return;
   }
 
@@ -1748,6 +2041,7 @@ function render() {
 
   syncLoadMoreUi(items.length, visibleItems.length);
   syncViewButtons();
+  if (state.profileOpen) renderProfilePage();
 }
 
 
@@ -1899,6 +2193,24 @@ async function togglePostypeBookmark(item) {
   state.bookmarkSaveTimers.set(fileId, timer);
 }
 
+
+function getItemLikeButtonHtml(item, className = "item-like-button") {
+  if (!item?.id) return "";
+  const liked = Boolean(state.user && isItemLiked(item));
+  return `
+    <button
+      class="${className} ${liked ? "active" : ""}"
+      type="button"
+      data-item-like="${escapeHtml(item.id)}"
+      aria-label="${liked ? "좋아요 취소" : "좋아요"}"
+      title="${liked ? "좋아요 취소" : "좋아요"}"
+      aria-pressed="${liked ? "true" : "false"}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M20.4 5.6a5 5 0 0 0-7.1 0L12 6.9l-1.3-1.3a5 5 0 1 0-7.1 7.1L12 21l8.4-8.3a5 5 0 0 0 0-7.1Z"></path>
+      </svg>
+    </button>`;
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
     <article class="content-card ${item.source === "postype" ? "postype-item" : "drive-item"}"
@@ -1918,6 +2230,7 @@ function renderCards(items) {
       <p class="card-author">${escapeHtml(item.author)}</p>
       ${getPostypeMetaHtml(item)}
       <div class="card-actions">
+        ${getItemLikeButtonHtml(item, "item-like-button card-like-button")}
         ${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}
         ${getDownloadButtonHtml(item, "item-download-button card-download-button")}
         <span class="card-arrow" aria-hidden="true">↗</span>
@@ -1966,6 +2279,7 @@ function renderList(items) {
             ${getItemReadingBadge(item)}
           </span>
           <span class="list-title-actions">
+            ${getItemLikeButtonHtml(item, "item-like-button list-like-button")}
             ${getListBookmarkIndicator(item)}
             ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
           </span>
@@ -3958,6 +4272,7 @@ async function openReader(item) {
 
   state.readerLoadingStartedAt = performance.now();
   updateReaderBookmarkButton();
+  updateReaderLikeButton();
   recordRecentView(item);
   showReaderLoading(item);
 
@@ -4713,9 +5028,7 @@ els.viewerSettingsButton?.addEventListener("click", () => {
 
 els.loginButton?.addEventListener("click", () => {
   if (state.user) {
-    els.accountModalUser.textContent =
-      `${state.user.userId} 계정으로 로그인되어 있습니다.`;
-    openModal(els.accountModal);
+    showProfilePage("bookmarks");
     return;
   }
 
@@ -4803,6 +5116,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
+    await loadUserProfileData();
     await recordLoggedInVisit();
 
     els.signupFormView.hidden = true;
@@ -4838,6 +5152,7 @@ els.authForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserLibrary();
+    await loadUserProfileData();
     await recordLoggedInVisit();
 
     els.authPassword.value = "";
@@ -4915,6 +5230,92 @@ els.readerBookmarkButton?.addEventListener("click", () => {
   }, 650);
 
   state.bookmarkSaveTimers.set(fileId, timer);
+});
+
+
+els.readerLikeButton?.addEventListener("click", () => {
+  if (state.activeReaderItem) toggleItemLike(state.activeReaderItem);
+});
+
+els.libraryViewAllButton?.addEventListener("click", () => {
+  const tab = state.libraryKind === "recent" ? "recent" : "bookmarks";
+  closeModal(els.libraryModal);
+  showProfilePage(tab);
+});
+
+els.profileBackButton?.addEventListener("click", () => {
+  hideProfilePage();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+els.profileLogoutButton?.addEventListener("click", () => {
+  els.logoutButton?.click();
+});
+
+document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach((button) => {
+  button.addEventListener("click", () => {
+    state.profileTab = button.dataset.profileTab || button.dataset.profileTabJump || "bookmarks";
+    state.profileSearch = "";
+    if (els.profileSearchInput) els.profileSearchInput.value = "";
+    renderProfilePage();
+  });
+});
+
+els.profileSearchInput?.addEventListener("input", (event) => {
+  state.profileSearch = event.target.value || "";
+  renderProfilePage();
+});
+
+els.profileList?.addEventListener("click", async (event) => {
+  const open = event.target.closest("[data-profile-open]");
+  if (open) {
+    const item = state.items.find((candidate) => candidate.id === open.dataset.profileOpen);
+    if (item) {
+      hideProfilePage();
+      openContentItem(item);
+    }
+    return;
+  }
+  const bm = event.target.closest("[data-profile-bookmark-remove]");
+  if (bm) {
+    const item = state.items.find((candidate) => candidate.id === bm.dataset.profileBookmarkRemove);
+    if (item) {
+      updateUserLibraryEntry(item.id, { bookmarked: false, updatedAt: Date.now() });
+      await userApi("/api/user/item", { method:"POST", body:JSON.stringify({ action:"bookmark", fileId:item.id, bookmarked:false }) });
+      renderProfilePage(); render();
+    }
+    return;
+  }
+  const recent = event.target.closest("[data-profile-recent-remove]");
+  if (recent) {
+    const id = recent.dataset.profileRecentRemove;
+    updateUserLibraryEntry(id, { viewedAt: null, updatedAt: Date.now() });
+    await userApi("/api/user/item", { method:"POST", body:JSON.stringify({ action:"remove_recent", fileId:id }) });
+    renderProfilePage();
+    return;
+  }
+  const like = event.target.closest("[data-profile-like-remove]");
+  if (like) {
+    const item = state.items.find((candidate) => candidate.id === like.dataset.profileLikeRemove) || { id: like.dataset.profileLikeRemove, title:"", author:"" };
+    if (isItemLiked(item)) await toggleItemLike(item);
+    return;
+  }
+  const copy = event.target.closest("[data-profile-quote-copy]");
+  if (copy) {
+    const quote = state.savedQuotes.find((entry) => String(entry.id) === String(copy.dataset.profileQuoteCopy));
+    if (quote) {
+      try { await navigator.clipboard.writeText(quote.quoteText); copy.textContent = "복사됨"; setTimeout(()=>copy.textContent="복사",900); } catch { window.alert("문장을 복사하지 못했습니다."); }
+    }
+    return;
+  }
+  const del = event.target.closest("[data-profile-quote-delete]");
+  if (del) {
+    const id = Number(del.dataset.profileQuoteDelete || 0);
+    if (!id || !window.confirm("저장한 문장을 삭제할까요?")) return;
+    await userApi("/api/user/profile", { method:"POST", body:JSON.stringify({ action:"quote_delete", id }) });
+    state.savedQuotes = state.savedQuotes.filter((entry) => entry.id !== id);
+    renderProfilePage();
+  }
 });
 
 els.librarySearchInput?.addEventListener("input", (event) => {
@@ -5245,6 +5646,7 @@ function openContentItem(item) {
 
   if (item.source === "postype") {
     if (!item.url) return;
+    recordRecentView(item);
     window.open(item.url, "_blank", "noopener,noreferrer");
     return;
   }
@@ -5253,6 +5655,15 @@ function openContentItem(item) {
 }
 
 function handleContentOpenClick(event) {
+  const likeButton = event.target.closest("[data-item-like]");
+  if (likeButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = state.items.find((entry) => entry.id === likeButton.dataset.itemLike);
+    toggleItemLike(item);
+    return;
+  }
+
   const postypeBookmarkButton = event.target.closest("[data-postype-bookmark]");
   if (postypeBookmarkButton) {
     event.preventDefault();
@@ -5291,7 +5702,8 @@ for (const container of [els.contentGrid, els.contentListBody]) {
   container.addEventListener("keydown", (event) => {
     if (
       event.target.closest("[data-download-id]") ||
-      event.target.closest("[data-postype-bookmark]")
+      event.target.closest("[data-postype-bookmark]") ||
+      event.target.closest("[data-item-like]")
     ) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     const item = findItemFromEvent(event);
@@ -5661,7 +6073,7 @@ function ensureReaderShareUi() {
     .reader-share-card { position:relative; width:min(82vw, 380px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease; }
     .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(72vw, 340px); }
     .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
-    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.5%; display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.84; }
+    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.5%; display:flex; align-items:center; gap:3px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.58; }
     .reader-share-card-brand svg { width:17px; height:17px; }
     .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
     .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
@@ -5673,7 +6085,7 @@ function ensureReaderShareUi() {
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
-    .reader-share-actions { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+    .reader-share-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
     .reader-share-action[data-share-system][hidden] { display:none !important; }
     .reader-share-action { min-height:42px; border-radius:12px; border:1px solid rgba(91,75,99,.18); font-size:13px; font-weight:800; cursor:pointer; }
     .reader-share-action.primary { background:#191816; color:#fff; border-color:#191816; }
@@ -5695,7 +6107,7 @@ function ensureReaderShareUi() {
     @media (max-width: 719px) {
       .reader-header .reader-filename { margin-bottom:14px !important; padding-bottom:2px !important; }
       .reader-resume { margin-top:10px !important; position:relative !important; clear:both !important; z-index:1; }
-      .reader-share-actions { grid-template-columns:repeat(3,minmax(0,1fr)); }
+      .reader-share-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .reader-share-action { padding-left:6px; padding-right:6px; font-size:12px; }
     }
     @media (min-width: 720px) {
@@ -5798,6 +6210,7 @@ function ensureReaderShareUi() {
 
         <div class="reader-share-section">
           <div class="reader-share-actions">
+            <button type="button" class="reader-share-action secondary" data-share-quote>문장 저장</button>
             <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
             <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
             <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
@@ -5817,6 +6230,7 @@ function ensureReaderShareUi() {
   const fonts = backdrop.querySelector(".reader-share-fonts");
   const sizes = backdrop.querySelector(".reader-share-sizes");
   const wrap = backdrop.querySelector("[data-share-wrap]");
+  const quoteSaveButton = backdrop.querySelector("[data-share-quote]");
   const saveButton = backdrop.querySelector("[data-share-save]");
   const clipboardButton = backdrop.querySelector("[data-share-clipboard]");
   const shareButton = backdrop.querySelector("[data-share-system]");
@@ -5877,6 +6291,35 @@ function ensureReaderShareUi() {
     updateReaderSharePreview();
   });
 
+  quoteSaveButton?.addEventListener("click", async () => {
+    if (!state.user) {
+      closeReaderShareUi();
+      openAuthModal("login", "문장을 저장하려면 로그인해 주세요.");
+      return;
+    }
+    quoteSaveButton.disabled = true;
+    const original = quoteSaveButton.textContent;
+    quoteSaveButton.textContent = "저장 중…";
+    try {
+      const ok = await saveCurrentReaderQuote();
+      if (ok) {
+        quoteSaveButton.textContent = "저장 완료";
+        quoteSaveButton.classList.add("saved");
+        window.setTimeout(() => {
+          quoteSaveButton.textContent = original;
+          quoteSaveButton.classList.remove("saved");
+        }, 1200);
+      } else {
+        quoteSaveButton.textContent = original;
+      }
+    } catch (error) {
+      console.error("quote save failed", error);
+      window.alert("문장을 저장하지 못했습니다. 다시 시도해 주세요.");
+      quoteSaveButton.textContent = original;
+    } finally {
+      quoteSaveButton.disabled = false;
+    }
+  });
   saveButton?.addEventListener("click", async () => {
     await handleReaderShareExport("save");
   });
@@ -5897,7 +6340,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, saveButton, clipboardButton, shareButton, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
   return readerShareUi;
 }
 
@@ -6047,6 +6490,8 @@ async function renderReaderShareCanvas() {
   const brandY = height * 0.055;
   const logoSize = 17 * scale;
   const brandFont = 10 * scale;
+  ctx.save();
+  ctx.globalAlpha = 0.58;
   ctx.fillStyle = model.background.meta;
   if (typeof Path2D !== "undefined") {
     try {
@@ -6061,7 +6506,8 @@ async function renderReaderShareCanvas() {
   ctx.font = `800 ${brandFont}px Pretendard, sans-serif`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillText(model.brand, brandX + logoSize + (6 * scale), brandY + (logoSize / 2));
+  ctx.fillText(model.brand, brandX + logoSize + (3 * scale), brandY + (logoSize / 2));
+  ctx.restore();
 
   const layout = computeReaderShareTextLayout(ctx, model, width, height);
   ctx.fillStyle = model.background.text;
@@ -6113,8 +6559,14 @@ function isReaderShareTouchDevice() {
 function updateReaderShareActionLabel() {
   if (!readerShareUi) return;
   const touch = isReaderShareTouchDevice();
+  const clipboardReady = Boolean(getPreparedReaderShareBlob());
   if (readerShareUi.saveButton) readerShareUi.saveButton.textContent = "이미지 저장";
-  if (readerShareUi.clipboardButton) readerShareUi.clipboardButton.textContent = "클립보드 복사";
+  if (readerShareUi.clipboardButton) {
+    readerShareUi.clipboardButton.disabled = !clipboardReady;
+    readerShareUi.clipboardButton.textContent = clipboardReady
+      ? "클립보드 복사"
+      : "클립보드 준비 중";
+  }
   if (readerShareUi.shareButton) {
     readerShareUi.shareButton.textContent = "공유하기";
     readerShareUi.shareButton.hidden = !touch;
@@ -6161,6 +6613,9 @@ function scheduleReaderShareBlobPreparation(delay = 90) {
       if (getReaderShareBlobKey() !== preparedKey) return;
       readerSharePreparedBlob = blob;
       readerSharePreparedBlobKey = preparedKey;
+      if (readerShareUi && !readerShareUi.backdrop.hidden) {
+        updateReaderShareActionLabel();
+      }
     }).catch((error) => {
       console.warn("reader share image pre-render failed", error);
     }).finally(() => {
@@ -6195,9 +6650,15 @@ function copyReaderShareImageToClipboard() {
 
   let item;
   try {
-    item = new ClipboardItem({ "image/png": blob });
-  } catch (error) {
-    throw new Error("clipboard_image_unsupported", { cause: error });
+    // Safari/WebKit 계열은 ClipboardItem 값으로 Promise<Blob>을 요구하는
+    // 경우가 있어 Promise 형태를 우선 사용한다. Chromium 계열도 허용한다.
+    item = new ClipboardItem({ "image/png": Promise.resolve(blob) });
+  } catch (promiseError) {
+    try {
+      item = new ClipboardItem({ "image/png": blob });
+    } catch (error) {
+      throw new Error("clipboard_image_unsupported", { cause: error || promiseError });
+    }
   }
   return navigator.clipboard.write([item]);
 }
@@ -6337,6 +6798,7 @@ function updateReaderSharePreview() {
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
   scheduleReaderShareBlobPreparation(120);
+  updateReaderShareActionLabel();
 }
 
 function openReaderShareSheet() {
