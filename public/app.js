@@ -2956,16 +2956,6 @@ async function turnReaderPage(direction) {
     !state.readerText
   ) return;
 
-  if (!readerCompactActive) {
-    const currentStart = state.readerPageStart;
-    setReaderCompactActive(true);
-    await nextFrame();
-    resizeReaderPageViewport();
-    renderReaderPageAt(currentStart, {
-      navigated: state.readerPageHasNavigated,
-    });
-  }
-
   if (direction > 0) {
     if (state.readerPageEnd >= getReaderTextLength()) return;
 
@@ -5585,16 +5575,17 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "샌드",
-    background: "linear-gradient(145deg, #f8f4ed 0%, #ddd7ce 100%)",
+    background: "linear-gradient(145deg, #f3eee7 0%, #aaa39a 100%)",
     text: "#191816",
-    meta: "#77716a",
-    accent: "#4d4841",
+    meta: "#4d4841",
+    accent: "#2a2724",
   },
 ];
 
 const READER_SHARE_FONTS = [
   { key: "paperlogy", label: "페이퍼로지", css: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif', weight: 500 },
   { key: "ridibatang", label: "리디바탕", css: 'Ridibatang, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
+  { key: "kopubbatang", label: "KoPub 바탕", css: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
   { key: "chosunilbo", label: "조선일보명조", css: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
   { key: "inkliquid", label: "잉크립퀴드", css: 'InkLiquid, cursive', weight: 400 },
 ];
@@ -5632,10 +5623,24 @@ function ensureReaderShareUi() {
   const style = document.createElement("style");
   style.id = "readerShareStyle";
   style.textContent = `
+    @import url("//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css");
     @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
     @font-face { font-family: 'ChosunIlboMyungjo'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Ridibatang'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'InkLiquid'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
+    .reader-header-actions { display:flex; align-items:center; gap:6px; }
+    .reader-header-actions .reader-download-button,
+    .reader-header-actions .reader-bookmark-button,
+    .reader-header-actions .reader-close {
+      height:32px !important; min-height:32px !important; box-sizing:border-box !important; margin:0 !important;
+      display:inline-flex !important; align-items:center !important; justify-content:center !important; line-height:1 !important;
+    }
+    .reader-header-actions .reader-download-button,
+    .reader-header-actions .reader-bookmark-button { padding:0 11px !important; gap:5px !important; border-radius:999px !important; font-size:12px !important; }
+    .reader-header-actions .reader-close { width:32px !important; min-width:32px !important; padding:0 !important; border-radius:50% !important; }
+    .reader-header-actions .reader-download-button svg,
+    .reader-header-actions .reader-bookmark-button svg { width:14px !important; height:14px !important; flex:0 0 14px !important; }
+    .reader-header-actions .reader-close svg { width:16px !important; height:16px !important; }
     .reader-share-float {
       position: fixed; z-index: 1300; width: 38px; height: 38px; border: 0;
       border-radius: 999px; display: grid; place-items: center; cursor: pointer;
