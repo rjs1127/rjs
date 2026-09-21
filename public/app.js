@@ -5555,22 +5555,32 @@ els.readerScrollTop?.addEventListener("click", () => {
 
 const READER_SHARE_BACKGROUNDS = [
   {
+    name: "아이보리",
+    background: "linear-gradient(145deg, #fbf9f4 0%, #f4efe8 100%)",
+    text: "#2f2931",
+    meta: "#776d76",
+    accent: "#8c718f",
+  },
+  {
     name: "라벤더",
-    src: "/assets/share-cards/lavender-ui.webp",
-    text: "#44384f",
-    meta: "#756a80",
+    background: "linear-gradient(145deg, #f2edf5 0%, #e5dce9 100%)",
+    text: "#4b3a52",
+    meta: "#75647d",
+    accent: "#725080",
   },
   {
-    name: "블러시",
-    src: "/assets/share-cards/blush-ui.webp",
-    text: "#563d49",
-    meta: "#806570",
+    name: "플럼",
+    background: "linear-gradient(145deg, #68536f 0%, #4c3b53 100%)",
+    text: "#fffafc",
+    meta: "#e7dbe9",
+    accent: "#d9bfdc",
   },
   {
-    name: "미드나잇",
-    src: "/assets/share-cards/midnight-ui.webp",
-    text: "#f7f3ff",
-    meta: "#c7bde0",
+    name: "나이트",
+    background: "linear-gradient(145deg, #302d35 0%, #211f26 100%)",
+    text: "#f7f4f8",
+    meta: "#c9c1cc",
+    accent: "#9d84a6",
   },
 ];
 
@@ -5585,7 +5595,6 @@ const READER_SHARE_SIZES = {
   xs: { label: "작게", px: 17 },
   sm: { label: "보통", px: 21 },
   md: { label: "크게", px: 26 },
-  lg: { label: "아주 크게", px: 31 },
 };
 
 let readerShareUi = null;
@@ -5595,8 +5604,7 @@ function ensureReaderShareState() {
   if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
   if (!state.readerShareRatio) state.readerShareRatio = "1:1";
   if (!state.readerShareFont) state.readerShareFont = "pretendard";
-  if (!state.readerShareSize) state.readerShareSize = "sm";
-  if (!state.readerShareTextColor) state.readerShareTextColor = "auto";
+  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "sm";
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -5620,7 +5628,7 @@ function ensureReaderShareUi() {
       border-radius: 999px; display: grid; place-items: center; cursor: pointer;
       background: rgba(69, 48, 83, .96); color: #fff;
       box-shadow: 0 8px 24px rgba(31, 20, 37, .24);
-      transform: translate(-50%, -100%); transition: opacity .15s ease, transform .15s ease;
+      transform: translate(-50%, 0); transition: opacity .15s ease, transform .15s ease;
     }
     .reader-share-float[hidden] { display: none !important; }
     .reader-share-float svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
@@ -5652,9 +5660,9 @@ function ensureReaderShareUi() {
     .reader-share-card-meta { position:absolute; z-index:1; left:10%; right:10%; bottom:8.5%; text-align:center; font-size:10.5px; line-height:1.45; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .reader-share-thumbs { display:flex; gap:8px; overflow:auto; padding:1px 1px 3px; scrollbar-width:none; }
     .reader-share-thumbs::-webkit-scrollbar { display:none; }
-    .reader-share-thumb { flex:0 0 52px; width:52px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; background:#eee; cursor:pointer; }
-    .reader-share-thumb.active { border-color:#725080; box-shadow:0 0 0 2px rgba(114,80,128,.12); }
-    .reader-share-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+    .reader-share-thumb { position:relative; flex:0 0 58px; width:58px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(70,55,75,.08); }
+    .reader-share-thumb.active { border-color:#725080; box-shadow:0 0 0 2px rgba(114,80,128,.12), inset 0 0 0 1px rgba(255,255,255,.22); }
+    .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(109,75,126,.5); box-shadow:0 0 0 3px rgba(109,75,126,.07); }
     .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
@@ -5746,16 +5754,6 @@ function ensureReaderShareUi() {
         </div>
       </div>
 
-      <div class="reader-share-section">
-        <div class="reader-share-row">
-          <span class="reader-share-label">글자 색상</span>
-          <div class="reader-share-options">
-            <button type="button" class="reader-share-chip reader-share-color" data-share-color="white"><span class="reader-share-color-dot white"></span>흰색</button>
-            <button type="button" class="reader-share-chip reader-share-color" data-share-color="black"><span class="reader-share-color-dot black"></span>검은색</button>
-            <button type="button" class="reader-share-chip" data-share-color="auto">자동</button>
-          </div>
-        </div>
-      </div>
 
       <div class="reader-share-section">
         <div class="reader-share-row">
@@ -5788,9 +5786,7 @@ function ensureReaderShareUi() {
   const wrap = backdrop.querySelector("[data-share-wrap]");
 
   thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
-    <button type="button" class="reader-share-thumb" data-share-background="${index}" aria-label="${background.name} 배경">
-      <img src="${background.src}" alt="" loading="eager" />
-    </button>`).join("");
+    <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
 
   fonts.innerHTML = READER_SHARE_FONTS.map((font) => `
     <button type="button" class="reader-share-chip" data-share-font="${font.key}">${font.label}</button>`).join("");
@@ -5833,12 +5829,6 @@ function ensureReaderShareUi() {
       updateReaderSharePreview();
       return;
     }
-    const colorButton = event.target.closest("[data-share-color]");
-    if (colorButton) {
-      state.readerShareTextColor = colorButton.dataset.shareColor || "auto";
-      updateReaderSharePreview();
-      return;
-    }
     const wrapButton = event.target.closest("[data-share-wrap]");
     if (wrapButton) {
       state.readerShareAutoWrap = !state.readerShareAutoWrap;
@@ -5873,15 +5863,12 @@ function updateReaderSharePreview() {
   const text = String(state.readerShareText || "").trim();
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.sm;
-  const textColor = state.readerShareTextColor === "white"
-    ? "#ffffff"
-    : state.readerShareTextColor === "black"
-      ? "#151219"
-      : background.text;
-  const metaColor = state.readerShareTextColor === "auto" ? background.meta : textColor;
+  const textColor = background.text;
+  const metaColor = background.meta;
 
   ui.card.dataset.ratio = state.readerShareRatio;
-  ui.card.style.backgroundImage = `url("${background.src}")`;
+  ui.card.style.backgroundImage = "none";
+  ui.card.style.background = background.background;
   ui.card.style.color = textColor;
   ui.meta.style.color = metaColor;
   ui.brand.style.color = metaColor;
@@ -5906,9 +5893,6 @@ function updateReaderSharePreview() {
   });
   ui.backdrop.querySelectorAll("[data-share-size]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareSize === state.readerShareSize);
-  });
-  ui.backdrop.querySelectorAll("[data-share-color]").forEach((button) => {
-    button.classList.toggle("active", button.dataset.shareColor === state.readerShareTextColor);
   });
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
@@ -5958,6 +5942,7 @@ function getReaderTextSelection() {
 
 function syncReaderShareSelection() {
   window.clearTimeout(readerShareSelectionTimer);
+  const isTouchLike = window.matchMedia?.("(pointer: coarse)")?.matches;
   readerShareSelectionTimer = window.setTimeout(() => {
     const ui = ensureReaderShareUi();
     if (!ui.backdrop.hidden) return;
@@ -5969,17 +5954,21 @@ function syncReaderShareSelection() {
     }
 
     state.readerShareText = selected.text;
-    const margin = 24;
+    const margin = 28;
+    const buttonSize = 38;
     const x = Math.min(
       window.innerWidth - margin,
-      Math.max(margin, selected.rect.right)
+      Math.max(margin, selected.rect.left + (selected.rect.width / 2))
     );
-    const y = Math.max(58, selected.rect.top - 8);
+    const belowY = selected.rect.bottom + 14;
+    const aboveY = selected.rect.top - buttonSize - 14;
+    const hasRoomBelow = belowY + buttonSize + 12 < window.innerHeight;
+    const y = hasRoomBelow ? belowY : Math.max(58, aboveY);
 
     ui.floatButton.style.left = `${x}px`;
     ui.floatButton.style.top = `${y}px`;
     ui.floatButton.hidden = false;
-  }, 35);
+  }, isTouchLike ? 220 : 55);
 }
 
 function initReaderShareSelection() {
