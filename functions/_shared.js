@@ -8,10 +8,9 @@ const OVERRIDES_KEY = "archive:overrides:v1";
 const SETTINGS_KEY = "archive:settings:v1";
 
 const DEFAULT_SETTINGS = {
-  siteName: "RJS BOOK",
   faviconUrl: "/favicon.svg",
-  eyebrow: "GOOGLE DRIVE ARCHIVE",
-  title: "내 콘텐츠를\n한곳에서 찾아보세요."
+  eyebrow: "",
+  title: ""
 };
 
 function jsonResponse(data, status = 200, extraHeaders = {}) {

@@ -1284,84 +1284,12 @@ function getVersionedFaviconUrl(rawUrl, updatedAt = "") {
   return `${value}${value.includes("?") ? "&" : "?"}v=${version}`;
 }
 
-const SITE_NAME_CACHE_KEY = "archiveSiteNameV1";
-
-function applyBrandName(siteName, { cache = true } = {}) {
-  const normalized = String(siteName || "").trim() || "RJS BOOK";
-
-  document.title = normalized;
-
-  if (els.brandText) {
-    els.brandText.textContent = normalized;
-    els.brandText.classList.remove("brand-name-pending");
-    els.brandText.classList.add("brand-name-ready");
-  }
-
-  if (els.brandLink) {
-    els.brandLink.setAttribute("aria-label", `${normalized} 홈`);
-  }
-
-  if (els.ogSiteName) {
-    els.ogSiteName.setAttribute("content", normalized);
-  }
-  if (els.ogTitle) {
-    els.ogTitle.setAttribute("content", normalized);
-  }
-  if (els.twitterTitle) {
-    els.twitterTitle.setAttribute("content", normalized);
-  }
-  if (els.ogUrl) {
-    els.ogUrl.setAttribute(
-      "content",
-      `${window.location.origin}${window.location.pathname}`
-    );
-  }
-
-  if (cache) {
-    try {
-      localStorage.setItem(SITE_NAME_CACHE_KEY, normalized);
-    } catch {
-      // Storage can be unavailable in restrictive/private browser modes.
-    }
-  }
-
-  return normalized;
-}
-
-function applyCachedBrandName() {
-  try {
-    const cached = String(
-      localStorage.getItem(SITE_NAME_CACHE_KEY) || ""
-    ).trim();
-
-    if (!cached) return false;
-
-    applyBrandName(cached, { cache: false });
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function revealFallbackBrandName() {
-  if (!els.brandText) return;
-
-  if (els.brandText.classList.contains("brand-name-pending")) {
-    applyBrandName(
-      els.brandText.textContent || "RJS BOOK",
-      { cache: false }
-    );
-  }
-}
-
 function applySettings(settings = {}) {
-  const siteName = String(els.brandText?.textContent || document.title || "RJS BOOK").trim() || "RJS BOOK";
   const faviconUrl = getVersionedFaviconUrl(
     settings.faviconUrl,
     settings.updatedAt
   );
 
-  applyBrandName(siteName, { cache: false });
 
   if (faviconUrl) {
     for (const link of [
@@ -1403,7 +1331,6 @@ async function loadArchive(force = false) {
     render();
   } catch (error) {
     console.error(error);
-    revealFallbackBrandName();
     els.heroSection?.classList.remove("hero-settings-pending");
     els.heroSection?.classList.add("hero-settings-ready");
     els.resultCount.textContent = "연결 오류";
@@ -5611,7 +5538,7 @@ const READER_SHARE_BACKGROUNDS = [
     accent: "#eee8df",
   },
   {
-    name: "그레이지",
+    name: "그레이",
     background: "linear-gradient(145deg, #ebe6df 0%, #ddd7ce 100%)",
     text: "#2a2724",
     meta: "#77716a",
@@ -5642,7 +5569,7 @@ const READER_SHARE_FONTS = [
 ];
 
 const READER_SHARE_SIZES = {
-  xxs: { label: "아주 작게", px: 13 },
+  xxs: { label: "아주작게", px: 13 },
   xs: { label: "작게", px: 15 },
   sm: { label: "보통", px: 18 },
   md: { label: "크게", px: 22 },
@@ -5663,8 +5590,8 @@ function getReaderShareBrandName() {
   return String(
     document.getElementById("brandText")?.textContent ||
     document.title ||
-    "RJS BOOK"
-  ).trim() || "RJS BOOK";
+    "셩냥책"
+  ).trim() || "셩냥책";
 }
 
 function ensureReaderShareUi() {
@@ -6486,10 +6413,8 @@ function getIssueReportText() {
     ? "-"
     : `${Number(activeEntry.progressPercent).toFixed(1)}%`;
 
-  const siteName = String(els.brandText?.textContent || document.title || "SITE").trim() || "SITE";
-
   return [
-    `[${siteName} 베타 문제 신고 정보]`,
+    `[셩냥책 베타 문제 신고 정보]`,
     `버전: ${version}`,
     `시간: ${new Date().toLocaleString("ko-KR")}`,
     `온라인: ${navigator.onLine ? "예" : "아니오"}`,

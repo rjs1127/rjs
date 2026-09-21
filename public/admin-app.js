@@ -58,8 +58,6 @@ const els = {
   driveListMessage: document.getElementById("driveListMessage"),
   driveSummaryFilters: document.getElementById("driveSummaryFilters"),
   settingsForm: document.getElementById("settingsForm"),
-  siteNameInput: document.getElementById("siteNameInput"),
-  brandNamePreviewText: document.getElementById("brandNamePreviewText"),
   faviconUrlInput: document.getElementById("faviconUrlInput"),
   eyebrowInput: document.getElementById("eyebrowInput"),
   titleInput: document.getElementById("titleInput"),
@@ -1754,11 +1752,6 @@ async function loadAdmin() {
   els.statusEditedCount.textContent = `${editedCount.toLocaleString("ko-KR")}개`;
   els.statusReviewCount.textContent = `${reviewCount.toLocaleString("ko-KR")}개`;
 
-  els.siteNameInput.value = data.settings?.siteName || "RJS BOOK";
-  if (els.brandNamePreviewText) {
-    els.brandNamePreviewText.textContent =
-      els.siteNameInput.value.trim() || "RJS BOOK";
-  }
   els.faviconUrlInput.value = data.settings?.faviconUrl || "";
   els.eyebrowInput.value = data.settings?.eyebrow || "";
   els.titleInput.value = data.settings?.title || "";
@@ -2721,13 +2714,12 @@ els.settingsForm.addEventListener("submit", async (event) => {
     await api("/api/admin/settings", {
       method: "POST",
       body: JSON.stringify({
-        siteName: els.siteNameInput.value,
         faviconUrl: els.faviconUrlInput.value,
         eyebrow: els.eyebrowInput.value,
         title: els.titleInput.value,
       }),
     });
-    els.settingsMessage.textContent = "저장했습니다. 사이트 이름은 wrangler.toml의 SITE_NAME 변경 후 재배포해야 반영됩니다. 파비콘·메인 문구는 기존 방식으로 반영됩니다.";
+    els.settingsMessage.textContent = "저장했습니다. 파비콘·메인 문구를 반영했습니다. 사이트 이름은 wrangler.toml의 SITE_NAME 변경 후 재배포하면 반영됩니다.";
   } catch (error) {
     els.settingsMessage.textContent = error.message;
   }
@@ -2935,14 +2927,43 @@ els.deployButton.addEventListener("click", async () => {
   els.deployMessage.textContent = "GitHub에 변경사항을 커밋하고 있습니다…";
 
   try {
+    // Workers Free의 외부 subrequest 한도를 피하기 위해 GitHub blob 생성은
+    // 여러 invocation으로 나누고, 마지막에 한 번만 tree/commit/ref를 생성한다.
+    const batchSize = 30;
+    const treeEntries = [];
+    const totalBatches = Math.ceil(deployFiles.length / batchSize);
+
+    for (let i = 0; i < deployFiles.length; i += batchSize) {
+      const batch = deployFiles.slice(i, i + batchSize);
+      const batchNumber = Math.floor(i / batchSize) + 1;
+      els.deployButton.textContent = `파일 준비 ${batchNumber}/${totalBatches}`;
+      els.deployMessage.textContent =
+        `GitHub 파일을 준비하고 있습니다… (${Math.min(i + batch.length, deployFiles.length)}/${deployFiles.length})`;
+
+      const prepared = await api("/api/admin/deploy", {
+        method: "POST",
+        body: JSON.stringify({
+          mode: "blobs",
+          files: batch.map(({ path, contentBase64 }) => ({ path, contentBase64 })),
+        }),
+      });
+
+      if (Array.isArray(prepared.entries)) treeEntries.push(...prepared.entries);
+    }
+
+    if (treeEntries.length !== deployFiles.length) {
+      throw new Error(`파일 준비 수가 일치하지 않습니다. (${treeEntries.length}/${deployFiles.length})`);
+    }
+
+    els.deployButton.textContent = "GitHub 커밋 중…";
+    els.deployMessage.textContent = "준비된 파일을 하나의 커밋으로 생성하고 있습니다…";
+
     const result = await api("/api/admin/deploy", {
       method: "POST",
       body: JSON.stringify({
+        mode: "commit",
         message,
-        files: deployFiles.map(({ path, contentBase64 }) => ({
-          path,
-          contentBase64,
-        })),
+        entries: treeEntries,
       }),
     });
 

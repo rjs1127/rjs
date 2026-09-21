@@ -318,148 +318,220 @@ export async function onRequestPost(context) {
     }
 
     const body = await context.request.json();
+    const mode = String(body?.mode || "legacy").trim().toLowerCase();
     let commitMessage = String(body?.message || "").trim();
-    const incoming = Array.isArray(body?.files) ? body.files : [];
 
+    // v7.69: Free Workers는 외부 subrequest가 invocation당 50회이므로
+    // 파일 blob 생성과 최종 commit을 여러 요청으로 나눠 처리한다.
+    if (mode === "blobs") {
+      const incoming = Array.isArray(body?.files) ? body.files : [];
+      if (!incoming.length) {
+        return jsonResponse({ error: "배포할 파일이 없습니다." }, 400);
+      }
+      if (incoming.length > 35) {
+        return jsonResponse({ error: "한 번에 최대 35개 파일 blob을 생성할 수 있습니다." }, 400);
+      }
+
+      const entries = [];
+      const blocked = [];
+
+      for (const file of incoming) {
+        const check = isAllowedPath(file?.path);
+        if (!check.allowed) {
+          blocked.push({
+            path: check.path || String(file?.path || ""),
+            reason: check.reason || "허용되지 않은 파일",
+          });
+          continue;
+        }
+
+        const contentBase64 = String(file?.contentBase64 || "");
+        if (!contentBase64) {
+          blocked.push({ path: check.path, reason: "파일 내용 없음" });
+          continue;
+        }
+        if (contentBase64.length > 8_500_000) {
+          blocked.push({ path: check.path, reason: "파일 크기 제한 초과" });
+          continue;
+        }
+
+        const blob = await gh(
+          token,
+          `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              content: contentBase64,
+              encoding: "base64",
+            }),
+          }
+        );
+
+        entries.push({
+          path: check.path,
+          mode: "100644",
+          type: "blob",
+          sha: blob.sha,
+        });
+      }
+
+      return jsonResponse({ ok: true, entries, blocked });
+    }
+
+    if (mode === "commit") {
+      const incomingEntries = Array.isArray(body?.entries) ? body.entries : [];
+      if (!incomingEntries.length) {
+        return jsonResponse({ error: "커밋할 파일 정보가 없습니다." }, 400);
+      }
+      if (incomingEntries.length > 100) {
+        return jsonResponse({ error: "한 번에 최대 100개 파일까지 커밋할 수 있습니다." }, 400);
+      }
+
+      const treeEntries = [];
+      for (const entry of incomingEntries) {
+        const check = isAllowedPath(entry?.path);
+        const sha = String(entry?.sha || "").trim();
+        if (!check.allowed || !/^[0-9a-f]{40}$/i.test(sha)) {
+          return jsonResponse({ error: `올바르지 않은 파일 정보입니다: ${check.path || entry?.path || ""}` }, 400);
+        }
+        treeEntries.push({
+          path: check.path,
+          mode: "100644",
+          type: "blob",
+          sha,
+        });
+      }
+
+      if (!commitMessage || commitMessage === "Archive site update") {
+        commitMessage = `Archive update (${treeEntries.length} files)`;
+      }
+
+      const ref = await gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/ref/heads/${encodeURIComponent(GITHUB_BRANCH)}`
+      );
+      const parentCommitSha = ref.object.sha;
+
+      const parentCommit = await gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${parentCommitSha}`
+      );
+      const baseTreeSha = parentCommit.tree.sha;
+
+      const newTree = await gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`,
+        {
+          method: "POST",
+          body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+        }
+      );
+
+      const newCommit = await gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            message: commitMessage,
+            tree: newTree.sha,
+            parents: [parentCommitSha],
+          }),
+        }
+      );
+
+      await gh(
+        token,
+        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${encodeURIComponent(GITHUB_BRANCH)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ sha: newCommit.sha, force: false }),
+        }
+      );
+
+      return jsonResponse({
+        ok: true,
+        owner: GITHUB_OWNER,
+        repo: GITHUB_REPO,
+        branch: GITHUB_BRANCH,
+        commitSha: newCommit.sha,
+        commitMessage,
+        commitUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/commit/${newCommit.sha}`,
+        deployedFiles: treeEntries.map((entry) => entry.path),
+        blocked: [],
+        message: "GitHub 커밋이 생성되었습니다. Cloudflare Pages 자동 배포가 곧 시작됩니다.",
+      });
+    }
+
+    // 구버전 관리자 화면과의 호환용 단일 요청 방식.
+    // Free Workers의 50 subrequest 한도를 넘지 않도록 작은 패치만 허용한다.
+    const incoming = Array.isArray(body?.files) ? body.files : [];
     if (!incoming.length) {
       return jsonResponse({ error: "배포할 파일이 없습니다." }, 400);
     }
-
-    if (incoming.length > 100) {
+    if (incoming.length > 40) {
       return jsonResponse(
-        { error: "한 번에 최대 100개 파일까지 배포할 수 있습니다." },
+        { error: "파일 수가 많아 단일 요청 배포 한도를 초과합니다. 관리자 화면을 최신 버전으로 갱신한 뒤 다시 시도해주세요." },
         400
       );
     }
 
     const files = [];
     const blocked = [];
-
     for (const file of incoming) {
       const check = isAllowedPath(file?.path);
-
       if (!check.allowed) {
-        blocked.push({
-          path: check.path || String(file?.path || ""),
-          reason: check.reason || "허용되지 않은 파일",
-        });
+        blocked.push({ path: check.path || String(file?.path || ""), reason: check.reason || "허용되지 않은 파일" });
         continue;
       }
-
       const contentBase64 = String(file?.contentBase64 || "");
       if (!contentBase64) {
         blocked.push({ path: check.path, reason: "파일 내용 없음" });
         continue;
       }
-
-      // About 6 MB decoded max per file.
       if (contentBase64.length > 8_500_000) {
         blocked.push({ path: check.path, reason: "파일 크기 제한 초과" });
         continue;
       }
-
-      files.push({
-        path: check.path,
-        contentBase64,
-      });
+      files.push({ path: check.path, contentBase64 });
     }
 
     if (!files.length) {
-      return jsonResponse(
-        {
-          error: "허용된 배포 파일이 없습니다.",
-          blocked,
-        },
-        400
-      );
+      return jsonResponse({ error: "허용된 배포 파일이 없습니다.", blocked }, 400);
     }
 
     const readmeFile = files.find((file) => file.path === "README.md");
-
     if (!commitMessage || commitMessage === "Archive site update") {
-      const readmeText = readmeFile
-        ? decodeBase64Utf8(readmeFile.contentBase64)
-        : "";
-
-      commitMessage = buildCommitMessageFromReadmeServer(
-        readmeText,
-        files.length
-      );
+      const readmeText = readmeFile ? decodeBase64Utf8(readmeFile.contentBase64) : "";
+      commitMessage = buildCommitMessageFromReadmeServer(readmeText, files.length);
     }
 
-    const ref = await gh(
-      token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/ref/heads/${encodeURIComponent(GITHUB_BRANCH)}`
-    );
-
+    const ref = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/ref/heads/${encodeURIComponent(GITHUB_BRANCH)}`);
     const parentCommitSha = ref.object.sha;
-
-    const parentCommit = await gh(
-      token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${parentCommitSha}`
-    );
-
+    const parentCommit = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits/${parentCommitSha}`);
     const baseTreeSha = parentCommit.tree.sha;
-
     const treeEntries = [];
 
     for (const file of files) {
-      const blob = await gh(
-        token,
-        `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            content: file.contentBase64,
-            encoding: "base64",
-          }),
-        }
-      );
-
-      treeEntries.push({
-        path: file.path,
-        mode: "100644",
-        type: "blob",
-        sha: blob.sha,
+      const blob = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`, {
+        method: "POST",
+        body: JSON.stringify({ content: file.contentBase64, encoding: "base64" }),
       });
+      treeEntries.push({ path: file.path, mode: "100644", type: "blob", sha: blob.sha });
     }
 
-    const newTree = await gh(
-      token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          base_tree: baseTreeSha,
-          tree: treeEntries,
-        }),
-      }
-    );
-
-    const newCommit = await gh(
-      token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          message: commitMessage,
-          tree: newTree.sha,
-          parents: [parentCommitSha],
-        }),
-      }
-    );
-
-    await gh(
-      token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${encodeURIComponent(GITHUB_BRANCH)}`,
-      {
-        method: "PATCH",
-        body: JSON.stringify({
-          sha: newCommit.sha,
-          force: false,
-        }),
-      }
-    );
+    const newTree = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/trees`, {
+      method: "POST",
+      body: JSON.stringify({ base_tree: baseTreeSha, tree: treeEntries }),
+    });
+    const newCommit = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/commits`, {
+      method: "POST",
+      body: JSON.stringify({ message: commitMessage, tree: newTree.sha, parents: [parentCommitSha] }),
+    });
+    await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/refs/heads/${encodeURIComponent(GITHUB_BRANCH)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ sha: newCommit.sha, force: false }),
+    });
 
     return jsonResponse({
       ok: true,
@@ -471,19 +543,13 @@ export async function onRequestPost(context) {
       commitUrl: `https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/commit/${newCommit.sha}`,
       deployedFiles: files.map((file) => file.path),
       blocked,
-      message:
-        "GitHub 커밋이 생성되었습니다. Cloudflare Pages 자동 배포가 곧 시작됩니다.",
+      message: "GitHub 커밋이 생성되었습니다. Cloudflare Pages 자동 배포가 곧 시작됩니다.",
     });
   } catch (error) {
     console.error(error);
-
     return jsonResponse(
-      {
-        error: error?.message || "GitHub 배포에 실패했습니다.",
-      },
-      error?.status && error.status >= 400 && error.status < 600
-        ? error.status
-        : 500
+      { error: error?.message || "GitHub 배포에 실패했습니다." },
+      error?.status && error.status >= 400 && error.status < 600 ? error.status : 500
     );
   }
 }

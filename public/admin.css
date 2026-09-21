@@ -2209,50 +2209,6 @@ button.primary,
   grid-column:1 / -1;
 }
 
-.brand-name-preview {
-  display:inline-flex;
-  align-items:center;
-  gap:9px;
-  width:fit-content;
-  max-width:100%;
-  margin-top:9px;
-  padding:8px 11px;
-  border:1px solid var(--line);
-  border-radius:12px;
-  background:#f8f5f0;
-  color:var(--ink);
-}
-
-.brand-name-preview-icon {
-  width:24px;
-  height:24px;
-  display:inline-grid;
-  place-items:center;
-  flex:0 0 auto;
-  color:#5f574f;
-}
-
-.brand-name-preview-icon svg {
-  width:22px;
-  height:22px;
-  fill:none;
-  stroke:currentColor;
-  stroke-width:1.7;
-  stroke-linecap:round;
-  stroke-linejoin:round;
-}
-
-#brandNamePreviewText {
-  min-width:0;
-  overflow:hidden;
-  text-overflow:ellipsis;
-  white-space:nowrap;
-  font-size:12px;
-  font-weight:900;
-  letter-spacing:-.02em;
-}
-
-
 /* =====================================================================
    V7.20 BUILD-TIME SITE NAME SOURCE
    ===================================================================== */
