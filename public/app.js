@@ -42,7 +42,7 @@ const state = {
   lastExitProgressAt: 0,
   libraryKind: "bookmarks",
   librarySearch: "",
-  libraryVisibleLimit: 20,
+  libraryVisibleLimit: 10,
   visitRecordedUserId: "",
   remoteProgressState: new Map(),
   bookmarkSaveTimers: new Map(),
@@ -64,7 +64,7 @@ const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 100; // 0.01% 단위 저장 (모드 간 위치 정밀도 향상)
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
-const LIBRARY_PAGE_SIZE = 20;
+const LIBRARY_PAGE_SIZE = 10;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
 
@@ -85,6 +85,15 @@ const READER_PAGE_SWIPE_PX = 48;
 const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
 const READER_FONT_SIZE_KEY = "rjsBookReaderFontSizeV1";
+const READER_FONT_FAMILY_KEY = "rjsBookReaderFontFamilyV1";
+const READER_FONT_FAMILIES = {
+  default: 'Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
+  paperlogy: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif',
+  ridibatang: 'Ridibatang, "Noto Serif KR", "Nanum Myeongjo", serif',
+  chosunilbo: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
+  inkliquid: 'InkLiquid, cursive',
+  kopubbatang: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
+};
 
 function getViewerPreferenceStorage() {
   return state.user ? localStorage : sessionStorage;
@@ -110,6 +119,13 @@ function getSavedReaderFontSize() {
     : "normal";
 }
 
+function getSavedReaderFontFamily() {
+  const value = getViewerPreferenceStorage().getItem(READER_FONT_FAMILY_KEY);
+  return Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, value)
+    ? value
+    : "default";
+}
+
 function setViewerPreference(key, value) {
   getViewerPreferenceStorage().setItem(key, value);
 }
@@ -132,6 +148,7 @@ function applyUserPreferences() {
   const theme = getSavedTheme();
   const spacing = getSavedReaderSpacing();
   const fontSize = getSavedReaderFontSize();
+  const fontFamily = getSavedReaderFontFamily();
   const root = document.documentElement;
 
   if (theme === "dark") {
@@ -147,6 +164,8 @@ function applyUserPreferences() {
   root.dataset.theme = theme;
   root.dataset.readerSpacing = spacing;
   root.dataset.readerFontSize = fontSize;
+  root.dataset.readerFont = fontFamily;
+  root.style.setProperty("--reader-font-family", READER_FONT_FAMILIES[fontFamily] || READER_FONT_FAMILIES.default);
 
   if (els.darkModeToggle) {
     const enabled = theme === "dark";
@@ -169,6 +188,10 @@ function applyUserPreferences() {
     button.classList.toggle("active", active);
     button.setAttribute("aria-pressed", active ? "true" : "false");
   });
+
+  if (els.readerFontFamilySelect) {
+    els.readerFontFamilySelect.value = fontFamily;
+  }
 
   if (els.viewerSettingsScopeText) {
     els.viewerSettingsScopeText.textContent = state.user
@@ -317,6 +340,7 @@ const els = {
   darkModeToggle: document.getElementById("darkModeToggle"),
   readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
   readerFontSizeButtons: Array.from(document.querySelectorAll("[data-reader-font-size]")),
+  readerFontFamilySelect: document.getElementById("readerFontFamilySelect"),
   logoutButton: document.getElementById("logoutButton"),
 };
 
@@ -4721,6 +4745,13 @@ els.readerFontSizeButtons?.forEach((button) => {
   });
 });
 
+els.readerFontFamilySelect?.addEventListener("change", () => {
+  const fontFamily = els.readerFontFamilySelect.value;
+  if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
+  setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
+  applyUserPreferences();
+});
+
 els.viewerSettingsButton?.addEventListener("click", () => {
   applyUserPreferences();
   openModal(els.viewerSettingsModal);
@@ -6379,8 +6410,10 @@ function getIssueReportText() {
     ? "-"
     : `${Number(activeEntry.progressPercent).toFixed(1)}%`;
 
+  const siteName = String(els.brandText?.textContent || document.title || "SITE").trim() || "SITE";
+
   return [
-    "[RJS BOOK 베타 문제 신고 정보]",
+    `[${siteName} 베타 문제 신고 정보]`,
     `버전: ${version}`,
     `시간: ${new Date().toLocaleString("ko-KR")}`,
     `온라인: ${navigator.onLine ? "예" : "아니오"}`,

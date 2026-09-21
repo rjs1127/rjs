@@ -17,7 +17,33 @@
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=762" />
+  <link rel="stylesheet" href="/theme.css?v=763" />
+  <style>
+    @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
+    @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
+    @font-face { font-family:'Ridibatang'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
+    @font-face { font-family:'InkLiquid'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
+    #readerContent, #readerPageText { font-family: var(--reader-font-family, inherit) !important; }
+    .viewer-settings-modal { overflow: visible !important; max-height: none !important; }
+    .viewer-settings-modal .viewer-settings-list { display:grid !important; gap:7px !important; }
+    .viewer-settings-modal .account-preference-row,
+    .viewer-settings-modal .account-preference-row-stack { display:grid !important; grid-template-columns:92px minmax(0,1fr) !important; align-items:center !important; gap:10px !important; padding:8px 0 !important; }
+    .viewer-settings-modal .account-preference-row > div:first-child span { display:none !important; }
+    .viewer-settings-modal .account-preference-row strong { font-size:13px !important; white-space:nowrap; }
+    .viewer-settings-modal .preference-segmented { width:100%; }
+    .viewer-font-select { width:100%; min-width:0; height:34px; padding:0 10px; border:1px solid var(--theme-line,#ddd7ce); border-radius:10px; background:var(--theme-surface-strong,#fff); color:var(--theme-text,#191816); font:inherit; font-size:12px; }
+    .library-more-wrap { padding-top:7px !important; }
+    .library-more-button { min-height:32px !important; padding:5px 10px !important; border-radius:9px !important; font-size:11px !important; gap:6px !important; }
+    .library-more-button small { font-size:9px !important; opacity:.7; }
+    @media (max-width: 520px) {
+      .viewer-settings-modal { padding-top:18px !important; padding-bottom:18px !important; }
+      .viewer-settings-modal .simple-modal-kicker { margin-bottom:2px !important; }
+      .viewer-settings-modal h2 { margin-bottom:4px !important; }
+      .viewer-settings-modal .simple-modal-description { margin-bottom:8px !important; font-size:11px !important; }
+      .viewer-settings-modal .account-preference-row,
+      .viewer-settings-modal .account-preference-row-stack { grid-template-columns:82px minmax(0,1fr) !important; padding:6px 0 !important; }
+    }
+  </style>
 </head>
 <body>
   <div class="app-shell">
@@ -495,14 +521,13 @@
     <section class="simple-modal help-modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
       <button class="simple-modal-close" type="button" data-close-modal="helpModal" aria-label="닫기">×</button>
       <p class="simple-modal-kicker">HELP</p>
-      <h2 id="helpModalTitle">기록 저장 안내</h2>
-      <p class="simple-modal-description">
-        이어보기, 북마크, 최근 조회 작품을 저장하려면 로그인 후 감상해 주세요.
-      </p>
+      <h2 id="helpModalTitle">주요 기능</h2>
+      <p class="simple-modal-description">검색부터 읽기·기록·문장 공유까지 필요한 기능만 간단히 모았습니다.</p>
       <div class="help-points">
-        <div><strong>이어보기</strong><span>읽던 위치를 계정에 저장해 다른 기기에서도 이어서 볼 수 있어요.</span></div>
-        <div><strong>북마크</strong><span>다시 보고 싶은 작품을 계정별로 모아둘 수 있어요.</span></div>
-        <div><strong>최근 조회</strong><span>최근 열어본 작품을 계정별로 확인할 수 있어요.</span></div>
+        <div><strong>검색·필터</strong><span>제목·작가를 검색하고 CP, 작품형태, 상태, 출처로 빠르게 좁혀볼 수 있어요.</span></div>
+        <div><strong>맞춤 뷰어</strong><span>스크롤/페이지 보기, 글꼴, 글자 크기, 줄간격, 다크모드를 설정할 수 있어요.</span></div>
+        <div><strong>이어보기·서재</strong><span>로그인하면 읽던 위치, 북마크, 최근 조회 기록을 계정에 저장합니다.</span></div>
+        <div><strong>문장 이미지</strong><span>본문을 선택해 카드 이미지로 저장하거나 클립보드·공유 기능을 사용할 수 있어요.</span></div>
       </div>
       <button id="helpLoginButton" class="modal-primary-button" type="button">로그인하기</button>
     </section>
@@ -571,7 +596,7 @@
 
       <div id="libraryMoreWrap" class="library-more-wrap" hidden>
         <button id="libraryMoreButton" class="library-more-button" type="button">
-          <span id="libraryMoreLabel">더보기 20개</span>
+          <span id="libraryMoreLabel">더보기 10개</span>
           <small id="libraryMoreProgress">0 / 0</small>
         </button>
       </div>
@@ -595,6 +620,21 @@
             <button id="readerScrollModeButton" type="button" aria-pressed="true">스크롤</button>
             <button id="readerPageModeButton" type="button" aria-pressed="false">페이지</button>
           </div>
+        </div>
+
+        <div class="account-preference-row">
+          <div>
+            <strong>뷰어 글꼴</strong>
+            <span>본문에 사용할 글꼴을 선택합니다.</span>
+          </div>
+          <select id="readerFontFamilySelect" class="viewer-font-select" aria-label="뷰어 글꼴">
+            <option value="default">기본</option>
+            <option value="paperlogy">페이퍼로지</option>
+            <option value="ridibatang">리디바탕</option>
+            <option value="chosunilbo">조선일보명조</option>
+            <option value="inkliquid">잉크립퀴드</option>
+            <option value="kopubbatang">KoPub 바탕</option>
+          </select>
         </div>
 
         <div class="account-preference-row">
