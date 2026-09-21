@@ -2860,6 +2860,12 @@ async function setReaderDisplayMode(mode, options = {}) {
   if (els.readerContent) {
     els.readerContent.hidden = pageActive;
     els.readerContent.style.display = pageActive ? "none" : "";
+    // Initial page opens keep the scroll body visibility-hidden to prevent a
+    // first-paint flash. Switching/starting in scroll mode must explicitly
+    // restore visibility.
+    if (!pageActive) {
+      els.readerContent.style.visibility = "";
+    }
   }
 
   if (els.readerPageViewport) {
@@ -3031,6 +3037,18 @@ function showReaderLoading(item) {
 
   els.readerRenderShell = document.getElementById("readerRenderShell");
   els.readerContent = document.getElementById("readerContent");
+
+  // When the saved preference is page mode, the scroll DOM still needs to be
+  // laid out for existing measurement/compatibility code, but it must never be
+  // visually exposed before the first page is ready. visibility:hidden keeps
+  // dimensions intact unlike display:none.
+  const openingInPageMode =
+    isReaderPageModeEligible(item) &&
+    getPreferredReaderDisplayMode() === "page";
+  if (els.readerContent) {
+    els.readerContent.style.visibility = openingInPageMode ? "hidden" : "";
+  }
+
   if (els.readerPageViewport) {
     els.readerPageViewport.hidden = true;
     els.readerPageViewport.style.display = "none";
@@ -3929,13 +3947,30 @@ async function openReader(item) {
   state.suspendReaderProgressSave = true;
   const renderToken = ++state.readerRenderToken;
 
+  // Decide the initial reader mode before any body content is rendered.
+  // Previously page mode was selected only after the scroll DOM had already
+  // been painted, which allowed a brief scroll-view flash on first open.
+  const initialPreferredMode =
+    isReaderPageModeEligible(item) &&
+    getPreferredReaderDisplayMode() === "page"
+      ? "page"
+      : "scroll";
+  state.readerDisplayMode = initialPreferredMode;
+
   document.body.classList.add("reader-open");
   mainHeaderCompactActive = false;
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
 
-  if (els.readerPanel) els.readerPanel.scrollTop = 0;
+  if (els.readerPanel) {
+    els.readerPanel.scrollTop = 0;
+    els.readerPanel.classList.toggle(
+      "reader-page-mode",
+      initialPreferredMode === "page"
+    );
+  }
+  syncReaderModeButtons();
 
   readerCompactActive = false;
   window.cancelAnimationFrame(readerCompactFrame);
