@@ -2167,7 +2167,19 @@ async function jumpReaderPanelTo(targetTop, options = {}) {
   const releaseAfter = Number(options.releaseAfter || 520);
   window.setTimeout(() => {
     state.suspendReaderProgressSave = false;
-    saveReaderProgress();
+    const saved = saveReaderProgress();
+    const item = state.activeReaderItem;
+
+    // Persist once after a verified jump. This also migrates legacy chunk
+    // percentages to the corrected text-based coordinate immediately.
+    if (
+      saved &&
+      state.user &&
+      item &&
+      shouldPersistProgress(item.id, saved)
+    ) {
+      persistProgress(item, saved);
+    }
   }, releaseAfter);
 
   return reached;
@@ -2391,8 +2403,72 @@ function largePositionToReaderOffset(index, ratio = 0) {
   return clampReaderTextOffset(offset);
 }
 
+function getLegacyLargeReaderOffset(saved) {
+  if (
+    !saved ||
+    saved.mode !== "chunk" ||
+    !state.readerText
+  ) return null;
+
+  const savedPercent = Number(saved.percent);
+  const savedIndex = Number(saved.chunkIndex);
+  const savedRatio = Math.max(
+    0,
+    Math.min(1, Number(saved.chunkRatio) || 0)
+  );
+
+  if (
+    !Number.isFinite(savedPercent) ||
+    !Number.isFinite(savedIndex)
+  ) return null;
+
+  // v7.36 and earlier calculated a long-file percentage from equal chunk
+  // counts, then restored it as a percentage of total characters. Those two
+  // coordinate systems diverge whenever the final chunk is shorter. Rebuild
+  // both historic chunk layouts so old progress can be migrated even when it
+  // was saved on Safari and resumed in another browser (or vice versa).
+  const candidateSizes = Array.from(new Set([
+    getLargeReaderChunkChars(),
+    LARGE_READER_CHUNK_CHARS,
+    SAFARI_LARGE_READER_CHUNK_CHARS,
+  ]));
+
+  let best = null;
+
+  for (const chunkChars of candidateSizes) {
+    const chunks = splitLargeReaderText(state.readerText, chunkChars);
+    const index = Math.floor(savedIndex);
+
+    if (index < 0 || index >= chunks.length) continue;
+
+    const legacyPercent = normalizeReaderProgressPercent(
+      ((index + savedRatio) / Math.max(1, chunks.length)) * 100
+    );
+    const error = Math.abs(savedPercent - legacyPercent);
+
+    if (!best || error < best.error) {
+      let offset = 0;
+      for (let i = 0; i < index; i += 1) {
+        offset += String(chunks[i] || "").length;
+      }
+      offset += String(chunks[index] || "").length * savedRatio;
+      best = { error, offset: clampReaderTextOffset(offset) };
+    }
+  }
+
+  // Saved percentages have 0.1% precision. Allow one rounding step plus a
+  // small floating-point margin; otherwise treat percent as the v7.37 stable
+  // text coordinate.
+  return best && best.error <= 0.16 ? best.offset : null;
+}
+
 function savedProgressToReaderOffset(saved) {
   if (!saved) return 0;
+
+  const legacyOffset = getLegacyLargeReaderOffset(saved);
+  if (Number.isFinite(legacyOffset)) {
+    return legacyOffset;
+  }
 
   // Percent is the stable cross-version resume coordinate.
   // Chunk indexes are renderer-specific and can change when chunk size,
@@ -2973,11 +3049,14 @@ function resetLargeReaderState() {
   state.largeReaderRendering = false;
 }
 
-function splitLargeReaderText(text) {
+function splitLargeReaderText(text, requestedChunkChars = getLargeReaderChunkChars()) {
   const chunks = [];
   let offset = 0;
 
-  const chunkChars = getLargeReaderChunkChars();
+  const chunkChars = Math.max(
+    1,
+    Number(requestedChunkChars) || getLargeReaderChunkChars()
+  );
 
   while (offset < text.length) {
     let end = Math.min(text.length, offset + chunkChars);
@@ -3161,20 +3240,21 @@ function getLargeReaderPosition() {
     ? Math.min(1, localOffset / current.offsetHeight)
     : 0;
 
-  const total = Math.max(1, state.largeReaderChunks.length);
   const panelScrollTop = Math.max(0, els.readerPanel.scrollTop);
 
   if (panelScrollTop < READER_MIN_MEANINGFUL_SCROLL_PX) {
     return { index: 0, ratio: 0, percent: 0 };
   }
 
+  const textOffset = largePositionToReaderOffset(index, ratio);
+  const textLength = Math.max(1, getReaderTextLength());
   let percent = normalizeReaderProgressPercent(
-    ((index + ratio) / total) * 100
+    (textOffset / textLength) * 100
   );
 
   if (percent <= 0) percent = 0.1;
 
-  return { index, ratio, percent };
+  return { index, ratio, percent, textOffset };
 }
 
 async function waitForReaderScrollReady(renderToken, options = {}) {
@@ -3966,10 +4046,13 @@ els.readerResume?.addEventListener("click", async (event) => {
       return;
     }
 
-    const target = getResumeTarget(saved);
-
     setReaderCompactActive(true);
     await nextFrame();
+    await nextFrame();
+
+    // Header compaction changes the scrollable height. Calculate the target
+    // only after the final scroll-mode layout is active.
+    const target = getResumeTarget(saved);
 
     const reached = await jumpReaderPanelTo(target, {
       releaseAfter: IS_SAFARI_READER ? 750 : 520,
