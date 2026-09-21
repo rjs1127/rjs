@@ -3311,3 +3311,13 @@ POSTYPE 전용 필드:
 - scrollTop 값 자체가 아니라 목표 텍스트가 readerPanel 상단 읽기 여백에 실제 도착했는지 검증 후 성공 처리
 - 긴 TXT는 목표 가상 청크를 먼저 렌더링한 뒤 동일한 직접 보정 로직 적용
 - 페이지 모드 및 서버/API/Cloudflare 설정 변경 없음
+
+
+## v7.42 patch
+
+- Reworked scroll-mode resume to restore the same native coordinate system used when progress is saved.
+- Normal files restore the stored `scrollTop` directly.
+- Large virtualized files restore the stored `chunkIndex` + `chunkRatio` directly, with percent fallback for legacy entries.
+- The resume banner is removed before measuring/jumping so its layout change cannot reset the reader position afterward.
+- Temporarily disables browser scroll anchoring during resume and re-checks/reapplies the target after delayed layout settling.
+- Page-mode resume behavior is unchanged.

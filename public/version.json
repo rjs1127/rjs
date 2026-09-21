@@ -1,4 +1,4 @@
 {
-  "version": "v7.41",
-  "label": "scroll-resume-direct-panel-reconcile-fix"
+  "version": "v7.42",
+  "label": "scroll-resume-native-coordinate-restore-fix"
 }

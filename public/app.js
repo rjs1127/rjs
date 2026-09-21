@@ -4199,6 +4199,189 @@ window.addEventListener("resize", () => {
   }, 160);
 });
 
+
+async function resumeScrollReaderFromSaved(saved, item) {
+  if (!saved || !item || !els.readerPanel || !els.readerContent) return false;
+
+  const panel = els.readerPanel;
+  const content = els.readerContent;
+  const previousPanelAnchor = panel.style.getPropertyValue("overflow-anchor");
+  const previousPanelAnchorPriority = panel.style.getPropertyPriority("overflow-anchor");
+  const previousContentAnchor = content.style.getPropertyValue("overflow-anchor");
+  const previousContentAnchorPriority = content.style.getPropertyPriority("overflow-anchor");
+
+  state.suspendReaderProgressSave = true;
+
+  // Remove the resume banner before measuring the target. Hiding it after the
+  // jump changes the reader layout and can make browsers re-anchor to the top.
+  if (els.readerResume) els.readerResume.hidden = true;
+  panel.style.setProperty("overflow-anchor", "none", "important");
+  content.style.setProperty("overflow-anchor", "none", "important");
+  setReaderCompactActive(true);
+
+  await nextFrame();
+  await nextFrame();
+
+  let targetTop = 0;
+  let ready = true;
+
+  if (isLargeReaderFile(item) && Array.isArray(state.largeReaderChunks)) {
+    let position = null;
+
+    // For scroll-mode progress, prefer the exact chunk coordinate that was
+    // recorded from this scroller. This avoids converting through page/text
+    // coordinates introduced by page mode.
+    if (
+      saved.mode === "chunk" &&
+      Number.isFinite(Number(saved.chunkIndex))
+    ) {
+      position = {
+        index: Math.max(0, Math.min(
+          state.largeReaderChunks.length - 1,
+          Math.floor(Number(saved.chunkIndex) || 0)
+        )),
+        ratio: Math.max(0, Math.min(1, Number(saved.chunkRatio) || 0)),
+      };
+    }
+
+    // Legacy/fallback entries may contain only a percentage.
+    if (!position || (position.index === 0 && position.ratio === 0 && Number(saved.percent) > 0.2)) {
+      const textLength = Math.max(1, getReaderTextLength());
+      const percent = Math.max(0, Math.min(99.9, Number(saved.percent) || 0));
+      position = readerOffsetToLargePosition(textLength * (percent / 100));
+    }
+
+    if (!position) {
+      ready = false;
+    } else {
+      ready = await ensureLargeReaderChunkRendered(
+        position.index,
+        state.readerRenderToken
+      );
+
+      if (ready) {
+        await nextFrame();
+        await nextFrame();
+
+        const section = content.querySelector(
+          `.reader-virtual-chunk[data-reader-chunk-index="${position.index}"]`
+        );
+
+        if (section) {
+          targetTop = getLargeReaderTargetScrollTop(section, position.ratio);
+        } else {
+          ready = false;
+        }
+      }
+    }
+  } else {
+    const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
+    const storedScrollTop = Number(saved.scrollTop);
+
+    if (Number.isFinite(storedScrollTop) && storedScrollTop > 0) {
+      targetTop = Math.max(0, Math.min(maxScroll, storedScrollTop));
+    } else {
+      const percent = Math.max(0, Math.min(99.9, Number(saved.percent) || 0));
+      targetTop = Math.max(0, Math.min(maxScroll, maxScroll * (percent / 100)));
+    }
+  }
+
+  let reached = false;
+
+  if (ready) {
+    const applyTarget = async () => {
+      const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
+      const target = Math.max(0, Math.min(maxScroll, targetTop));
+
+      panel.scrollTop = target;
+      try {
+        panel.scrollTo({ top: target, left: 0, behavior: "auto" });
+      } catch {
+        try { panel.scrollTo(0, target); } catch {}
+      }
+
+      await nextFrame();
+      await nextFrame();
+
+      return {
+        target,
+        actual: Math.max(0, panel.scrollTop),
+      };
+    };
+
+    let result = await applyTarget();
+
+    // Re-check after layout/scroll anchoring has had time to run. If the
+    // browser pulled the panel back toward zero, force the same native
+    // scroller coordinate again.
+    for (const delay of [120, 360]) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+
+      const tolerance = Math.max(36, panel.clientHeight * 0.04);
+      const meaningfulTarget = result.target >= READER_MIN_MEANINGFUL_SCROLL_PX;
+      const fellBackToTop = meaningfulTarget && panel.scrollTop < READER_MIN_MEANINGFUL_SCROLL_PX;
+      const farFromTarget = Math.abs(panel.scrollTop - result.target) > tolerance;
+
+      if (fellBackToTop || farFromTarget) {
+        result = await applyTarget();
+      }
+    }
+
+    const tolerance = Math.max(42, panel.clientHeight * 0.05);
+    reached =
+      result.target < READER_MIN_MEANINGFUL_SCROLL_PX
+        ? result.actual < READER_MIN_MEANINGFUL_SCROLL_PX
+        : Math.abs(panel.scrollTop - result.target) <= tolerance &&
+          panel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
+  }
+
+  if (!reached && els.readerResume) {
+    els.readerResume.hidden = false;
+    if (els.readerResumeText) {
+      els.readerResumeText.textContent =
+        "위치 이동을 다시 시도해 주세요.";
+    }
+  }
+
+  window.setTimeout(() => {
+    if (previousPanelAnchor) {
+      panel.style.setProperty(
+        "overflow-anchor",
+        previousPanelAnchor,
+        previousPanelAnchorPriority
+      );
+    } else {
+      panel.style.removeProperty("overflow-anchor");
+    }
+
+    if (previousContentAnchor) {
+      content.style.setProperty(
+        "overflow-anchor",
+        previousContentAnchor,
+        previousContentAnchorPriority
+      );
+    } else {
+      content.style.removeProperty("overflow-anchor");
+    }
+
+    state.suspendReaderProgressSave = false;
+
+    if (reached) {
+      const progress = saveReaderProgress();
+      if (
+        progress &&
+        state.user &&
+        state.activeReaderItem &&
+        shouldPersistProgress(state.activeReaderItem.id, progress)
+      ) {
+        persistProgress(state.activeReaderItem, progress);
+      }
+    }
+  }, IS_SAFARI_READER ? 950 : 760);
+
+  return reached;
+}
+
 els.readerResume?.addEventListener("click", async (event) => {
   const button = event.target.closest("button");
   if (!button) return;
@@ -4244,74 +4427,14 @@ els.readerResume?.addEventListener("click", async (event) => {
       return;
     }
 
-    if (isLargeReaderFile(item) && state.largeReaderChunks) {
-      const targetOffset = savedProgressToReaderOffset(saved);
-      const position = readerOffsetToLargePosition(targetOffset);
+    els.readerResumeButton.disabled = true;
+    els.readerRestartButton.disabled = true;
+    els.readerResumeText.textContent = "읽던 위치로 이동하고 있습니다…";
 
-      if (!position) {
-        els.readerResume.hidden = true;
-        return;
-      }
+    await resumeScrollReaderFromSaved(saved, item);
 
-      const targetIndex = Math.max(
-        0,
-        Math.min(
-          state.largeReaderChunks.length - 1,
-          Number(position.index) || 0
-        )
-      );
-
-      els.readerResumeButton.disabled = true;
-      els.readerRestartButton.disabled = true;
-      els.readerResumeText.textContent = "읽던 위치까지 준비하고 있습니다…";
-
-      // Compact first so the final header height is already reflected in
-      // targetChunk.offsetTop before calculating the resume coordinate.
-      setReaderCompactActive(true);
-      await nextFrame();
-
-      const ready = await ensureLargeReaderChunkRendered(
-        targetIndex,
-        state.readerRenderToken
-      );
-
-      await nextFrame();
-
-      const reached = ready
-        ? await scrollReaderToTextOffset(targetOffset, {
-            releaseAfter: IS_SAFARI_READER ? 750 : 520,
-          })
-        : false;
-
-      if (reached) {
-        els.readerResume.hidden = true;
-      } else {
-        els.readerResumeText.textContent = ready
-          ? "위치 이동을 다시 시도해 주세요."
-          : "읽던 위치를 준비하지 못했습니다. 다시 시도해 주세요.";
-      }
-
-      els.readerResumeButton.disabled = false;
-      els.readerRestartButton.disabled = false;
-      return;
-    }
-
-    setReaderCompactActive(true);
-    await nextFrame();
-    await nextFrame();
-
-    const targetOffset = savedProgressToReaderOffset(saved);
-    const reached = await scrollReaderToTextOffset(targetOffset, {
-      releaseAfter: IS_SAFARI_READER ? 750 : 520,
-    });
-
-    if (reached) {
-      els.readerResume.hidden = true;
-    } else {
-      els.readerResumeText.textContent =
-        "위치 이동을 다시 시도해 주세요.";
-    }
-
+    els.readerResumeButton.disabled = false;
+    els.readerRestartButton.disabled = false;
     return;
   }
 
