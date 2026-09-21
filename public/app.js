@@ -5555,46 +5555,46 @@ els.readerScrollTop?.addEventListener("click", () => {
 
 const READER_SHARE_BACKGROUNDS = [
   {
-    name: "아이보리",
-    background: "linear-gradient(145deg, #fbf9f4 0%, #f4efe8 100%)",
-    text: "#2f2931",
-    meta: "#776d76",
-    accent: "#8c718f",
+    name: "오프화이트",
+    background: "linear-gradient(145deg, #f7f3ed 0%, #efe8de 100%)",
+    text: "#23201d",
+    meta: "#6f655c",
+    accent: "#5a4e45",
   },
   {
-    name: "라벤더",
-    background: "linear-gradient(145deg, #f2edf5 0%, #e5dce9 100%)",
-    text: "#4b3a52",
-    meta: "#75647d",
-    accent: "#725080",
+    name: "웜베이지",
+    background: "linear-gradient(145deg, #e7dccd 0%, #d8cab7 100%)",
+    text: "#2b2622",
+    meta: "#655a50",
+    accent: "#6a5b4c",
   },
   {
-    name: "플럼",
-    background: "linear-gradient(145deg, #68536f 0%, #4c3b53 100%)",
-    text: "#fffafc",
-    meta: "#e7dbe9",
-    accent: "#d9bfdc",
+    name: "차콜",
+    background: "linear-gradient(145deg, #3a352f 0%, #27231f 100%)",
+    text: "#f7f1e8",
+    meta: "#d7ccc0",
+    accent: "#f0e1cf",
   },
   {
-    name: "나이트",
-    background: "linear-gradient(145deg, #302d35 0%, #211f26 100%)",
-    text: "#f7f4f8",
-    meta: "#c9c1cc",
-    accent: "#9d84a6",
+    name: "블랙",
+    background: "linear-gradient(145deg, #1e1b19 0%, #11100f 100%)",
+    text: "#fbf7f1",
+    meta: "#d5ccc3",
+    accent: "#e7d9c8",
   },
 ];
 
 const READER_SHARE_FONTS = [
-  { key: "pretendard", label: "프리텐다드", css: 'Pretendard, "Pretendard Variable", "Noto Sans KR", sans-serif' },
-  { key: "serif", label: "명조", css: '"Noto Serif KR", "Nanum Myeongjo", Georgia, serif' },
-  { key: "suit", label: "SUIT", css: 'SUIT, Pretendard, "Noto Sans KR", sans-serif' },
-  { key: "hand", label: "감성체", css: '"Nanum Pen Script", "Apple SD Gothic Neo", cursive' },
+  { key: "paperlogy", label: "페이퍼로지", css: 'Paperlogy, Pretendard, "Noto Sans KR", sans-serif' },
+  { key: "nanumgothic", label: "나눔고딕", css: '"Nanum Gothic", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif' },
+  { key: "ridibatang", label: "리디바탕", css: 'RIDIBatang, "Noto Serif KR", "Nanum Myeongjo", serif' },
+  { key: "chosunmyeongjo", label: "조선명조", css: 'ChosunNm, "Noto Serif KR", "Nanum Myeongjo", serif' },
 ];
 
 const READER_SHARE_SIZES = {
-  xs: { label: "작게", px: 17 },
-  sm: { label: "보통", px: 21 },
-  md: { label: "크게", px: 26 },
+  xs: { label: "작게", px: 15 },
+  sm: { label: "보통", px: 18 },
+  md: { label: "크게", px: 22 },
 };
 
 let readerShareUi = null;
@@ -5603,8 +5603,8 @@ let readerShareSelectionTimer = 0;
 function ensureReaderShareState() {
   if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
   if (!state.readerShareRatio) state.readerShareRatio = "1:1";
-  if (!state.readerShareFont) state.readerShareFont = "pretendard";
-  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "sm";
+  if (!state.readerShareFont) state.readerShareFont = "paperlogy";
+  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -5623,10 +5623,13 @@ function ensureReaderShareUi() {
   const style = document.createElement("style");
   style.id = "readerShareStyle";
   style.textContent = `
+    @font-face { font-family: "Paperlogy"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2408@1.0/Paperlogy-5Medium.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: "RIDIBatang"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.1/RIDIBatang.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "ChosunNm"; src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_2107@1.1/ChosunNm.woff") format("woff"); font-weight: 400; font-style: normal; font-display: swap; }
     .reader-share-float {
       position: fixed; z-index: 1300; width: 38px; height: 38px; border: 0;
       border-radius: 999px; display: grid; place-items: center; cursor: pointer;
-      background: rgba(69, 48, 83, .96); color: #fff;
+      background: rgba(37, 31, 27, .96); color: #f6efe5; border: 1px solid rgba(255,255,255,.08);
       box-shadow: 0 8px 24px rgba(31, 20, 37, .24);
       transform: translate(-50%, 0); transition: opacity .15s ease, transform .15s ease;
     }
@@ -5650,37 +5653,37 @@ function ensureReaderShareUi() {
     .reader-share-row { display:grid; grid-template-columns:72px minmax(0,1fr); align-items:center; gap:10px; }
     .reader-share-label { font-size:12px; font-weight:750; color:var(--muted, #756d79); white-space:nowrap; }
     .reader-share-preview-wrap { display:flex; justify-content:center; padding:2px 0 10px; }
-    .reader-share-card { position:relative; width:min(78vw, 360px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease; }
-    .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(66vw, 320px); }
+    .reader-share-card { position:relative; width:min(82vw, 380px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease; }
+    .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(72vw, 340px); }
     .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
-    .reader-share-card-brand { position:absolute; z-index:1; left:8%; top:6.8%; display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.84; }
+    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.5%; display:flex; align-items:center; gap:6px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.84; }
     .reader-share-card-brand svg { width:17px; height:17px; }
-    .reader-share-card-quote { position:absolute; z-index:1; left:10.5%; right:10.5%; top:17%; bottom:23%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.62; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
-    .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:16%; bottom:20%; }
-    .reader-share-card-meta { position:absolute; z-index:1; left:10%; right:10%; bottom:8.5%; text-align:center; font-size:10.5px; line-height:1.45; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
+    .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
+    .reader-share-card-meta { position:absolute; z-index:1; left:8%; right:8%; bottom:5.8%; text-align:center; font-size:10px; line-height:1.4; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .reader-share-thumbs { display:flex; gap:8px; overflow:auto; padding:1px 1px 3px; scrollbar-width:none; }
     .reader-share-thumbs::-webkit-scrollbar { display:none; }
     .reader-share-thumb { position:relative; flex:0 0 58px; width:58px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(70,55,75,.08); }
-    .reader-share-thumb.active { border-color:#725080; box-shadow:0 0 0 2px rgba(114,80,128,.12), inset 0 0 0 1px rgba(255,255,255,.22); }
+    .reader-share-thumb.active { border-color:#5a4e45; box-shadow:0 0 0 2px rgba(90,78,69,.14), inset 0 0 0 1px rgba(255,255,255,.22); }
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
-    .reader-share-input:focus { border-color:rgba(109,75,126,.5); box-shadow:0 0 0 3px rgba(109,75,126,.07); }
+    .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
     .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
     .reader-share-chip { border:1px solid rgba(91,75,99,.17); background:rgba(255,255,255,.56); color:inherit; border-radius:10px; min-height:34px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; }
-    .reader-share-chip.active { border-color:#725080; color:#5a3869; background:rgba(114,80,128,.1); box-shadow:0 0 0 1px rgba(114,80,128,.06); }
+    .reader-share-chip.active { border-color:#5a4e45; color:#3f372f; background:rgba(90,78,69,.1); box-shadow:0 0 0 1px rgba(90,78,69,.06); }
     .reader-share-color { display:inline-flex; align-items:center; gap:6px; }
     .reader-share-color-dot { width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,.18); box-shadow:0 0 0 2px rgba(255,255,255,.45); }
     .reader-share-color-dot.white { background:#fff; }
     .reader-share-color-dot.black { background:#111; }
     .reader-share-switch { margin-left:auto; position:relative; width:44px; height:26px; border:0; border-radius:999px; background:rgba(91,75,99,.2); cursor:pointer; transition:.16s ease; padding:0; }
     .reader-share-switch::after { content:""; position:absolute; width:20px; height:20px; left:3px; top:3px; border-radius:50%; background:#fff; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:.16s ease; }
-    .reader-share-switch.active { background:#725080; }
+    .reader-share-switch.active { background:#5a4e45; }
     .reader-share-switch.active::after { transform:translateX(18px); }
     .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; }
     @media (min-width: 720px) {
       .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; padding:12px 18px 20px; max-height:min(88vh,860px); }
-      .reader-share-card { width:min(46vw,340px); }
-      .reader-share-card[data-ratio="4:5"] { width:min(38vw,300px); }
+      .reader-share-card { width:min(48vw,360px); }
+      .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
   `;
   document.head.appendChild(style);
@@ -5819,13 +5822,13 @@ function ensureReaderShareUi() {
     }
     const fontButton = event.target.closest("[data-share-font]");
     if (fontButton) {
-      state.readerShareFont = fontButton.dataset.shareFont || "pretendard";
+      state.readerShareFont = fontButton.dataset.shareFont || "paperlogy";
       updateReaderSharePreview();
       return;
     }
     const sizeButton = event.target.closest("[data-share-size]");
     if (sizeButton) {
-      state.readerShareSize = sizeButton.dataset.shareSize || "sm";
+      state.readerShareSize = sizeButton.dataset.shareSize || "xs";
       updateReaderSharePreview();
       return;
     }
@@ -5902,10 +5905,17 @@ function openReaderShareSheet() {
   if (!state.readerShareText) return;
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
+  ui.floatButton.hidden = true;
+  try {
+    const selection = window.getSelection?.();
+    selection && selection.removeAllRanges && selection.removeAllRanges();
+  } catch (_) {}
+  try {
+    document.activeElement && typeof document.activeElement.blur === "function" && document.activeElement.blur();
+  } catch (_) {}
   ui.input.value = state.readerShareText;
   ui.backdrop.hidden = false;
   updateReaderSharePreview();
-  ui.floatButton.hidden = true;
 }
 
 function closeReaderShareUi() {
