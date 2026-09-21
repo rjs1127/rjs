@@ -2117,6 +2117,37 @@ function temporarilySuspendProgressSave(duration = 700) {
   }, duration);
 }
 
+async function jumpReaderPanelTo(targetTop, options = {}) {
+  if (!els.readerPanel) return;
+
+  const maxScroll = Math.max(
+    0,
+    els.readerPanel.scrollHeight - els.readerPanel.clientHeight
+  );
+  const target = Math.max(
+    0,
+    Math.min(maxScroll, Number(targetTop) || 0)
+  );
+
+  state.suspendReaderProgressSave = true;
+  els.readerPanel.scrollTop = target;
+
+  await nextFrame();
+  await nextFrame();
+
+  const remaining = Math.abs(els.readerPanel.scrollTop - target);
+  if (remaining > 24) {
+    els.readerPanel.scrollTop = target;
+    await nextFrame();
+  }
+
+  const releaseAfter = Number(options.releaseAfter || 420);
+  window.setTimeout(() => {
+    state.suspendReaderProgressSave = false;
+    saveReaderProgress();
+  }, releaseAfter);
+}
+
 function saveReaderProgress() {
   if (state.suspendReaderProgressSave || !state.user) return null;
 
@@ -2338,6 +2369,18 @@ function largePositionToReaderOffset(index, ratio = 0) {
 function savedProgressToReaderOffset(saved) {
   if (!saved) return 0;
 
+  // Percent is the stable cross-version resume coordinate.
+  // Chunk indexes are renderer-specific and can change when chunk size,
+  // browser or layout strategy changes.
+  const percent = Number(saved.percent);
+
+  if (Number.isFinite(percent) && percent > 0) {
+    return clampReaderTextOffset(
+      getReaderTextLength() *
+      (Math.max(0, Math.min(99.9, percent)) / 100)
+    );
+  }
+
   if (
     saved.mode === "chunk" &&
     Array.isArray(state.largeReaderChunks)
@@ -2348,14 +2391,7 @@ function savedProgressToReaderOffset(saved) {
     );
   }
 
-  const percent = Math.max(
-    0,
-    Math.min(99.9, Number(saved.percent || 0))
-  );
-
-  return clampReaderTextOffset(
-    getReaderTextLength() * (percent / 100)
-  );
+  return 0;
 }
 
 function currentScrollToReaderOffset() {
@@ -2553,7 +2589,9 @@ async function syncScrollReaderToOffset(offset) {
         targetChunk.offsetHeight * position.ratio -
         92;
 
-      els.readerPanel.scrollTop = Math.max(0, targetTop);
+      await jumpReaderPanelTo(targetTop, {
+        releaseAfter: 420,
+      });
     }
 
     return;
@@ -2567,7 +2605,9 @@ async function syncScrollReaderToOffset(offset) {
     ? safeOffset / getReaderTextLength()
     : 0;
 
-  els.readerPanel.scrollTop = Math.max(0, maxScroll * ratio);
+  await jumpReaderPanelTo(maxScroll * ratio, {
+    releaseAfter: 420,
+  });
 }
 
 function getPreferredReaderDisplayMode() {
@@ -3769,21 +3809,32 @@ els.readerResume?.addEventListener("click", async (event) => {
     }
 
     if (isLargeReaderFile(item) && state.largeReaderChunks) {
-      const total = state.largeReaderChunks.length;
-      let targetIndex = Number(saved.chunkIndex);
+      const targetOffset = savedProgressToReaderOffset(saved);
+      const position = readerOffsetToLargePosition(targetOffset);
 
-      if (!Number.isFinite(targetIndex)) {
-        const percent = Math.max(0, Math.min(99, Number(saved.percent || 0)));
-        targetIndex = Math.floor((percent / 100) * total);
+      if (!position) {
+        els.readerResume.hidden = true;
+        return;
       }
 
-      targetIndex = Math.max(0, Math.min(total - 1, targetIndex));
+      const targetIndex = Math.max(
+        0,
+        Math.min(
+          state.largeReaderChunks.length - 1,
+          Number(position.index) || 0
+        )
+      );
 
       els.readerResumeButton.disabled = true;
       els.readerRestartButton.disabled = true;
       els.readerResumeText.textContent = "읽던 위치까지 준비하고 있습니다…";
 
-      await renderLargeReaderThrough(targetIndex, state.readerRenderToken);
+      await renderLargeReaderThrough(
+        targetIndex,
+        state.readerRenderToken
+      );
+
+      await nextFrame();
 
       const targetChunk = els.readerContent?.querySelector(
         `.reader-virtual-chunk[data-reader-chunk-index="${targetIndex}"]`
@@ -3792,10 +3843,9 @@ els.readerResume?.addEventListener("click", async (event) => {
       if (targetChunk) {
         const ratio = Math.max(
           0,
-          Math.min(1, Number(saved.chunkRatio || 0))
+          Math.min(1, Number(position.ratio || 0))
         );
 
-        state.suspendReaderProgressSave = true;
         els.readerResume.hidden = true;
 
         const targetTop =
@@ -3803,15 +3853,9 @@ els.readerResume?.addEventListener("click", async (event) => {
           targetChunk.offsetHeight * ratio -
           92;
 
-        els.readerPanel.scrollTo({
-          top: Math.max(0, targetTop),
-          behavior: "smooth",
+        await jumpReaderPanelTo(targetTop, {
+          releaseAfter: IS_SAFARI_READER ? 650 : 420,
         });
-
-        window.setTimeout(() => {
-          state.suspendReaderProgressSave = false;
-          saveReaderProgress();
-        }, 900);
       }
 
       els.readerResumeButton.disabled = false;
@@ -3821,14 +3865,9 @@ els.readerResume?.addEventListener("click", async (event) => {
 
     const target = getResumeTarget(saved);
 
-    temporarilySuspendProgressSave(900);
     els.readerResume.hidden = true;
-
-    requestAnimationFrame(() => {
-      els.readerPanel.scrollTo({
-        top: target,
-        behavior: "smooth",
-      });
+    await jumpReaderPanelTo(target, {
+      releaseAfter: IS_SAFARI_READER ? 650 : 420,
     });
 
     return;
