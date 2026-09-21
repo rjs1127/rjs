@@ -3,6 +3,71 @@
 > 이 버전은 기능 추가 버전이 아니라 **구조 안정화 기준본**입니다.  
 > v7 이후 모든 수정은 아래 규칙을 기준으로 진행합니다.
 
+## v7.20 — SITE_NAME 빌드타임 정적 주입
+
+### 최종 구조
+- 사이트 이름의 단일 기준을 `wrangler.toml`의 `[vars] SITE_NAME`으로 변경
+- `public/index.html`에는 `__SITE_NAME__` 플레이스홀더 저장
+- Cloudflare Pages 빌드 때 `public/_build/inject-site-name.cjs`가 `wrangler.toml`을 직접 읽어 실제 이름으로 치환
+- 배포 결과 HTML의 `<title>`, 헤더 로고 텍스트, `og:site_name`, `og:title`, `twitter:title`에 실제 이름이 정적으로 들어감
+- 공유 crawler가 JavaScript/KV 조회 없이 바로 실제 이름을 읽음
+
+### 리소스
+- 사이트 이름 때문에 루트 `/`에서 Pages Function 실행하지 않음
+- 사이트 이름 때문에 KV read 하지 않음
+- `public/_routes.json`으로 Functions 실행 범위를 `/api/*`, `/admin`, `/admin/*`로 제한
+- v7.19의 `functions/index.js`는 KV 로직을 제거하고 안전용 정적 pass-through로 변경
+
+### Cloudflare Pages 빌드 설정 — 최초 1회
+Build command:
+`node public/_build/inject-site-name.cjs`
+
+Build output directory:
+기존 값 유지 (`public` 사용 중이면 그대로 `public`)
+
+### wrangler.toml
+패치에는 포함하지 않음. 기존 `[vars]`에 직접 추가:
+`SITE_NAME = "원하는 사이트 이름"`
+
+### 이름 변경
+- 이후에는 `wrangler.toml`의 `SITE_NAME`만 변경
+- 재배포 1회
+- 이후 일반 접속/공유마다 별도 이름 조회 없음
+
+### 관리자
+- 기존 사이트 이름 입력란은 혼동 방지를 위해 `wrangler.toml → SITE_NAME` 안내 영역으로 변경
+- 파비콘/메인 문구 설정은 기존 방식 유지
+
+
+## v7.19 — 공유 링크에 설정한 사이트 이름 반영
+
+### 원인
+- 사용자 화면에서는 JavaScript가 로드된 뒤 `archive:settings:v1`의 `siteName`을 적용하고 있었음
+- 카카오톡·메신저·SNS 등의 링크 미리보기 crawler는 JavaScript 적용 전의 원본 HTML `<title>` / Open Graph meta를 읽기 때문에 기본 `RJS BOOK`이 노출될 수 있었음
+
+### 수정
+- 루트 `/` 요청을 처리하는 `functions/index.js` 추가
+- 서버에서 `ARCHIVE_KV`의 `archive:settings:v1` → `siteName`을 읽은 뒤 정적 `index.html`을 그대로 가져와 아래 값을 서버 렌더링 단계에서 교체
+  - `<title>`
+  - `og:site_name`
+  - `og:title`
+  - `og:url`
+  - `twitter:title`
+- 따라서 JavaScript를 실행하지 않는 링크 미리보기 crawler도 관리자에서 설정한 사이트 이름을 받음
+- 로고 아이콘은 기존 그대로 유지
+- 브라우저에서도 최신 설정을 로드한 뒤 동일한 Open Graph/Twitter meta 값을 다시 동기화
+
+### 리소스 영향
+- 루트 페이지 `/` 접속 1회마다 Pages Function invocation 1회와 KV `archive:settings:v1` read 1회가 추가됨
+- 현재 무료 한도와 기존 사용량 규모에서는 매우 작은 수준이나, 관리자 `리소스` 탭의 Functions/KV Read 사용량에는 반영됨
+- 별도 DB/R2/Google Drive 호출 없음
+
+### 링크 미리보기 캐시
+- 카카오톡·메신저·SNS는 자체적으로 링크 미리보기를 캐시할 수 있음
+- v7.19 배포 후에도 이미 공유했던 동일 URL이 잠시 옛 이름으로 보이면 사이트 서버 문제가 아니라 해당 플랫폼의 preview cache일 수 있음
+- 새 URL 또는 쿼리스트링을 붙인 URL로 테스트하면 새 metadata 확인이 더 빠를 수 있음
+
+
 ## v7.18 — 사용자 북마크 / 최근 조회 모달 길이 제어
 
 ### 수정

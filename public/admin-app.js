@@ -2712,12 +2712,6 @@ els.postypeSyncButton?.addEventListener("click", async () => {
   }
 });
 
-els.siteNameInput?.addEventListener("input", () => {
-  if (!els.brandNamePreviewText) return;
-  els.brandNamePreviewText.textContent =
-    els.siteNameInput.value.trim() || "RJS BOOK";
-});
-
 els.settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   els.settingsMessage.hidden = false;
@@ -2733,7 +2727,7 @@ els.settingsForm.addEventListener("submit", async (event) => {
         title: els.titleInput.value,
       }),
     });
-    els.settingsMessage.textContent = "저장했습니다. 사이트를 새로고침하면 상단 로고 텍스트·브라우저 탭 제목·파비콘·메인 문구에 반영됩니다.";
+    els.settingsMessage.textContent = "저장했습니다. 사이트 이름은 wrangler.toml의 SITE_NAME 변경 후 재배포해야 반영됩니다. 파비콘·메인 문구는 기존 방식으로 반영됩니다.";
   } catch (error) {
     els.settingsMessage.textContent = error.message;
   }

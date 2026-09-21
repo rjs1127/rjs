@@ -118,6 +118,10 @@ const els = {
   compactFilterButton: document.getElementById("compactFilterButton"),
   brandText: document.getElementById("brandText"),
   brandLink: document.getElementById("brandLink"),
+  ogSiteName: document.getElementById("ogSiteName"),
+  ogTitle: document.getElementById("ogTitle"),
+  ogUrl: document.getElementById("ogUrl"),
+  twitterTitle: document.getElementById("twitterTitle"),
   siteFavicon: document.getElementById("siteFavicon"),
   siteShortcutIcon: document.getElementById("siteShortcutIcon"),
   siteAppleTouchIcon: document.getElementById("siteAppleTouchIcon"),
@@ -1166,6 +1170,22 @@ function applyBrandName(siteName, { cache = true } = {}) {
     els.brandLink.setAttribute("aria-label", `${normalized} 홈`);
   }
 
+  if (els.ogSiteName) {
+    els.ogSiteName.setAttribute("content", normalized);
+  }
+  if (els.ogTitle) {
+    els.ogTitle.setAttribute("content", normalized);
+  }
+  if (els.twitterTitle) {
+    els.twitterTitle.setAttribute("content", normalized);
+  }
+  if (els.ogUrl) {
+    els.ogUrl.setAttribute(
+      "content",
+      `${window.location.origin}${window.location.pathname}`
+    );
+  }
+
   if (cache) {
     try {
       localStorage.setItem(SITE_NAME_CACHE_KEY, normalized);
@@ -1204,13 +1224,13 @@ function revealFallbackBrandName() {
 }
 
 function applySettings(settings = {}) {
-  const siteName = String(settings.siteName || "RJS BOOK").trim() || "RJS BOOK";
+  const siteName = String(els.brandText?.textContent || document.title || "RJS BOOK").trim() || "RJS BOOK";
   const faviconUrl = getVersionedFaviconUrl(
     settings.faviconUrl,
     settings.updatedAt
   );
 
-  applyBrandName(siteName);
+  applyBrandName(siteName, { cache: false });
 
   if (faviconUrl) {
     for (const link of [
@@ -3882,7 +3902,6 @@ async function loadPublicVersion() {
   }
 }
 
-applyCachedBrandName();
 applyUserPreferences();
 updateNetworkStatus();
 window.addEventListener("online", updateNetworkStatus);

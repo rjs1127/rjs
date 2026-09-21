@@ -2251,3 +2251,31 @@ button.primary,
   font-weight:900;
   letter-spacing:-.02em;
 }
+
+
+/* =====================================================================
+   V7.20 BUILD-TIME SITE NAME SOURCE
+   ===================================================================== */
+.brand-name-build-setting {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f8f5f0;
+}
+.brand-name-build-label {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 850;
+}
+.brand-name-build-setting > strong {
+  color: var(--ink);
+  font-size: 13px;
+}
+.brand-name-build-setting > small {
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.55;
+}
