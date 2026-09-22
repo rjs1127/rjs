@@ -3,6 +3,7 @@ import {
   jsonResponse,
   requireKv,
   getJson,
+  refreshPublicArchiveIndex,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
@@ -28,6 +29,7 @@ export async function onRequestPost(context) {
     };
 
     await kv.put(OVERRIDES_KEY, JSON.stringify(overrides));
+    await refreshPublicArchiveIndex(kv, { overrides });
 
     return jsonResponse({ ok: true, override: overrides[id] });
   } catch (error) {

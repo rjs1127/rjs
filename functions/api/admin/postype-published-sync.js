@@ -2,6 +2,7 @@ import {
   jsonResponse,
   requireKv,
   getJson,
+  refreshPublicArchiveIndex,
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -431,6 +432,7 @@ export async function onRequestPost(context) {
 
     if (kvChanged) {
       await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
+      await refreshPublicArchiveIndex(kv, { postypeArchive: archive });
       effectiveSyncedAt = archive.syncedAt;
     }
 

@@ -6,6 +6,11 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token";
 const ARCHIVE_CACHE_KEY = "archive:data:v3";
 const OVERRIDES_KEY = "archive:overrides:v1";
 const SETTINGS_KEY = "archive:settings:v1";
+const POSTYPE_INDEX_KEY = "postype:index:v1";
+const DRIVE_CONTENT_TYPE_OVERRIDES_KEY = "archive:drive-content-type-overrides:v1";
+const DRIVE_STATUS_OVERRIDES_KEY = "archive:drive-status-overrides:v1";
+const PUBLIC_ARCHIVE_INDEX_KEY = "archive:public-index:v1";
+const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
 
 const DEFAULT_SETTINGS = {
   faviconUrl: "/favicon.svg",
@@ -553,12 +558,194 @@ async function readSettings(kv) {
   return { ...DEFAULT_SETTINGS, ...saved };
 }
 
+function getDriveAutoContentType(item) {
+  const size = Number(item?.size || 0);
+  return size > DRIVE_SHORT_MAX_BYTES ? "연재물" : "단편";
+}
+
+function comparableDriveItem(item) {
+  if (!item || typeof item !== "object") return null;
+  return {
+    id: item.id || "",
+    combination: item.combination || "",
+    lengthType: item.lengthType || "",
+    title: item.title || "",
+    author: item.author || "",
+    fileName: item.fileName || "",
+    parseFailed: Boolean(item.parseFailed),
+    createdTime: item.createdTime || null,
+    modifiedTime: item.modifiedTime || null,
+    size: item.size == null ? null : Number(item.size),
+  };
+}
+
+function sameDriveItem(left, right) {
+  return JSON.stringify(comparableDriveItem(left)) ===
+    JSON.stringify(comparableDriveItem(right));
+}
+
+function mergeDriveArchiveDelta(previousArchive, scannedArchive) {
+  const previousItems = Array.isArray(previousArchive?.items)
+    ? previousArchive.items
+    : [];
+  const scannedItems = Array.isArray(scannedArchive?.items)
+    ? scannedArchive.items
+    : [];
+  const previousById = new Map(
+    previousItems.map((item) => [String(item?.id || ""), item])
+  );
+  const scannedIds = new Set();
+  const added = [];
+  const updated = [];
+  const unchanged = [];
+
+  const mergedItems = scannedItems.map((item) => {
+    const id = String(item?.id || "");
+    scannedIds.add(id);
+    const previous = previousById.get(id);
+
+    if (!previous) {
+      added.push(id);
+      return item;
+    }
+
+    if (sameDriveItem(previous, item)) {
+      unchanged.push(id);
+      return previous;
+    }
+
+    updated.push(id);
+    return item;
+  });
+
+  const removed = previousItems
+    .map((item) => String(item?.id || ""))
+    .filter((id) => id && !scannedIds.has(id));
+
+  const structureChanged =
+    JSON.stringify(previousArchive?.combinations || []) !==
+      JSON.stringify(scannedArchive?.combinations || []) ||
+    JSON.stringify(previousArchive?.diagnostics || []) !==
+      JSON.stringify(scannedArchive?.diagnostics || []);
+
+  const changed =
+    !previousArchive ||
+    added.length > 0 ||
+    updated.length > 0 ||
+    removed.length > 0 ||
+    structureChanged;
+
+  if (!changed && previousArchive) {
+    return {
+      archive: previousArchive,
+      changed: false,
+      added,
+      updated,
+      removed,
+      unchangedCount: unchanged.length,
+      checkedAt: scannedArchive?.syncedAt || new Date().toISOString(),
+    };
+  }
+
+  return {
+    archive: {
+      ...scannedArchive,
+      items: mergedItems,
+      count: mergedItems.length,
+    },
+    changed: true,
+    added,
+    updated,
+    removed,
+    unchangedCount: unchanged.length,
+    checkedAt: scannedArchive?.syncedAt || new Date().toISOString(),
+  };
+}
+
+async function buildPublicArchiveIndex(kv, supplied = {}) {
+  const has = (key) => Object.prototype.hasOwnProperty.call(supplied, key);
+  const [archive, overrides, settings, postypeArchive, driveTypeOverrides, driveStatusOverrides] =
+    await Promise.all([
+      has("archive") ? supplied.archive : getJson(kv, ARCHIVE_CACHE_KEY, null),
+      has("overrides") ? supplied.overrides : getJson(kv, OVERRIDES_KEY, {}),
+      has("settings") ? supplied.settings : readSettings(kv),
+      has("postypeArchive") ? supplied.postypeArchive : getJson(kv, POSTYPE_INDEX_KEY, null),
+      has("driveTypeOverrides") ? supplied.driveTypeOverrides : getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
+      has("driveStatusOverrides") ? supplied.driveStatusOverrides : getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
+    ]);
+
+  if (!archive) return null;
+
+  const driveArchive = applyOverrides(archive, overrides);
+  const driveItems = (driveArchive?.items || []).map((item) => {
+    const autoContentType = getDriveAutoContentType(item);
+    const manualContentType = ["단편", "연재물"].includes(driveTypeOverrides?.[item.id])
+      ? driveTypeOverrides[item.id]
+      : "";
+    const contentType = manualContentType || autoContentType;
+    const manualStatus =
+      contentType === "연재물" &&
+      ["연재", "완결"].includes(driveStatusOverrides?.[item.id])
+        ? driveStatusOverrides[item.id]
+        : "";
+
+    return {
+      ...item,
+      source: item.source || "drive",
+      autoContentType,
+      contentType,
+      contentTypeOverride: manualContentType,
+      status: contentType === "단편" ? "완결" : (manualStatus || "완결"),
+      statusOverride: manualStatus,
+    };
+  });
+
+  const postypeItems = Array.isArray(postypeArchive?.items)
+    ? postypeArchive.items.map((item) => ({ ...item, source: "postype" }))
+    : [];
+  const items = [...driveItems, ...postypeItems];
+  const combinations = [
+    ...new Set(
+      items
+        .map((item) => String(item.combination || "").trim())
+        .filter(Boolean)
+    ),
+  ].sort((a, b) =>
+    a.localeCompare(b, "ko", { sensitivity: "base", numeric: true })
+  );
+
+  return {
+    ...driveArchive,
+    items,
+    count: items.length,
+    combinations,
+    sourceCounts: {
+      drive: driveItems.length,
+      postype: postypeItems.length,
+    },
+    postypeSyncedAt: postypeArchive?.syncedAt || null,
+    settings,
+    indexUpdatedAt: new Date().toISOString(),
+  };
+}
+
+async function refreshPublicArchiveIndex(kv, supplied = {}) {
+  const index = await buildPublicArchiveIndex(kv, supplied);
+  if (!index) return null;
+  await kv.put(PUBLIC_ARCHIVE_INDEX_KEY, JSON.stringify(index));
+  return index;
+}
+
 export {
   DRIVE_ROOT_FOLDER_ID,
   FOLDER_MIME,
   ARCHIVE_CACHE_KEY,
   OVERRIDES_KEY,
   SETTINGS_KEY,
+  POSTYPE_INDEX_KEY,
+  DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
+  DRIVE_STATUS_OVERRIDES_KEY,
+  PUBLIC_ARCHIVE_INDEX_KEY,
   DEFAULT_SETTINGS,
   jsonResponse,
   requireKv,
@@ -573,6 +760,9 @@ export {
   decodeTextSmart,
   getJson,
   buildArchiveFromDrive,
+  mergeDriveArchiveDelta,
+  buildPublicArchiveIndex,
+  refreshPublicArchiveIndex,
   applyOverrides,
   reconcileOverridesWithArchive,
   readSettings,

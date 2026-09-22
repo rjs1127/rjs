@@ -4,6 +4,7 @@ import {
   requireKv,
   getJson,
   buildArchiveFromDrive,
+  refreshPublicArchiveIndex,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
@@ -252,6 +253,13 @@ export async function onRequestPost(context) {
         DRIVE_STATUS_OVERRIDES_KEY,
         JSON.stringify(nextStatuses)
       );
+    }
+
+    if (typeChanged || statusChanged) {
+      await refreshPublicArchiveIndex(kv, {
+        driveTypeOverrides: nextTypes,
+        driveStatusOverrides: nextStatuses,
+      });
     }
 
     return jsonResponse(

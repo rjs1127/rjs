@@ -3,6 +3,7 @@ import {
   DEFAULT_SETTINGS,
   jsonResponse,
   requireKv,
+  refreshPublicArchiveIndex,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
@@ -42,6 +43,7 @@ export async function onRequestPost(context) {
     }
 
     await kv.put(SETTINGS_KEY, JSON.stringify(settings));
+    await refreshPublicArchiveIndex(kv, { settings });
     return jsonResponse({ ok: true, settings });
   } catch (error) {
     console.error(error);

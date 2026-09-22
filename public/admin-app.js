@@ -2570,10 +2570,17 @@ els.syncButton.addEventListener("click", async () => {
       body: "{}",
     });
     const reconciled = Number(data.reconciledCount || 0);
+    const added = Number(data.addedCount || 0);
+    const updated = Number(data.updatedCount || 0);
+    const removed = Number(data.removedCount || 0);
+    const deltaText = added || updated || removed
+      ? ` · 변경 ${added + updated + removed}개 (추가 ${added} / 수정 ${updated} / 삭제 ${removed})`
+      : " · 변경 없음";
+    const reconciledText = reconciled > 0
+      ? ` · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
+      : "";
     els.syncMessage.textContent =
-      reconciled > 0
-        ? `동기화 완료: ${data.count.toLocaleString("ko-KR")}개 · 정상 파일명으로 복원 ${reconciled.toLocaleString("ko-KR")}개`
-        : `동기화 완료: ${data.count.toLocaleString("ko-KR")}개`;
+      `동기화 완료: ${data.count.toLocaleString("ko-KR")}개${deltaText}${reconciledText}`;
     renderDiagnostics(data.diagnostics || []);
     await loadAdmin();
   } catch (error) {
@@ -2714,14 +2721,18 @@ els.driveRescanButton?.addEventListener("click", async () => {
     "Google Drive를 다시 읽는 중입니다…";
 
   try {
-    await api("/api/admin/sync", {
+    const data = await api("/api/admin/sync", {
       method: "POST",
       body: JSON.stringify({}),
     });
     driveAdminLoaded = false;
     await loadDriveAdminList();
-    els.driveListMessage.textContent =
-      "Drive 재동기화 및 작품형태 목록 갱신 완료";
+    const added = Number(data.addedCount || 0);
+    const updated = Number(data.updatedCount || 0);
+    const removed = Number(data.removedCount || 0);
+    els.driveListMessage.textContent = added || updated || removed
+      ? `Drive 재동기화 완료 · 추가 ${added} / 수정 ${updated} / 삭제 ${removed}`
+      : "Drive 재동기화 완료 · 변경 없음";
   } catch (error) {
     els.driveListMessage.textContent =
       error.message || "Drive 다시 읽기에 실패했습니다.";
