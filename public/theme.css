@@ -3952,3 +3952,80 @@ html.theme-dark .card-tag.card-publish-tag {
     flex-wrap:nowrap;
   }
 }
+
+/* v8.20 - explain initial recent-POSTYPE boost without adding a separate section */
+.recent-postype-new-badge {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  min-width:30px;
+  height:18px;
+  padding:0 7px;
+  box-sizing:border-box;
+  border:1px solid rgba(205, 153, 28, .28);
+  border-radius:999px;
+  background:#fff4bd;
+  color:#8a6500;
+  font-size:9px;
+  font-weight:900;
+  line-height:1;
+  letter-spacing:.02em;
+  white-space:nowrap;
+}
+.recent-postype-bolt { display:none; }
+html.theme-dark .recent-postype-new-badge {
+  border-color:rgba(231, 190, 70, .26);
+  background:rgba(211, 164, 32, .18);
+  color:#f2cf62;
+}
+
+.content-card .card-actions > .recent-postype-new-badge {
+  align-self:center;
+  margin-left:1px;
+}
+.content-list .list-desktop-actions > .recent-postype-new-badge {
+  align-self:center;
+  margin-left:1px;
+  margin-right:1px;
+}
+.list-content-type-wrap {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  min-width:0;
+}
+
+@media (max-width:640px) {
+  .recent-postype-new-badge { display:none !important; }
+  .recent-postype-bolt {
+    display:inline-grid;
+    place-items:center;
+    flex:0 0 10px;
+    width:10px;
+    height:12px;
+    margin-left:2px;
+    color:#e6b516;
+    vertical-align:middle;
+  }
+  .recent-postype-bolt svg {
+    display:block;
+    width:9px;
+    height:11px;
+    fill:currentColor;
+    stroke:none;
+  }
+  .content-card .card-tags > .recent-postype-bolt {
+    margin-left:-2px;
+    margin-right:1px;
+  }
+  .content-list .list-content-type-wrap {
+    gap:1px;
+    white-space:nowrap;
+  }
+  .content-list .list-content-type-wrap .recent-postype-bolt {
+    margin-left:0;
+  }
+  html.theme-dark .recent-postype-bolt { color:#efc94f; }
+}

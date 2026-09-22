@@ -1806,6 +1806,22 @@ function shouldUseInitialRecentPostypeBoost() {
   );
 }
 
+function isInitialRecentPostypeHighlighted(item) {
+  return shouldUseInitialRecentPostypeBoost() && isRecentPostypeItem(item);
+}
+
+function getRecentPostypeNewBadgeHtml(item) {
+  if (!isInitialRecentPostypeHighlighted(item)) return "";
+  return `<span class="recent-postype-new-badge" aria-label="최근 7일 내 발행된 POSTYPE" title="최근 7일 내 발행">NEW</span>`;
+}
+
+function getRecentPostypeBoltHtml(item) {
+  if (!isInitialRecentPostypeHighlighted(item)) return "";
+  return `<span class="recent-postype-bolt" aria-label="최근 7일 내 발행된 POSTYPE" title="최근 7일 내 발행">
+    <svg viewBox="0 0 12 14" aria-hidden="true"><path d="M7.1 0.9 2.3 7h3.1L4.8 13.1 9.7 6.4H6.6L7.1 0.9Z"></path></svg>
+  </span>`;
+}
+
 function getItemLinkType(item) {
   if (!item || item.source !== "postype") return "";
   const explicit = String(item.linkType || "").trim();
@@ -2429,6 +2445,7 @@ function renderCards(items) {
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
           <span class="card-tag card-publish-tag">${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>
+          ${getRecentPostypeBoltHtml(item)}
           <span class="card-tag card-status-tag ${getCardStatusToneClass(item)}">${escapeHtml(getItemStatusLabel(item))}</span>
         </div>
         ${getItemReadingBadge(item)}
@@ -2438,7 +2455,7 @@ function renderCards(items) {
       ${getPostypeMetaHtml(item)}
       <div class="card-actions">
         ${item.source === "postype"
-          ? getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")
+          ? `${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}${getRecentPostypeNewBadgeHtml(item)}`
           : `${getItemLikeButtonHtml(item, "item-like-button card-like-button")}${getDriveBookmarkButtonHtml(item, "item-bookmark-button card-bookmark-button")}${getDownloadButtonHtml(item, "item-download-button card-download-button")}`}
       </div>
     </article>
@@ -2474,7 +2491,7 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
       class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
-      <td>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</td>
+      <td><span class="list-content-type-wrap"><span>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>${getRecentPostypeBoltHtml(item)}</span></td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
@@ -2489,6 +2506,7 @@ function renderList(items) {
             ${getMobilePostypeBookmarkHtml(item)}
             <span class="list-desktop-actions">
               ${getListBookmarkIndicator(item)}
+              ${getRecentPostypeNewBadgeHtml(item)}
               ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
             </span>
             ${getMobileListMoreHtml(item)}
