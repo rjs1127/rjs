@@ -6346,11 +6346,11 @@ const READER_SHARE_FONTS = [
 ];
 
 const READER_SHARE_SIZES = {
-  xxs: { button: "1", label: "더아주작게", px: 10 },
-  xs: { button: "2", label: "아주작게", px: 12 },
-  sm: { button: "3", label: "작게", px: 15 },
-  md: { button: "4", label: "보통", px: 19 },
-  lg: { button: "5", label: "크게", px: 24 },
+  xxs: { button: "1", label: "더아주작게", px: 12 },
+  xs: { button: "2", label: "아주작게", px: 14.5 },
+  sm: { button: "3", label: "작게", px: 17 },
+  md: { button: "4", label: "보통", px: 20.5 },
+  lg: { button: "5", label: "크게", px: 25 },
 };
 
 const READER_SHARE_WEIGHTS = {
@@ -6446,7 +6446,8 @@ function ensureReaderShareUi() {
     .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.55%; display:flex; align-items:center; gap:5px; font-size:10px; font-weight:800; line-height:1; letter-spacing:.02em; opacity:.6; }
     .reader-share-card-brand svg { width:15px; height:15px; flex:0 0 15px; transform:translateY(-.5px); }
     .reader-share-brand-text { display:inline-block; transform:translateY(.5px); }
-    .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; transition:font-size .14s ease, font-weight .14s ease; }
+    .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; flex-direction:column; justify-content:flex-start; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; -webkit-text-size-adjust:100%; text-size-adjust:100%; transition:font-size .14s ease, font-weight .14s ease; }
+    .reader-share-card-quote-text { display:block; width:100%; flex:0 0 auto; margin-block:auto; }
     .reader-share-card[data-ratio="2:3"] .reader-share-card-quote { top:11.5%; bottom:11.5%; }
     .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
     .reader-share-card-meta { position:absolute; z-index:1; left:8%; right:8%; bottom:5.8%; text-align:center; font-size:10px; line-height:1.4; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -6530,7 +6531,7 @@ function ensureReaderShareUi() {
               </svg>
               <span class="reader-share-brand-text"></span>
             </div>
-            <div class="reader-share-card-quote"></div>
+            <div class="reader-share-card-quote"><span class="reader-share-card-quote-text"></span></div>
             <div class="reader-share-card-meta"></div>
           </div>
         </div>
@@ -6608,6 +6609,7 @@ function ensureReaderShareUi() {
   const input = backdrop.querySelector(".reader-share-input");
   const card = backdrop.querySelector(".reader-share-card");
   const quote = backdrop.querySelector(".reader-share-card-quote");
+  const quoteText = backdrop.querySelector(".reader-share-card-quote-text");
   const meta = backdrop.querySelector(".reader-share-card-meta");
   const brand = backdrop.querySelector(".reader-share-brand-text");
   const fonts = backdrop.querySelector(".reader-share-fonts");
@@ -6774,7 +6776,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
   return readerShareUi;
 }
 
@@ -6924,14 +6926,15 @@ function getReaderShareRenderModel() {
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
   const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
-  const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
   const ratio = ["4:5", "2:3"].includes(state.readerShareRatio) ? state.readerShareRatio : "1:1";
   return {
     background,
     font,
     item,
     text,
-    sizePx: Math.max(10, size.px - lengthPenalty),
+    // Preserve the explicit size step for export as well. Long text is truncated
+    // from the bottom by the layout logic instead of collapsing small steps.
+    sizePx: size.px,
     fontWeight: weightSetting.weight || font.weight || 400,
     ratio,
     autoWrap: !!state.readerShareAutoWrap,
@@ -7002,28 +7005,20 @@ function computeReaderShareTextLayout(ctx, model, width, height) {
   const boxWidth = width - left - right;
   const boxHeight = height - top - bottom;
   const scale = width / 380;
-  let fontSize = model.sizePx * scale;
-  let lineHeight = fontSize * 1.42;
-  let lines = [];
-  for (let i = 0; i < 24; i += 1) {
-    ctx.font = `${model.fontWeight || model.font.weight || 400} ${fontSize}px ${model.font.css}`;
-    lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
-    lineHeight = fontSize * 1.42;
-    const totalHeight = lines.length * lineHeight;
-    const maxLineWidth = Math.max(0, ...lines.map((line) => ctx.measureText(line).width));
-    if (totalHeight <= boxHeight && maxLineWidth <= boxWidth) break;
-    fontSize -= Math.max(1, scale * 0.7);
-    if (fontSize < 22) break;
-  }
+  const fontSize = model.sizePx * scale;
+  const lineHeight = fontSize * 1.42;
+  ctx.font = `${model.fontWeight || model.font.weight || 400} ${fontSize}px ${model.font.css}`;
+  let lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
 
   const maxLines = Math.max(1, Math.floor(boxHeight / lineHeight));
-  if (lines.length > maxLines) {
+  const truncated = lines.length > maxLines;
+  if (truncated) {
     lines = lines.slice(0, maxLines);
     const last = Math.max(0, lines.length - 1);
     lines[last] = `${String(lines[last] || "").replace(/[.…\s]+$/u, "")}…`;
   }
 
-  return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines };
+  return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines, truncated };
 }
 
 async function renderReaderShareCanvas() {
@@ -7085,7 +7080,9 @@ async function renderReaderShareCanvas() {
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   const totalHeight = layout.lines.length * layout.lineHeight;
-  let y = layout.top + Math.max(0, (layout.boxHeight - totalHeight) / 2);
+  let y = layout.truncated
+    ? layout.top
+    : layout.top + Math.max(0, (layout.boxHeight - totalHeight) / 2);
   const centerX = width / 2;
   for (const line of layout.lines) {
     ctx.fillText(line, centerX, y);
@@ -7295,21 +7292,10 @@ async function handleReaderShareExport(mode) {
   }
 }
 
-function fitReaderSharePreviewText(ui, startPx) {
-  if (!ui?.quote) return;
-  const quote = ui.quote;
-  let px = Math.max(8, Number(startPx) || 13);
-  quote.style.fontSize = `${px}px`;
-  // Preview는 weight/size 변경 시 위치가 흔들리지 않도록 항상 같은 기준점(가운데)을 유지한다.
-  // 실제 export 단계에서는 별도 레이아웃 계산으로 첫 줄 보존을 처리한다.
-  quote.style.alignItems = "center";
-
-  while (px > 8 && quote.scrollHeight > quote.clientHeight + 1) {
-    px -= 0.5;
-    quote.style.fontSize = `${px}px`;
-  }
-  quote.style.alignItems = "center";
-}
+// v8.15: preview vertical placement no longer depends on JS overflow measurement.
+// The inner quote span uses flex auto margins: it is centered while it fits,
+// and auto margins collapse to 0 when it is taller than the box, naturally
+// anchoring the first line at the top without timing/font-load races.
 
 function updateReaderSharePreview() {
   ensureReaderShareState();
@@ -7328,21 +7314,22 @@ function updateReaderSharePreview() {
   ui.card.style.color = textColor;
   ui.meta.style.color = metaColor;
   ui.brand.style.color = metaColor;
-  ui.quote.textContent = text;
+  ui.quoteText.textContent = text;
   ui.quote.style.fontFamily = font.css;
   const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
   ui.quote.style.fontWeight = String(weightSetting.weight || font.weight || 400);
   ui.quote.style.lineHeight = "1.42";
-  const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
-  const previewFontSize = Math.max(10, size.px - lengthPenalty);
+  // Keep 1~5 as explicit visual size steps in preview.
+  // The old long-text penalty collapsed 1/2/3 to the same minimum on mobile.
+  const previewFontSize = size.px;
   ui.quote.style.fontSize = `${previewFontSize}px`;
   ui.quote.style.opacity = String(Number(weightSetting.opacity ?? 1));
   ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
   ui.quote.style.wordBreak = state.readerShareAutoWrap ? "keep-all" : "normal";
   ui.quote.style.overflowWrap = state.readerShareAutoWrap ? "break-word" : "normal";
-  // Explicit size buttons must always produce a visible size change in preview.
-  // Keep the chosen size instead of repeatedly auto-shrinking different steps to the same fitted value.
-  ui.quote.style.alignItems = "center";
+  // Vertical placement is handled by CSS auto margins on the inner text span.
+  // This keeps short text centered and anchors overflowing text to the top
+  // without asynchronous overflow measurement.
   ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
   ui.brand.textContent = getReaderShareBrandName();
 
