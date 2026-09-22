@@ -1088,7 +1088,7 @@ function renderProfilePage() {
     const clearable = state.profileTab === "bookmarks" || state.profileTab === "recent";
     els.profileClearButton.hidden = !clearable;
     els.profileClearButton.disabled = !clearable || total === 0;
-    els.profileClearButton.textContent = state.profileTab === "bookmarks" ? "북마크 전체 삭제" : "최근 본 작품 전체 삭제";
+    els.profileClearButton.textContent = "전체삭제";
   }
   if (els.profileMoreWrap) {
     const hasMore = pagedKinds && shown < total;
@@ -6604,8 +6604,41 @@ function ensureReaderShareUi() {
   saveButton?.addEventListener("click", async () => {
     await handleReaderShareExport("save");
   });
-  clipboardButton?.addEventListener("click", async () => {
-    await handleReaderShareExport("clipboard");
+  clipboardButton?.addEventListener("click", () => {
+    // Clipboard API는 모바일에서 transient user activation에 민감하므로
+    // 일반 export async 흐름을 거치지 않고 실제 탭 핸들러에서 즉시 write()를 시작한다.
+    try {
+      const writePromise = copyReaderShareImageToClipboard();
+      clipboardButton.textContent = "복사 중...";
+      writePromise.then(() => {
+        clipboardButton.textContent = "복사 완료";
+        window.setTimeout(updateReaderShareActionLabel, 1200);
+      }).catch((error) => {
+        console.error("reader share clipboard failed", error);
+        const message = String(error?.message || "");
+        if (message.includes("clipboard_image_preparing")) {
+          window.alert("클립보드용 이미지를 준비 중입니다. 잠시 후 다시 눌러 주세요.");
+        } else if (message.includes("clipboard_image_unsupported")) {
+          window.alert("이 브라우저에서는 이미지 클립보드 복사를 지원하지 않습니다.");
+        } else {
+          const reason = String(error?.name || "").trim();
+          window.alert(`이미지 클립보드 복사에 실패했습니다${reason ? ` (${reason})` : ""}. 다시 시도해 주세요.`);
+        }
+        updateReaderShareActionLabel();
+      });
+    } catch (error) {
+      console.error("reader share clipboard failed", error);
+      const message = String(error?.message || "");
+      if (message.includes("clipboard_image_preparing")) {
+        window.alert("클립보드용 이미지를 준비 중입니다. 잠시 후 다시 눌러 주세요.");
+      } else if (message.includes("clipboard_image_unsupported")) {
+        window.alert("이 브라우저에서는 이미지 클립보드 복사를 지원하지 않습니다.");
+      } else {
+        const reason = String(error?.name || "").trim();
+        window.alert(`이미지 클립보드 복사에 실패했습니다${reason ? ` (${reason})` : ""}. 다시 시도해 주세요.`);
+      }
+      updateReaderShareActionLabel();
+    }
   });
   shareButton?.addEventListener("click", async () => {
     await handleReaderShareExport("share");
@@ -6960,38 +6993,30 @@ function getPreparedReaderShareBlob() {
     : null;
 }
 
-function isReaderShareWebKitClipboard() {
-  const ua = String(navigator.userAgent || "");
-  const isAppleMobile = /iPhone|iPad|iPod/i.test(ua);
-  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|SamsungBrowser/i.test(ua);
-  return isAppleMobile || isSafari;
-}
-
 function copyReaderShareImageToClipboard() {
   if (!window.isSecureContext || !navigator.clipboard?.write || !window.ClipboardItem) {
     throw new Error("clipboard_image_unsupported");
   }
+  if (typeof ClipboardItem.supports === "function" && !ClipboardItem.supports("image/png")) {
+    throw new Error("clipboard_image_unsupported");
+  }
 
-  const prepared = getPreparedReaderShareBlob();
-  if (!prepared) {
+  // v7.77에서 실제 모바일 붙여넣기까지 검증됐던 경로를 그대로 사용한다.
+  // 편집 중 PNG Blob을 미리 생성해 두고, 탭 순간에는 DOM/UI 상태를 건드리거나
+  // 비동기 렌더링을 기다리지 않은 채 ClipboardItem 생성 -> write()를 즉시 시작한다.
+  const blob = getPreparedReaderShareBlob();
+  if (!blob) {
     scheduleReaderShareBlobPreparation(0);
     throw new Error("clipboard_image_preparing");
   }
-  const pngBlob = prepared.type === "image/png"
-    ? prepared
-    : new Blob([prepared], { type: "image/png" });
 
+  let item;
   try {
-    // Chromium/Android는 이미 준비된 Blob을 즉시 쓰는 경로가 가장 안정적이다.
-    // WebKit/iOS는 사용자 활성화를 보존하기 위해 ClipboardItem 안 Promise 표현을 사용한다.
-    const data = isReaderShareWebKitClipboard()
-      ? { "image/png": Promise.resolve(pngBlob) }
-      : { "image/png": pngBlob };
-    const item = new ClipboardItem(data, { presentationStyle: "inline" });
-    return navigator.clipboard.write([item]);
+    item = new ClipboardItem({ "image/png": blob });
   } catch (error) {
     throw new Error("clipboard_image_unsupported", { cause: error });
   }
+  return navigator.clipboard.write([item]);
 }
 
 function setReaderShareBusy(isBusy) {
@@ -7012,33 +7037,6 @@ async function handleReaderShareExport(mode) {
   const ui = ensureReaderShareUi();
   if (!String(state.readerShareText || "").trim()) {
     window.alert("공유할 문구가 없습니다.");
-    return;
-  }
-
-  // 모바일 클립보드는 사용자 탭 활성화가 가장 중요하므로 UI 변경보다 write()를 먼저 시작한다.
-  if (mode === "clipboard") {
-    try {
-      const writePromise = copyReaderShareImageToClipboard();
-      if (ui.clipboardButton) ui.clipboardButton.textContent = "복사 중...";
-      await writePromise;
-      if (ui.clipboardButton) {
-        ui.clipboardButton.textContent = "복사 완료";
-        window.setTimeout(updateReaderShareActionLabel, 1200);
-      }
-    } catch (error) {
-      console.error("reader share clipboard failed", error);
-      const message = String(error?.message || "");
-      if (message.includes("clipboard_image_preparing")) {
-        window.alert("클립보드용 이미지를 준비 중입니다. 잠시 후 다시 눌러 주세요.");
-      } else if (message.includes("clipboard_image_unsupported")) {
-        window.alert("이 브라우저에서는 이미지 클립보드 복사를 사용할 수 없습니다. 이미지 저장 또는 공유하기를 이용해 주세요.");
-      } else {
-        const reason = String(error?.name || "").trim();
-        window.alert(`이미지 클립보드 복사에 실패했습니다${reason ? ` (${reason})` : ""}. 다시 시도해 주세요.`);
-      }
-    } finally {
-      updateReaderShareActionLabel();
-    }
     return;
   }
 

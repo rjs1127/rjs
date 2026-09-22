@@ -86,3 +86,10 @@
 - 모바일 이미지 클립보드는 클릭/탭 순간의 user activation을 잃지 않도록 clipboard write를 다른 UI 변경보다 먼저 시작함.
 - Android/Chromium은 준비된 PNG Blob 직접 기록, WebKit/iOS는 ClipboardItem 내부 Promise 표현을 사용함.
 - 로지/스카이/라벤더 테마는 미리보기 CSS뿐 아니라 저장 Canvas에도 서로 다른 시각 효과를 유지해야 함.
+
+### 모바일 문장 이미지 클립보드 회귀 방지 (v8.07 기준)
+- 검증 기준 경로는 `ClipboardItem({ "image/png": preparedBlob })` + `navigator.clipboard.write([item])` 직접 호출임.
+- 클립보드 버튼의 실제 `click` 핸들러에서 write를 즉시 시작해야 하며, 그 전에 `await`, 캔버스 재렌더, 폰트 로드, 네트워크 요청, 모달 상태 변경 등 비동기 작업을 넣지 않음.
+- iOS/WebKit이라고 별도 `Promise<Blob>` 분기를 추가하지 않음. 이 분기는 v8.06에서 다시 회귀 원인이 될 수 있어 제거함.
+- PNG Blob은 문장 선택/편집 중 미리 생성하며, 준비되지 않았을 때만 사용자에게 준비 중 안내를 표시함.
+
