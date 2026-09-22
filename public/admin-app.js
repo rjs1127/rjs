@@ -191,14 +191,37 @@ async function api(path, options = {}) {
     },
   });
 
-  const data = await response.json();
+  const rawText = await response.text();
+  let data = null;
+
+  if (rawText) {
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = null;
+    }
+  }
 
   if (response.status === 401) {
     window.location.replace("/admin");
     throw new Error("관리자 로그인이 만료되었습니다.");
   }
 
-  if (!response.ok) throw new Error(data?.error || "요청에 실패했습니다.");
+  if (!response.ok) {
+    const rawMessage = rawText.trim().replace(/\s+/g, " ").slice(0, 240);
+    const stage = data?.stage ? ` · 단계: ${String(data.stage)}` : "";
+    const message = data?.error
+      ? `${data.error}${stage}`
+      : rawMessage
+        ? `서버 오류 (HTTP ${response.status}): ${rawMessage}`
+        : `요청에 실패했습니다. (HTTP ${response.status})`;
+    throw new Error(message);
+  }
+
+  if (data === null) {
+    throw new Error(`서버 응답 형식을 확인할 수 없습니다. (HTTP ${response.status})`);
+  }
+
   return data;
 }
 

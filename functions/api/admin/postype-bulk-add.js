@@ -127,8 +127,7 @@ function getHighestSheetId(values, idColumn) {
   return max;
 }
 
-async function readSheet(accessToken) {
-  const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:Z`;
+async function readSheetRange(accessToken, range) {
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/` +
     `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
@@ -137,11 +136,90 @@ async function readSheet(accessToken) {
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
-  const data = await response.json();
-  if (!response.ok) {
-    throw new Error(data?.error?.message || `Google Sheets API 읽기 오류 (${response.status})`);
+
+  const rawText = await response.text();
+  let data = null;
+  try {
+    data = rawText ? JSON.parse(rawText) : null;
+  } catch {
+    data = null;
   }
+
+  if (!response.ok) {
+    const fallback = rawText.trim().replace(/\s+/g, " ").slice(0, 240);
+    throw new Error(
+      data?.error?.message ||
+      fallback ||
+      `Google Sheets API 읽기 오류 (${response.status})`
+    );
+  }
+
   return Array.isArray(data?.values) ? data.values : [];
+}
+
+async function readHeaderRow(accessToken) {
+  const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A1:AZ1`;
+  return readSheetRange(accessToken, range);
+}
+
+async function readIdColumn(accessToken, idColumnIndex) {
+  const letter = columnLetter(idColumnIndex);
+  const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!${letter}2:${letter}`;
+  return readSheetRange(accessToken, range);
+}
+
+async function readFullSheet(accessToken) {
+  const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:Z`;
+  return readSheetRange(accessToken, range);
+}
+
+
+function buildArchiveItem(id, item) {
+  return {
+    id,
+    source: "postype",
+    combination: item.combination,
+    subCp1: item.subCp1,
+    subCp2: item.subCp2,
+    title: item.title,
+    genre: item.genre,
+    author: item.author,
+    status: item.status,
+    lengthType: item.lengthType,
+    workLength: item.workLength,
+    publishType: item.publishType,
+    linkType: item.linkType,
+    manualUrls: item.manualUrls,
+    latestPublishedDate: item.latestPublishedDate,
+    url: item.url,
+    fileName: null,
+    parseFailed: false,
+    createdTime: null,
+    modifiedTime: null,
+    size: null,
+  };
+}
+
+function appendItemsToArchive(existingArchive, rows, cleanItems) {
+  if (!existingArchive || !Array.isArray(existingArchive.items)) return null;
+
+  const appendedItems = rows.map(({ id }, index) => buildArchiveItem(id, cleanItems[index]));
+  const existingItems = existingArchive.items.filter((item) => item && item.id);
+  const mergedItems = [...existingItems, ...appendedItems];
+  const disabledCount = Number(existingArchive.disabledCount || 0);
+  const previousTotalRows = Number(
+    existingArchive.totalRows ?? (existingItems.length + disabledCount)
+  );
+
+  return {
+    ...existingArchive,
+    source: "postype",
+    syncedAt: new Date().toISOString(),
+    count: mergedItems.length,
+    totalRows: previousTotalRows + appendedItems.length,
+    disabledCount,
+    items: mergedItems,
+  };
 }
 
 function buildArchive(values, headers) {
@@ -206,8 +284,12 @@ function buildArchive(values, headers) {
 }
 
 export async function onRequestPost(context) {
+  let stage = "auth";
+
   try {
     await requireAdminSession(context);
+
+    stage = "request";
     const kv = requireKv(context.env);
     const body = await context.request.json();
     const items = Array.isArray(body?.items) ? body.items : [];
@@ -219,6 +301,7 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "한 번에 최대 300개까지 등록할 수 있습니다." }, 400);
     }
 
+    stage = "validation";
     const allowedCombinations = await getAllowedCombinations(kv);
     const allowedSet = new Set(allowedCombinations);
 
@@ -247,8 +330,12 @@ export async function onRequestPost(context) {
       if (!["완결", "연재"].includes(status)) {
         throw new Error(`${rowNo}행: 상태는 완결/연재 중 하나여야 합니다.`);
       }
-      if (!["단일글", "다회차"].includes(publishType)) throw new Error(`${rowNo}행: 게시형태를 확인해 주세요.`);
-      if (!["post", "series", "manual"].includes(linkType)) throw new Error(`${rowNo}행: 연결방식을 확인해 주세요.`);
+      if (!["단일글", "다회차"].includes(publishType)) {
+        throw new Error(`${rowNo}행: 게시형태를 확인해 주세요.`);
+      }
+      if (!["post", "series", "manual"].includes(linkType)) {
+        throw new Error(`${rowNo}행: 연결방식을 확인해 주세요.`);
+      }
       if (!isValidUrl(url)) throw new Error(`${rowNo}행: URL을 확인해 주세요.`);
       if (linkType === "series" && !isPostypeSeriesUrl(url)) {
         throw new Error(`${rowNo}행: 시리즈는 POSTYPE 시리즈 페이지 URL(/series/...)을 입력해 주세요.`);
@@ -272,9 +359,14 @@ export async function onRequestPost(context) {
       };
     });
 
+    stage = "google_auth";
     const accessToken = await getSheetsAccessToken(context.env);
-    const values = await readSheet(accessToken);
-    const headerInfo = await ensurePostypeSchemaHeaders(accessToken, values);
+
+    // 등록 전에는 A:Z 전체를 읽지 않는다. 헤더 1행과 ID 열만 읽어
+    // 시트가 커져도 등록 요청이 무거워지지 않도록 한다.
+    stage = "sheet_header";
+    const headerValues = await readHeaderRow(accessToken);
+    const headerInfo = await ensurePostypeSchemaHeaders(accessToken, headerValues);
     const headers = headerInfo.headers;
     const headerIndex = buildHeaderIndex(headers);
     const missing = REQUIRED_HEADERS.filter((name) => !headerIndex.has(name.toLowerCase()));
@@ -282,7 +374,10 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: `필수 컬럼 누락: ${missing.join(", ")}` }, 400);
     }
 
-    const highestSheetId = getHighestSheetId(values, headerIndex.get("id"));
+    stage = "sheet_ids";
+    const idColumnIndex = headerIndex.get("id");
+    const idValues = await readIdColumn(accessToken, idColumnIndex);
+    const highestSheetId = getHighestSheetId([["id"], ...idValues], 0);
     const savedSequence = Number((await kv.get(POSTYPE_ID_SEQUENCE_KEY)) || 0);
     let nextNumber = Math.max(highestSheetId, savedSequence) + 1;
 
@@ -297,7 +392,8 @@ export async function onRequestPost(context) {
       return { id, row };
     });
 
-    const appendRange = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:Z`;
+    stage = "sheet_append";
+    const appendRange = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:AZ`;
     const appendUrl =
       `https://sheets.googleapis.com/v4/spreadsheets/` +
       `${encodeURIComponent(POSTYPE_SPREADSHEET_ID)}/values/` +
@@ -314,16 +410,42 @@ export async function onRequestPost(context) {
         values: rows.map(({ row }) => row),
       }),
     });
-    const appendData = await appendResponse.json();
+
+    const appendText = await appendResponse.text();
+    let appendData = null;
+    try {
+      appendData = appendText ? JSON.parse(appendText) : null;
+    } catch {
+      appendData = null;
+    }
+
     if (!appendResponse.ok) {
-      throw new Error(appendData?.error?.message || `Google Sheets API 등록 오류 (${appendResponse.status})`);
+      const fallback = appendText.trim().replace(/\s+/g, " ").slice(0, 240);
+      throw new Error(
+        appendData?.error?.message ||
+        fallback ||
+        `Google Sheets API 등록 오류 (${appendResponse.status})`
+      );
     }
 
     const lastNumber = nextNumber - 1;
+
+    stage = "kv_sequence";
     await kv.put(POSTYPE_ID_SEQUENCE_KEY, String(lastNumber));
 
-    const updatedValues = await readSheet(accessToken);
-    const archive = buildArchive(updatedValues, (updatedValues[0] || []).map(normalize));
+    // 기존 공개 캐시에 방금 등록한 항목만 합쳐 즉시 노출한다.
+    // 매 등록마다 A:Z 전체를 다시 읽는 비용/실패 가능성을 제거한다.
+    stage = "kv_index";
+    const existingArchive = await getJson(kv, POSTYPE_INDEX_KEY, null);
+    let archive = appendItemsToArchive(existingArchive, rows, cleanItems);
+
+    // 캐시가 비어 있는 예외 상황에서만 전체 시트를 읽어 복구한다.
+    if (!archive) {
+      stage = "sheet_rebuild_fallback";
+      const updatedValues = await readFullSheet(accessToken);
+      archive = buildArchive(updatedValues, (updatedValues[0] || []).map(normalize));
+    }
+
     await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
 
     return jsonResponse({
@@ -335,9 +457,10 @@ export async function onRequestPost(context) {
       syncedAt: archive.syncedAt,
     }, 200, { "cache-control": "no-store" });
   } catch (error) {
-    console.error(error);
+    console.error(`POSTYPE bulk add failed at ${stage}`, error);
     return jsonResponse({
       ok: false,
+      stage,
       error: error?.message || "POSTYPE 일괄 등록에 실패했습니다.",
     }, error?.status || 500, { "cache-control": "no-store" });
   }

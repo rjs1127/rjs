@@ -1,3 +1,21 @@
+## v8.21 — POSTYPE 관리자 등록 520 오류 대응·등록 경량화
+
+- 관리자 API 공통 응답 처리를 보강해 Cloudflare 520처럼 JSON이 아닌 오류 응답도 `Unexpected token` 없이 실제 HTTP 오류로 표시
+- POSTYPE 일괄 등록 시 등록 전에 시트 `A:Z` 전체를 읽던 구조 제거
+  - 헤더 1행만 조회
+  - ID 열만 조회해 다음 `P0000` 번호 계산
+  - 작품 수가 늘어도 등록 전 요청량이 불필요하게 커지지 않도록 경량화
+- 시트 등록 성공 후 다시 전체 시트를 읽어 KV를 재생성하던 구조를 기본 경로에서 제거
+  - 기존 POSTYPE 공개 캐시에 새 작품만 안전하게 병합해 즉시 노출
+  - 공개 캐시가 없는 예외 상황에서만 전체 시트 재조회 fallback 수행
+- 등록 실패 시 서버 내부 단계(`google_auth`, `sheet_header`, `sheet_ids`, `sheet_append`, `kv_index` 등)를 오류 메시지에 함께 표시해 원인 확인 가능
+- Google Sheets API 응답도 JSON이 아닐 경우 안전하게 오류 본문을 처리하도록 보강
+- 문장 이미지, 마이페이지, 메인 목록/최근 POSTYPE 정렬·표시 로직은 변경하지 않음
+
+**커밋 메시지 요약:** `fix: harden and slim postype admin registration`
+
+---
+
 ## v8.20 — 최근 POSTYPE 우선노출 표시 추가
 
 - 최초 진입의 최근 7일 POSTYPE 우선노출이 적용된 콘텐츠에만 최근 발행 표시를 추가함
