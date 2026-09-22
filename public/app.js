@@ -6236,24 +6236,27 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "로지",
-    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #fff8fa 0%, #f7e5e8 58%, #efd8dc 100%)",
+    background: "radial-gradient(circle at 18% 18%, rgba(255,255,255,.82) 0 18%, rgba(255,255,255,0) 38%), radial-gradient(circle at 82% 78%, rgba(218,137,149,.12) 0 18%, rgba(218,137,149,0) 42%), linear-gradient(138deg, #fff9fa 0%, #f7e7e9 48%, #f0dadd 100%)",
     text: "#b45b63",
     meta: "#c58a92",
     accent: "#b45b63",
+    effect: "rosy-blush",
   },
   {
     name: "스카이",
-    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #f5f9ff 0%, #e7f1ff 56%, #dbe8fb 100%)",
+    background: "radial-gradient(circle at 20% 24%, rgba(255,255,255,.96) 0 1.2%, rgba(255,255,255,0) 2.8%), radial-gradient(circle at 74% 18%, rgba(255,255,255,.92) 0 1%, rgba(255,255,255,0) 2.5%), radial-gradient(circle at 84% 72%, rgba(255,255,255,.80) 0 1.1%, rgba(255,255,255,0) 2.6%), linear-gradient(155deg, #f4f9ff 0%, #e5f1ff 52%, #d8e8fb 100%)",
     text: "#4b78c2",
     meta: "#86a5d9",
     accent: "#4b78c2",
+    effect: "sky-sparkle",
   },
   {
     name: "라벤더",
-    background: "radial-gradient(circle at 18% 16%, rgba(255,255,255,.88) 0%, rgba(255,255,255,0) 30%), linear-gradient(145deg, #faf7ff 0%, #eee8ff 56%, #e1d8fb 100%)",
+    background: "radial-gradient(ellipse at 14% 24%, rgba(240,213,235,.72) 0 16%, rgba(240,213,235,0) 45%), radial-gradient(ellipse at 84% 72%, rgba(205,224,251,.72) 0 18%, rgba(205,224,251,0) 48%), linear-gradient(145deg, #fbf8ff 0%, #eee8ff 54%, #e5dcf8 100%)",
     text: "#7652b8",
     meta: "#a28ecf",
     accent: "#7652b8",
+    effect: "lavender-mist",
   },
 ];
 
@@ -6630,6 +6633,58 @@ function parseShareGradientColors(backgroundValue) {
   };
 }
 
+function drawReaderShareThemeEffect(ctx, background, width, height) {
+  const effect = String(background?.effect || "");
+  if (!effect) return;
+
+  ctx.save();
+  if (effect === "rosy-blush") {
+    const glow = ctx.createRadialGradient(width * .18, height * .16, 0, width * .18, height * .16, width * .46);
+    glow.addColorStop(0, "rgba(255,255,255,.46)");
+    glow.addColorStop(.5, "rgba(255,255,255,.12)");
+    glow.addColorStop(1, "rgba(180,91,99,0)");
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, width, height);
+    const blush = ctx.createRadialGradient(width * .84, height * .8, 0, width * .84, height * .8, width * .38);
+    blush.addColorStop(0, "rgba(180,91,99,.10)");
+    blush.addColorStop(1, "rgba(180,91,99,0)");
+    ctx.fillStyle = blush;
+    ctx.fillRect(0, 0, width, height);
+  } else if (effect === "sky-sparkle") {
+    const mist = ctx.createRadialGradient(width * .2, height * .76, 0, width * .2, height * .76, width * .52);
+    mist.addColorStop(0, "rgba(255,255,255,.34)");
+    mist.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = mist;
+    ctx.fillRect(0, 0, width, height);
+    const sparkles = [
+      [.17,.19,2.8],[.29,.31,1.6],[.72,.16,2.1],[.82,.29,1.4],[.88,.68,2.5],[.67,.78,1.5],[.22,.73,1.8],[.42,.13,1.2]
+    ];
+    ctx.strokeStyle = "rgba(255,255,255,.66)";
+    ctx.fillStyle = "rgba(255,255,255,.70)";
+    ctx.lineWidth = Math.max(1, width / 1200);
+    for (const [x, y, r] of sparkles) {
+      const cx = width * x, cy = height * y, rr = r * (width / 380);
+      ctx.beginPath();
+      ctx.moveTo(cx - rr * 1.8, cy); ctx.lineTo(cx + rr * 1.8, cy);
+      ctx.moveTo(cx, cy - rr * 1.8); ctx.lineTo(cx, cy + rr * 1.8);
+      ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, cy, Math.max(1, rr * .22), 0, Math.PI * 2); ctx.fill();
+    }
+  } else if (effect === "lavender-mist") {
+    const pink = ctx.createRadialGradient(width * .14, height * .24, 0, width * .14, height * .24, width * .48);
+    pink.addColorStop(0, "rgba(232,190,222,.30)");
+    pink.addColorStop(.55, "rgba(232,190,222,.10)");
+    pink.addColorStop(1, "rgba(232,190,222,0)");
+    ctx.fillStyle = pink; ctx.fillRect(0, 0, width, height);
+    const blue = ctx.createRadialGradient(width * .86, height * .74, 0, width * .86, height * .74, width * .50);
+    blue.addColorStop(0, "rgba(166,203,242,.28)");
+    blue.addColorStop(.58, "rgba(166,203,242,.09)");
+    blue.addColorStop(1, "rgba(166,203,242,0)");
+    ctx.fillStyle = blue; ctx.fillRect(0, 0, width, height);
+  }
+  ctx.restore();
+}
+
 function getReaderShareRenderModel() {
   ensureReaderShareState();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
@@ -6762,6 +6817,7 @@ async function renderReaderShareCanvas() {
   ctx.fillRect(0, 0, width, height);
   ctx.fillStyle = "rgba(0,0,0,.02)";
   ctx.fillRect(0, 0, width, height);
+  drawReaderShareThemeEffect(ctx, model.background, width, height);
 
   const scale = width / 380;
   const brandX = width * 0.07;
@@ -6904,34 +6960,38 @@ function getPreparedReaderShareBlob() {
     : null;
 }
 
+function isReaderShareWebKitClipboard() {
+  const ua = String(navigator.userAgent || "");
+  const isAppleMobile = /iPhone|iPad|iPod/i.test(ua);
+  const isSafari = /Safari/i.test(ua) && !/Chrome|Chromium|CriOS|Edg|OPR|SamsungBrowser/i.test(ua);
+  return isAppleMobile || isSafari;
+}
+
 function copyReaderShareImageToClipboard() {
   if (!window.isSecureContext || !navigator.clipboard?.write || !window.ClipboardItem) {
     throw new Error("clipboard_image_unsupported");
   }
-  if (typeof ClipboardItem.supports === "function" && !ClipboardItem.supports("image/png")) {
-    throw new Error("clipboard_image_unsupported");
-  }
 
-  // Mobile browsers are especially strict about transient user activation.
-  // The PNG is pre-rendered while the editor is open, so the actual click can
-  // construct ClipboardItem from an already-ready Blob and call write()
-  // immediately, without awaiting canvas/font work first.
-  const blob = getPreparedReaderShareBlob();
-  if (!blob) {
+  const prepared = getPreparedReaderShareBlob();
+  if (!prepared) {
     scheduleReaderShareBlobPreparation(0);
     throw new Error("clipboard_image_preparing");
   }
+  const pngBlob = prepared.type === "image/png"
+    ? prepared
+    : new Blob([prepared], { type: "image/png" });
 
-  let item;
   try {
-    // v7.77에서 실제 모바일 붙여넣기까지 확인된 경로로 유지한다.
-    // Blob은 편집기에서 미리 생성해 두므로 클릭 순간에는 비동기 렌더링 없이
-    // ClipboardItem을 만들고 곧바로 write()를 호출할 수 있다.
-    item = new ClipboardItem({ "image/png": blob });
+    // Chromium/Android는 이미 준비된 Blob을 즉시 쓰는 경로가 가장 안정적이다.
+    // WebKit/iOS는 사용자 활성화를 보존하기 위해 ClipboardItem 안 Promise 표현을 사용한다.
+    const data = isReaderShareWebKitClipboard()
+      ? { "image/png": Promise.resolve(pngBlob) }
+      : { "image/png": pngBlob };
+    const item = new ClipboardItem(data, { presentationStyle: "inline" });
+    return navigator.clipboard.write([item]);
   } catch (error) {
     throw new Error("clipboard_image_unsupported", { cause: error });
   }
-  return navigator.clipboard.write([item]);
 }
 
 function setReaderShareBusy(isBusy) {
@@ -6954,19 +7014,36 @@ async function handleReaderShareExport(mode) {
     window.alert("공유할 문구가 없습니다.");
     return;
   }
-  setReaderShareBusy(true);
-  try {
-    // Clipboard write must be started while the original tap/click still owns
-    // transient user activation. Do not await canvas generation beforehand.
-    if (mode === "clipboard") {
-      await copyReaderShareImageToClipboard();
+
+  // 모바일 클립보드는 사용자 탭 활성화가 가장 중요하므로 UI 변경보다 write()를 먼저 시작한다.
+  if (mode === "clipboard") {
+    try {
+      const writePromise = copyReaderShareImageToClipboard();
+      if (ui.clipboardButton) ui.clipboardButton.textContent = "복사 중...";
+      await writePromise;
       if (ui.clipboardButton) {
         ui.clipboardButton.textContent = "복사 완료";
         window.setTimeout(updateReaderShareActionLabel, 1200);
       }
-      return;
+    } catch (error) {
+      console.error("reader share clipboard failed", error);
+      const message = String(error?.message || "");
+      if (message.includes("clipboard_image_preparing")) {
+        window.alert("클립보드용 이미지를 준비 중입니다. 잠시 후 다시 눌러 주세요.");
+      } else if (message.includes("clipboard_image_unsupported")) {
+        window.alert("이 브라우저에서는 이미지 클립보드 복사를 사용할 수 없습니다. 이미지 저장 또는 공유하기를 이용해 주세요.");
+      } else {
+        const reason = String(error?.name || "").trim();
+        window.alert(`이미지 클립보드 복사에 실패했습니다${reason ? ` (${reason})` : ""}. 다시 시도해 주세요.`);
+      }
+    } finally {
+      updateReaderShareActionLabel();
     }
+    return;
+  }
 
+  setReaderShareBusy(true);
+  try {
     const blob = getPreparedReaderShareBlob() || await createReaderShareBlobPromise();
     if (!readerSharePreparedBlob || readerSharePreparedBlobKey !== getReaderShareBlobKey()) {
       readerSharePreparedBlob = blob;

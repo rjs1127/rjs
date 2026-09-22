@@ -3598,3 +3598,11 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
     letter-spacing:-0.025em;
   }
 }
+
+/* v8.06 - profile destructive action alignment */
+.profile-toolbar-actions .profile-clear-button { margin-left:auto; }
+@media (max-width:640px) {
+  .profile-toolbar-actions { display:flex; flex-direction:row; align-items:center; }
+  .profile-toolbar-actions .profile-search { min-width:0; }
+  .profile-toolbar-actions .profile-clear-button { margin-left:auto; }
+}
