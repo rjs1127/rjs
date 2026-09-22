@@ -7174,6 +7174,51 @@ function createReaderShareBlobPromise() {
   }));
 }
 
+async function normalizeReaderShareClipboardBlob(blob) {
+  if (!(blob instanceof Blob) || blob.type !== "image/png" || blob.size <= 0) {
+    throw new Error("clipboard_image_invalid");
+  }
+
+  // Keep the proven click-time ClipboardItem path untouched. Normalize the
+  // prepared PNG beforehand so mobile clipboard receives a plain, decoded
+  // PNG blob instead of depending on the browser's canvas-backed blob internals.
+  if (typeof createImageBitmap === "function") {
+    let bitmap = null;
+    try {
+      bitmap = await createImageBitmap(blob);
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, bitmap.width || 1);
+      canvas.height = Math.max(1, bitmap.height || 1);
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("clipboard_canvas_unavailable");
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(bitmap, 0, 0);
+      return await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => {
+          if (value instanceof Blob && value.type === "image/png" && value.size > 0) {
+            resolve(value);
+          } else {
+            reject(new Error("clipboard_image_invalid"));
+          }
+        }, "image/png");
+      });
+    } finally {
+      try { bitmap?.close?.(); } catch (_) {}
+    }
+  }
+
+  // Fallback still detaches the clipboard blob from the original canvas blob.
+  const bytes = await blob.arrayBuffer();
+  const normalized = new Blob([bytes], { type: "image/png" });
+  if (!normalized.size) throw new Error("clipboard_image_invalid");
+  return normalized;
+}
+
+function createReaderShareClipboardBlobPromise() {
+  return createReaderShareBlobPromise().then(normalizeReaderShareClipboardBlob);
+}
+
 function scheduleReaderShareBlobPreparation(delay = 90) {
   window.clearTimeout(readerSharePrepareTimer);
   const key = getReaderShareBlobKey();
@@ -7183,7 +7228,7 @@ function scheduleReaderShareBlobPreparation(delay = 90) {
     const preparedKey = getReaderShareBlobKey();
     if (readerSharePreparedBlob && readerSharePreparedBlobKey === preparedKey) return;
 
-    const promise = createReaderShareBlobPromise();
+    const promise = createReaderShareClipboardBlobPromise();
     readerSharePreparePromise = promise;
     promise.then((blob) => {
       if (getReaderShareBlobKey() !== preparedKey) return;
