@@ -3720,3 +3720,137 @@ html.theme-dark .reader.reader-compact .reader-header-actions > button {
   }
 }
 
+
+
+/* v8.09 - share editor controls, card actions, compact header timing, and tag palette */
+.item-bookmark-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  border:1px solid var(--theme-line, #ddd7ce);
+  background:var(--theme-secondary-bg, #fff);
+  color:var(--theme-secondary-text, #77716a);
+  cursor:pointer;
+  width:34px;
+  height:34px;
+  border-radius:10px;
+  padding:0;
+}
+.item-bookmark-button svg {
+  width:18px;
+  height:18px;
+  fill:none;
+  stroke:currentColor;
+  stroke-width:1.7;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.item-bookmark-button.active {
+  background:var(--theme-primary-bg);
+  border-color:var(--theme-primary-bg);
+  color:var(--theme-primary-text);
+}
+.item-bookmark-button.active svg {
+  fill:currentColor;
+}
+
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button {
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  min-height:28px !important;
+  flex:0 0 28px !important;
+  border-radius:50% !important;
+  padding:0 !important;
+  display:inline-grid !important;
+  place-items:center !important;
+  border:1px solid var(--theme-line) !important;
+  background:var(--theme-secondary-bg) !important;
+  color:var(--theme-secondary-text) !important;
+  box-shadow:none !important;
+}
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button svg {
+  width:14px !important;
+  height:14px !important;
+  stroke:currentColor !important;
+  stroke-width:1.8 !important;
+}
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button.active {
+  background:var(--theme-primary-bg) !important;
+  border-color:var(--theme-primary-bg) !important;
+  color:var(--theme-primary-text) !important;
+}
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button.active svg { fill:currentColor; }
+.content-card { padding-bottom:56px; }
+.content-card .card-actions { gap:6px; }
+@media (max-width:640px) {
+  .content-card { padding-bottom:52px; }
+}
+
+.card-tag.card-cp-tag {
+  background:#edf3ff;
+  color:#4d69b4;
+}
+.card-tag.card-publish-tag {
+  background:#fff0e5;
+  color:#aa6530;
+}
+.card-tag.card-status-tag.status-serial {
+  background:#e9f8ee;
+  color:#2e8950;
+}
+.card-tag.card-status-tag.status-complete {
+  background:#f2ebff;
+  color:#7753b2;
+}
+html.theme-dark .card-tag.card-cp-tag {
+  background:rgba(92,123,195,.18);
+  color:#bdd0ff;
+}
+html.theme-dark .card-tag.card-publish-tag {
+  background:rgba(190,123,67,.18);
+  color:#ffd1ad;
+}
+html.theme-dark .card-tag.card-status-tag.status-serial {
+  background:rgba(66,146,91,.18);
+  color:#bde9c9;
+}
+html.theme-dark .card-tag.card-status-tag.status-complete {
+  background:rgba(123,95,182,.22);
+  color:#d6c6ff;
+}
+
+.reader-header-actions > .reader-download-button svg,
+.reader.reader-compact .reader-header-actions > .reader-download-button svg,
+.reader.reader-page-mode .reader-header-actions > .reader-download-button svg {
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+}
+.reader-header-actions > .reader-bookmark-button .reader-action-icon,
+.reader.reader-compact .reader-header-actions > .reader-bookmark-button .reader-action-icon,
+.reader.reader-page-mode .reader-header-actions > .reader-bookmark-button .reader-action-icon {
+  width:15px !important;
+  height:15px !important;
+  min-width:15px !important;
+  min-height:15px !important;
+}
+.reader-header-actions > .reader-like-button .reader-action-icon,
+.reader.reader-compact .reader-header-actions > .reader-like-button .reader-action-icon,
+.reader.reader-page-mode .reader-header-actions > .reader-like-button .reader-action-icon {
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+}
+.reader-header-actions > .reader-close .reader-action-icon,
+.reader.reader-compact .reader-header-actions > .reader-close .reader-action-icon,
+.reader.reader-page-mode .reader-header-actions > .reader-close .reader-action-icon {
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+  stroke-width:1.8 !important;
+}

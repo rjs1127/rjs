@@ -59,6 +59,7 @@ const state = {
   readerResumeSaved: null,
   readerShareText: "",
   readerShareBackground: 0,
+  readerShareWeight: "regular",
   visibleItemLimit: 40,
   paginationSignature: "",
 };
@@ -2326,6 +2327,29 @@ function getListTitleLengthClass(title) {
 }
 
 
+function getDriveBookmarkButtonHtml(item, className = "item-bookmark-button") {
+  if (!item?.id || item.source === "postype") return "";
+  const bookmarked = Boolean(state.user && getUserLibraryEntry(item.id)?.bookmarked);
+  return `
+    <button
+      class="${className} ${bookmarked ? "active" : ""}"
+      type="button"
+      data-drive-bookmark="${escapeHtml(item.id)}"
+      aria-label="${bookmarked ? "북마크 해제" : "북마크"}"
+      title="${bookmarked ? "북마크 해제" : "북마크"}"
+      aria-pressed="${bookmarked ? "true" : "false"}">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M6.75 4.75A1.75 1.75 0 0 1 8.5 3h7A1.75 1.75 0 0 1 17.25 4.75v15.1l-5.25-3.3-5.25 3.3V4.75Z"></path>
+      </svg>
+    </button>`;
+}
+
+function getCardStatusToneClass(item) {
+  const label = getItemStatusLabel(item);
+  if (label === "완결") return "status-complete";
+  return "status-serial";
+}
+
 function getItemLikeButtonHtml(item, className = "item-like-button") {
   if (!item?.id || item.source === "postype") return "";
   const liked = Boolean(state.user && isItemLiked(item));
@@ -2354,7 +2378,7 @@ function renderCards(items) {
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
           <span class="card-tag card-publish-tag">${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>
-          <span class="card-tag card-status-tag">${escapeHtml(getItemStatusLabel(item))}</span>
+          <span class="card-tag card-status-tag ${getCardStatusToneClass(item)}">${escapeHtml(getItemStatusLabel(item))}</span>
         </div>
         ${getItemReadingBadge(item)}
       </div>
@@ -2362,10 +2386,9 @@ function renderCards(items) {
       <p class="card-author">${escapeHtml(item.author)}</p>
       ${getPostypeMetaHtml(item)}
       <div class="card-actions">
-        ${getItemLikeButtonHtml(item, "item-like-button card-like-button")}
-        ${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}
-        ${getDownloadButtonHtml(item, "item-download-button card-download-button")}
-        <span class="card-arrow" aria-hidden="true">↗</span>
+        ${item.source === "postype"
+          ? getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")
+          : `${getItemLikeButtonHtml(item, "item-like-button card-like-button")}${getDriveBookmarkButtonHtml(item, "item-bookmark-button card-bookmark-button")}${getDownloadButtonHtml(item, "item-download-button card-download-button")}`}
       </div>
     </article>
   `).join("");
@@ -5758,17 +5781,18 @@ function updateCompactHeader() {
   }
 
   const searchRect = els.heroSearchBox.getBoundingClientRect();
+  const enterThreshold = Math.max(54, Math.min(88, Math.round((els.siteHeader.offsetHeight || 64) + 6)));
+  const leaveThreshold = enterThreshold + 48;
 
-  // Activate only after the original hero search box has essentially left
-  // the viewport. Use a wide exit threshold so the sticky header's own
-  // height change cannot immediately flip the state back.
-  if (!mainHeaderCompactActive && searchRect.bottom <= 8) {
+  // Search box가 화면 상단 근처에 닿기 시작하면 조금 더 빨리 compact로 전환해서
+  // 헤더 요소와 겹쳐 보이는 짧은 구간을 줄인다. leave는 더 여유 있게 두어 깜빡임을 막는다.
+  if (!mainHeaderCompactActive && searchRect.top <= enterThreshold) {
     mainHeaderCompactActive = true;
     els.siteHeader.classList.add("compact-mode");
     return;
   }
 
-  if (mainHeaderCompactActive && searchRect.bottom >= 80) {
+  if (mainHeaderCompactActive && searchRect.top >= leaveThreshold) {
     mainHeaderCompactActive = false;
     els.siteHeader.classList.remove("compact-mode");
   }
@@ -5914,6 +5938,15 @@ function handleContentOpenClick(event) {
     return;
   }
 
+  const driveBookmarkButton = event.target.closest("[data-drive-bookmark]");
+  if (driveBookmarkButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = state.items.find((entry) => entry.id === driveBookmarkButton.dataset.driveBookmark);
+    toggleListBookmark(item);
+    return;
+  }
+
   const postypeBookmarkButton = event.target.closest("[data-postype-bookmark]");
   if (postypeBookmarkButton) {
     event.preventDefault();
@@ -5947,6 +5980,25 @@ function handleContentOpenClick(event) {
   openContentItem(findItemFromEvent(event));
 }
 
+function closeOtherListMoreMenus(openDetails) {
+  els.contentListBody?.querySelectorAll('details[data-list-more][open]').forEach((details) => {
+    if (details !== openDetails) details.open = false;
+  });
+}
+
+els.contentListBody?.addEventListener("toggle", (event) => {
+  const details = event.target;
+  if (!(details instanceof HTMLDetailsElement) || !details.matches('details[data-list-more]')) return;
+  if (details.open) closeOtherListMoreMenus(details);
+  const row = details.closest('tr');
+  if (row) row.classList.toggle('list-more-open', details.open);
+}, true);
+
+document.addEventListener("click", (event) => {
+  if (event.target.closest('details[data-list-more]')) return;
+  closeOtherListMoreMenus(null);
+});
+
 els.contentGrid.addEventListener("click", handleContentOpenClick);
 els.contentListBody.addEventListener("click", handleContentOpenClick);
 
@@ -5960,6 +6012,7 @@ for (const container of [els.contentGrid, els.contentListBody]) {
     if (
       event.target.closest("[data-download-id]") ||
       event.target.closest("[data-postype-bookmark]") ||
+      event.target.closest("[data-drive-bookmark]") ||
       event.target.closest("[data-item-like]")
     ) return;
     if (event.key !== "Enter" && event.key !== " ") return;
@@ -6258,6 +6311,30 @@ const READER_SHARE_BACKGROUNDS = [
     accent: "#7652b8",
     effect: "lavender-mist",
   },
+  {
+    name: "로즈쿼츠",
+    background: "radial-gradient(circle at 16% 18%, rgba(255,255,255,.88) 0 16%, rgba(255,255,255,0) 38%), radial-gradient(circle at 88% 84%, rgba(236,196,204,.34) 0 10%, rgba(236,196,204,0) 34%), linear-gradient(145deg, #fffdfd 0%, #faeff2 44%, #f2dfe6 100%)",
+    text: "#b46879",
+    meta: "#c596a4",
+    accent: "#b46879",
+    effect: "rose-quartz-glow",
+  },
+  {
+    name: "세레니티",
+    background: "linear-gradient(150deg, #fbfdff 0%, #eef5ff 48%, #deebfb 100%)",
+    text: "#5378bf",
+    meta: "#87a1cf",
+    accent: "#5378bf",
+    effect: "serenity-breeze",
+  },
+  {
+    name: "오팔",
+    background: "linear-gradient(150deg, #fffcfb 0%, #f5f8f7 28%, #eef0ff 58%, #f9f0f7 100%)",
+    text: "#6e64a3",
+    meta: "#9c93c0",
+    accent: "#6e64a3",
+    effect: "opal-shimmer",
+  },
 ];
 
 const READER_SHARE_FONTS = [
@@ -6269,10 +6346,18 @@ const READER_SHARE_FONTS = [
 ];
 
 const READER_SHARE_SIZES = {
-  xxs: { label: "아주작게", px: 13 },
-  xs: { label: "작게", px: 15 },
-  sm: { label: "보통", px: 18 },
-  md: { label: "크게", px: 22 },
+  xxs: { button: "1", label: "더아주작게", px: 11 },
+  xs: { button: "2", label: "아주작게", px: 13 },
+  sm: { button: "3", label: "작게", px: 15 },
+  md: { button: "4", label: "보통", px: 18 },
+  lg: { button: "5", label: "크게", px: 22 },
+};
+
+const READER_SHARE_WEIGHTS = {
+  light: { label: "얇게", weight: 350 },
+  regular: { label: "보통", weight: 450 },
+  semibold: { label: "진하게", weight: 600 },
+  bold: { label: "굵게", weight: 750 },
 };
 
 let readerShareUi = null;
@@ -6280,9 +6365,10 @@ let readerShareSelectionTimer = 0;
 
 function ensureReaderShareState() {
   if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
-  if (!state.readerShareRatio) state.readerShareRatio = "1:1";
+  if (!["1:1", "4:5", "2:3"].includes(state.readerShareRatio)) state.readerShareRatio = "1:1";
   if (!state.readerShareFont) state.readerShareFont = "paperlogy";
-  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xxs";
+  if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
+  if (!READER_SHARE_WEIGHTS[state.readerShareWeight]) state.readerShareWeight = "regular";
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -6305,19 +6391,6 @@ function ensureReaderShareUi() {
     @font-face { font-family: 'ChosunIlboMyungjo'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Ridibatang'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'InkLiquid'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
-    .reader-header-actions { display:flex; align-items:center; gap:6px; }
-    .reader-header-actions .reader-download-button,
-    .reader-header-actions .reader-bookmark-button,
-    .reader-header-actions .reader-close {
-      height:32px !important; min-height:32px !important; box-sizing:border-box !important; margin:0 !important;
-      display:inline-flex !important; align-items:center !important; justify-content:center !important; line-height:1 !important;
-    }
-    .reader-header-actions .reader-download-button,
-    .reader-header-actions .reader-bookmark-button { padding:0 11px !important; gap:5px !important; border-radius:999px !important; font-size:12px !important; }
-    .reader-header-actions .reader-close { width:32px !important; min-width:32px !important; padding:0 !important; border-radius:50% !important; }
-    .reader-header-actions .reader-download-button svg,
-    .reader-header-actions .reader-bookmark-button svg { width:14px !important; height:14px !important; flex:0 0 14px !important; }
-    .reader-header-actions .reader-close svg { width:16px !important; height:16px !important; }
     .reader-share-float {
       position: fixed; z-index: 1300; width: 38px; height: 38px; border: 0;
       border-radius: 999px; display: grid; place-items: center; cursor: pointer;
@@ -6352,13 +6425,16 @@ function ensureReaderShareUi() {
     .reader-share-label { font-size:12px; font-weight:750; color:var(--muted, #756d79); white-space:nowrap; }
     .reader-share-preview-wrap { display:flex; justify-content:center; padding:2px 0 10px; }
     .reader-share-card { position:relative; width:min(82vw, 380px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease; }
+    .reader-share-card[data-ratio="2:3"] { aspect-ratio:2/3; width:min(68vw, 300px); }
     .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(72vw, 340px); }
     .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
-    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.5%; display:flex; align-items:center; gap:3px; font-size:10px; font-weight:800; letter-spacing:.04em; opacity:.58; }
-    .reader-share-card-brand svg { width:17px; height:17px; }
+    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.8%; display:flex; align-items:center; gap:4px; font-size:10px; font-weight:800; line-height:1; letter-spacing:.04em; opacity:.6; }
+    .reader-share-card-brand svg { width:16px; height:16px; flex:0 0 16px; }
     .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
+    .reader-share-card[data-ratio="2:3"] .reader-share-card-quote { top:11.5%; bottom:11.5%; }
     .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
     .reader-share-card-meta { position:absolute; z-index:1; left:8%; right:8%; bottom:5.8%; text-align:center; font-size:10px; line-height:1.4; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .reader-share-card[data-ratio="2:3"] .reader-share-card-meta { bottom:4.9%; }
     .reader-share-thumbs { display:flex; gap:8px; overflow:auto; padding:1px 1px 3px; scrollbar-width:none; }
     .reader-share-thumbs::-webkit-scrollbar { display:none; }
     .reader-share-thumb { position:relative; flex:0 0 58px; width:58px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(70,55,75,.08); }
@@ -6366,7 +6442,7 @@ function ensureReaderShareUi() {
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
-    .reader-share-actions { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .reader-share-actions { display:grid; grid-template-columns:repeat(var(--share-action-count, 4),minmax(0,1fr)); gap:8px; }
     .reader-share-action[data-share-system][hidden] { display:none !important; }
     .reader-share-action { min-height:42px; border-radius:12px; border:1px solid rgba(91,75,99,.18); font-size:13px; font-weight:800; cursor:pointer; }
     .reader-share-action.primary { background:#191816; color:#fff; border-color:#191816; }
@@ -6392,11 +6468,12 @@ function ensureReaderShareUi() {
       .reader-share-action { padding-left:6px; padding-right:6px; font-size:12px; }
     }
     @media (min-width: 720px) {
-      .reader-share-actions { grid-template-columns:1fr 1fr; }
+      .reader-share-actions { grid-template-columns:repeat(var(--share-action-count, 4),minmax(0,1fr)); }
       .reader-share-sheet { bottom:50%; transform:translate(-50%,50%); border-radius:24px; max-height:min(88vh,860px); width:min(calc(100% - 24px), 560px); }
       .reader-share-sheet-scroll { max-height:min(88vh,860px); padding:12px 18px 20px; }
       .reader-share-head { top:-12px; margin-left:-18px; margin-right:-18px; padding-left:18px; padding-right:18px; }
       .reader-share-card { width:min(48vw,360px); }
+      .reader-share-card[data-ratio="2:3"] { width:min(30vw,250px); }
       .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
   `;
@@ -6454,6 +6531,7 @@ function ensureReaderShareUi() {
             <div class="reader-share-options">
               <button type="button" class="reader-share-chip" data-share-ratio="1:1">1:1 정방형</button>
               <button type="button" class="reader-share-chip" data-share-ratio="4:5">4:5 세로형</button>
+              <button type="button" class="reader-share-chip" data-share-ratio="2:3">2:3 표지형</button>
             </div>
           </div>
         </div>
@@ -6462,6 +6540,13 @@ function ensureReaderShareUi() {
           <div class="reader-share-row">
             <span class="reader-share-label">글꼴</span>
             <div class="reader-share-options reader-share-fonts"></div>
+          </div>
+        </div>
+
+        <div class="reader-share-section">
+          <div class="reader-share-row">
+            <span class="reader-share-label">글자 굵기</span>
+            <div class="reader-share-options reader-share-weights"></div>
           </div>
         </div>
 
@@ -6509,7 +6594,9 @@ function ensureReaderShareUi() {
   const meta = backdrop.querySelector(".reader-share-card-meta");
   const brand = backdrop.querySelector(".reader-share-brand-text");
   const fonts = backdrop.querySelector(".reader-share-fonts");
+  const weights = backdrop.querySelector(".reader-share-weights");
   const sizes = backdrop.querySelector(".reader-share-sizes");
+  const actions = backdrop.querySelector(".reader-share-actions");
   const wrap = backdrop.querySelector("[data-share-wrap]");
   const quoteSaveButton = backdrop.querySelector("[data-share-quote]");
   const saveButton = backdrop.querySelector("[data-share-save]");
@@ -6522,8 +6609,11 @@ function ensureReaderShareUi() {
   fonts.innerHTML = READER_SHARE_FONTS.map((font) => `
     <button type="button" class="reader-share-chip" data-share-font="${font.key}">${font.label}</button>`).join("");
 
+  weights.innerHTML = Object.entries(READER_SHARE_WEIGHTS).map(([key, value]) => `
+    <button type="button" class="reader-share-chip" data-share-weight="${key}">${value.label}</button>`).join("");
+
   sizes.innerHTML = Object.entries(READER_SHARE_SIZES).map(([key, size]) => `
-    <button type="button" class="reader-share-chip" data-share-size="${key}">${size.label}</button>`).join("");
+    <button type="button" class="reader-share-chip" data-share-size="${key}" aria-label="${size.label}" title="${size.label}">${size.button}</button>`).join("");
 
   const close = () => { backdrop.hidden = true; };
   backdrop.querySelector(".reader-share-close")?.addEventListener("click", close);
@@ -6544,7 +6634,8 @@ function ensureReaderShareUi() {
   backdrop.addEventListener("click", (event) => {
     const ratioButton = event.target.closest("[data-share-ratio]");
     if (ratioButton) {
-      state.readerShareRatio = ratioButton.dataset.shareRatio === "4:5" ? "4:5" : "1:1";
+      const ratio = ratioButton.dataset.shareRatio || "1:1";
+      state.readerShareRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
       updateReaderSharePreview();
       return;
     }
@@ -6554,9 +6645,15 @@ function ensureReaderShareUi() {
       updateReaderSharePreview();
       return;
     }
+    const weightButton = event.target.closest("[data-share-weight]");
+    if (weightButton) {
+      state.readerShareWeight = weightButton.dataset.shareWeight || "regular";
+      updateReaderSharePreview();
+      return;
+    }
     const sizeButton = event.target.closest("[data-share-size]");
     if (sizeButton) {
-      state.readerShareSize = sizeButton.dataset.shareSize || "xxs";
+      state.readerShareSize = sizeButton.dataset.shareSize || "xs";
       updateReaderSharePreview();
       return;
     }
@@ -6654,7 +6751,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, sizes, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
   return readerShareUi;
 }
 
@@ -6714,6 +6811,62 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     blue.addColorStop(.58, "rgba(166,203,242,.09)");
     blue.addColorStop(1, "rgba(166,203,242,0)");
     ctx.fillStyle = blue; ctx.fillRect(0, 0, width, height);
+  } else if (effect === "rose-quartz-glow") {
+    const leftGlow = ctx.createRadialGradient(width * .18, height * .2, 0, width * .18, height * .2, width * .44);
+    leftGlow.addColorStop(0, "rgba(255,255,255,.52)");
+    leftGlow.addColorStop(.45, "rgba(255,255,255,.18)");
+    leftGlow.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = leftGlow; ctx.fillRect(0, 0, width, height);
+    const roseWash = ctx.createRadialGradient(width * .82, height * .78, 0, width * .82, height * .78, width * .42);
+    roseWash.addColorStop(0, "rgba(196,122,139,.16)");
+    roseWash.addColorStop(.52, "rgba(196,122,139,.06)");
+    roseWash.addColorStop(1, "rgba(196,122,139,0)");
+    ctx.fillStyle = roseWash; ctx.fillRect(0, 0, width, height);
+  } else if (effect === "serenity-breeze") {
+    const wave = ctx.createLinearGradient(width * .02, height * .62, width * .98, height * .8);
+    wave.addColorStop(0, "rgba(255,255,255,0)");
+    wave.addColorStop(.25, "rgba(255,255,255,.18)");
+    wave.addColorStop(.5, "rgba(255,255,255,.04)");
+    wave.addColorStop(.75, "rgba(255,255,255,.14)");
+    wave.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = wave;
+    ctx.beginPath();
+    ctx.moveTo(0, height * .72);
+    ctx.bezierCurveTo(width * .18, height * .65, width * .36, height * .79, width * .5, height * .73);
+    ctx.bezierCurveTo(width * .66, height * .66, width * .82, height * .82, width, height * .74);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.52)";
+    [[.18,.24,1.8],[.32,.18,1.2],[.71,.22,1.4],[.84,.32,1.7],[.78,.68,1.1],[.55,.82,1.4]].forEach(([x,y,r]) => {
+      const cx = width * x, cy = height * y, rr = r * (width / 420);
+      ctx.beginPath();
+      ctx.arc(cx, cy, rr, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  } else if (effect === "opal-shimmer") {
+    const orbs = [
+      [0.18, 0.2, 0.32, "rgba(246,214,225,.16)"],
+      [0.82, 0.22, 0.28, "rgba(188,218,255,.18)"],
+      [0.28, 0.8, 0.3, "rgba(201,239,228,.18)"],
+      [0.78, 0.76, 0.34, "rgba(241,216,184,.14)"]
+    ];
+    for (const [x, y, size, color] of orbs) {
+      const orb = ctx.createRadialGradient(width * x, height * y, 0, width * x, height * y, width * size);
+      orb.addColorStop(0, color);
+      orb.addColorStop(.55, color.replace(/0\.\d+\)$/, '0.05)'));
+      orb.addColorStop(1, color.replace(/0\.\d+\)$/, '0)'));
+      ctx.fillStyle = orb;
+      ctx.fillRect(0, 0, width, height);
+    }
+    ctx.strokeStyle = "rgba(255,255,255,.34)";
+    ctx.lineWidth = Math.max(1, width / 1800);
+    [[.2,.62,.08],[.54,.18,.06],[.75,.5,.07]].forEach(([x,y,size]) => {
+      ctx.beginPath();
+      ctx.ellipse(width*x, height*y, width*size, height*size*.46, -0.35, 0, Math.PI*2);
+      ctx.stroke();
+    });
   }
   ctx.restore();
 }
@@ -6724,15 +6877,18 @@ function getReaderShareRenderModel() {
   const item = state.activeReaderItem || {};
   const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
-  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
+  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
+  const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
+  const ratio = ["4:5", "2:3"].includes(state.readerShareRatio) ? state.readerShareRatio : "1:1";
   return {
     background,
     font,
     item,
     text,
-    sizePx: Math.max(13, size.px - lengthPenalty),
-    ratio: state.readerShareRatio === "4:5" ? "4:5" : "1:1",
+    sizePx: Math.max(11, size.px - lengthPenalty),
+    fontWeight: weightSetting.weight || font.weight || 400,
+    ratio,
     autoWrap: !!state.readerShareAutoWrap,
     brand: getReaderShareBrandName(),
   };
@@ -6796,8 +6952,8 @@ function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
 function computeReaderShareTextLayout(ctx, model, width, height) {
   const left = width * 0.07;
   const right = width * 0.07;
-  const top = model.ratio === "4:5" ? height * 0.12 : height * 0.13;
-  const bottom = model.ratio === "4:5" ? height * 0.13 : height * 0.15;
+  const top = model.ratio === "2:3" ? height * 0.115 : model.ratio === "4:5" ? height * 0.12 : height * 0.13;
+  const bottom = model.ratio === "2:3" ? height * 0.115 : model.ratio === "4:5" ? height * 0.13 : height * 0.15;
   const boxWidth = width - left - right;
   const boxHeight = height - top - bottom;
   const scale = width / 380;
@@ -6805,7 +6961,7 @@ function computeReaderShareTextLayout(ctx, model, width, height) {
   let lineHeight = fontSize * 1.42;
   let lines = [];
   for (let i = 0; i < 24; i += 1) {
-    ctx.font = `${model.font.weight || 400} ${fontSize}px ${model.font.css}`;
+    ctx.font = `${model.fontWeight || model.font.weight || 400} ${fontSize}px ${model.font.css}`;
     lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
     lineHeight = fontSize * 1.42;
     const totalHeight = lines.length * lineHeight;
@@ -6828,10 +6984,10 @@ function computeReaderShareTextLayout(ctx, model, width, height) {
 async function renderReaderShareCanvas() {
   const model = getReaderShareRenderModel();
   const width = 1200;
-  const height = model.ratio === "4:5" ? 1500 : 1200;
+  const height = model.ratio === "2:3" ? 1800 : model.ratio === "4:5" ? 1500 : 1200;
   try {
     if (document.fonts?.load) {
-      await document.fonts.load(`${model.font.weight || 400} 48px ${model.font.css}`);
+      await document.fonts.load(`${model.fontWeight || model.font.weight || 400} 48px ${model.font.css}`);
       await document.fonts.ready;
     }
   } catch (_) {}
@@ -6854,9 +7010,10 @@ async function renderReaderShareCanvas() {
 
   const scale = width / 380;
   const brandX = width * 0.07;
-  const brandY = height * 0.055;
-  const logoSize = 17 * scale;
+  const brandY = height * 0.058;
+  const logoSize = 16 * scale;
   const brandFont = 10 * scale;
+  const brandGap = 4 * scale;
   ctx.save();
   ctx.globalAlpha = 0.58;
   ctx.fillStyle = model.background.meta;
@@ -6873,12 +7030,12 @@ async function renderReaderShareCanvas() {
   ctx.font = `800 ${brandFont}px Pretendard, sans-serif`;
   ctx.textBaseline = "middle";
   ctx.textAlign = "left";
-  ctx.fillText(model.brand, brandX + logoSize + (3 * scale), brandY + (logoSize / 2));
+  ctx.fillText(model.brand, brandX + logoSize + brandGap, brandY + (logoSize * 0.52));
   ctx.restore();
 
   const layout = computeReaderShareTextLayout(ctx, model, width, height);
   ctx.fillStyle = model.background.text;
-  ctx.font = `${model.font.weight || 400} ${layout.fontSize}px ${model.font.css}`;
+  ctx.font = `${model.fontWeight || model.font.weight || 400} ${layout.fontSize}px ${model.font.css}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   const totalHeight = layout.lines.length * layout.lineHeight;
@@ -6915,12 +7072,22 @@ function getReaderShareFilename() {
     .replace(/[\/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const ratio = state.readerShareRatio === "4:5" ? "4x5" : "1x1";
+  const ratio = state.readerShareRatio === "4:5" ? "4x5" : state.readerShareRatio === "2:3" ? "2x3" : "1x1";
   return `${title || "quote-card"}-${ratio}.png`;
 }
 
 function isReaderShareTouchDevice() {
   return !!window.matchMedia?.("(pointer: coarse)")?.matches;
+}
+
+function updateReaderShareActionLayout() {
+  if (!readerShareUi?.actions) return;
+  const visibleButtons = [...readerShareUi.actions.querySelectorAll('.reader-share-action')]
+    .filter((button) => !button.hidden);
+  const touch = isReaderShareTouchDevice();
+  const count = Math.max(1, visibleButtons.length);
+  readerShareUi.actions.style.setProperty('--share-action-count', String(count));
+  readerShareUi.actions.dataset.layout = touch ? 'mobile' : 'desktop';
 }
 
 function updateReaderShareActionLabel() {
@@ -6934,6 +7101,7 @@ function updateReaderShareActionLabel() {
     readerShareUi.shareButton.textContent = "공유하기";
     readerShareUi.shareButton.hidden = !touch;
   }
+  updateReaderShareActionLayout();
 }
 
 let readerSharePreparedBlob = null;
@@ -6949,6 +7117,7 @@ function getReaderShareBlobKey() {
     ratio: state.readerShareRatio,
     font: state.readerShareFont,
     size: state.readerShareSize,
+    weight: state.readerShareWeight,
     autoWrap: !!state.readerShareAutoWrap,
     title: item.title || "",
     author: item.author || "",
@@ -7105,7 +7274,7 @@ function updateReaderSharePreview() {
   const item = state.activeReaderItem || {};
   const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
-  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xxs;
+  const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
   const textColor = background.text;
   const metaColor = background.meta;
 
@@ -7117,10 +7286,11 @@ function updateReaderSharePreview() {
   ui.brand.style.color = metaColor;
   ui.quote.textContent = text;
   ui.quote.style.fontFamily = font.css;
-  ui.quote.style.fontWeight = String(font.weight || 400);
+  const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
+  ui.quote.style.fontWeight = String(weightSetting.weight || font.weight || 400);
   ui.quote.style.lineHeight = "1.42";
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
-  const previewFontSize = Math.max(13, size.px - lengthPenalty);
+  const previewFontSize = Math.max(11, size.px - lengthPenalty);
   ui.quote.style.fontSize = `${previewFontSize}px`;
   ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
   ui.quote.style.wordBreak = state.readerShareAutoWrap ? "keep-all" : "normal";
@@ -7137,6 +7307,9 @@ function updateReaderSharePreview() {
   });
   ui.backdrop.querySelectorAll("[data-share-font]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareFont === state.readerShareFont);
+  });
+  ui.backdrop.querySelectorAll("[data-share-weight]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.shareWeight === state.readerShareWeight);
   });
   ui.backdrop.querySelectorAll("[data-share-size]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareSize === state.readerShareSize);
