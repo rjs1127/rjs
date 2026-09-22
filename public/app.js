@@ -6359,6 +6359,18 @@ const READER_SHARE_WEIGHTS = {
   bold: { label: "굵게", weight: 700 },
 };
 
+const READER_SHARE_LIGHT_WEIGHT_FONTS = new Set(["paperlogy", "kopubbatang"]);
+
+function readerShareFontSupportsLight(fontKey = state.readerShareFont) {
+  return READER_SHARE_LIGHT_WEIGHT_FONTS.has(String(fontKey || ""));
+}
+
+function normalizeReaderShareWeightForFont() {
+  if (state.readerShareWeight === "light" && !readerShareFontSupportsLight()) {
+    state.readerShareWeight = "regular";
+  }
+}
+
 let readerShareUi = null;
 let readerShareSelectionTimer = 0;
 
@@ -6369,6 +6381,7 @@ function ensureReaderShareState() {
   if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
   if (state.readerShareWeight === "semibold") state.readerShareWeight = "regular";
   if (!["light", "regular", "bold"].includes(state.readerShareWeight)) state.readerShareWeight = "regular";
+  normalizeReaderShareWeightForFont();
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -6387,7 +6400,9 @@ function ensureReaderShareUi() {
   const style = document.createElement("style");
   style.id = "readerShareStyle";
   style.textContent = `
+    @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-3Light.woff2') format('woff2'); font-weight: 300; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight: 500; font-style: normal; font-display: swap; }
+    @font-face { font-family: 'Paperozi'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-7Bold.woff2') format('woff2'); font-weight: 700; font-style: normal; font-display: swap; }
     @font-face { font-family: 'ChosunIlboMyungjo'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'Ridibatang'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_twelve@1.0/RIDIBatang.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: 'InkLiquid'; src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/InkLipquid.woff') format('woff'); font-weight: 400; font-style: normal; font-display: swap; }
@@ -6452,6 +6467,7 @@ function ensureReaderShareUi() {
     .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
     .reader-share-chip { border:1px solid rgba(91,75,99,.17); background:rgba(255,255,255,.56); color:inherit; border-radius:10px; min-height:34px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; }
     .reader-share-chip.active { border-color:#5a4e45; color:#3f372f; background:rgba(90,78,69,.1); box-shadow:0 0 0 1px rgba(90,78,69,.06); }
+    .reader-share-chip:disabled { opacity:.38; cursor:not-allowed; box-shadow:none; }
     .reader-share-color { display:inline-flex; align-items:center; gap:6px; }
     .reader-share-color-dot { width:16px; height:16px; border-radius:50%; border:1px solid rgba(0,0,0,.18); box-shadow:0 0 0 2px rgba(255,255,255,.45); }
     .reader-share-color-dot.white { background:#fff; }
@@ -6616,7 +6632,10 @@ function ensureReaderShareUi() {
   sizes.innerHTML = Object.entries(READER_SHARE_SIZES).map(([key, size]) => `
     <button type="button" class="reader-share-chip" data-share-size="${key}" aria-label="${size.label}" title="${size.label}">${size.button}</button>`).join("");
 
-  const close = () => { backdrop.hidden = true; };
+  const close = () => {
+    backdrop.hidden = true;
+    resetReaderShareEditorOptions();
+  };
   backdrop.querySelector(".reader-share-close")?.addEventListener("click", close);
   backdrop.addEventListener("pointerdown", (event) => {
     if (event.target === backdrop) close();
@@ -6643,12 +6662,15 @@ function ensureReaderShareUi() {
     const fontButton = event.target.closest("[data-share-font]");
     if (fontButton) {
       state.readerShareFont = fontButton.dataset.shareFont || "paperlogy";
+      normalizeReaderShareWeightForFont();
       updateReaderSharePreview();
       return;
     }
     const weightButton = event.target.closest("[data-share-weight]");
     if (weightButton) {
+      if (weightButton.disabled) return;
       state.readerShareWeight = weightButton.dataset.shareWeight || "regular";
+      normalizeReaderShareWeightForFont();
       updateReaderSharePreview();
       return;
     }
@@ -6909,7 +6931,7 @@ function getReaderShareRenderModel() {
     font,
     item,
     text,
-    sizePx: Math.max(11, size.px - lengthPenalty),
+    sizePx: Math.max(10, size.px - lengthPenalty),
     fontWeight: weightSetting.weight || font.weight || 400,
     ratio,
     autoWrap: !!state.readerShareAutoWrap,
@@ -7058,6 +7080,7 @@ async function renderReaderShareCanvas() {
 
   const layout = computeReaderShareTextLayout(ctx, model, width, height);
   ctx.fillStyle = model.background.text;
+  ctx.globalAlpha = Number(model.textOpacity ?? 1);
   ctx.font = `${model.fontWeight || model.font.weight || 400} ${layout.fontSize}px ${model.font.css}`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
@@ -7070,6 +7093,7 @@ async function renderReaderShareCanvas() {
   }
 
   const meta = [model.item.title, model.item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
+  ctx.globalAlpha = 1;
   ctx.fillStyle = model.background.meta;
   ctx.font = `400 ${10 * scale}px Pretendard, sans-serif`;
   ctx.textAlign = "center";
@@ -7310,12 +7334,15 @@ function updateReaderSharePreview() {
   ui.quote.style.fontWeight = String(weightSetting.weight || font.weight || 400);
   ui.quote.style.lineHeight = "1.42";
   const lengthPenalty = text.length > 420 ? 7 : text.length > 300 ? 5 : text.length > 200 ? 3 : text.length > 130 ? 1 : 0;
-  const previewFontSize = Math.max(11, size.px - lengthPenalty);
+  const previewFontSize = Math.max(10, size.px - lengthPenalty);
   ui.quote.style.fontSize = `${previewFontSize}px`;
+  ui.quote.style.opacity = String(Number(weightSetting.opacity ?? 1));
   ui.quote.style.whiteSpace = state.readerShareAutoWrap ? "pre-wrap" : "pre";
   ui.quote.style.wordBreak = state.readerShareAutoWrap ? "keep-all" : "normal";
   ui.quote.style.overflowWrap = state.readerShareAutoWrap ? "break-word" : "normal";
-  fitReaderSharePreviewText(ui, previewFontSize);
+  // Explicit size buttons must always produce a visible size change in preview.
+  // Keep the chosen size instead of repeatedly auto-shrinking different steps to the same fitted value.
+  ui.quote.style.alignItems = "center";
   ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
   ui.brand.textContent = getReaderShareBrandName();
 
@@ -7329,7 +7356,16 @@ function updateReaderSharePreview() {
     button.classList.toggle("active", button.dataset.shareFont === state.readerShareFont);
   });
   ui.backdrop.querySelectorAll("[data-share-weight]").forEach((button) => {
+    const isLight = button.dataset.shareWeight === "light";
+    button.disabled = isLight && !readerShareFontSupportsLight();
     button.classList.toggle("active", button.dataset.shareWeight === state.readerShareWeight);
+    if (button.disabled) {
+      button.setAttribute("aria-label", "이 글꼴은 얇게 굵기를 지원하지 않음");
+      button.title = "이 글꼴은 얇게 굵기를 지원하지 않아요";
+    } else {
+      button.removeAttribute("aria-label");
+      button.removeAttribute("title");
+    }
   });
   ui.backdrop.querySelectorAll("[data-share-size]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareSize === state.readerShareSize);
@@ -7340,8 +7376,16 @@ function updateReaderSharePreview() {
   updateReaderShareActionLabel();
 }
 
+function resetReaderShareEditorOptions() {
+  state.readerShareSize = "xs";        // 2
+  state.readerShareWeight = "regular"; // 보통
+  normalizeReaderShareWeightForFont();
+}
+
 function openReaderShareSheet() {
   if (!state.readerShareText) return;
+  // A newly opened editor always starts from the agreed baseline.
+  resetReaderShareEditorOptions();
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
   ui.floatButton.hidden = true;
@@ -7364,6 +7408,7 @@ function closeReaderShareUi() {
   readerShareUi.backdrop.hidden = true;
   readerShareUi.floatButton.hidden = true;
   window.clearTimeout(readerSharePrepareTimer);
+  resetReaderShareEditorOptions();
   state.readerShareText = "";
 }
 
