@@ -3606,3 +3606,117 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
   .profile-toolbar-actions .profile-search { min-width:0; }
   .profile-toolbar-actions .profile-clear-button { margin-left:auto; }
 }
+
+/* v8.08 - reader top action optical-size unification
+   Keep all states (PC/mobile, light/dark, normal/compact, scroll/page) on one geometry.
+   Do not alter reader/share clipboard behavior here. */
+.reader-header-actions {
+  display:flex;
+  align-items:center;
+  gap:4px;
+}
+
+.reader-header-actions > .reader-download-button,
+.reader-header-actions > .reader-bookmark-button,
+.reader-header-actions > .reader-like-button,
+.reader-header-actions > .reader-close,
+.reader.reader-compact .reader-header-actions > .reader-download-button,
+.reader.reader-compact .reader-header-actions > .reader-bookmark-button,
+.reader.reader-compact .reader-header-actions > .reader-like-button,
+.reader.reader-compact .reader-header-actions > .reader-close,
+.reader.reader-page-mode .reader-header-actions > .reader-download-button,
+.reader.reader-page-mode .reader-header-actions > .reader-bookmark-button,
+.reader.reader-page-mode .reader-header-actions > .reader-like-button,
+.reader.reader-page-mode .reader-header-actions > .reader-close {
+  width:34px !important;
+  min-width:34px !important;
+  max-width:34px !important;
+  height:34px !important;
+  min-height:34px !important;
+  max-height:34px !important;
+  flex:0 0 34px !important;
+  padding:0 !important;
+  margin:0 !important;
+  display:inline-grid !important;
+  place-items:center !important;
+  line-height:0 !important;
+  box-sizing:border-box !important;
+  border-radius:50% !important;
+  vertical-align:middle !important;
+}
+
+.reader-header-actions > .reader-download-button svg,
+.reader-header-actions > .reader-bookmark-button .reader-action-icon,
+.reader-header-actions > .reader-like-button .reader-action-icon,
+.reader-header-actions > .reader-close .reader-action-icon,
+.reader.reader-compact .reader-header-actions svg,
+.reader.reader-page-mode .reader-header-actions svg {
+  width:17px !important;
+  height:17px !important;
+  min-width:17px !important;
+  min-height:17px !important;
+  max-width:17px !important;
+  max-height:17px !important;
+  flex:0 0 17px !important;
+  margin:0 !important;
+  padding:0 !important;
+  transform:none !important;
+  transform-origin:center !important;
+  fill:none;
+  stroke:currentColor !important;
+  stroke-width:1.75 !important;
+  stroke-linecap:round !important;
+  stroke-linejoin:round !important;
+  vector-effect:non-scaling-stroke;
+}
+
+/* Optical compensation: path extents differ even when SVG boxes are identical. */
+.reader-header-actions > .reader-like-button .reader-action-icon {
+  width:16px !important;
+  height:16px !important;
+  min-width:16px !important;
+  min-height:16px !important;
+  max-width:16px !important;
+  max-height:16px !important;
+  flex-basis:16px !important;
+}
+.reader-header-actions > .reader-close .reader-action-icon {
+  stroke-width:1.7 !important;
+}
+
+/* Theme only changes color/surface; geometry remains identical. */
+html.theme-light .reader-header-actions > button,
+html.theme-dark .reader-header-actions > button,
+html.theme-light .reader.reader-compact .reader-header-actions > button,
+html.theme-dark .reader.reader-compact .reader-header-actions > button {
+  box-shadow:none !important;
+}
+
+@media (max-width:640px) {
+  .reader-header-actions > .reader-download-button,
+  .reader-header-actions > .reader-bookmark-button,
+  .reader-header-actions > .reader-like-button,
+  .reader-header-actions > .reader-close,
+  .reader.reader-compact .reader-header-actions > .reader-download-button,
+  .reader.reader-compact .reader-header-actions > .reader-bookmark-button,
+  .reader.reader-compact .reader-header-actions > .reader-like-button,
+  .reader.reader-compact .reader-header-actions > .reader-close,
+  .reader.reader-page-mode .reader-header-actions > .reader-download-button,
+  .reader.reader-page-mode .reader-header-actions > .reader-bookmark-button,
+  .reader.reader-page-mode .reader-header-actions > .reader-like-button,
+  .reader.reader-page-mode .reader-header-actions > .reader-close {
+    width:38px !important;
+    min-width:38px !important;
+    max-width:38px !important;
+    height:38px !important;
+    min-height:38px !important;
+    max-height:38px !important;
+    flex:0 0 38px !important;
+  }
+
+  .reader.reader-page-mode.reader-compact .reader-header-actions,
+  .reader.reader-compact .reader-header-actions {
+    align-items:center !important;
+  }
+}
+
