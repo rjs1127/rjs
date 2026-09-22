@@ -3896,3 +3896,19 @@ html.theme-dark .card-tag.card-publish-tag {
     scroll-padding-bottom:max(18px, env(safe-area-inset-bottom));
   }
 }
+
+
+/* v8.18 - mobile profile list: guarantee a real scrollable end spacer */
+@media (max-width:640px) {
+  .profile-list-shell {
+    padding-bottom:0;
+    scroll-padding-bottom:0;
+  }
+  .profile-list::after {
+    content:"";
+    display:block;
+    width:100%;
+    height:max(28px, calc(env(safe-area-inset-bottom) + 16px));
+    grid-column:1 / -1;
+  }
+}
