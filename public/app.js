@@ -5782,17 +5782,17 @@ function updateCompactHeader() {
 
   const searchRect = els.heroSearchBox.getBoundingClientRect();
   const enterThreshold = Math.max(54, Math.min(88, Math.round((els.siteHeader.offsetHeight || 64) + 6)));
-  const leaveThreshold = enterThreshold + 48;
+  const leaveThreshold = enterThreshold + 36;
 
-  // Search box가 화면 상단 근처에 닿기 시작하면 조금 더 빨리 compact로 전환해서
-  // 헤더 요소와 겹쳐 보이는 짧은 구간을 줄인다. leave는 더 여유 있게 두어 깜빡임을 막는다.
+  // Search box 상단이 헤더 근처로 올라오면 먼저 compact로 전환한다.
   if (!mainHeaderCompactActive && searchRect.top <= enterThreshold) {
     mainHeaderCompactActive = true;
     els.siteHeader.classList.add("compact-mode");
     return;
   }
 
-  if (mainHeaderCompactActive && searchRect.top >= leaveThreshold) {
+  // 다시 위로 올렸을 때는 search box의 하단이 충분히 내려와 보이면 일반 모드로 복귀한다.
+  if (mainHeaderCompactActive && searchRect.bottom >= leaveThreshold) {
     mainHeaderCompactActive = false;
     els.siteHeader.classList.remove("compact-mode");
   }
@@ -6313,10 +6313,10 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "로즈쿼츠",
-    background: "radial-gradient(circle at 16% 18%, rgba(255,255,255,.88) 0 16%, rgba(255,255,255,0) 38%), radial-gradient(circle at 88% 84%, rgba(236,196,204,.34) 0 10%, rgba(236,196,204,0) 34%), linear-gradient(145deg, #fffdfd 0%, #faeff2 44%, #f2dfe6 100%)",
-    text: "#b46879",
-    meta: "#c596a4",
-    accent: "#b46879",
+    background: "radial-gradient(circle at 18% 18%, rgba(255,255,255,.96) 0 14%, rgba(255,255,255,0) 34%), radial-gradient(circle at 80% 78%, rgba(255,255,255,.72) 0 7%, rgba(255,255,255,0) 20%), linear-gradient(148deg, #fffdfd 0%, #fdf4f6 34%, #f4e0e4 62%, #ece8ee 100%)",
+    text: "#b77b88",
+    meta: "#c4a2ab",
+    accent: "#b77b88",
     effect: "rose-quartz-glow",
   },
   {
@@ -6346,18 +6346,17 @@ const READER_SHARE_FONTS = [
 ];
 
 const READER_SHARE_SIZES = {
-  xxs: { button: "1", label: "더아주작게", px: 11 },
-  xs: { button: "2", label: "아주작게", px: 13 },
+  xxs: { button: "1", label: "더아주작게", px: 10 },
+  xs: { button: "2", label: "아주작게", px: 12 },
   sm: { button: "3", label: "작게", px: 15 },
-  md: { button: "4", label: "보통", px: 18 },
-  lg: { button: "5", label: "크게", px: 22 },
+  md: { button: "4", label: "보통", px: 19 },
+  lg: { button: "5", label: "크게", px: 24 },
 };
 
 const READER_SHARE_WEIGHTS = {
-  light: { label: "얇게", weight: 350 },
-  regular: { label: "보통", weight: 450 },
-  semibold: { label: "진하게", weight: 600 },
-  bold: { label: "굵게", weight: 750 },
+  light: { label: "얇게", weight: 300 },
+  regular: { label: "보통", weight: 500 },
+  bold: { label: "굵게", weight: 700 },
 };
 
 let readerShareUi = null;
@@ -6368,7 +6367,8 @@ function ensureReaderShareState() {
   if (!["1:1", "4:5", "2:3"].includes(state.readerShareRatio)) state.readerShareRatio = "1:1";
   if (!state.readerShareFont) state.readerShareFont = "paperlogy";
   if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
-  if (!READER_SHARE_WEIGHTS[state.readerShareWeight]) state.readerShareWeight = "regular";
+  if (state.readerShareWeight === "semibold") state.readerShareWeight = "regular";
+  if (!["light", "regular", "bold"].includes(state.readerShareWeight)) state.readerShareWeight = "regular";
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
 }
 
@@ -6428,9 +6428,10 @@ function ensureReaderShareUi() {
     .reader-share-card[data-ratio="2:3"] { aspect-ratio:2/3; width:min(68vw, 300px); }
     .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(72vw, 340px); }
     .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
-    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.8%; display:flex; align-items:center; gap:4px; font-size:10px; font-weight:800; line-height:1; letter-spacing:.04em; opacity:.6; }
-    .reader-share-card-brand svg { width:16px; height:16px; flex:0 0 16px; }
-    .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; }
+    .reader-share-card-brand { position:absolute; z-index:1; left:7%; top:5.55%; display:flex; align-items:center; gap:5px; font-size:10px; font-weight:800; line-height:1; letter-spacing:.02em; opacity:.6; }
+    .reader-share-card-brand svg { width:15px; height:15px; flex:0 0 15px; transform:translateY(-.5px); }
+    .reader-share-brand-text { display:inline-block; transform:translateY(.5px); }
+    .reader-share-card-quote { position:absolute; z-index:1; left:7%; right:7%; top:13%; bottom:15%; display:flex; align-items:center; justify-content:center; text-align:center; overflow:hidden; line-height:1.56; font-weight:650; letter-spacing:-.02em; word-break:keep-all; transition:font-size .14s ease, font-weight .14s ease; }
     .reader-share-card[data-ratio="2:3"] .reader-share-card-quote { top:11.5%; bottom:11.5%; }
     .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
     .reader-share-card-meta { position:absolute; z-index:1; left:8%; right:8%; bottom:5.8%; text-align:center; font-size:10px; line-height:1.4; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -6812,16 +6813,38 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     blue.addColorStop(1, "rgba(166,203,242,0)");
     ctx.fillStyle = blue; ctx.fillRect(0, 0, width, height);
   } else if (effect === "rose-quartz-glow") {
-    const leftGlow = ctx.createRadialGradient(width * .18, height * .2, 0, width * .18, height * .2, width * .44);
-    leftGlow.addColorStop(0, "rgba(255,255,255,.52)");
-    leftGlow.addColorStop(.45, "rgba(255,255,255,.18)");
-    leftGlow.addColorStop(1, "rgba(255,255,255,0)");
-    ctx.fillStyle = leftGlow; ctx.fillRect(0, 0, width, height);
-    const roseWash = ctx.createRadialGradient(width * .82, height * .78, 0, width * .82, height * .78, width * .42);
-    roseWash.addColorStop(0, "rgba(196,122,139,.16)");
-    roseWash.addColorStop(.52, "rgba(196,122,139,.06)");
-    roseWash.addColorStop(1, "rgba(196,122,139,0)");
-    ctx.fillStyle = roseWash; ctx.fillRect(0, 0, width, height);
+    const pearl = ctx.createRadialGradient(width * .18, height * .18, 0, width * .18, height * .18, width * .42);
+    pearl.addColorStop(0, "rgba(255,255,255,.58)");
+    pearl.addColorStop(.4, "rgba(255,255,255,.2)");
+    pearl.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = pearl; ctx.fillRect(0, 0, width, height);
+    const rose = ctx.createRadialGradient(width * .72, height * .72, 0, width * .72, height * .72, width * .4);
+    rose.addColorStop(0, "rgba(208,148,160,.18)");
+    rose.addColorStop(.48, "rgba(208,148,160,.07)");
+    rose.addColorStop(1, "rgba(208,148,160,0)");
+    ctx.fillStyle = rose; ctx.fillRect(0, 0, width, height);
+    const silver = ctx.createLinearGradient(width * .05, height * .68, width * .95, height * .82);
+    silver.addColorStop(0, "rgba(255,255,255,0)");
+    silver.addColorStop(.3, "rgba(255,255,255,.16)");
+    silver.addColorStop(.5, "rgba(255,255,255,.03)");
+    silver.addColorStop(.76, "rgba(255,255,255,.14)");
+    silver.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = silver;
+    ctx.beginPath();
+    ctx.moveTo(0, height * .76);
+    ctx.bezierCurveTo(width * .2, height * .7, width * .42, height * .82, width * .6, height * .75);
+    ctx.bezierCurveTo(width * .76, height * .69, width * .9, height * .79, width, height * .74);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.72)";
+    [[.22,.22,1.8],[.82,.18,1.4],[.76,.76,1.5],[.52,.68,1.2]].forEach(([x,y,r]) => {
+      const rr = r * (width / 420);
+      ctx.beginPath();
+      ctx.arc(width * x, height * y, rr, 0, Math.PI * 2);
+      ctx.fill();
+    });
   } else if (effect === "serenity-breeze") {
     const wave = ctx.createLinearGradient(width * .02, height * .62, width * .98, height * .8);
     wave.addColorStop(0, "rgba(255,255,255,0)");
@@ -7251,20 +7274,17 @@ async function handleReaderShareExport(mode) {
 function fitReaderSharePreviewText(ui, startPx) {
   if (!ui?.quote) return;
   const quote = ui.quote;
-  let px = Math.max(10, Number(startPx) || 13);
+  let px = Math.max(8, Number(startPx) || 13);
   quote.style.fontSize = `${px}px`;
+  // Preview는 weight/size 변경 시 위치가 흔들리지 않도록 항상 같은 기준점(가운데)을 유지한다.
+  // 실제 export 단계에서는 별도 레이아웃 계산으로 첫 줄 보존을 처리한다.
   quote.style.alignItems = "center";
 
-  // Long selections must keep the beginning visible. Shrink first; if the
-  // preview still overflows at the compact minimum, anchor at the top rather
-  // than clipping the opening lines from a vertically centered block.
-  while (px > 10 && quote.scrollHeight > quote.clientHeight + 1) {
+  while (px > 8 && quote.scrollHeight > quote.clientHeight + 1) {
     px -= 0.5;
     quote.style.fontSize = `${px}px`;
   }
-  quote.style.alignItems = quote.scrollHeight > quote.clientHeight + 1
-    ? "flex-start"
-    : "center";
+  quote.style.alignItems = "center";
 }
 
 function updateReaderSharePreview() {

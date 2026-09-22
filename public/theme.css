@@ -3854,3 +3854,22 @@ html.theme-dark .card-tag.card-status-tag.status-complete {
   min-height:16px !important;
   stroke-width:1.8 !important;
 }
+
+
+/* v8.10 - card tag palette refinement */
+.card-tag.card-cp-tag {
+  background:#f5eee3;
+  color:#8c6943;
+}
+.card-tag.card-publish-tag {
+  background:#edf3ff;
+  color:#4d69b4;
+}
+html.theme-dark .card-tag.card-cp-tag {
+  background:rgba(157,124,76,.18);
+  color:#e8d0ae;
+}
+html.theme-dark .card-tag.card-publish-tag {
+  background:rgba(92,123,195,.18);
+  color:#bdd0ff;
+}
