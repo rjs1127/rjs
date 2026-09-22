@@ -1,3 +1,15 @@
+## v8.17 — 마이페이지 가입정보·저장 문장 스크롤 수정
+
+- 마이페이지 상단 사용자 ID가 `undefined`로 표시되던 필드명 오류를 수정함 (`id`가 아니라 실제 응답 필드 `userId` 사용)
+- 가입일이 정상적으로 존재하면 `사용자ID · 가입 YYYY. M. D.` 형식으로 표시하고, 값이 없을 때도 `undefined`가 노출되지 않도록 방어 처리함
+- 저장한 문장 목록의 내부 스크롤 영역에 하단 여유 공간과 scroll padding을 추가해 마지막 항목이 잘리지 않고 끝까지 내려가도록 수정함
+- 모바일에서는 고정 `vh` 대신 동적 뷰포트 높이(`dvh`)를 우선 사용하고 safe-area 하단 여백을 반영함
+- v8.16 문장 이미지 클립보드 관련 코드는 변경하지 않음
+
+**커밋 메시지 요약:** `fix: correct profile user id and saved quote scroll end`
+
+---
+
 ## v8.16 — 모바일 문장 이미지 클립보드 PNG 정규화 수정
 
 - v8.07에서 실기기 검증된 `ClipboardItem({ "image/png": blob }) -> navigator.clipboard.write()` 클릭 경로는 코드 단위로 그대로 유지함

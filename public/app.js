@@ -1017,9 +1017,10 @@ function renderProfilePage() {
   if (els.profileQuoteCount) els.profileQuoteCount.textContent = String(quotes.length);
   if (els.profileSummary) {
     const joined = formatProfileDate(state.profileUserCreatedAt);
+    const profileUserId = String(state.user?.userId || state.user?.id || "").trim();
     els.profileSummary.textContent = joined
-      ? `${state.user.id} · 가입 ${joined}`
-      : `${state.user.id} · 개인 보관함`;
+      ? `${profileUserId ? `${profileUserId} · ` : ""}가입 ${joined}`
+      : `${profileUserId ? `${profileUserId} · ` : ""}개인 보관함`;
   }
 
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {

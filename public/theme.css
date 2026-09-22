@@ -3873,3 +3873,26 @@ html.theme-dark .card-tag.card-publish-tag {
   background:rgba(92,123,195,.18);
   color:#bdd0ff;
 }
+
+
+/* v8.17 - profile identity + saved quote scroll end safety */
+.profile-list-shell {
+  min-height:0;
+  box-sizing:border-box;
+  overflow-x:hidden;
+  overflow-y:auto;
+  padding-bottom:16px;
+  scroll-padding-bottom:16px;
+  -webkit-overflow-scrolling:touch;
+}
+.profile-list {
+  min-height:0;
+  padding-bottom:2px;
+}
+@media (max-width:640px) {
+  .profile-list-shell {
+    max-height:min(54dvh, 620px);
+    padding-bottom:max(18px, env(safe-area-inset-bottom));
+    scroll-padding-bottom:max(18px, env(safe-area-inset-bottom));
+  }
+}
