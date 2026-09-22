@@ -3912,3 +3912,43 @@ html.theme-dark .card-tag.card-publish-tag {
     grid-column:1 / -1;
   }
 }
+
+/* v8.19 - tablet list long-title/action collision guard */
+@media (min-width:641px) and (max-width:1024px) {
+  /* Drive rows can show progress + like + bookmark + download at once.
+     Reserve the action rail so a long title can never render beneath it. */
+  .content-list tr.drive-item td.list-title {
+    padding-right:96px !important;
+  }
+
+  .content-list tr.postype-item td.list-title {
+    padding-right:40px !important;
+  }
+
+  .content-list .list-title-main,
+  .content-list .list-title-heading {
+    min-width:0;
+  }
+
+  .content-list .list-title-heading {
+    flex:1 1 auto;
+    overflow:hidden;
+  }
+
+  .content-list .list-title-text {
+    display:block;
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+
+  .content-list .reading-state-badge {
+    flex:0 0 auto;
+  }
+
+  .content-list .list-title-actions {
+    max-width:86px;
+    flex-wrap:nowrap;
+  }
+}

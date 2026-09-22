@@ -374,7 +374,7 @@ function summarizePagesDeployment(item) {
   };
 }
 
-const PAGES_DEPLOYMENTS_CACHE_TTL_MS = 5 * 60 * 1000;
+const PAGES_DEPLOYMENTS_CACHE_TTL_MS = 60 * 1000;
 let pagesDeploymentsCache = null;
 
 async function queryCloudflarePagesDeployments(env) {
@@ -414,7 +414,10 @@ async function queryCloudflarePagesDeployments(env) {
   let apiRequests = 0;
   let page = 1;
   const perPage = 20;
-  const maxPages = 10;
+  // A 10-page cap stopped monthly usage at 200 deployments. Keep enough
+  // headroom for the free-plan month while staying below the Worker
+  // subrequest ceiling together with the other resource queries.
+  const maxPages = 35;
   const monthStart = Date.parse(range.start);
   const monthEnd = Date.parse(range.end);
 
@@ -506,7 +509,7 @@ async function queryCloudflarePagesDeployments(env) {
       deployments,
       cached: false,
       cacheAgeMs: 0,
-      note: "Cloudflare Pages 배포 목록 기준 집계입니다. 5분 캐시를 사용해 관리자 새로고침 시 불필요한 API 재호출을 줄입니다.",
+      note: "Cloudflare Pages 배포 목록 기준 집계입니다. 이번 달 시작 지점까지 페이지를 순회하며, 1분 캐시를 사용합니다.",
     };
     pagesDeploymentsCache = { key: cacheKey, savedAt: Date.now(), value: result };
     return result;

@@ -13,6 +13,7 @@ const state = {
   source: "전체",
   search: "",
   sort: localStorage.getItem("archiveSort") || "title",
+  initialRecentPostypeBoost: true,
   view: localStorage.getItem("archiveViewV2") || "list",
   mobileFiltersOpen: false,
   activeReaderItem: null,
@@ -1771,6 +1772,40 @@ function getPublishedTimestamp(item) {
   ) || 0;
 }
 
+const RECENT_POSTYPE_BOOST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+function disableInitialRecentPostypeBoost() {
+  state.initialRecentPostypeBoost = false;
+}
+
+function hasNeutralArchiveFilters() {
+  return (
+    !String(state.search || "").trim() &&
+    state.combination === "전체" &&
+    state.contentType === "전체" &&
+    state.statusFilter === "전체" &&
+    state.source === "전체" &&
+    !state.bookmarkOnly &&
+    !state.readingOnly
+  );
+}
+
+function isRecentPostypeItem(item, now = Date.now()) {
+  if (item?.source !== "postype") return false;
+  const publishedAt = getPublishedTimestamp(item);
+  if (!publishedAt) return false;
+  const age = now - publishedAt;
+  return age >= 0 && age <= RECENT_POSTYPE_BOOST_WINDOW_MS;
+}
+
+function shouldUseInitialRecentPostypeBoost() {
+  return (
+    state.initialRecentPostypeBoost &&
+    state.sort === "title" &&
+    hasNeutralArchiveFilters()
+  );
+}
+
 function getItemLinkType(item) {
   if (!item || item.source !== "postype") return "";
   const explicit = String(item.linkType || "").trim();
@@ -1829,8 +1864,21 @@ function sortItems(items) {
     numeric: true,
   });
 
+  const boostRecentPostype = shouldUseInitialRecentPostypeBoost();
+  const now = Date.now();
+
   return [...items].sort((a, b) => {
     if (state.sort === "title") {
+      if (boostRecentPostype) {
+        const aRecent = isRecentPostypeItem(a, now);
+        const bRecent = isRecentPostypeItem(b, now);
+        if (aRecent !== bRecent) return aRecent ? -1 : 1;
+        if (aRecent && bRecent) {
+          const publishedCompare = getPublishedTimestamp(b) - getPublishedTimestamp(a);
+          if (publishedCompare !== 0) return publishedCompare;
+        }
+      }
+
       const titleCompare = collator.compare(a.title || "", b.title || "");
       if (titleCompare !== 0) return titleCompare;
       return collator.compare(a.author || "", b.author || "");
@@ -1883,6 +1931,8 @@ function setMobileFiltersOpen(open) {
 }
 
 function resetFilterState({ includeSearch = false } = {}) {
+  disableInitialRecentPostypeBoost();
+
   if (includeSearch) {
     state.search = "";
     els.searchInput.value = "";
@@ -4653,7 +4703,17 @@ if (els.sortSelect) {
 
 applySourceForSort();
 
+// The initial screen still displays "제목순", so selecting the same native
+// option would not fire a change event. Touching/clicking the sort control is
+// treated as an explicit sorting action and releases the one-time boost.
+els.sortSelect?.addEventListener("pointerdown", () => {
+  if (!state.initialRecentPostypeBoost || state.sort !== "title") return;
+  disableInitialRecentPostypeBoost();
+  render();
+});
+
 els.sortSelect.addEventListener("change", (event) => {
+  disableInitialRecentPostypeBoost();
   state.sort = normalizeSortValue(event.target.value);
   applySourceForSort();
   localStorage.setItem("archiveSort", state.sort);
@@ -5753,6 +5813,7 @@ document.addEventListener("keydown", (event) => {
 
 
 function setSearchValue(value, source = "main") {
+  disableInitialRecentPostypeBoost();
   state.search = String(value || "");
 
   if (source !== "main" && els.searchInput) {
@@ -5818,6 +5879,7 @@ els.compactClearSearch?.addEventListener("click", () => {
 });
 
 els.tabletCombinationSelect?.addEventListener("change", (event) => {
+  disableInitialRecentPostypeBoost();
   state.combination = event.target.value;
   els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.combination === state.combination);
@@ -5826,6 +5888,7 @@ els.tabletCombinationSelect?.addEventListener("change", (event) => {
 });
 
 els.tabletContentTypeSelect?.addEventListener("change", (event) => {
+  disableInitialRecentPostypeBoost();
   state.contentType = event.target.value;
   els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
@@ -5834,6 +5897,7 @@ els.tabletContentTypeSelect?.addEventListener("change", (event) => {
 });
 
 els.tabletStatusSelect?.addEventListener("change", (event) => {
+  disableInitialRecentPostypeBoost();
   state.statusFilter = event.target.value;
   els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
@@ -5842,6 +5906,7 @@ els.tabletStatusSelect?.addEventListener("change", (event) => {
 });
 
 els.tabletSourceSelect?.addEventListener("change", (event) => {
+  disableInitialRecentPostypeBoost();
   state.source = event.target.value;
   syncSourceFilterChips();
   render();
@@ -5857,6 +5922,7 @@ els.combinationFilters.addEventListener("click", (event) => {
   const button = event.target.closest("[data-combination]");
   if (!button) return;
 
+  disableInitialRecentPostypeBoost();
   state.combination = button.dataset.combination;
   els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.combination === state.combination);
@@ -5868,6 +5934,7 @@ els.contentTypeFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-content-type]");
   if (!button) return;
 
+  disableInitialRecentPostypeBoost();
   state.contentType = button.dataset.contentType;
   els.contentTypeFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
@@ -5880,6 +5947,7 @@ els.statusFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-status-filter]");
   if (!button) return;
 
+  disableInitialRecentPostypeBoost();
   state.statusFilter = button.dataset.statusFilter;
   els.statusFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
@@ -5892,6 +5960,7 @@ els.sourceFilters?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-source]");
   if (!button) return;
 
+  disableInitialRecentPostypeBoost();
   state.source = button.dataset.source;
   els.sourceFilters.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.source === state.source);
@@ -6032,6 +6101,7 @@ els.bookmarkOnlyButton?.addEventListener("click", () => {
     )
   ) return;
 
+  disableInitialRecentPostypeBoost();
   state.bookmarkOnly = !state.bookmarkOnly;
   syncQuickFilterButtons();
   render();
@@ -6044,6 +6114,7 @@ els.readingOnlyButton?.addEventListener("click", () => {
     )
   ) return;
 
+  disableInitialRecentPostypeBoost();
   state.readingOnly = !state.readingOnly;
   syncQuickFilterButtons();
   render();
