@@ -4522,3 +4522,116 @@ html.theme-dark .content-section .section-head-actions .quote-feed-entry-button:
   .content-list-topline .result-count { font-size:8.5px; }
   .content-list-topline .recent-postype-guide-note { font-size:8.5px; }
 }
+
+/* v8.58 - normalize all content action icons and POSTYPE quote geometry */
+/* Mobile-only POSTYPE actions must never coexist with desktop actions. */
+.list-mobile-postype-quote { display:none !important; }
+
+/* Card actions use one geometry across TXT/POSTYPE. */
+.content-card .card-actions > .card-like-button.item-like-button,
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button,
+.content-card .card-actions > .card-download-button.item-download-button,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button,
+.content-card .card-actions > .card-quote-button.item-quote-button {
+  position:relative !important;
+  right:auto !important;
+  bottom:auto !important;
+  inset:auto !important;
+  width:28px !important;
+  height:28px !important;
+  min-width:28px !important;
+  min-height:28px !important;
+  flex:0 0 28px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:50% !important;
+  display:inline-grid !important;
+  place-items:center !important;
+  box-sizing:border-box !important;
+  line-height:1 !important;
+}
+.content-card .card-actions > .card-like-button.item-like-button svg,
+.content-card .card-actions > .card-bookmark-button.item-bookmark-button svg,
+.content-card .card-actions > .card-download-button.item-download-button svg,
+.content-card .card-actions > .card-postype-bookmark.postype-bookmark-button svg,
+.content-card .card-actions > .card-quote-button.item-quote-button svg {
+  display:block !important;
+  width:14px !important;
+  height:14px !important;
+  margin:0 !important;
+  transform-origin:center;
+}
+/* The quote path is optically right-heavy even though its viewBox is centered. */
+.content-card .card-actions > .card-quote-button.item-quote-button svg {
+  transform:translateX(-.45px);
+}
+
+/* Desktop list: every circular action occupies the same 22px slot. */
+.content-list .list-title-actions .list-like-button.item-like-button,
+.content-list .list-title-actions .list-download-button.item-download-button,
+.content-list .list-title-actions .list-postype-bookmark.postype-bookmark-button,
+.content-list .list-title-actions .list-quote-button.item-quote-button,
+.content-list .list-title-actions .list-bookmark-indicator {
+  position:relative !important;
+  right:auto !important;
+  bottom:auto !important;
+  inset:auto !important;
+  width:22px !important;
+  height:22px !important;
+  min-width:22px !important;
+  min-height:22px !important;
+  flex:0 0 22px !important;
+  padding:0 !important;
+  margin:0 !important;
+  border-radius:50% !important;
+  display:inline-grid !important;
+  place-items:center !important;
+  box-sizing:border-box !important;
+  line-height:1 !important;
+}
+.content-list .list-title-actions .list-like-button.item-like-button svg,
+.content-list .list-title-actions .list-download-button.item-download-button svg,
+.content-list .list-title-actions .list-postype-bookmark.postype-bookmark-button svg,
+.content-list .list-title-actions .list-quote-button.item-quote-button svg,
+.content-list .list-title-actions .list-bookmark-indicator svg {
+  display:block !important;
+  width:12px !important;
+  height:12px !important;
+  margin:0 !important;
+  transform-origin:center;
+}
+.content-list .list-title-actions .list-quote-button.item-quote-button svg {
+  transform:translateX(-.4px);
+}
+.content-list .list-desktop-actions { gap:4px !important; }
+
+@media (max-width:640px) {
+  /* TXT and POSTYPE both reserve the same room for two visible actions. */
+  .content-list tr.postype-item td.list-title { padding-right:58px !important; }
+  .content-list tr.postype-item .list-title-actions { gap:4px !important; }
+  .content-list .list-mobile-postype-quote.item-quote-button { display:inline-grid !important; }
+
+  .content-list .list-title-actions .list-like-button.item-like-button,
+  .content-list .list-title-actions .list-mobile-postype-bookmark.postype-bookmark-button,
+  .content-list .list-title-actions .list-mobile-postype-quote.item-quote-button,
+  .content-list .list-mobile-more-trigger {
+    width:22px !important;
+    height:22px !important;
+    min-width:22px !important;
+    min-height:22px !important;
+    flex:0 0 22px !important;
+    padding:0 !important;
+    margin:0 !important;
+    box-sizing:border-box !important;
+  }
+  .content-list .list-title-actions .list-like-button.item-like-button svg,
+  .content-list .list-title-actions .list-mobile-postype-bookmark.postype-bookmark-button svg,
+  .content-list .list-title-actions .list-mobile-postype-quote.item-quote-button svg {
+    width:12px !important;
+    height:12px !important;
+  }
+  .content-list .list-title-actions .list-mobile-postype-quote.item-quote-button svg {
+    transform:translateX(-.4px);
+  }
+}
+
