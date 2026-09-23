@@ -2,6 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import {
   requireUser,
   ensurePersonalizationSchema,
+  ensureQuoteFeedSchema,
   userErrorResponse,
 } from "../../_user.js";
 
@@ -13,14 +14,19 @@ export async function onRequestGet(context) {
   try {
     const auth = await requireUser(context);
     await ensurePersonalizationSchema(auth.db);
+    await ensureQuoteFeedSchema(auth.db);
 
     const section = new URL(context.request.url).searchParams.get("section") || "";
     if (section === "quotes") {
       const quotes = await auth.db.prepare(`
-        SELECT id, title, author, quote_text, created_at
-        FROM user_quotes
-        WHERE user_id = ?
-        ORDER BY created_at DESC, id DESC
+        SELECT q.id, q.title, q.author, q.quote_text, q.created_at,
+               CASE WHEN sq.quote_id IS NULL THEN 0 ELSE 1 END AS is_shared,
+               sq.shared_at
+        FROM user_quotes q
+        LEFT JOIN shared_quotes sq
+          ON sq.quote_id = q.id AND sq.user_id = q.user_id
+        WHERE q.user_id = ?
+        ORDER BY q.created_at DESC, q.id DESC
         LIMIT 500
       `).bind(auth.userId).all();
 
@@ -45,10 +51,14 @@ export async function onRequestGet(context) {
         LIMIT 500
       `).bind(auth.userId).all(),
       auth.db.prepare(`
-        SELECT id, title, author, quote_text, created_at
-        FROM user_quotes
-        WHERE user_id = ?
-        ORDER BY created_at DESC, id DESC
+        SELECT q.id, q.title, q.author, q.quote_text, q.created_at,
+               CASE WHEN sq.quote_id IS NULL THEN 0 ELSE 1 END AS is_shared,
+               sq.shared_at
+        FROM user_quotes q
+        LEFT JOIN shared_quotes sq
+          ON sq.quote_id = q.id AND sq.user_id = q.user_id
+        WHERE q.user_id = ?
+        ORDER BY q.created_at DESC, q.id DESC
         LIMIT 500
       `).bind(auth.userId).all(),
     ]);
@@ -71,6 +81,7 @@ export async function onRequestPost(context) {
   try {
     const auth = await requireUser(context);
     await ensurePersonalizationSchema(auth.db);
+    await ensureQuoteFeedSchema(auth.db);
     const body = await context.request.json();
     const action = String(body?.action || "").trim();
     const now = Date.now();
@@ -132,15 +143,73 @@ export async function onRequestPost(context) {
       });
     }
 
+    if (action === "quote_share") {
+      const id = Number(body?.id || 0);
+      const shared = body?.shared === true;
+      if (!Number.isInteger(id) || id <= 0) {
+        return jsonResponse({ error: "저장 문장 ID가 올바르지 않습니다." }, 400);
+      }
+
+      const quote = await auth.db.prepare(`
+        SELECT id, title, author, quote_text
+        FROM user_quotes
+        WHERE user_id = ? AND id = ?
+        LIMIT 1
+      `).bind(auth.userId, id).first();
+
+      if (!quote) return jsonResponse({ error: "저장 문장을 찾을 수 없습니다." }, 404);
+
+      if (shared) {
+        const existing = await auth.db.prepare(`
+          SELECT shared_at
+          FROM shared_quotes
+          WHERE quote_id = ? AND user_id = ?
+          LIMIT 1
+        `).bind(id, auth.userId).first();
+        const sharedAt = existing?.shared_at == null ? now : Number(existing.shared_at);
+        await auth.db.prepare(`
+          INSERT INTO shared_quotes(quote_id, user_id, work_id, title, author, quote_text, shared_at)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(quote_id) DO UPDATE SET
+            user_id = excluded.user_id,
+            work_id = excluded.work_id,
+            title = excluded.title,
+            author = excluded.author,
+            quote_text = excluded.quote_text
+        `).bind(
+          id,
+          auth.userId,
+          cleanText(body?.workId, 300),
+          cleanText(quote.title, 300),
+          cleanText(quote.author, 200),
+          cleanText(quote.quote_text, 4000),
+          sharedAt
+        ).run();
+        return jsonResponse({ ok: true, shared: true, sharedAt });
+      }
+
+      await auth.db.prepare(`
+        DELETE FROM shared_quotes
+        WHERE quote_id = ? AND user_id = ?
+      `).bind(id, auth.userId).run();
+      return jsonResponse({ ok: true, shared: false, sharedAt: null });
+    }
+
     if (action === "quote_delete") {
       const id = Number(body?.id || 0);
       if (!Number.isInteger(id) || id <= 0) {
         return jsonResponse({ error: "저장 문장 ID가 올바르지 않습니다." }, 400);
       }
-      await auth.db.prepare(`
-        DELETE FROM user_quotes
-        WHERE user_id = ? AND id = ?
-      `).bind(auth.userId, id).run();
+      await auth.db.batch([
+        auth.db.prepare(`
+          DELETE FROM shared_quotes
+          WHERE user_id = ? AND quote_id = ?
+        `).bind(auth.userId, id),
+        auth.db.prepare(`
+          DELETE FROM user_quotes
+          WHERE user_id = ? AND id = ?
+        `).bind(auth.userId, id),
+      ]);
       return jsonResponse({ ok: true });
     }
 

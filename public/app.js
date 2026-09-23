@@ -41,6 +41,12 @@ const state = {
   savedQuotesLoaded: false,
   savedQuotesLoading: false,
   savedQuotesError: false,
+  quoteFeedItems: [],
+  quoteFeedNextCursor: null,
+  quoteFeedLoading: false,
+  quoteFeedLoaded: false,
+  quoteFeedOpen: false,
+  quoteFeedActiveItem: null,
   profileUserCreatedAt: null,
   profileTab: "bookmarks",
   profileSearch: "",
@@ -238,6 +244,21 @@ const els = {
   contentListBody: document.getElementById("contentListBody"),
   emptyState: document.getElementById("emptyState"),
   resultCount: document.getElementById("resultCount"),
+  quoteFeedButton: document.getElementById("quoteFeedButton"),
+  quoteFeedPage: document.getElementById("quoteFeedPage"),
+  quoteFeedBackButton: document.getElementById("quoteFeedBackButton"),
+  quoteFeedGrid: document.getElementById("quoteFeedGrid"),
+  quoteFeedMeta: document.getElementById("quoteFeedMeta"),
+  quoteFeedStatus: document.getElementById("quoteFeedStatus"),
+  quoteFeedMoreWrap: document.getElementById("quoteFeedMoreWrap"),
+  quoteFeedMoreButton: document.getElementById("quoteFeedMoreButton"),
+  quoteFeedModal: document.getElementById("quoteFeedModal"),
+  quoteFeedModalPreview: document.getElementById("quoteFeedModalPreview"),
+  quoteFeedModalText: document.getElementById("quoteFeedModalText"),
+  quoteFeedModalTitle: document.getElementById("quoteFeedModalTitle"),
+  quoteFeedModalAuthor: document.getElementById("quoteFeedModalAuthor"),
+  quoteFeedModalDate: document.getElementById("quoteFeedModalDate"),
+  quoteFeedOpenWorkButton: document.getElementById("quoteFeedOpenWorkButton"),
   loadMoreWrap: document.getElementById("loadMoreWrap"),
   loadMoreButton: document.getElementById("loadMoreButton"),
   loadMoreLabel: document.getElementById("loadMoreLabel"),
@@ -896,6 +917,8 @@ function normalizeSavedQuote(row) {
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
     createdAt: Number(row?.created_at ?? row?.createdAt ?? 0),
+    shared: Number(row?.is_shared ?? row?.shared ?? 0) === 1 || row?.shared === true,
+    sharedAt: row?.shared_at == null && row?.sharedAt == null ? null : Number(row?.shared_at ?? row?.sharedAt),
   };
 }
 
@@ -1159,6 +1182,7 @@ function renderProfilePage() {
             <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
           </div>
           <div class="profile-entry-actions">
+            <button type="button" class="profile-quote-share-button" data-profile-quote-share="${quote.id}" aria-pressed="${quote.shared ? "true" : "false"}">${quote.shared ? "공개 중" : "피드 공유"}</button>
             <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
             <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
           </div>
@@ -1195,6 +1219,208 @@ function renderProfilePage() {
   }
 }
 
+
+function normalizeQuoteFeedItem(row) {
+  return {
+    quoteId: Number(row?.quote_id ?? row?.quoteId ?? 0),
+    workId: String(row?.work_id ?? row?.workId ?? ""),
+    title: String(row?.title || ""),
+    author: String(row?.author || ""),
+    quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
+    sharedAt: Number(row?.shared_at ?? row?.sharedAt ?? 0),
+  };
+}
+
+function getQuoteFeedTheme(item) {
+  const source = `${item?.quoteId || 0}:${item?.sharedAt || 0}:${item?.title || ""}`;
+  let hash = 2166136261;
+  for (let index = 0; index < source.length; index += 1) {
+    hash ^= source.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  const themes = READER_SHARE_BACKGROUNDS || [];
+  return themes[Math.abs(hash >>> 0) % Math.max(1, themes.length)] || {
+    background: "linear-gradient(145deg,#fffdf9,#f6f3ee)",
+    text: "#191816",
+    meta: "#77716a",
+  };
+}
+
+function getQuoteFeedCardSizes(text) {
+  const length = Array.from(String(text || "")).length;
+  if (length <= 80) return { desktop: 18, mobile: 13 };
+  if (length <= 160) return { desktop: 15, mobile: 11.5 };
+  if (length <= 280) return { desktop: 13, mobile: 10.5 };
+  return { desktop: 11.5, mobile: 9.5 };
+}
+
+function formatQuoteFeedDate(value) {
+  const date = new Date(Number(value || 0));
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+
+function findQuoteFeedWork(item) {
+  if (!item) return null;
+  if (item.workId) {
+    const direct = state.items.find((candidate) => candidate.id === item.workId);
+    if (direct) return direct;
+  }
+  const title = normalizeSearchText(item.title);
+  const author = normalizeSearchText(item.author);
+  if (!title) return null;
+  return state.items.find((candidate) =>
+    normalizeSearchText(candidate.title) === title &&
+    (!author || normalizeSearchText(candidate.author) === author)
+  ) || null;
+}
+
+function renderQuoteFeed() {
+  if (!els.quoteFeedGrid) return;
+  const items = state.quoteFeedItems;
+
+  if (!items.length) {
+    els.quoteFeedGrid.innerHTML = "";
+    if (els.quoteFeedStatus) {
+      els.quoteFeedStatus.hidden = false;
+      els.quoteFeedStatus.textContent = state.quoteFeedLoading
+        ? "공유된 문장을 불러오는 중입니다."
+        : "아직 공유된 문장이 없습니다.";
+    }
+  } else {
+    if (els.quoteFeedStatus) els.quoteFeedStatus.hidden = true;
+    els.quoteFeedGrid.innerHTML = items.map((item) => {
+      const theme = getQuoteFeedTheme(item);
+      const sizes = getQuoteFeedCardSizes(item.quoteText);
+      return `
+        <button type="button" class="quote-feed-card" data-quote-feed-id="${item.quoteId}"
+          style="--quote-bg:${theme.background};--quote-color:${theme.text};--quote-size:${sizes.desktop}px;--quote-mobile-size:${sizes.mobile}px">
+          <span class="quote-feed-card-inner">
+            <span class="quote-feed-card-brand">문장 피드</span>
+            <span class="quote-feed-card-copy"><span class="quote-feed-card-text">${escapeHtml(item.quoteText)}</span></span>
+            <span class="quote-feed-card-source">
+              <strong>${escapeHtml(item.title || "제목 미상")}</strong>
+              <span>${escapeHtml(item.author || "작성자 미상")}</span>
+            </span>
+          </span>
+        </button>`;
+    }).join("");
+  }
+
+  if (els.quoteFeedMeta) {
+    els.quoteFeedMeta.textContent = items.length ? `${items.length}개 표시 중` : "";
+  }
+  if (els.quoteFeedMoreWrap) {
+    els.quoteFeedMoreWrap.hidden = !state.quoteFeedNextCursor;
+  }
+  if (els.quoteFeedMoreButton) {
+    els.quoteFeedMoreButton.disabled = state.quoteFeedLoading;
+    els.quoteFeedMoreButton.textContent = state.quoteFeedLoading ? "불러오는 중…" : "문장 더보기";
+  }
+}
+
+async function loadQuoteFeed({ append = false } = {}) {
+  if (state.quoteFeedLoading) return;
+  if (append && !state.quoteFeedNextCursor) return;
+  state.quoteFeedLoading = true;
+  renderQuoteFeed();
+  try {
+    const params = new URLSearchParams({ limit: "18" });
+    if (append && state.quoteFeedNextCursor) params.set("cursor", state.quoteFeedNextCursor);
+    const response = await fetch(`/api/quotes-feed?${params.toString()}`);
+    if (!response.ok) throw new Error("문장 피드를 불러오지 못했습니다.");
+    const data = await response.json();
+    const incoming = (data.items || []).map(normalizeQuoteFeedItem);
+    state.quoteFeedItems = append ? [...state.quoteFeedItems, ...incoming] : incoming;
+    state.quoteFeedNextCursor = data.nextCursor || null;
+    state.quoteFeedLoaded = true;
+  } catch (error) {
+    console.warn("문장 피드 불러오기 실패", error);
+    if (!append) state.quoteFeedItems = [];
+    if (els.quoteFeedStatus) {
+      els.quoteFeedStatus.hidden = false;
+      els.quoteFeedStatus.textContent = "문장 피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
+    }
+  } finally {
+    state.quoteFeedLoading = false;
+    renderQuoteFeed();
+  }
+}
+
+function getHistoryStateWithoutQuoteFeed() {
+  const next = { ...(history.state || {}) };
+  delete next.rjsQuoteFeedPage;
+  return next;
+}
+
+function showQuoteFeedPage() {
+  if (!state.quoteFeedOpen && !history.state?.rjsQuoteFeedPage) {
+    history.pushState({ ...(history.state || {}), rjsQuoteFeedPage: true }, "", location.href);
+  }
+  if (state.profileOpen) hideProfilePage({ clearHistoryMarker: true });
+  state.quoteFeedOpen = true;
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
+    if (el) el.hidden = true;
+  }
+  if (els.profilePage) els.profilePage.hidden = true;
+  if (els.quoteFeedPage) els.quoteFeedPage.hidden = false;
+  if (!state.quoteFeedLoaded) loadQuoteFeed();
+  else renderQuoteFeed();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function hideQuoteFeedPage({ fromHistory = false, clearHistoryMarker = false } = {}) {
+  state.quoteFeedOpen = false;
+  if (els.quoteFeedPage) els.quoteFeedPage.hidden = true;
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
+    if (el) el.hidden = false;
+  }
+  if (clearHistoryMarker && !fromHistory && history.state?.rjsQuoteFeedPage) {
+    history.replaceState(getHistoryStateWithoutQuoteFeed(), "", location.href);
+  }
+}
+
+function openQuoteFeedDetail(item) {
+  if (!item || !els.quoteFeedModal) return;
+  state.quoteFeedActiveItem = item;
+  const theme = getQuoteFeedTheme(item);
+  if (els.quoteFeedModalPreview) {
+    els.quoteFeedModalPreview.style.setProperty("--quote-bg", theme.background);
+    els.quoteFeedModalPreview.style.setProperty("--quote-color", theme.text);
+  }
+  if (els.quoteFeedModalText) els.quoteFeedModalText.textContent = item.quoteText;
+  if (els.quoteFeedModalTitle) els.quoteFeedModalTitle.textContent = item.title || "제목 미상";
+  if (els.quoteFeedModalAuthor) els.quoteFeedModalAuthor.textContent = item.author || "작성자 미상";
+  if (els.quoteFeedModalDate) els.quoteFeedModalDate.textContent = formatQuoteFeedDate(item.sharedAt);
+  if (els.quoteFeedOpenWorkButton) {
+    els.quoteFeedOpenWorkButton.hidden = !findQuoteFeedWork(item);
+  }
+  openModal(els.quoteFeedModal);
+}
+
+async function setSavedQuoteShared(quote, shared, workId = "") {
+  if (!quote?.id || !state.user) return null;
+  const data = await userApi("/api/user/profile", {
+    method: "POST",
+    body: JSON.stringify({
+      action: "quote_share",
+      id: quote.id,
+      shared: Boolean(shared),
+      workId: workId || "",
+    }),
+  });
+  quote.shared = data.shared === true;
+  quote.sharedAt = data.sharedAt == null ? null : Number(data.sharedAt);
+  state.quoteFeedLoaded = false;
+  state.quoteFeedNextCursor = null;
+  if (state.profileOpen) renderProfilePage();
+  return quote;
+}
+
 function getHistoryStateWithoutProfile() {
   const next = { ...(history.state || {}) };
   delete next.rjsProfilePage;
@@ -1205,6 +1431,9 @@ function showProfilePage(tab = "bookmarks") {
   if (!state.user) {
     openAuthModal("login", "내 정보를 보려면 로그인해 주세요.");
     return;
+  }
+  if (state.quoteFeedOpen) {
+    hideQuoteFeedPage({ clearHistoryMarker: true });
   }
   if (!state.profileOpen && !history.state?.rjsProfilePage) {
     history.pushState({ ...(history.state || {}), rjsProfilePage: true }, "", location.href);
@@ -1254,9 +1483,10 @@ async function saveCurrentReaderQuote() {
       quoteText,
     }),
   });
-  if (data.quote && state.savedQuotesLoaded) state.savedQuotes.unshift(normalizeSavedQuote(data.quote));
+  const savedQuote = data.quote ? normalizeSavedQuote(data.quote) : null;
+  if (savedQuote && state.savedQuotesLoaded) state.savedQuotes.unshift(savedQuote);
   if (state.profileOpen) renderProfilePage();
-  return true;
+  return savedQuote;
 }
 
 async function restoreAuth() {
@@ -5828,6 +6058,45 @@ document.addEventListener("click", (event) => {
   });
 });
 
+els.quoteFeedButton?.addEventListener("click", () => {
+  showQuoteFeedPage();
+});
+
+els.quoteFeedBackButton?.addEventListener("click", () => {
+  if (history.state?.rjsQuoteFeedPage) {
+    history.back();
+    return;
+  }
+  hideQuoteFeedPage();
+  window.scrollTo({ top: 0, behavior: "smooth" });
+});
+
+els.quoteFeedMoreButton?.addEventListener("click", () => {
+  loadQuoteFeed({ append: true });
+});
+
+els.quoteFeedGrid?.addEventListener("click", (event) => {
+  const card = event.target.closest("[data-quote-feed-id]");
+  if (!card) return;
+  const item = state.quoteFeedItems.find((entry) => String(entry.quoteId) === String(card.dataset.quoteFeedId));
+  if (item) openQuoteFeedDetail(item);
+});
+
+els.quoteFeedOpenWorkButton?.addEventListener("click", () => {
+  const item = findQuoteFeedWork(state.quoteFeedActiveItem);
+  if (!item) return;
+  closeModal(els.quoteFeedModal);
+  hideQuoteFeedPage({ clearHistoryMarker: true });
+  openContentItem(item);
+});
+
+window.addEventListener("popstate", (event) => {
+  if (state.quoteFeedOpen && !event.state?.rjsQuoteFeedPage) {
+    hideQuoteFeedPage({ fromHistory: true });
+    window.scrollTo({ top: 0, behavior: "auto" });
+  }
+});
+
 els.profileBackButton?.addEventListener("click", () => {
   if (history.state?.rjsProfilePage) {
     history.back();
@@ -5892,6 +6161,26 @@ els.profileList?.addEventListener("click", async (event) => {
   if (like) {
     const item = state.items.find((candidate) => candidate.id === like.dataset.profileLikeRemove) || { id: like.dataset.profileLikeRemove, title:"", author:"" };
     if (isItemLiked(item)) await toggleItemLike(item);
+    return;
+  }
+  const quoteShare = event.target.closest("[data-profile-quote-share]");
+  if (quoteShare) {
+    const quote = state.savedQuotes.find((entry) => String(entry.id) === String(quoteShare.dataset.profileQuoteShare));
+    if (!quote) return;
+    quoteShare.disabled = true;
+    const nextShared = !quote.shared;
+    try {
+      const matchedWork = state.items.find((candidate) =>
+        normalizeSearchText(candidate.title) === normalizeSearchText(quote.title) &&
+        normalizeSearchText(candidate.author) === normalizeSearchText(quote.author)
+      );
+      await setSavedQuoteShared(quote, nextShared, matchedWork?.id || "");
+      renderProfilePage();
+    } catch (error) {
+      console.warn("문장 공개 상태 변경 실패", error);
+      window.alert("문장 공개 상태를 변경하지 못했습니다. 다시 시도해 주세요.");
+      quoteShare.disabled = false;
+    }
     return;
   }
   const copy = event.target.closest("[data-profile-quote-copy]");
@@ -6976,7 +7265,7 @@ function ensureReaderShareUi() {
         <div class="reader-share-section">
           <div class="reader-share-row" style="align-items:start;">
             <span class="reader-share-label" style="padding-top:9px;">문구</span>
-            <textarea class="reader-share-input" maxlength="700" aria-label="선택한 문구 편집"></textarea>
+            <textarea class="reader-share-input" maxlength="4000" aria-label="선택한 문구 편집"></textarea>
           </div>
         </div>
 
@@ -6986,6 +7275,16 @@ function ensureReaderShareUi() {
             <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
             <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
             <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
+          </div>
+          <div class="reader-share-saved-panel" data-share-saved-panel hidden>
+            <div class="reader-share-saved-head"><span class="reader-share-saved-check">✓</span><span>문장을 저장했어요</span></div>
+            <div class="reader-share-public-row">
+              <div class="reader-share-public-copy">
+                <strong>문장 피드에 공유</strong>
+                <small>공개한 문장은 내 정보에서 언제든 다시 비공개로 바꿀 수 있어요.</small>
+              </div>
+              <button type="button" class="reader-share-public-toggle" data-share-public-toggle aria-pressed="false" aria-label="문장 피드에 공유"></button>
+            </div>
           </div>
         </div>
       </div>
@@ -7009,6 +7308,9 @@ function ensureReaderShareUi() {
   const saveButton = backdrop.querySelector("[data-share-save]");
   const clipboardButton = backdrop.querySelector("[data-share-clipboard]");
   const shareButton = backdrop.querySelector("[data-share-system]");
+  const savedPanel = backdrop.querySelector("[data-share-saved-panel]");
+  const publicToggle = backdrop.querySelector("[data-share-public-toggle]");
+  let lastSavedQuote = null;
 
   thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
     <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
@@ -7024,6 +7326,12 @@ function ensureReaderShareUi() {
 
   const close = () => {
     backdrop.hidden = true;
+    lastSavedQuote = null;
+    if (savedPanel) savedPanel.hidden = true;
+    if (publicToggle) {
+      publicToggle.disabled = false;
+      publicToggle.setAttribute("aria-pressed", "false");
+    }
     resetReaderShareEditorOptions();
   };
   backdrop.querySelector(".reader-share-close")?.addEventListener("click", close);
@@ -7092,10 +7400,16 @@ function ensureReaderShareUi() {
     const original = quoteSaveButton.textContent;
     quoteSaveButton.textContent = "저장 중…";
     try {
-      const ok = await saveCurrentReaderQuote();
-      if (ok) {
+      const savedQuote = await saveCurrentReaderQuote();
+      if (savedQuote) {
+        lastSavedQuote = savedQuote;
         quoteSaveButton.textContent = "저장 완료";
         quoteSaveButton.classList.add("saved");
+        if (savedPanel) savedPanel.hidden = false;
+        if (publicToggle) {
+          publicToggle.disabled = false;
+          publicToggle.setAttribute("aria-pressed", "false");
+        }
         window.setTimeout(() => {
           quoteSaveButton.textContent = original;
           quoteSaveButton.classList.remove("saved");
@@ -7109,6 +7423,26 @@ function ensureReaderShareUi() {
       quoteSaveButton.textContent = original;
     } finally {
       quoteSaveButton.disabled = false;
+    }
+  });
+  publicToggle?.addEventListener("click", async () => {
+    if (!lastSavedQuote || publicToggle.disabled) return;
+    const nextShared = publicToggle.getAttribute("aria-pressed") !== "true";
+    publicToggle.disabled = true;
+    try {
+      await setSavedQuoteShared(lastSavedQuote, nextShared, state.activeReaderItem?.id || "");
+      publicToggle.setAttribute("aria-pressed", nextShared ? "true" : "false");
+      const copy = savedPanel?.querySelector(".reader-share-public-copy small");
+      if (copy) {
+        copy.textContent = nextShared
+          ? "문장 피드에 공개됐어요. 내 정보에서 언제든 비공개로 바꿀 수 있어요."
+          : "공개한 문장은 내 정보에서 언제든 다시 비공개로 바꿀 수 있어요.";
+      }
+    } catch (error) {
+      console.warn("문장 피드 공유 실패", error);
+      window.alert("문장 피드 공유 상태를 변경하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      publicToggle.disabled = false;
     }
   });
   saveButton?.addEventListener("click", async () => {
@@ -7164,7 +7498,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, close };
+  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 

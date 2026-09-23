@@ -3,6 +3,7 @@ import {
   requireUserDb,
   normalizeUserId,
   ensurePersonalizationSchema,
+  ensureQuoteFeedSchema,
   userErrorResponse,
 } from "../../_user.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -48,10 +49,12 @@ export async function onRequestPost(context) {
 
     if (action === "delete_user") {
       await ensurePersonalizationSchema(db);
+      await ensureQuoteFeedSchema(db);
       await db.batch([
         db.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_items WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_likes WHERE user_id = ?`).bind(userId),
+        db.prepare(`DELETE FROM shared_quotes WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_quotes WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visits WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visit_stats WHERE user_id = ?`).bind(userId),

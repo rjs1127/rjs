@@ -17,6 +17,8 @@ let downloadSchemaReadyPromise = null;
 
 let personalizationSchemaReadyPromise = null;
 
+let quoteFeedSchemaReadyPromise = null;
+
 async function ensurePersonalizationSchema(db) {
   if (personalizationSchemaReadyPromise) return personalizationSchemaReadyPromise;
 
@@ -55,6 +57,38 @@ async function ensurePersonalizationSchema(db) {
   });
 
   return personalizationSchemaReadyPromise;
+}
+
+
+async function ensureQuoteFeedSchema(db) {
+  if (quoteFeedSchemaReadyPromise) return quoteFeedSchemaReadyPromise;
+
+  quoteFeedSchemaReadyPromise = db.batch([
+    db.prepare(`
+      CREATE TABLE IF NOT EXISTS shared_quotes (
+        quote_id INTEGER PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        work_id TEXT,
+        title TEXT,
+        author TEXT,
+        quote_text TEXT NOT NULL,
+        shared_at INTEGER NOT NULL
+      )
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_shared_quotes_time
+      ON shared_quotes(shared_at DESC, quote_id DESC)
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_shared_quotes_user
+      ON shared_quotes(user_id, quote_id)
+    `),
+  ]).catch((error) => {
+    quoteFeedSchemaReadyPromise = null;
+    throw error;
+  });
+
+  return quoteFeedSchemaReadyPromise;
 }
 
 async function ensureDownloadTrackingSchema(db) {
@@ -288,6 +322,7 @@ export {
   ensureUserSchema,
   ensureDownloadTrackingSchema,
   ensurePersonalizationSchema,
+  ensureQuoteFeedSchema,
   normalizeUserId,
   validateCredentials,
   randomHex,

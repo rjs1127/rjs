@@ -213,6 +213,11 @@ async function inspectD1(db) {
       purpose: "사용자별 텍스트 발췌 문장",
     },
     {
+      name: "shared_quotes",
+      label: "공유 문장 피드",
+      purpose: "사용자가 공개한 문장 피드 데이터",
+    },
+    {
       name: "user_visits",
       label: "방문 원본 기록",
       purpose: "로그인 사용자 방문 이벤트",
