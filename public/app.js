@@ -1559,7 +1559,13 @@ async function persistProgress(item, saved) {
       localSavedAtForRequest
     );
     updateResumeShortcut();
-    if (state.items.length) render();
+
+    // While the full-screen reader is open, the archive list is hidden behind
+    // it. Re-rendering up to 40 cards/list rows after every periodic progress
+    // sync wastes mobile CPU/battery and can compete with long-text rendering.
+    // Keep state current, but defer the visible archive refresh until the
+    // reader closes. Calls made outside the reader keep the existing behavior.
+    if (state.items.length && els.readerOverlay?.hidden) render();
     return true;
   } catch (error) {
     console.warn("이어보기 저장 실패", error);
@@ -4913,8 +4919,11 @@ function finalizeReaderClose() {
   const savedProgress = preserveExistingResume
     ? null
     : saveReaderProgress();
+  const refreshArchiveAfterClose = Boolean(
+    closingItem && savedProgress && state.user
+  );
 
-  if (closingItem && savedProgress && state.user) {
+  if (refreshArchiveAfterClose) {
     persistProgress(closingItem, savedProgress);
   }
 
@@ -4949,6 +4958,13 @@ function finalizeReaderClose() {
   syncReaderModeButtons();
   updatePageScrollTopButton();
   updateCompactHeader();
+
+  // Periodic progress syncs intentionally skip archive DOM rendering while
+  // the reader is open. Refresh once after close so reading badges/filters and
+  // the resume shortcut reflect the latest in-memory progress.
+  if (refreshArchiveAfterClose && state.items.length) {
+    render();
+  }
 
   state.readerHistoryActive = false;
 }
