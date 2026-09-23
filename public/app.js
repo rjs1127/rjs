@@ -46,6 +46,8 @@ const state = {
   quoteFeedNextCursor: null,
   quoteFeedLoading: false,
   quoteFeedLoaded: false,
+  quoteFeedSort: "latest",
+  quoteFeedLikeSaving: new Set(),
   quoteFeedOpen: false,
   quoteFeedActiveItem: null,
   profileUserCreatedAt: null,
@@ -66,6 +68,10 @@ const state = {
   visitRecordedUserId: "",
   remoteProgressState: new Map(),
   bookmarkSaveTimers: new Map(),
+  bookmarkCounts: new Map(),
+  bookmarkCountsLoaded: false,
+  bookmarkCountsLoadedAt: 0,
+  bookmarkCountsLoadingPromise: null,
   bookmarkOnly: false,
   readingOnly: false,
   resumeShortcutItemId: "",
@@ -86,6 +92,7 @@ const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 100; // 0.01% 단위 저장 (모드 간 위치 정밀도 향상)
 const READER_LEGACY_READ_VALID_PERCENT = 99.9;
 const CONTENT_PAGE_SIZE = 40;
+const BOOKMARK_COUNTS_CACHE_MS = 60 * 1000;
 const LIBRARY_PAGE_SIZE = 10;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
@@ -250,6 +257,8 @@ const els = {
   quoteFeedPage: document.getElementById("quoteFeedPage"),
   quoteFeedBackButton: document.getElementById("quoteFeedBackButton"),
   quoteFeedGrid: document.getElementById("quoteFeedGrid"),
+  quoteFeedSortLatest: document.getElementById("quoteFeedSortLatest"),
+  quoteFeedSortLikes: document.getElementById("quoteFeedSortLikes"),
   quoteFeedMeta: document.getElementById("quoteFeedMeta"),
   quoteFeedStatus: document.getElementById("quoteFeedStatus"),
   quoteFeedMoreWrap: document.getElementById("quoteFeedMoreWrap"),
@@ -1265,6 +1274,8 @@ function normalizeQuoteFeedItem(row) {
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
     sharedAt: Number(row?.shared_at ?? row?.sharedAt ?? 0),
+    likeCount: Math.max(0, Number(row?.like_count ?? row?.likeCount ?? 0)),
+    liked: Number(row?.liked || 0) === 1 || row?.liked === true,
   };
 }
 
@@ -1334,20 +1345,34 @@ function renderQuoteFeed() {
     els.quoteFeedGrid.innerHTML = items.map((item) => {
       const theme = getQuoteFeedTheme(item);
       const sizes = getQuoteFeedCardSizes(item.quoteText);
+      const saving = state.quoteFeedLikeSaving.has(String(item.quoteId));
       return `
-        <button type="button" class="quote-feed-card" data-quote-feed-id="${item.quoteId}"
+        <article class="quote-feed-card"
           style="--quote-bg:${theme.background};--quote-color:${theme.text};--quote-size:${sizes.desktop}px;--quote-mobile-size:${sizes.mobile}px">
-          <span class="quote-feed-card-inner">
-            <span class="quote-feed-card-copy"><span class="quote-feed-card-text">${escapeHtml(item.quoteText)}</span></span>
-            <span class="quote-feed-card-source">
-              <strong>${escapeHtml(item.title || "제목 미상")}</strong>
-              <span>${escapeHtml(item.author || "작성자 미상")}</span>
+          <button type="button" class="quote-feed-card-open" data-quote-feed-id="${item.quoteId}" aria-label="문장 자세히 보기">
+            <span class="quote-feed-card-inner">
+              <span class="quote-feed-card-copy"><span class="quote-feed-card-text">${escapeHtml(item.quoteText)}</span></span>
+              <span class="quote-feed-card-source">
+                <strong>${escapeHtml(item.title || "제목 미상")}</strong>
+                <span>${escapeHtml(item.author || "작성자 미상")}</span>
+              </span>
             </span>
-          </span>
-        </button>`;
+          </button>
+          <button type="button" class="quote-feed-like-button${item.liked ? " is-liked" : ""}" data-quote-feed-like="${item.quoteId}" aria-pressed="${item.liked ? "true" : "false"}" ${saving ? "disabled" : ""}>
+            <span aria-hidden="true">${item.liked ? "♥" : "♡"}</span><b>${item.likeCount}</b>
+          </button>
+        </article>`;
     }).join("");
   }
 
+  if (els.quoteFeedSortLatest) {
+    els.quoteFeedSortLatest.classList.toggle("is-active", state.quoteFeedSort === "latest");
+    els.quoteFeedSortLatest.disabled = state.quoteFeedLoading;
+  }
+  if (els.quoteFeedSortLikes) {
+    els.quoteFeedSortLikes.classList.toggle("is-active", state.quoteFeedSort === "likes");
+    els.quoteFeedSortLikes.disabled = state.quoteFeedLoading;
+  }
   if (els.quoteFeedMeta) {
     els.quoteFeedMeta.textContent = items.length ? `${items.length}개 표시 중` : "";
   }
@@ -1366,9 +1391,12 @@ async function loadQuoteFeed({ append = false } = {}) {
   state.quoteFeedLoading = true;
   renderQuoteFeed();
   try {
-    const params = new URLSearchParams({ limit: "18" });
+    const params = new URLSearchParams({ limit: "18", sort: state.quoteFeedSort });
     if (append && state.quoteFeedNextCursor) params.set("cursor", state.quoteFeedNextCursor);
-    const response = await fetch(`/api/quotes-feed?${params.toString()}`);
+    const headers = new Headers();
+    const token = getAuthToken();
+    if (token) headers.set("authorization", `Bearer ${token}`);
+    const response = await fetch(`/api/quotes-feed?${params.toString()}`, { headers, cache: "no-store" });
     if (!response.ok) throw new Error("문장 피드를 불러오지 못했습니다.");
     const data = await response.json();
     const incoming = (data.items || []).map(normalizeQuoteFeedItem);
@@ -1386,6 +1414,55 @@ async function loadQuoteFeed({ append = false } = {}) {
     state.quoteFeedLoading = false;
     renderQuoteFeed();
   }
+}
+
+async function setQuoteFeedLike(item, liked) {
+  if (!item) return;
+  if (!state.user) {
+    openAuthModal("login", "문장에 좋아요를 누르려면 로그인해 주세요.");
+    return;
+  }
+  const key = String(item.quoteId);
+  if (state.quoteFeedLikeSaving.has(key)) return;
+  state.quoteFeedLikeSaving.add(key);
+  renderQuoteFeed();
+  let changed = false;
+  try {
+    const data = await userApi("/api/quote-like", {
+      method: "POST",
+      body: JSON.stringify({ quoteId: item.quoteId, liked: Boolean(liked) }),
+    });
+    item.liked = data.liked === true;
+    item.likeCount = Math.max(0, Number(data.likeCount || 0));
+    changed = true;
+    if (state.quoteFeedActiveItem?.quoteId === item.quoteId) {
+      state.quoteFeedActiveItem.liked = item.liked;
+      state.quoteFeedActiveItem.likeCount = item.likeCount;
+    }
+  } catch (error) {
+    console.warn("문장 좋아요 반영 실패", error);
+  } finally {
+    state.quoteFeedLikeSaving.delete(key);
+    if (changed && state.quoteFeedSort === "likes") {
+      state.quoteFeedItems = [];
+      state.quoteFeedNextCursor = null;
+      state.quoteFeedLoaded = false;
+      await loadQuoteFeed();
+    } else {
+      renderQuoteFeed();
+    }
+  }
+}
+
+function changeQuoteFeedSort(sort) {
+  if (state.quoteFeedLoading) return;
+  const next = sort === "likes" ? "likes" : "latest";
+  if (state.quoteFeedSort === next && state.quoteFeedLoaded) return;
+  state.quoteFeedSort = next;
+  state.quoteFeedItems = [];
+  state.quoteFeedNextCursor = null;
+  state.quoteFeedLoaded = false;
+  loadQuoteFeed();
 }
 
 function getHistoryStateWithoutQuoteFeed() {
@@ -2167,6 +2244,13 @@ async function loadArchive(force = false) {
     state.items = Array.isArray(data.items) ? data.items : [];
     applySettings(data.settings || {});
     buildCombinationFilters(data.combinations || []);
+    if (state.sort === "bookmarks") {
+      try {
+        await loadBookmarkCounts();
+      } catch (error) {
+        console.warn("북마크 순위 로드 실패", error);
+      }
+    }
     hideStatus();
     updateResumeShortcut();
     render();
@@ -2222,7 +2306,7 @@ function getSearchTokens(query = "") {
 
 function normalizeSortValue(value) {
   if (value === "latest") return "registered";
-  return ["title", "author", "registered", "published"].includes(value)
+  return ["title", "author", "registered", "published", "bookmarks"].includes(value)
     ? value
     : "title";
 }
@@ -2238,6 +2322,55 @@ function applySourceForSort() {
   // A saved sort value must never restore/change the source filter
   // after the user has reset filters or refreshed the page.
   syncSourceFilterChips();
+}
+
+function getBookmarkCount(itemOrId) {
+  const fileId = typeof itemOrId === "string" ? itemOrId : itemOrId?.id;
+  if (!fileId) return 0;
+  return Math.max(0, Number(state.bookmarkCounts.get(String(fileId)) || 0));
+}
+
+function applyBookmarkCountResponse(fileId, data) {
+  if (!state.bookmarkCountsLoaded || !fileId || data?.bookmarkCount == null) return;
+  const count = Math.max(0, Number(data.bookmarkCount || 0));
+  if (count > 0) state.bookmarkCounts.set(String(fileId), count);
+  else state.bookmarkCounts.delete(String(fileId));
+  state.bookmarkCountsLoadedAt = Date.now();
+  if (state.sort === "bookmarks") render();
+}
+
+async function loadBookmarkCounts(force = false) {
+  const fresh =
+    state.bookmarkCountsLoadedAt > 0 &&
+    Date.now() - state.bookmarkCountsLoadedAt < BOOKMARK_COUNTS_CACHE_MS;
+  if (!force && fresh) return state.bookmarkCounts;
+  if (state.bookmarkCountsLoadingPromise) return state.bookmarkCountsLoadingPromise;
+
+  state.bookmarkCountsLoadingPromise = (async () => {
+    const response = await fetch("/api/bookmark-counts", {
+      cache: force ? "no-store" : "default",
+    });
+    let data = {};
+    try { data = await response.json(); } catch {}
+    if (!response.ok) {
+      throw new Error(data?.error || "북마크 순위를 불러오지 못했습니다.");
+    }
+
+    const next = new Map();
+    for (const row of Array.isArray(data?.counts) ? data.counts : []) {
+      const fileId = String(row?.fileId || "").trim();
+      const count = Math.max(0, Number(row?.count || 0));
+      if (fileId && count > 0) next.set(fileId, count);
+    }
+    state.bookmarkCounts = next;
+    state.bookmarkCountsLoaded = true;
+    state.bookmarkCountsLoadedAt = Date.now();
+    return state.bookmarkCounts;
+  })().finally(() => {
+    state.bookmarkCountsLoadingPromise = null;
+  });
+
+  return state.bookmarkCountsLoadingPromise;
 }
 
 function getRegisteredTimestamp(item) {
@@ -2393,6 +2526,14 @@ function sortItems(items) {
       const authorCompare = collator.compare(a.author || "", b.author || "");
       if (authorCompare !== 0) return authorCompare;
       return collator.compare(a.title || "", b.title || "");
+    }
+
+    if (state.sort === "bookmarks") {
+      const countCompare = getBookmarkCount(b) - getBookmarkCount(a);
+      if (countCompare !== 0) return countCompare;
+      const titleCompare = collator.compare(a.title || "", b.title || "");
+      if (titleCompare !== 0) return titleCompare;
+      return collator.compare(a.author || "", b.author || "");
     }
 
     if (state.sort === "published") {
@@ -2799,7 +2940,7 @@ async function togglePostypeBookmark(item) {
     const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
 
     try {
-      await userApi("/api/user/item", {
+      const data = await userApi("/api/user/item", {
         method: "POST",
         body: JSON.stringify({
           action: "bookmark",
@@ -2807,6 +2948,7 @@ async function togglePostypeBookmark(item) {
           bookmarked: finalValue,
         }),
       });
+      applyBookmarkCountResponse(fileId, data);
     } catch (error) {
       console.warn("포스타입 북마크 저장 실패", error);
     }
@@ -2843,7 +2985,7 @@ async function toggleListBookmark(item) {
     state.bookmarkSaveTimers.delete(fileId);
     const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
     try {
-      await userApi("/api/user/item", {
+      const data = await userApi("/api/user/item", {
         method: "POST",
         body: JSON.stringify({
           action: "bookmark",
@@ -2851,6 +2993,7 @@ async function toggleListBookmark(item) {
           bookmarked: finalValue,
         }),
       });
+      applyBookmarkCountResponse(fileId, data);
     } catch (error) {
       console.warn("북마크 저장 실패", error);
     }
@@ -5345,6 +5488,7 @@ if (els.sortSelect) {
     <option value="author">작가순</option>
     <option value="registered">최근등록일</option>
     <option value="published">최근발행일</option>
+    <option value="bookmarks">북마크순</option>
   `;
   els.sortSelect.value = state.sort;
 }
@@ -5360,11 +5504,24 @@ els.sortSelect?.addEventListener("pointerdown", () => {
   render();
 });
 
-els.sortSelect.addEventListener("change", (event) => {
+els.sortSelect.addEventListener("change", async (event) => {
   disableInitialRecentPostypeBoost();
   state.sort = normalizeSortValue(event.target.value);
   applySourceForSort();
   localStorage.setItem("archiveSort", state.sort);
+
+  if (state.sort === "bookmarks") {
+    els.sortSelect.disabled = true;
+    try {
+      await loadBookmarkCounts();
+    } catch (error) {
+      console.warn("북마크 순위 로드 실패", error);
+      window.alert(error?.message || "북마크 순위를 불러오지 못했습니다.");
+    } finally {
+      els.sortSelect.disabled = false;
+    }
+  }
+
   render();
 });
 
@@ -6117,7 +6274,7 @@ els.readerBookmarkButton?.addEventListener("click", () => {
     const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
 
     try {
-      await userApi("/api/user/item", {
+      const data = await userApi("/api/user/item", {
         method: "POST",
         body: JSON.stringify({
           action: "bookmark",
@@ -6125,6 +6282,7 @@ els.readerBookmarkButton?.addEventListener("click", () => {
           bookmarked: finalValue,
         }),
       });
+      applyBookmarkCountResponse(fileId, data);
     } catch (error) {
       console.warn("북마크 저장 실패", error);
     }
@@ -6198,7 +6356,16 @@ els.quoteFeedMoreButton?.addEventListener("click", () => {
   loadQuoteFeed({ append: true });
 });
 
+els.quoteFeedSortLatest?.addEventListener("click", () => changeQuoteFeedSort("latest"));
+els.quoteFeedSortLikes?.addEventListener("click", () => changeQuoteFeedSort("likes"));
+
 els.quoteFeedGrid?.addEventListener("click", (event) => {
+  const likeButton = event.target.closest("[data-quote-feed-like]");
+  if (likeButton) {
+    const item = state.quoteFeedItems.find((entry) => String(entry.quoteId) === String(likeButton.dataset.quoteFeedLike));
+    if (item) setQuoteFeedLike(item, !item.liked);
+    return;
+  }
   const card = event.target.closest("[data-quote-feed-id]");
   if (!card) return;
   const item = state.quoteFeedItems.find((entry) => String(entry.quoteId) === String(card.dataset.quoteFeedId));
@@ -6267,7 +6434,8 @@ els.profileList?.addEventListener("click", async (event) => {
     const item = state.items.find((candidate) => candidate.id === bm.dataset.profileBookmarkRemove);
     if (item) {
       updateUserLibraryEntry(item.id, { bookmarked: false, updatedAt: Date.now() });
-      await userApi("/api/user/item", { method:"POST", body:JSON.stringify({ action:"bookmark", fileId:item.id, bookmarked:false }) });
+      const data = await userApi("/api/user/item", { method:"POST", body:JSON.stringify({ action:"bookmark", fileId:item.id, bookmarked:false }) });
+      applyBookmarkCountResponse(item.id, data);
       renderProfilePage(); render();
     }
     return;
@@ -6355,6 +6523,9 @@ els.profileClearButton?.addEventListener("click", async () => {
         ? { ...entry, bookmarked: false }
         : { ...entry, viewedAt: null });
     }
+    if (kind === "bookmarks" && state.bookmarkCountsLoaded) {
+      try { await loadBookmarkCounts(true); } catch (error) { console.warn("북마크 순위 새로고침 실패", error); }
+    }
     state.profileVisibleLimit = 15;
     renderProfilePage();
     render();
@@ -6408,6 +6579,9 @@ els.libraryClearButton?.addEventListener("click", async () => {
       }
     }
 
+    if (kind === "bookmarks" && state.bookmarkCountsLoaded) {
+      try { await loadBookmarkCounts(true); } catch (error) { console.warn("북마크 순위 새로고침 실패", error); }
+    }
     state.librarySearch = "";
     if (els.librarySearchInput) els.librarySearchInput.value = "";
     state.libraryVisibleLimit = LIBRARY_PAGE_SIZE;
@@ -6434,7 +6608,7 @@ els.libraryModalList?.addEventListener("click", async (event) => {
     const kind = state.libraryKind;
 
     try {
-      await userApi("/api/user/item", {
+      const data = await userApi("/api/user/item", {
         method: "POST",
         body: JSON.stringify({
           action: kind === "bookmarks" ? "bookmark" : "remove_recent",
@@ -6442,6 +6616,7 @@ els.libraryModalList?.addEventListener("click", async (event) => {
           bookmarked: false,
         }),
       });
+      if (kind === "bookmarks") applyBookmarkCountResponse(fileId, data);
 
       const current = getUserLibraryEntry(fileId);
       if (current) {

@@ -19,6 +19,8 @@ let personalizationSchemaReadyPromise = null;
 
 let quoteFeedSchemaReadyPromise = null;
 
+let bookmarkStatsSchemaReadyPromise = null;
+
 async function ensurePersonalizationSchema(db) {
   if (personalizationSchemaReadyPromise) return personalizationSchemaReadyPromise;
 
@@ -63,8 +65,8 @@ async function ensurePersonalizationSchema(db) {
 async function ensureQuoteFeedSchema(db) {
   if (quoteFeedSchemaReadyPromise) return quoteFeedSchemaReadyPromise;
 
-  quoteFeedSchemaReadyPromise = db.batch([
-    db.prepare(`
+  quoteFeedSchemaReadyPromise = (async () => {
+    await db.prepare(`
       CREATE TABLE IF NOT EXISTS shared_quotes (
         quote_id INTEGER PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -72,23 +74,138 @@ async function ensureQuoteFeedSchema(db) {
         title TEXT,
         author TEXT,
         quote_text TEXT NOT NULL,
-        shared_at INTEGER NOT NULL
+        shared_at INTEGER NOT NULL,
+        like_count INTEGER NOT NULL DEFAULT 0
       )
-    `),
-    db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_shared_quotes_time
-      ON shared_quotes(shared_at DESC, quote_id DESC)
-    `),
-    db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_shared_quotes_user
-      ON shared_quotes(user_id, quote_id)
-    `),
-  ]).catch((error) => {
+    `).run();
+
+    const info = await db.prepare("PRAGMA table_info(shared_quotes)").all();
+    const columns = Array.isArray(info?.results) ? info.results : [];
+    const hasLikeCount = columns.some((column) => String(column?.name || "") === "like_count");
+    if (!hasLikeCount) {
+      try {
+        await db.prepare(
+          "ALTER TABLE shared_quotes ADD COLUMN like_count INTEGER NOT NULL DEFAULT 0"
+        ).run();
+      } catch (error) {
+        if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
+      }
+    }
+
+    await db.batch([
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_shared_quotes_time
+        ON shared_quotes(shared_at DESC, quote_id DESC)
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_shared_quotes_user
+        ON shared_quotes(user_id, quote_id)
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_shared_quotes_likes
+        ON shared_quotes(like_count DESC, shared_at DESC, quote_id DESC)
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS shared_quote_likes (
+          user_id TEXT NOT NULL,
+          quote_id INTEGER NOT NULL,
+          liked_at INTEGER NOT NULL,
+          PRIMARY KEY (user_id, quote_id)
+        )
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_shared_quote_likes_quote
+        ON shared_quote_likes(quote_id, liked_at DESC)
+      `),
+      db.prepare(`
+        CREATE TRIGGER IF NOT EXISTS trg_shared_quote_like_insert
+        AFTER INSERT ON shared_quote_likes
+        BEGIN
+          UPDATE shared_quotes
+          SET like_count = like_count + 1
+          WHERE quote_id = NEW.quote_id;
+        END
+      `),
+      db.prepare(`
+        CREATE TRIGGER IF NOT EXISTS trg_shared_quote_like_delete
+        AFTER DELETE ON shared_quote_likes
+        BEGIN
+          UPDATE shared_quotes
+          SET like_count = MAX(0, like_count - 1)
+          WHERE quote_id = OLD.quote_id;
+        END
+      `),
+      db.prepare(`
+        CREATE TRIGGER IF NOT EXISTS trg_shared_quote_delete_likes
+        AFTER DELETE ON shared_quotes
+        BEGIN
+          DELETE FROM shared_quote_likes WHERE quote_id = OLD.quote_id;
+        END
+      `),
+    ]);
+  })().catch((error) => {
     quoteFeedSchemaReadyPromise = null;
     throw error;
   });
 
   return quoteFeedSchemaReadyPromise;
+}
+
+
+async function ensureBookmarkStatsSchema(db) {
+  if (bookmarkStatsSchemaReadyPromise) return bookmarkStatsSchemaReadyPromise;
+
+  bookmarkStatsSchemaReadyPromise = (async () => {
+    await ensureUserSchema(db);
+
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS item_bookmark_counts (
+          file_id TEXT PRIMARY KEY,
+          bookmark_count INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_item_bookmark_counts_rank
+        ON item_bookmark_counts(bookmark_count DESC, file_id)
+      `),
+    ]);
+
+    const markerKey = "bookmark_counts_backfilled_v1";
+    const marker = await db.prepare(`
+      SELECT meta_value
+      FROM user_system_meta
+      WHERE meta_key = ?
+      LIMIT 1
+    `).bind(markerKey).first();
+
+    if (!marker) {
+      const now = Date.now();
+      await db.batch([
+        db.prepare(`
+          INSERT INTO item_bookmark_counts(file_id, bookmark_count, updated_at)
+          SELECT file_id, COUNT(*), ?
+          FROM user_items
+          WHERE bookmarked = 1
+          GROUP BY file_id
+          ON CONFLICT(file_id) DO UPDATE SET
+            bookmark_count = excluded.bookmark_count,
+            updated_at = excluded.updated_at
+        `).bind(now),
+        db.prepare(`
+          INSERT INTO user_system_meta(meta_key, meta_value, updated_at)
+          VALUES (?, '1', ?)
+          ON CONFLICT(meta_key) DO NOTHING
+        `).bind(markerKey, now),
+      ]);
+    }
+  })().catch((error) => {
+    bookmarkStatsSchemaReadyPromise = null;
+    throw error;
+  });
+
+  return bookmarkStatsSchemaReadyPromise;
 }
 
 async function ensureDownloadTrackingSchema(db) {
@@ -323,6 +440,7 @@ export {
   ensureDownloadTrackingSchema,
   ensurePersonalizationSchema,
   ensureQuoteFeedSchema,
+  ensureBookmarkStatsSchema,
   normalizeUserId,
   validateCredentials,
   randomHex,

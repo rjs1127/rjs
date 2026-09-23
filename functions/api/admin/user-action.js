@@ -4,6 +4,7 @@ import {
   normalizeUserId,
   ensurePersonalizationSchema,
   ensureQuoteFeedSchema,
+  ensureBookmarkStatsSchema,
   userErrorResponse,
 } from "../../_user.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -50,7 +51,19 @@ export async function onRequestPost(context) {
     if (action === "delete_user") {
       await ensurePersonalizationSchema(db);
       await ensureQuoteFeedSchema(db);
+      await ensureBookmarkStatsSchema(db);
+      const now = Date.now();
       await db.batch([
+        db.prepare(`
+          UPDATE item_bookmark_counts
+          SET bookmark_count = MAX(0, bookmark_count - 1),
+              updated_at = ?
+          WHERE file_id IN (
+            SELECT file_id
+            FROM user_items
+            WHERE user_id = ? AND bookmarked = 1
+          )
+        `).bind(now, userId),
         db.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_items WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_likes WHERE user_id = ?`).bind(userId),
@@ -59,6 +72,7 @@ export async function onRequestPost(context) {
         db.prepare(`DELETE FROM user_visits WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visit_stats WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM users WHERE user_id = ?`).bind(userId),
+        db.prepare(`DELETE FROM item_bookmark_counts WHERE bookmark_count <= 0`),
       ]);
 
       return jsonResponse({

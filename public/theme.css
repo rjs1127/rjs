@@ -4069,17 +4069,20 @@ html.theme-dark .recent-postype-new-badge {
 .quote-feed-head h2 { margin:3px 0 0; font-size:clamp(25px,3vw,34px); letter-spacing:-.04em; }
 .quote-feed-description { margin:8px 0 0; color:var(--theme-muted); font-size:13px; }
 .quote-feed-toolbar { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:14px; }
-.quote-feed-sort-pill { display:inline-flex; align-items:center; min-height:28px; padding:5px 10px; border-radius:999px; background:rgba(91,83,76,.08); color:var(--theme-muted); font-size:11px; font-weight:760; }
+.quote-feed-sort-group { display:inline-flex; align-items:center; gap:4px; padding:3px; border-radius:999px; background:rgba(91,83,76,.08); }
+.quote-feed-sort-button { min-height:24px; padding:3px 9px; border:0; border-radius:999px; background:transparent; color:var(--theme-muted); font:inherit; font-size:10px; font-weight:760; cursor:pointer; }
+.quote-feed-sort-button.is-active { background:var(--theme-surface); color:var(--theme-text); box-shadow:0 1px 5px rgba(43,37,32,.09); }
 .quote-feed-meta { color:var(--theme-muted); font-size:11px; }
 .quote-feed-status { min-height:120px; display:grid; place-items:center; color:var(--theme-muted); font-size:13px; text-align:center; }
 .quote-feed-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; }
 .quote-feed-card {
   position:relative; aspect-ratio:1/1; width:100%; overflow:hidden; border:0; border-radius:20px; padding:0;
-  color:var(--quote-color,#2a2724); background:var(--quote-bg,#f3eee7); cursor:pointer; text-align:inherit;
+  color:var(--quote-color,#2a2724); background:var(--quote-bg,#f3eee7); text-align:inherit;
   box-shadow:0 8px 24px rgba(43,37,32,.08); transition:transform .18s ease, box-shadow .18s ease;
 }
 .quote-feed-card:hover { transform:translateY(-2px); box-shadow:0 13px 30px rgba(43,37,32,.12); }
-.quote-feed-card:active { transform:scale(.992); }
+.quote-feed-card-open { position:absolute; inset:0; width:100%; border:0; padding:0; background:transparent; color:inherit; cursor:pointer; text-align:inherit; }
+.quote-feed-card-open:active { transform:scale(.992); }
 .quote-feed-card-inner { position:absolute; inset:0; padding:9.5% 9%; display:flex; flex-direction:column; }
 .quote-feed-card-brand { display:flex; align-items:center; gap:5px; margin-bottom:6%; font-size:9px; font-weight:820; opacity:.52; letter-spacing:.02em; }
 .quote-feed-card-brand::before { content:"✦"; font-size:9px; }
@@ -4093,6 +4096,14 @@ html.theme-dark .recent-postype-new-badge {
 .quote-feed-card-source strong,.quote-feed-card-source span { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .quote-feed-card-source strong { font-size:10px; font-weight:800; }
 .quote-feed-card-source span { font-size:9px; opacity:.8; }
+.quote-feed-like-button {
+  position:absolute; z-index:2; top:8%; right:8%; display:inline-flex; align-items:center; gap:3px; min-height:24px;
+  padding:3px 7px; border:1px solid rgba(42,39,36,.10); border-radius:999px; background:rgba(255,255,255,.48);
+  color:inherit; font:inherit; font-size:10px; font-weight:800; cursor:pointer; backdrop-filter:blur(5px);
+}
+.quote-feed-like-button.is-liked { background:rgba(255,255,255,.72); }
+.quote-feed-like-button:disabled { opacity:.55; cursor:wait; }
+.quote-feed-like-button b { font:inherit; }
 .quote-feed-more-wrap { display:flex; justify-content:center; padding-top:22px; }
 
 .quote-feed-detail-modal {
@@ -4156,7 +4167,10 @@ html.theme-dark .recent-postype-new-badge {
 .profile-quote-share-button[aria-pressed="true"] { background:rgba(95,105,94,.11); border-color:rgba(95,105,94,.24); color:#556052; }
 .profile-quote-share-button[aria-pressed="true"]::before { content:"✓ "; }
 
-html.theme-dark .quote-feed-sort-pill { background:rgba(255,255,255,.07); }
+html.theme-dark .quote-feed-sort-group { background:rgba(255,255,255,.07); }
+html.theme-dark .quote-feed-sort-button.is-active { background:rgba(255,255,255,.12); }
+html.theme-dark .quote-feed-like-button { border-color:rgba(255,255,255,.12); background:rgba(30,28,26,.38); }
+html.theme-dark .quote-feed-like-button.is-liked { background:rgba(30,28,26,.62); }
 html.theme-dark .reader-share-saved-panel { background:rgba(255,255,255,.045); border-color:rgba(255,255,255,.09); }
 html.theme-dark .reader-share-saved-head, html.theme-dark .reader-share-public-copy strong { color:var(--theme-text); }
 html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
@@ -4174,6 +4188,7 @@ html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
   .quote-feed-card-text { -webkit-line-clamp:7; font-size:var(--quote-mobile-size,11px); line-height:1.55; }
   .quote-feed-card-source strong { font-size:8px; }
   .quote-feed-card-source span,.quote-feed-card-brand { font-size:7px; }
+  .quote-feed-like-button { top:7%; right:7%; min-height:21px; padding:2px 6px; font-size:8px; }
   .quote-feed-detail-modal {
     width:calc(100% - 20px);
     max-height:calc(100dvh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom)));

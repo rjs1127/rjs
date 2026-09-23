@@ -127,6 +127,12 @@ const els = {
   resourceKvBreakdown: document.getElementById("resourceKvBreakdown"),
   resourceD1Total: document.getElementById("resourceD1Total"),
   resourceD1Breakdown: document.getElementById("resourceD1Breakdown"),
+  resourceD1Users: document.getElementById("resourceD1Users"),
+  resourceD1UserItems: document.getElementById("resourceD1UserItems"),
+  resourceD1Quotes: document.getElementById("resourceD1Quotes"),
+  resourceD1SharedQuotes: document.getElementById("resourceD1SharedQuotes"),
+  resourceD1DatabaseSize: document.getElementById("resourceD1DatabaseSize"),
+  resourceD1TodayWritten: document.getElementById("resourceD1TodayWritten"),
   resourceOperationBody: document.getElementById("resourceOperationBody"),
   resourceFunctionsNote: document.getElementById("resourceFunctionsNote"),
   resourcePagesBuildCard: document.getElementById("resourcePagesBuildCard"),
@@ -990,6 +996,44 @@ function renderResourcePagesDeployments(data) {
   }
 }
 
+function d1TableCount(d1, tableName) {
+  const table = (Array.isArray(d1?.tables) ? d1.tables : [])
+    .find((item) => item?.name === tableName);
+  return table ? Number(table.count || 0) : null;
+}
+
+function renderD1DataHealth(data) {
+  const d1 = data?.d1 || {};
+  const today = data?.analytics?.products?.d1?.periods?.today || null;
+  const rowsWritten = data?.analytics?.products?.d1?.available
+    ? Number(today?.rowsWritten || 0)
+    : null;
+
+  const setCount = (element, value, suffix = "") => {
+    if (!element) return;
+    element.textContent = value == null
+      ? "-"
+      : `${Number(value).toLocaleString("ko-KR")}${suffix}`;
+  };
+
+  setCount(els.resourceD1Users, d1TableCount(d1, "users"), "명");
+  setCount(els.resourceD1UserItems, d1TableCount(d1, "user_items"), "건");
+  setCount(els.resourceD1Quotes, d1TableCount(d1, "user_quotes"), "건");
+  setCount(els.resourceD1SharedQuotes, d1TableCount(d1, "shared_quotes"), "건");
+
+  if (els.resourceD1DatabaseSize) {
+    els.resourceD1DatabaseSize.textContent = d1?.bytes == null
+      ? "-"
+      : formatResourceBytes(d1.bytes);
+  }
+
+  if (els.resourceD1TodayWritten) {
+    els.resourceD1TodayWritten.textContent = rowsWritten == null
+      ? "-"
+      : `${rowsWritten.toLocaleString("ko-KR")} rows`;
+  }
+}
+
 function renderResourceUsage(data) {
   resourceUsageData = data;
   resourceUsageLoaded = true;
@@ -1029,6 +1073,7 @@ function renderResourceUsage(data) {
 
   renderResourceAnalytics(data);
   renderResourcePagesDeployments(data);
+  renderD1DataHealth(data);
 
   els.resourceKvTotal.textContent = kv.bound
     ? `${Number(kv.keyCount || 0).toLocaleString("ko-KR")} keys${

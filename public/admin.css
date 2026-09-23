@@ -2986,3 +2986,97 @@ body.history-modal-open { overflow:hidden; }
   .history-activity-column:first-child small { transform:translateX(2px); }
   .history-activity-column:last-child small { transform:translateX(-3px); }
 }
+
+
+/* v8.47 · D1 운영 데이터 현황 */
+.resource-d1-health {
+  margin: 18px 0;
+  padding: 18px;
+  border: 1px solid #e5ded5;
+  border-radius: 18px;
+  background: #fbf9f5;
+}
+
+.resource-d1-health-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.resource-d1-health-head h3 {
+  margin: 3px 0 0;
+  font-size: 17px;
+  letter-spacing: -0.03em;
+}
+
+.resource-d1-health-head > small {
+  color: #8b837a;
+  font-size: 11px;
+}
+
+.resource-d1-health-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.resource-d1-health-card {
+  min-width: 0;
+  padding: 15px 16px;
+  border: 1px solid #e7e0d7;
+  border-radius: 15px;
+  background: #fffdf9;
+}
+
+.resource-d1-health-card > span,
+.resource-d1-health-card > small {
+  display: block;
+  color: #847c73;
+  font-size: 11px;
+}
+
+.resource-d1-health-card > strong {
+  display: block;
+  margin: 7px 0 5px;
+  color: #27231f;
+  font-size: clamp(20px, 2.2vw, 27px);
+  line-height: 1;
+  letter-spacing: -0.045em;
+}
+
+.resource-d1-health-card.is-storage,
+.resource-d1-health-card.is-write {
+  background: #f6f2ec;
+}
+
+@media (max-width: 860px) {
+  .resource-d1-health-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .resource-d1-health {
+    padding: 15px;
+  }
+
+  .resource-d1-health-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .resource-d1-health-grid {
+    gap: 8px;
+  }
+
+  .resource-d1-health-card {
+    padding: 13px;
+  }
+
+  .resource-d1-health-card > strong {
+    font-size: 20px;
+  }
+}

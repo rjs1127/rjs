@@ -2,6 +2,7 @@ import { jsonResponse } from "../../_shared.js";
 import {
   requireUser,
   ensureDownloadTrackingSchema,
+  ensureBookmarkStatsSchema,
   userErrorResponse,
 } from "../../_user.js";
 
@@ -15,11 +16,28 @@ export async function onRequestPost(context) {
     const now = Date.now();
 
     if (action === "clear_bookmarks") {
-      await auth.db.prepare(`
-        UPDATE user_items
-        SET bookmarked = 0, updated_at = ?
-        WHERE user_id = ? AND bookmarked = 1
-      `).bind(now, auth.userId).run();
+      await ensureBookmarkStatsSchema(auth.db);
+      await auth.db.batch([
+        auth.db.prepare(`
+          UPDATE item_bookmark_counts
+          SET bookmark_count = MAX(0, bookmark_count - 1),
+              updated_at = ?
+          WHERE file_id IN (
+            SELECT file_id
+            FROM user_items
+            WHERE user_id = ? AND bookmarked = 1
+          )
+        `).bind(now, auth.userId),
+        auth.db.prepare(`
+          UPDATE user_items
+          SET bookmarked = 0, updated_at = ?
+          WHERE user_id = ? AND bookmarked = 1
+        `).bind(now, auth.userId),
+        auth.db.prepare(`
+          DELETE FROM item_bookmark_counts
+          WHERE bookmark_count <= 0
+        `),
+      ]);
 
       return jsonResponse({ ok: true });
     }
@@ -85,16 +103,60 @@ export async function onRequestPost(context) {
 
     if (action === "bookmark") {
       const bookmarked = body?.bookmarked ? 1 : 0;
+      await ensureBookmarkStatsSchema(auth.db);
 
-      await auth.db.prepare(`
-        INSERT INTO user_items(user_id, file_id, bookmarked, updated_at)
-        VALUES (?, ?, ?, ?)
-        ON CONFLICT(user_id, file_id) DO UPDATE SET
-          bookmarked = excluded.bookmarked,
-          updated_at = excluded.updated_at
-      `).bind(auth.userId, fileId, bookmarked, now).run();
+      const existing = await auth.db.prepare(`
+        SELECT bookmarked
+        FROM user_items
+        WHERE user_id = ? AND file_id = ?
+        LIMIT 1
+      `).bind(auth.userId, fileId).first();
 
-      return jsonResponse({ ok: true, bookmarked: Boolean(bookmarked) });
+      const previousBookmarked = Number(existing?.bookmarked || 0) ? 1 : 0;
+      if (previousBookmarked === bookmarked) {
+        const countRow = await auth.db.prepare(`
+          SELECT bookmark_count
+          FROM item_bookmark_counts
+          WHERE file_id = ?
+          LIMIT 1
+        `).bind(fileId).first();
+        return jsonResponse({
+          ok: true,
+          bookmarked: Boolean(bookmarked),
+          bookmarkCount: Math.max(0, Number(countRow?.bookmark_count || 0)),
+        });
+      }
+
+      const delta = bookmarked ? 1 : -1;
+      await auth.db.batch([
+        auth.db.prepare(`
+          INSERT INTO user_items(user_id, file_id, bookmarked, updated_at)
+          VALUES (?, ?, ?, ?)
+          ON CONFLICT(user_id, file_id) DO UPDATE SET
+            bookmarked = excluded.bookmarked,
+            updated_at = excluded.updated_at
+        `).bind(auth.userId, fileId, bookmarked, now),
+        auth.db.prepare(`
+          INSERT INTO item_bookmark_counts(file_id, bookmark_count, updated_at)
+          VALUES (?, MAX(0, ?), ?)
+          ON CONFLICT(file_id) DO UPDATE SET
+            bookmark_count = MAX(0, item_bookmark_counts.bookmark_count + ?),
+            updated_at = excluded.updated_at
+        `).bind(fileId, delta, now, delta),
+      ]);
+
+      const countRow = await auth.db.prepare(`
+        SELECT bookmark_count
+        FROM item_bookmark_counts
+        WHERE file_id = ?
+        LIMIT 1
+      `).bind(fileId).first();
+
+      return jsonResponse({
+        ok: true,
+        bookmarked: Boolean(bookmarked),
+        bookmarkCount: Math.max(0, Number(countRow?.bookmark_count || 0)),
+      });
     }
 
     if (action === "progress") {
