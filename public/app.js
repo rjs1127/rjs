@@ -77,6 +77,7 @@ const state = {
   resumeShortcutItemId: "",
   readerResumeSaved: null,
   readerShareText: "",
+  readerShareSourceItem: null,
   readerShareBackground: 0,
   readerShareWeight: "regular",
   visibleItemLimit: 40,
@@ -1660,14 +1661,20 @@ function hideProfilePage({ fromHistory = false, clearHistoryMarker = false } = {
   }
 }
 
-async function saveCurrentReaderQuote() {
+function getReaderShareSourceItem() {
+  return state.readerShareSourceItem || state.activeReaderItem || {};
+}
+
+async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceItem = null } = {}) {
   if (!state.user) {
     openAuthModal("login", "문장을 저장하려면 로그인해 주세요.");
     return false;
   }
-  const quoteText = getReaderShareEditedText(state.readerShareText).trim();
+  const quoteText = getReaderShareEditedText(
+    rawQuoteText == null ? state.readerShareText : rawQuoteText
+  ).trim();
   if (!quoteText) return false;
-  const item = state.activeReaderItem || {};
+  const item = sourceItem || getReaderShareSourceItem();
   const data = await userApi("/api/user/profile", {
     method: "POST",
     body: JSON.stringify({
@@ -2920,6 +2927,24 @@ function getPostypeBookmarkButtonHtml(item, className = "postype-bookmark-button
   `;
 }
 
+function getPostypeQuoteButtonHtml(item, className = "item-quote-button") {
+  if (item?.source !== "postype") return "";
+
+  return `
+    <button
+      class="${className}"
+      type="button"
+      data-item-quote="${escapeHtml(item.id)}"
+      aria-label="문장 입력해서 이미지 만들기"
+      title="문장 입력해서 이미지 만들기">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9.4 7.4c-2.2.9-3.9 3.1-3.9 5.8 0 1.8 1.1 3.3 2.9 3.3 1.6 0 2.8-1.1 2.8-2.6 0-1.4-1.1-2.4-2.4-2.4-.2 0-.5 0-.7.1.2-1.4 1.2-2.8 2.6-3.7"></path>
+        <path d="M17.9 7.4c-2.2.9-3.9 3.1-3.9 5.8 0 1.8 1.1 3.3 2.9 3.3 1.6 0 2.8-1.1 2.8-2.6 0-1.4-1.1-2.4-2.4-2.4-.2 0-.5 0-.7.1.2-1.4 1.2-2.8 2.6-3.7"></path>
+      </svg>
+    </button>
+  `;
+}
+
 async function togglePostypeBookmark(item) {
   if (!item || item.source !== "postype") return;
 
@@ -3035,6 +3060,14 @@ function getMobilePostypeBookmarkHtml(item) {
   );
 }
 
+function getMobilePostypeQuoteHtml(item) {
+  if (!item?.id || item.source !== "postype") return "";
+  return getPostypeQuoteButtonHtml(
+    item,
+    "item-quote-button list-mobile-postype-quote"
+  );
+}
+
 function getListTitleLengthClass(title) {
   const length = Array.from(String(title || "")).length;
   if (length >= 46) return " list-title-text-very-long";
@@ -3103,7 +3136,7 @@ function renderCards(items) {
       ${getPostypeMetaHtml(item)}
       <div class="card-actions">
         ${item.source === "postype"
-          ? `${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}${getRecentPostypeNewBadgeHtml(item)}`
+          ? `${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}${getPostypeQuoteButtonHtml(item, "item-quote-button card-quote-button")}${getRecentPostypeNewBadgeHtml(item)}`
           : `${getItemLikeButtonHtml(item, "item-like-button card-like-button")}${getDriveBookmarkButtonHtml(item, "item-bookmark-button card-bookmark-button")}${getDownloadButtonHtml(item, "item-download-button card-download-button")}`}
       </div>
     </article>
@@ -3152,9 +3185,11 @@ function renderList(items) {
           <span class="list-title-actions">
             ${getItemLikeButtonHtml(item, "item-like-button list-like-button")}
             ${getMobilePostypeBookmarkHtml(item)}
+            ${getMobilePostypeQuoteHtml(item)}
             <span class="list-desktop-actions">
               ${getListBookmarkIndicator(item)}
               ${getRecentPostypeNewBadgeHtml(item)}
+              ${getPostypeQuoteButtonHtml(item, "item-quote-button list-quote-button")}
               ${getDownloadButtonHtml(item, "item-download-button list-download-button")}
             </span>
             ${getMobileListMoreHtml(item)}
@@ -7090,6 +7125,11 @@ function findItemFromEvent(event) {
   return state.items.find((entry) => entry.id === target.dataset.id);
 }
 
+function openPostypeQuoteComposer(item) {
+  if (!item || item.source !== "postype") return;
+  openReaderShareSheet({ allowEmpty: true, presetText: "", sourceItem: item });
+}
+
 function openContentItem(item) {
   if (!item) return;
 
@@ -7142,6 +7182,15 @@ function handleContentOpenClick(event) {
       (entry) => entry.id === postypeBookmarkButton.dataset.postypeBookmark
     );
     togglePostypeBookmark(item);
+    return;
+  }
+
+  const quoteButton = event.target.closest("[data-item-quote]");
+  if (quoteButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const item = state.items.find((entry) => entry.id === quoteButton.dataset.itemQuote);
+    openPostypeQuoteComposer(item);
     return;
   }
 
@@ -7199,7 +7248,8 @@ for (const container of [els.contentGrid, els.contentListBody]) {
       event.target.closest("[data-download-id]") ||
       event.target.closest("[data-postype-bookmark]") ||
       event.target.closest("[data-drive-bookmark]") ||
-      event.target.closest("[data-item-like]")
+      event.target.closest("[data-item-like]") ||
+      event.target.closest("[data-item-quote]")
     ) return;
     if (event.key !== "Enter" && event.key !== " ") return;
     const item = findItemFromEvent(event);
@@ -7782,7 +7832,7 @@ function ensureReaderShareUi() {
         <div class="reader-share-section">
           <div class="reader-share-row" style="align-items:start;">
             <span class="reader-share-label" style="padding-top:9px;">문구</span>
-            <textarea class="reader-share-input" maxlength="4000" aria-label="선택한 문구 편집"></textarea>
+            <textarea class="reader-share-input" maxlength="4000" aria-label="문장 편집" placeholder="문장을 직접 입력하거나 수정해 보세요."></textarea>
           </div>
         </div>
 
@@ -7844,6 +7894,8 @@ function ensureReaderShareUi() {
   const close = () => {
     backdrop.hidden = true;
     lastSavedQuote = null;
+    state.readerShareText = "";
+    state.readerShareSourceItem = null;
     if (savedPanel) savedPanel.hidden = true;
     if (publicToggle) {
       publicToggle.disabled = false;
@@ -7959,7 +8011,15 @@ function ensureReaderShareUi() {
     const original = quoteSaveButton.textContent;
     quoteSaveButton.textContent = "저장 중…";
     try {
-      const savedQuote = await saveCurrentReaderQuote();
+      // POSTYPE 직접 입력은 selection 상태가 아니라 현재 textarea 값을 최종 기준으로 사용한다.
+      // paste/IME/모바일 입력 타이밍과 무관하게 저장 버튼을 누른 순간의 값을 확정한다.
+      const currentText = String(input?.value || "");
+      state.readerShareText = currentText;
+      const sourceItem = getReaderShareSourceItem();
+      const savedQuote = await saveCurrentReaderQuote({
+        quoteText: currentText,
+        sourceItem,
+      });
       if (savedQuote) {
         lastSavedQuote = savedQuote;
         quoteSaveButton.textContent = "저장 완료";
@@ -7989,6 +8049,10 @@ function ensureReaderShareUi() {
         }, 1200);
       } else {
         quoteSaveButton.textContent = original;
+        if (!String(input?.value || "").trim()) {
+          window.alert("저장할 문장을 입력해 주세요.");
+          input?.focus();
+        }
       }
     } catch (error) {
       console.error("quote save failed", error);
@@ -8003,7 +8067,7 @@ function ensureReaderShareUi() {
     const nextShared = publicToggle.getAttribute("aria-pressed") !== "true";
     publicToggle.disabled = true;
     try {
-      await setSavedQuoteShared(lastSavedQuote, nextShared, state.activeReaderItem?.id || "");
+      await setSavedQuoteShared(lastSavedQuote, nextShared, getReaderShareSourceItem().id || "");
       publicToggle.setAttribute("aria-pressed", nextShared ? "true" : "false");
       const copy = savedPanel?.querySelector(".reader-share-public-copy small");
       if (copy) {
@@ -8216,7 +8280,7 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
 function getReaderShareRenderModel() {
   ensureReaderShareState();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
-  const item = state.activeReaderItem || {};
+  const item = getReaderShareSourceItem();
   const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
@@ -8407,7 +8471,7 @@ function downloadReaderShareBlob(blob, filename) {
 }
 
 function getReaderShareFilename() {
-  const title = String(state.activeReaderItem?.title || "quote-card")
+  const title = String(getReaderShareSourceItem().title || "quote-card")
     .replace(/[\/:*?"<>|]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -8449,7 +8513,7 @@ let readerSharePreparePromise = null;
 let readerSharePrepareTimer = 0;
 
 function getReaderShareBlobKey() {
-  const item = state.activeReaderItem || {};
+  const item = getReaderShareSourceItem();
   return JSON.stringify({
     text: getReaderShareEditedText(state.readerShareText).slice(0, 700),
     background: state.readerShareBackground,
@@ -8610,7 +8674,7 @@ async function handleReaderShareExport(mode) {
       await navigator.share({
         files: [file],
         title: filename,
-        text: `${state.activeReaderItem?.title || "문장 이미지"}`,
+        text: `${getReaderShareSourceItem().title || "문장 이미지"}`,
       });
       return;
     }
@@ -8641,7 +8705,7 @@ function updateReaderSharePreview() {
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
-  const item = state.activeReaderItem || {};
+  const item = getReaderShareSourceItem();
   const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
@@ -8709,8 +8773,11 @@ function resetReaderShareEditorOptions() {
   normalizeReaderShareWeightForFont();
 }
 
-function openReaderShareSheet() {
-  if (!state.readerShareText) return;
+function openReaderShareSheet(options = {}) {
+  const { allowEmpty = false, presetText = null, sourceItem = null } = options || {};
+  if (typeof presetText === "string") state.readerShareText = presetText;
+  state.readerShareSourceItem = sourceItem || state.activeReaderItem || state.readerShareSourceItem || null;
+  if (!allowEmpty && !state.readerShareText) return;
   // A newly opened editor always starts from the agreed baseline.
   resetReaderShareEditorOptions();
   ensureReaderShareState();
@@ -8724,10 +8791,22 @@ function openReaderShareSheet() {
     document.activeElement && typeof document.activeElement.blur === "function" && document.activeElement.blur();
   } catch (_) {}
   ui.input.value = state.readerShareText;
+  ui.input.placeholder = state.readerShareSourceItem?.source === "postype"
+    ? "작품에서 저장하고 싶은 문장을 직접 입력해 보세요."
+    : "문장을 직접 입력하거나 수정해 보세요.";
   ui.backdrop.hidden = false;
   updateReaderSharePreview();
   scheduleReaderShareBlobPreparation(0);
   updateReaderShareActionLabel();
+  if (allowEmpty) {
+    window.requestAnimationFrame(() => {
+      try {
+        ui.input.focus();
+        const end = ui.input.value.length;
+        ui.input.setSelectionRange(end, end);
+      } catch (_) {}
+    });
+  }
 }
 
 function closeReaderShareUi() {
@@ -8737,6 +8816,7 @@ function closeReaderShareUi() {
   window.clearTimeout(readerSharePrepareTimer);
   resetReaderShareEditorOptions();
   state.readerShareText = "";
+  state.readerShareSourceItem = null;
 }
 
 function getReaderShareEditedText(rawText) {
