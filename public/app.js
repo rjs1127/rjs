@@ -105,7 +105,10 @@ const READER_FONT_FAMILIES = {
 };
 
 function getViewerPreferenceStorage() {
-  return state.user ? localStorage : sessionStorage;
+  // 로그인 복원 전 첫 렌더에서도 저장된 로그인 사용자 설정을 그대로 사용한다.
+  // 기존에는 state.user가 아직 null이라 sessionStorage를 먼저 읽은 뒤,
+  // /api/auth/me 응답 후 localStorage로 다시 바뀌면서 테마가 순간 전환될 수 있었다.
+  return state.user || getAuthToken() ? localStorage : sessionStorage;
 }
 
 function getSavedTheme() {
@@ -171,6 +174,13 @@ function applyUserPreferences() {
   }
 
   root.dataset.theme = theme;
+  const themeColor = document.getElementById("themeColorMeta");
+  if (themeColor) {
+    themeColor.setAttribute(
+      "content",
+      theme === "dark" ? "#171614" : "#f6f3ee"
+    );
+  }
   root.dataset.readerSpacing = spacing;
   root.dataset.readerFontSize = fontSize;
   root.dataset.readerFont = fontFamily;

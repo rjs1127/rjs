@@ -3,7 +3,27 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#f6f3ee" />
+  <meta id="themeColorMeta" name="theme-color" content="#f6f3ee" />
+  <script>
+    (() => {
+      const root = document.documentElement;
+      let theme = "light";
+      try {
+        const hasAuthToken = Boolean(localStorage.getItem("rjsBookAuthTokenV1"));
+        const storage = hasAuthToken ? localStorage : sessionStorage;
+        theme = storage.getItem("rjsBookThemeV1") === "dark" ? "dark" : "light";
+      } catch (_) {}
+
+      root.classList.add(`theme-${theme}`);
+      root.dataset.theme = theme;
+      root.style.colorScheme = theme;
+
+      const themeColor = document.getElementById("themeColorMeta");
+      if (themeColor) {
+        themeColor.setAttribute("content", theme === "dark" ? "#171614" : "#f6f3ee");
+      }
+    })();
+  </script>
   <title>__SITE_NAME__</title>
   <meta id="ogSiteName" property="og:site_name" content="__SITE_NAME__" />
   <meta id="ogTitle" property="og:title" content="__SITE_NAME__" />
