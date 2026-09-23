@@ -141,6 +141,15 @@ const els = {
   resourcePagesMoreButton: document.getElementById("resourcePagesMoreButton"),
   resourcePagesBuildNotice: document.getElementById("resourcePagesBuildNotice"),
   resourceMessage: document.getElementById("resourceMessage"),
+  historyRefreshButton: document.getElementById("historyRefreshButton"),
+  historyFirstDate: document.getElementById("historyFirstDate"),
+  historyCommitCount: document.getElementById("historyCommitCount"),
+  historyActiveDays: document.getElementById("historyActiveDays"),
+  historyLastDate: document.getElementById("historyLastDate"),
+  historyActivityCaption: document.getElementById("historyActivityCaption"),
+  historyActivityGraph: document.getElementById("historyActivityGraph"),
+  historyTimeline: document.getElementById("historyTimeline"),
+  historyMessage: document.getElementById("historyMessage"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
   panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
 };
@@ -172,6 +181,7 @@ let resourceUsageLoaded = false;
 let resourceUsageData = null;
 let resourceAnalyticsPeriod = "today";
 let resourcePagesVisibleLimit = 10;
+let historyLoaded = false;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -287,6 +297,16 @@ function setActiveTab(name) {
       if (els.postypeListMessage) {
         els.postypeListMessage.hidden = false;
         els.postypeListMessage.textContent = error.message || "POSTYPE 목록을 불러오지 못했습니다.";
+      }
+    });
+  }
+
+  if (name === "history" && !historyLoaded) {
+    loadHistory().catch((error) => {
+      console.error(error);
+      if (els.historyMessage) {
+        els.historyMessage.hidden = false;
+        els.historyMessage.textContent = error.message || "개발 히스토리를 불러오지 못했습니다.";
       }
     });
   }
@@ -2275,7 +2295,7 @@ function checkDeployPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md"))) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md" || normalized === "HISTORY.md"))) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 
@@ -3338,6 +3358,116 @@ async function loadVersionMetadata() {
   }
 }
 
+function formatHistoryDateLabel(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return String(value || "-");
+  return `${match[1]}. ${Number(match[2])}. ${Number(match[3])}.`;
+}
+
+function getHistoryVersion(message) {
+  return String(message || "").match(/\bv?(\d+\.\d+(?:\.\d+)?)\b/i)?.[0] || "";
+}
+
+function renderHistoryActivity(days = []) {
+  if (!els.historyActivityGraph) return;
+  const monthly = new Map();
+  for (const day of days) {
+    const month = String(day.date || "").slice(0, 7);
+    if (!month) continue;
+    monthly.set(month, (monthly.get(month) || 0) + (Array.isArray(day.entries) ? day.entries.length : 0));
+  }
+
+  const rows = [...monthly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+  const visible = rows.slice(-18);
+  const max = Math.max(1, ...visible.map(([, count]) => count));
+
+  els.historyActivityGraph.innerHTML = visible.length
+    ? visible.map(([month, count]) => {
+        const height = Math.max(12, Math.round((count / max) * 100));
+        const label = `${Number(month.slice(5, 7))}월`;
+        return `<div class="history-activity-column" title="${escapeHtml(month)} · ${count.toLocaleString("ko-KR")}개 커밋">
+          <span class="history-activity-count">${count.toLocaleString("ko-KR")}</span>
+          <i style="height:${height}%"></i>
+          <small>${escapeHtml(label)}</small>
+        </div>`;
+      }).join("")
+    : `<div class="history-empty">표시할 활동 데이터가 없습니다.</div>`;
+
+  if (els.historyActivityCaption) {
+    els.historyActivityCaption.textContent = visible.length
+      ? `최근 ${visible.length.toLocaleString("ko-KR")}개월 · 월별 커밋 수`
+      : "활동 데이터 없음";
+  }
+}
+
+function renderHistoryTimeline(days = []) {
+  if (!els.historyTimeline) return;
+  if (!days.length) {
+    els.historyTimeline.innerHTML = `<div class="history-empty">HISTORY.md에 표시할 기록이 없습니다.</div>`;
+    return;
+  }
+
+  els.historyTimeline.innerHTML = days.map((day, index) => {
+    const entries = Array.isArray(day.entries) ? day.entries : [];
+    const version = entries.map((entry) => getHistoryVersion(entry.message)).find(Boolean) || "";
+    return `<article class="history-day${index === 0 ? " is-latest" : ""}">
+      <div class="history-rail" aria-hidden="true"><span></span></div>
+      <div class="history-day-card">
+        <div class="history-day-head">
+          <div>
+            <time datetime="${escapeHtml(day.date)}">${escapeHtml(formatHistoryDateLabel(day.date))}</time>
+            ${version ? `<b>${escapeHtml(version)}</b>` : ""}
+          </div>
+          <span>${entries.length.toLocaleString("ko-KR")} changes</span>
+        </div>
+        <div class="history-entry-list">
+          ${entries.map((entry) => `<div class="history-entry">
+            <span>${escapeHtml(entry.time || "--:--")}</span>
+            <p>${escapeHtml(entry.message || "변경사항 기록")}</p>
+          </div>`).join("")}
+        </div>
+      </div>
+    </article>`;
+  }).join("");
+}
+
+async function loadHistory(force = false) {
+  if (historyLoaded && !force) return;
+  if (els.historyMessage) els.historyMessage.hidden = true;
+  if (els.historyRefreshButton) els.historyRefreshButton.disabled = true;
+
+  try {
+    const data = await api("/api/admin/history", { method: "GET" });
+    const summary = data?.summary || {};
+    const days = Array.isArray(data?.days) ? data.days : [];
+
+    if (els.historyFirstDate) els.historyFirstDate.textContent = summary.firstDate ? formatHistoryDateLabel(summary.firstDate) : "-";
+    if (els.historyCommitCount) els.historyCommitCount.textContent = Number(summary.commitCount || 0).toLocaleString("ko-KR");
+    if (els.historyActiveDays) els.historyActiveDays.textContent = Number(summary.activeDays || 0).toLocaleString("ko-KR");
+    if (els.historyLastDate) els.historyLastDate.textContent = summary.lastDate ? formatHistoryDateLabel(summary.lastDate) : "-";
+
+    renderHistoryActivity(days);
+    renderHistoryTimeline(days);
+    if (data?.historyFilePending && els.historyMessage) {
+      els.historyMessage.hidden = false;
+      els.historyMessage.textContent = "현재는 GitHub 커밋 이력을 직접 표시 중입니다. 다음 관리자 배포부터 HISTORY.md가 자동 생성되어 같은 데이터 원본으로 전환됩니다.";
+    }
+    historyLoaded = true;
+  } finally {
+    if (els.historyRefreshButton) els.historyRefreshButton.disabled = false;
+  }
+}
+
+els.historyRefreshButton?.addEventListener("click", () => {
+  historyLoaded = false;
+  loadHistory(true).catch((error) => {
+    if (els.historyMessage) {
+      els.historyMessage.hidden = false;
+      els.historyMessage.textContent = error.message || "개발 히스토리를 불러오지 못했습니다.";
+    }
+  });
+});
+
 function setDeployStatusVisual(item, stateName) {
   if (!item) return;
   item.classList.remove("is-waiting", "is-building", "is-success", "is-failure");
@@ -3507,6 +3637,7 @@ els.deployButton.addEventListener("click", async () => {
       els.adminVersion.textContent = `배포 중 ${pendingDeployVersion}`;
     }
     refreshDeployStatus({ keepPolling: true });
+    historyLoaded = false;
 
     deployFiles = [];
     deployBlocked = [];

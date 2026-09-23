@@ -44,7 +44,7 @@ function isAllowedPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md"))) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md" || normalized === "HISTORY.md"))) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 
@@ -183,6 +183,122 @@ function buildCommitMessageFromReadmeServer(readmeText, fileCount = 0) {
   if (version) return `${version}: Archive site update`;
   if (summary) return `Archive update: ${summary}`;
   return `Archive update (${fileCount} files)`;
+}
+
+
+function formatHistoryKstParts(value) {
+  const date = new Date(value);
+  const shifted = new Date(date.getTime() + (9 * 60 * 60 * 1000));
+  const iso = shifted.toISOString();
+  return {
+    date: iso.slice(0, 10),
+    time: iso.slice(11, 16),
+  };
+}
+
+function sanitizeHistoryMessage(value) {
+  return String(value || "")
+    .split("\n")[0]
+    .replace(/\s+/g, " ")
+    .replace(/\|/g, "\\|")
+    .trim() || "변경사항 기록";
+}
+
+async function fetchGithubCommitHistory(token) {
+  const commits = [];
+
+  for (let page = 1; page <= 20; page += 1) {
+    const rows = await gh(
+      token,
+      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/commits?sha=${encodeURIComponent(GITHUB_BRANCH)}&per_page=100&page=${page}`
+    );
+
+    if (!Array.isArray(rows) || !rows.length) break;
+
+    for (const row of rows) {
+      const committedAt = row?.commit?.committer?.date || row?.commit?.author?.date || "";
+      if (!committedAt) continue;
+      commits.push({
+        committedAt,
+        message: sanitizeHistoryMessage(row?.commit?.message),
+      });
+    }
+
+    if (rows.length < 100) break;
+  }
+
+  return commits.reverse();
+}
+
+function buildHistoryMarkdown(commits = [], pendingCommit = null) {
+  const rows = commits.map((item) => ({ ...item }));
+  if (pendingCommit?.committedAt && pendingCommit?.message) rows.push(pendingCommit);
+
+  const grouped = new Map();
+  for (const row of rows) {
+    const parts = formatHistoryKstParts(row.committedAt);
+    if (!grouped.has(parts.date)) grouped.set(parts.date, []);
+    grouped.get(parts.date).push({
+      time: parts.time,
+      message: sanitizeHistoryMessage(row.message),
+    });
+  }
+
+  const dates = [...grouped.keys()].sort();
+  const firstDate = dates[0] || "-";
+  const lastDate = dates[dates.length - 1] || "-";
+  const lines = [
+    "# 프로젝트 개발 히스토리",
+    "",
+    "> GitHub `main` 브랜치의 실제 커밋 기록을 기준으로 관리자 배포 시 자동 생성되는 파일입니다.",
+    "> 시간은 한국 표준시(KST, UTC+9) 기준입니다.",
+    "",
+    `- 최초 기록일: **${firstDate}**`,
+    `- 최근 기록일: **${lastDate}**`,
+    `- 전체 커밋: **${rows.length}개**`,
+    `- 활동일: **${dates.length}일**`,
+    "",
+    "---",
+    "",
+  ];
+
+  for (const date of dates) {
+    lines.push(`## ${date}`, "");
+    for (const item of grouped.get(date)) {
+      lines.push(`- ${item.time} · ${item.message}`);
+    }
+    lines.push("");
+  }
+
+  return lines.join("\n").trimEnd() + "\n";
+}
+
+async function createHistoryBlob(token, commitMessage) {
+  const commits = await fetchGithubCommitHistory(token);
+  const pendingCommit = {
+    committedAt: new Date().toISOString(),
+    message: sanitizeHistoryMessage(commitMessage),
+  };
+  const markdown = buildHistoryMarkdown(commits, pendingCommit);
+  const bytes = new TextEncoder().encode(markdown);
+  const blob = await gh(
+    token,
+    `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/blobs`,
+    {
+      method: "POST",
+      body: JSON.stringify({
+        content: toBase64FromBytes(bytes),
+        encoding: "base64",
+      }),
+    }
+  );
+
+  return {
+    path: "HISTORY.md",
+    mode: "100644",
+    type: "blob",
+    sha: blob.sha,
+  };
 }
 
 function normalizeCheckState(check) {
@@ -406,6 +522,11 @@ export async function onRequestPost(context) {
         commitMessage = `Archive update (${treeEntries.length} files)`;
       }
 
+      const historyEntry = await createHistoryBlob(token, commitMessage);
+      const historyIndex = treeEntries.findIndex((entry) => entry.path === "HISTORY.md");
+      if (historyIndex >= 0) treeEntries[historyIndex] = historyEntry;
+      else treeEntries.push(historyEntry);
+
       const ref = await gh(
         token,
         `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/ref/heads/${encodeURIComponent(GITHUB_BRANCH)}`
@@ -505,6 +626,16 @@ export async function onRequestPost(context) {
       const readmeText = readmeFile ? decodeBase64Utf8(readmeFile.contentBase64) : "";
       commitMessage = buildCommitMessageFromReadmeServer(readmeText, files.length);
     }
+
+    const historyCommits = await fetchGithubCommitHistory(token);
+    const historyMarkdown = buildHistoryMarkdown(historyCommits, {
+      committedAt: new Date().toISOString(),
+      message: sanitizeHistoryMessage(commitMessage),
+    });
+    const historyBase64 = toBase64FromBytes(new TextEncoder().encode(historyMarkdown));
+    const historyFileIndex = files.findIndex((file) => file.path === "HISTORY.md");
+    if (historyFileIndex >= 0) files[historyFileIndex] = { path: "HISTORY.md", contentBase64: historyBase64 };
+    else files.push({ path: "HISTORY.md", contentBase64: historyBase64 });
 
     const ref = await gh(token, `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/git/ref/heads/${encodeURIComponent(GITHUB_BRANCH)}`);
     const parentCommitSha = ref.object.sha;

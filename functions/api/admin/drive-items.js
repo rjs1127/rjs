@@ -47,6 +47,7 @@ function toAdminItem(item, typeOverrides, statusOverrides) {
     fileName: item.fileName || "",
     folderType: item.lengthType || "",
     size: Number(item.size || 0),
+    createdTime: item.createdTime || null,
     modifiedTime: item.modifiedTime || null,
     autoContentType: auto,
     overrideContentType: manualType,
@@ -76,12 +77,15 @@ export async function onRequestGet(context) {
     const items = (archive?.items || [])
       .map((item) => toAdminItem(item, typeOverrides, statusOverrides))
       .sort((a, b) => {
-        const cp = String(a.combination).localeCompare(
-          String(b.combination),
-          "ko",
-          { numeric: true }
-        );
-        if (cp !== 0) return cp;
+        const createdDiff =
+          (Date.parse(b.createdTime || "") || 0) -
+          (Date.parse(a.createdTime || "") || 0);
+        if (createdDiff !== 0) return createdDiff;
+
+        const modifiedDiff =
+          (Date.parse(b.modifiedTime || "") || 0) -
+          (Date.parse(a.modifiedTime || "") || 0);
+        if (modifiedDiff !== 0) return modifiedDiff;
 
         return String(a.title).localeCompare(
           String(b.title),
