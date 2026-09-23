@@ -30,9 +30,32 @@ export async function onRequestPost(context) {
     if (!incoming.length) return jsonResponse({ ok: true, pairs: [] });
 
     const stored = await getJson(kv, DUPLICATE_DISMISSALS_KEY, { pairs: [] });
-    const pairs = normalizePairs([...(stored?.pairs || []), ...incoming]);
-    await kv.put(DUPLICATE_DISMISSALS_KEY, JSON.stringify({ pairs, updatedAt: new Date().toISOString() }));
-    return jsonResponse({ ok: true, pairs, addedCount: incoming.length });
+    const existingPairs = normalizePairs(stored?.pairs);
+    const existingSet = new Set(existingPairs);
+    const addedPairs = incoming.filter((pair) => !existingSet.has(pair));
+
+    if (!addedPairs.length) {
+      return jsonResponse({
+        ok: true,
+        changed: false,
+        kvWritten: false,
+        pairs: existingPairs,
+        addedCount: 0,
+      });
+    }
+
+    const pairs = normalizePairs([...existingPairs, ...addedPairs]);
+    await kv.put(
+      DUPLICATE_DISMISSALS_KEY,
+      JSON.stringify({ pairs, updatedAt: new Date().toISOString() })
+    );
+    return jsonResponse({
+      ok: true,
+      changed: true,
+      kvWritten: true,
+      pairs,
+      addedCount: addedPairs.length,
+    });
   } catch (error) {
     console.error(error);
     return jsonResponse({ error: error?.message || "중복 제외 기록을 저장하지 못했습니다." }, error?.status || 500);

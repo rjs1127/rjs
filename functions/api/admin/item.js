@@ -22,16 +22,37 @@ export async function onRequestPost(context) {
     }
 
     const overrides = await getJson(kv, OVERRIDES_KEY, {});
+    const normalizedAuthor = author || "작성자 미상";
+    const current = overrides[id] || null;
+
+    if (
+      current &&
+      String(current.title || "") === title &&
+      String(current.author || "") === normalizedAuthor
+    ) {
+      return jsonResponse({
+        ok: true,
+        changed: false,
+        kvWritten: false,
+        override: current,
+      });
+    }
+
     overrides[id] = {
       title,
-      author: author || "작성자 미상",
+      author: normalizedAuthor,
       updatedAt: new Date().toISOString(),
     };
 
     await kv.put(OVERRIDES_KEY, JSON.stringify(overrides));
     await refreshPublicArchiveIndex(kv, { overrides });
 
-    return jsonResponse({ ok: true, override: overrides[id] });
+    return jsonResponse({
+      ok: true,
+      changed: true,
+      kvWritten: true,
+      override: overrides[id],
+    });
   } catch (error) {
     console.error(error);
     return jsonResponse(

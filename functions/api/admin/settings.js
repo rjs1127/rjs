@@ -4,6 +4,7 @@ import {
   jsonResponse,
   requireKv,
   refreshPublicArchiveIndex,
+  readSettings,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
@@ -42,9 +43,24 @@ export async function onRequestPost(context) {
       return jsonResponse({ error: "메인 타이틀은 비워둘 수 없습니다." }, 400);
     }
 
+    const current = await readSettings(kv);
+    const unchanged =
+      String(current?.faviconUrl || "") === settings.faviconUrl &&
+      String(current?.eyebrow || "") === settings.eyebrow &&
+      String(current?.title || "") === settings.title;
+
+    if (unchanged) {
+      return jsonResponse({
+        ok: true,
+        changed: false,
+        kvWritten: false,
+        settings: current,
+      });
+    }
+
     await kv.put(SETTINGS_KEY, JSON.stringify(settings));
     await refreshPublicArchiveIndex(kv, { settings });
-    return jsonResponse({ ok: true, settings });
+    return jsonResponse({ ok: true, changed: true, kvWritten: true, settings });
   } catch (error) {
     console.error(error);
     return jsonResponse(
