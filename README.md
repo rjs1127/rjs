@@ -1,3 +1,15 @@
+## v8.26 — 초기 HISTORY.md 안내문 상태 fallback 수정
+
+- v8.25 최초 배포 직후 `HISTORY.md`가 존재하지만 아직 안내문만 들어 있는 경우 관리자 히스토리 탭이 0건으로 표시되던 조건 오류 수정
+- `HISTORY.md`가 없을 때뿐 아니라 파싱된 실제 커밋 기록이 0건일 때도 GitHub `main` 실제 커밋 전체를 즉시 조회해 타임라인에 표시
+- 해당 fallback은 서버측 기존 `GITHUB_TOKEN`을 사용하며 브라우저에 토큰을 노출하지 않음
+- 다음 관리자 배포부터 v8.25에 추가된 배포 로직이 GitHub 실제 이력을 `HISTORY.md`에 자동 저장하므로 이후에는 파일 원본 기반으로 전환
+- 히스토리 외 관리자 기능, 메인 화면, 뷰어 및 Drive/POSTYPE 로직은 변경하지 않음
+
+**커밋 메시지 요약:** `fix: fallback to github commits for empty history file`
+
+---
+
 ## v8.25 — GitHub 전체 개발 히스토리·관리자 타임라인
 
 - 루트 `HISTORY.md`를 프로젝트 공식 개발 히스토리 파일로 추가

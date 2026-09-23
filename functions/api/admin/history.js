@@ -133,6 +133,20 @@ export async function onRequestGet(context) {
     const markdown = decodeBase64Utf8(data?.content || "");
     const parsed = parseHistoryMarkdown(markdown);
 
+    // 첫 HISTORY.md가 안내문만 포함한 마이그레이션 상태이거나
+    // 날짜별 커밋 형식이 아직 하나도 없다면 실제 GitHub 커밋을 즉시 표시한다.
+    // 다음 관리자 배포에서 deploy.js가 같은 실제 이력을 HISTORY.md에 정식 저장한다.
+    if (!parsed.summary.commitCount) {
+      const fallback = await fetchCommitDays(token);
+      return jsonResponse({
+        ok: true,
+        ...fallback,
+        source: "github-fallback",
+        historyFilePending: true,
+        updatedAt: new Date().toISOString(),
+      }, 200, { "cache-control": "no-store" });
+    }
+
     return jsonResponse({
       ok: true,
       ...parsed,
