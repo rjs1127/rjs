@@ -1,3 +1,10 @@
+## v8.50 - D1 용량 조회 보정·문장피드 좋아요 위치 조정
+- 관리자 `리소스` 탭의 `DB 현재 용량`을 D1에서 지원하지 않을 수 있는 `PRAGMA page_count/page_size` 대신 Cloudflare GraphQL `d1StorageAdaptiveGroups`의 `databaseSizeBytes`로 조회하도록 변경
+- 기존 Cloudflare Analytics 인증을 그대로 재사용하며, 관리자 리소스 조회 시 D1 저장용량 GraphQL 요청 1회를 추가해 `USER_DB` 실제 저장용량을 표시
+- 문장피드 카드 좋아요 버튼을 우측 상단에서 제목·작가 영역과 같은 하단 좌측 끝으로 이동하고 좋아요/취소 로직과 18개 페이지네이션은 그대로 유지
+- 정적 리소스 캐시 버스터와 표시 버전을 `v8.50`으로 갱신
+- 커밋 메시지 요약: `fix: show D1 storage metric and move quote likes`
+
 ## v8.49 - 문장 피드 좋아요·좋아요순 정렬 추가
 - **v8.46 기준 v8.47~v8.49 통합 배포본**: 관리자 D1 운영 현황 + 전체 북마크순 + 문장피드 좋아요/좋아요순을 한 번에 반영
 - 문장 피드 카드에 좋아요 버튼과 누적 좋아요 수를 추가하고 로그인 사용자만 좋아요/취소 가능

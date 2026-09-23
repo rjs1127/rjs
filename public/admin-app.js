@@ -743,7 +743,7 @@ function renderResourceAnalytics(data) {
         : "조회 실패";
 
   els.resourceFunctionsMeta.textContent =
-    `${availableCount}/3 dataset · GraphQL ${Number(
+    `${availableCount}/4 dataset · GraphQL ${Number(
       analytics.apiRequests || 0
     ).toLocaleString("ko-KR")}회`;
 

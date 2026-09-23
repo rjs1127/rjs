@@ -1,5 +1,7 @@
 import { requireAdminSession } from "../../_admin_session.js";
 
+const DEFAULT_USER_DB_DATABASE_ID = "c22e6db2-66d6-4e49-ad18-7e0271299aa7";
+
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -164,16 +166,6 @@ function aggregateKv(keys, sizeByName = null) {
   };
 }
 
-function firstNumericValue(row) {
-  if (!row || typeof row !== "object") return null;
-
-  for (const value of Object.values(row)) {
-    const number = Number(value);
-    if (Number.isFinite(number)) return number;
-  }
-
-  return null;
-}
 
 async function inspectD1(db) {
   if (!db) {
@@ -262,35 +254,12 @@ async function inspectD1(db) {
     });
   }
 
-  let bytes = null;
-  let pageCount = null;
-  let pageSize = null;
-
-  try {
-    pageCount = firstNumericValue(
-      await db.prepare("PRAGMA page_count").first()
-    );
-    pageSize = firstNumericValue(
-      await db.prepare("PRAGMA page_size").first()
-    );
-
-    if (
-      Number.isFinite(pageCount) &&
-      Number.isFinite(pageSize)
-    ) {
-      bytes = pageCount * pageSize;
-    }
-  } catch {
-    // Some D1 environments may not expose file-level PRAGMA metrics.
-  }
-
   return {
     bound: true,
     tableCount: tables.length,
     totalRows: tables.reduce((sum, row) => sum + row.count, 0),
-    bytes,
-    pageCount,
-    pageSize,
+    bytes: null,
+    bytesSource: null,
     tables,
   };
 }
@@ -678,10 +647,17 @@ async function queryCloudflareAnalytics(env) {
   }
 
   const range = analyticsDateRange();
+  const databaseId = String(
+    env.CLOUDFLARE_D1_DATABASE_ID || DEFAULT_USER_DB_DATABASE_ID
+  ).trim();
   const variables = {
     accountTag: accountId,
     start: range.start,
     end: range.end,
+  };
+  const d1StorageVariables = {
+    ...variables,
+    databaseId,
   };
 
   const kvQuery = `
@@ -744,6 +720,37 @@ async function queryCloudflareAnalytics(env) {
     }
   `;
 
+  const d1StorageQuery = `
+    query D1Storage(
+      $accountTag: string!
+      $start: Date!
+      $end: Date!
+      $databaseId: string!
+    ) {
+      viewer {
+        accounts(filter: { accountTag: $accountTag }) {
+          d1StorageAdaptiveGroups(
+            filter: {
+              date_geq: $start
+              date_leq: $end
+              databaseId: $databaseId
+            }
+            limit: 1000
+            orderBy: [date_DESC]
+          ) {
+            max {
+              databaseSizeBytes
+            }
+            dimensions {
+              date
+              databaseId
+            }
+          }
+        }
+      }
+    }
+  `;
+
   const pagesQuery = `
     query PagesFunctionsUsage(
       $accountTag: string!
@@ -774,10 +781,11 @@ async function queryCloudflareAnalytics(env) {
     }
   `;
 
-  const [kvSettled, d1Settled, pagesSettled] =
+  const [kvSettled, d1Settled, d1StorageSettled, pagesSettled] =
     await Promise.allSettled([
       cloudflareGraphql(token, kvQuery, variables),
       cloudflareGraphql(token, d1Query, variables),
+      cloudflareGraphql(token, d1StorageQuery, d1StorageVariables),
       cloudflareGraphql(token, pagesQuery, variables),
     ]);
 
@@ -860,6 +868,30 @@ async function queryCloudflareAnalytics(env) {
     };
   }
 
+  if (d1StorageSettled.status === "fulfilled") {
+    const rows = accountRows(
+      d1StorageSettled.value,
+      "d1StorageAdaptiveGroups"
+    );
+    const latest = rows
+      .filter((row) => String(row?.dimensions?.databaseId || "") === databaseId)
+      .sort((a, b) => String(b?.dimensions?.date || "").localeCompare(String(a?.dimensions?.date || "")))[0] || null;
+    const storageBytes = Number(latest?.max?.databaseSizeBytes);
+    products.d1Storage = {
+      available: Number.isFinite(storageBytes),
+      databaseId,
+      bytes: Number.isFinite(storageBytes) ? storageBytes : null,
+      sampledDate: String(latest?.dimensions?.date || ""),
+    };
+  } else {
+    products.d1Storage = {
+      available: false,
+      databaseId,
+      bytes: null,
+      error: analyticsErrorMessage(d1StorageSettled.reason),
+    };
+  }
+
   if (pagesSettled.status === "fulfilled") {
     const rows = accountRows(
       pagesSettled.value,
@@ -901,8 +933,8 @@ async function queryCloudflareAnalytics(env) {
   return {
     configured: true,
     connected: availableCount > 0,
-    partial: availableCount > 0 && availableCount < 3,
-    apiRequests: 3,
+    partial: availableCount > 0 && availableCount < 4,
+    apiRequests: 4,
     range,
     timezone: "UTC",
     generatedAt: new Date().toISOString(),
@@ -961,6 +993,17 @@ export async function onRequestGet(context) {
         queryCloudflareAnalytics(context.env),
         queryCloudflarePagesDeployments(context.env),
       ]);
+
+    const analyticsStorageBytes = analyticsResult?.products?.d1Storage?.available
+      ? Number(analyticsResult.products.d1Storage.bytes)
+      : null;
+    if (d1Result.bound && Number.isFinite(analyticsStorageBytes)) {
+      d1Result.bytes = analyticsStorageBytes;
+      d1Result.bytesSource = "cloudflare-analytics";
+      d1Result.bytesSampledDate = String(
+        analyticsResult.products.d1Storage.sampledDate || ""
+      );
+    }
 
     return jsonResponse({
       ok: true,
