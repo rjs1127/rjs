@@ -245,6 +245,7 @@ const els = {
   contentListBody: document.getElementById("contentListBody"),
   emptyState: document.getElementById("emptyState"),
   resultCount: document.getElementById("resultCount"),
+  recentPostypeGuideNote: document.getElementById("recentPostypeGuideNote"),
   quoteFeedButton: document.getElementById("quoteFeedButton"),
   quoteFeedPage: document.getElementById("quoteFeedPage"),
   quoteFeedBackButton: document.getElementById("quoteFeedBackButton"),
@@ -1420,12 +1421,28 @@ function openQuoteFeedDetail(item) {
     requestAnimationFrame(() => {
       const textEl = els.quoteFeedModalText;
       textEl.scrollTop = 0;
-      textEl.classList.remove("is-long");
-      // 짧은 문장은 중앙, 실제로 넘치는 긴 문장만 상단 기준 스크롤형으로 전환한다.
-      if (textEl.scrollHeight > textEl.clientHeight + 2) {
-        textEl.classList.add("is-long");
-        textEl.scrollTop = 0;
+      textEl.classList.remove("is-long", "is-measuring");
+      textEl.style.removeProperty("--quote-detail-font-size");
+
+      // 기본 글자 크기는 유지하고, 조금 넘치는 문장만 단계적으로 축소한다.
+      // 최소 크기까지 줄여도 들어가지 않는 매우 긴 문장에만 내부 스크롤을 허용한다.
+      textEl.classList.add("is-measuring");
+      const defaultSize = Number.parseFloat(getComputedStyle(textEl).fontSize) || 16;
+      const minimumSize = Math.max(12, defaultSize * 0.78);
+      let fittedSize = defaultSize;
+      textEl.style.setProperty("--quote-detail-font-size", `${fittedSize}px`);
+
+      while (textEl.scrollHeight > textEl.clientHeight + 2 && fittedSize - 1 >= minimumSize) {
+        fittedSize -= 1;
+        textEl.style.setProperty("--quote-detail-font-size", `${fittedSize}px`);
       }
+
+      const stillOverflows = textEl.scrollHeight > textEl.clientHeight + 2;
+      textEl.classList.remove("is-measuring");
+      if (stillOverflows) {
+        textEl.classList.add("is-long");
+      }
+      textEl.scrollTop = 0;
     });
   }
 }
@@ -2551,6 +2568,10 @@ function render() {
   const visibleItems = items.slice(0, state.visibleItemLimit);
   updateFilterSummary();
   els.resultCount.textContent = `총 ${items.length.toLocaleString("ko-KR")}개`;
+  if (els.recentPostypeGuideNote) {
+    const hasHighlightedRecentPostype = shouldUseInitialRecentPostypeBoost() && items.some((item) => isRecentPostypeItem(item));
+    els.recentPostypeGuideNote.hidden = !hasHighlightedRecentPostype;
+  }
 
   if (!items.length) {
     els.contentGrid.hidden = true;
@@ -7442,7 +7463,21 @@ function ensureReaderShareUi() {
         lastSavedQuote = savedQuote;
         quoteSaveButton.textContent = "저장 완료";
         quoteSaveButton.classList.add("saved");
-        if (savedPanel) savedPanel.hidden = false;
+        if (savedPanel) {
+          savedPanel.hidden = false;
+          const sheetScroll = backdrop.querySelector(".reader-share-sheet-scroll");
+          window.requestAnimationFrame(() => {
+            const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";
+            if (sheetScroll && savedPanel) {
+              const scrollerRect = sheetScroll.getBoundingClientRect();
+              const panelRect = savedPanel.getBoundingClientRect();
+              const targetTop = sheetScroll.scrollTop + Math.max(0, panelRect.bottom - scrollerRect.bottom + 16);
+              sheetScroll.scrollTo({ top: targetTop, behavior });
+            } else {
+              savedPanel?.scrollIntoView({ behavior, block: "nearest" });
+            }
+          });
+        }
         if (publicToggle) {
           publicToggle.disabled = false;
           publicToggle.setAttribute("aria-pressed", "false");

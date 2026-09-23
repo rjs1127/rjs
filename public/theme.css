@@ -4123,7 +4123,7 @@ html.theme-dark .recent-postype-new-badge {
   overflow-wrap:break-word;
   text-align:center;
   font-family:var(--reader-font-family, inherit);
-  font-size:clamp(15px,3.8vw,20px);
+  font-size:var(--quote-detail-font-size, clamp(15px,3.8vw,20px));
   line-height:1.68;
   font-weight:650;
   letter-spacing:-.025em;
@@ -4200,12 +4200,15 @@ html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
 .content-list-meta-bar {
   display:flex;
   align-items:center;
-  justify-content:flex-end;
-  gap:8px;
-  margin:8px 0 12px;
+  justify-content:space-between;
+  gap:10px;
+  width:100%;
+  margin:0 0 10px;
   min-height:28px;
 }
 .content-list-meta-bar .result-count { margin:0; }
+.recent-postype-guide-note[hidden] { display:none !important; }
+.recent-postype-guide-note { margin-bottom:10px; }
 .quote-feed-entry-button {
   min-height:28px;
   padding:5px 10px;
@@ -4256,6 +4259,10 @@ html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
   overflow-y:hidden;
   padding:28px 4px 12px;
 }
+.quote-feed-detail-text.is-measuring {
+  display:block;
+  overflow-y:hidden;
+}
 .quote-feed-detail-text.is-long {
   display:block;
   overflow-y:auto;
@@ -4278,7 +4285,7 @@ html.theme-dark .quote-feed-entry-button {
 }
 
 @media (max-width: 719px) {
-  .content-list-meta-bar { gap:6px; margin:7px 0 10px; }
+  .content-list-meta-bar { gap:8px; margin:0 0 8px; }
   .quote-feed-entry-button { min-height:25px; padding:4px 8px; font-size:9px; }
   .quote-feed-card-inner { padding:10% 9% 9%; }
   .quote-feed-card-copy { padding:5% 0 1%; }
