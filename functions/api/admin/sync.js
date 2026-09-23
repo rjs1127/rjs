@@ -11,6 +11,8 @@ import {
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
+const LAST_DRIVE_SYNC_KEY = "archive:last-drive-sync:v1";
+
 export async function onRequestPost(context) {
   try {
     await requireAdminSession(context);
@@ -48,6 +50,19 @@ export async function onRequestPost(context) {
       await refreshPublicArchiveIndex(kv, { archive, overrides: reconciliation.overrides });
     }
 
+    // 관리자 화면에서 마지막 동기화 결과를 상시 확인할 수 있도록 매번 기록한다.
+    const lastSync = {
+      checkedAt: delta.checkedAt || new Date().toISOString(),
+      syncedAt: archive.syncedAt || null,
+      changed: Boolean(delta.changed || overridesChanged),
+      addedCount: delta.added.length,
+      updatedCount: delta.updated.length,
+      removedCount: delta.removed.length,
+      unchangedCount: delta.unchangedCount,
+      count: archive.count,
+    };
+    await kv.put(LAST_DRIVE_SYNC_KEY, JSON.stringify(lastSync));
+
     return jsonResponse({
       ok: true,
       changed: delta.changed || overridesChanged,
@@ -59,6 +74,7 @@ export async function onRequestPost(context) {
       updatedCount: delta.updated.length,
       removedCount: delta.removed.length,
       unchangedCount: delta.unchangedCount,
+      lastSync,
       added: delta.added,
       updated: delta.updated,
       removed: delta.removed,

@@ -2526,3 +2526,25 @@ button.primary,
 @media (max-width:720px) {
   .drive-summary-filters { grid-template-columns:repeat(2,minmax(0,1fr)); }
 }
+
+/* v8.23 - persistent Drive sync status + duplicate dismissal */
+.drive-last-sync-status {
+  display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  margin:12px 0 14px; padding:10px 12px;
+  border:1px solid #e8e0d6; border-radius:12px; background:#faf7f2;
+  color:#5f584f; font-size:12px;
+}
+.drive-last-sync-status strong { color:#2f2a25; font-size:12px; }
+.drive-last-sync-status span { color:#7a7167; }
+.drive-last-sync-status em { margin-left:auto; font-style:normal; font-weight:800; color:#4f463d; }
+.duplicate-info-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; }
+.duplicate-dismiss-button {
+  border:1px solid #d9cfc1; border-radius:999px; background:#fff; color:#6c6258;
+  padding:4px 8px; font:inherit; font-size:10px; font-weight:800; cursor:pointer;
+}
+.duplicate-dismiss-button:hover { background:#f6f1ea; color:#332e36; }
+.duplicate-dismiss-button:disabled { opacity:.5; cursor:wait; }
+@media (max-width:720px) {
+  .drive-last-sync-status { align-items:flex-start; }
+  .drive-last-sync-status em { width:100%; margin-left:0; }
+}

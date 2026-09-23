@@ -13,6 +13,7 @@ const DRIVE_CONTENT_TYPE_OVERRIDES_KEY =
 const DRIVE_STATUS_OVERRIDES_KEY =
   "archive:drive-status-overrides:v1";
 const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
+const LAST_DRIVE_SYNC_KEY = "archive:last-drive-sync:v1";
 
 function normalize(value) {
   return String(value ?? "").trim();
@@ -66,9 +67,10 @@ export async function onRequestGet(context) {
       await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
     }
 
-    const [typeOverrides, statusOverrides] = await Promise.all([
+    const [typeOverrides, statusOverrides, lastSync] = await Promise.all([
       getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
       getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
+      getJson(kv, LAST_DRIVE_SYNC_KEY, null),
     ]);
 
     const items = (archive?.items || [])
@@ -100,6 +102,7 @@ export async function onRequestGet(context) {
         statusOverrideCount: items.filter(
           (item) => item.overrideStatus
         ).length,
+        lastSync,
         mismatchCount: items.filter((item) => {
           const folderExpected =
             item.folderType === "장편"

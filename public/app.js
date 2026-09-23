@@ -329,6 +329,9 @@ const els = {
   signupCompleteButton: document.getElementById("signupCompleteButton"),
   helpModal: document.getElementById("helpModal"),
   helpLoginButton: document.getElementById("helpLoginButton"),
+  detailedHelpButton: document.getElementById("detailedHelpButton"),
+  detailedHelpModal: document.getElementById("detailedHelpModal"),
+  detailedHelpCloseButton: document.getElementById("detailedHelpCloseButton"),
   publicVersion: document.getElementById("publicVersion"),
   copyIssueInfoButton: document.getElementById("copyIssueInfoButton"),
   privacyButton: document.getElementById("privacyButton"),
@@ -429,6 +432,7 @@ function getSimpleModals() {
     els.authModal,
     els.signupModal,
     els.helpModal,
+    els.detailedHelpModal,
     els.privacyModal,
     els.libraryModal,
     els.viewerSettingsModal,
@@ -684,6 +688,12 @@ function updateAccountUi() {
 
   if (els.signupButton) {
     els.signupButton.hidden = loggedIn;
+  }
+  if (els.helpLoginButton) {
+    els.helpLoginButton.hidden = loggedIn;
+  }
+  if (els.helpModal) {
+    els.helpModal.classList.toggle("is-logged-in", loggedIn);
   }
 }
 
@@ -5315,6 +5325,15 @@ els.helpLoginButton?.addEventListener("click", () => {
   openAuthModal("login");
 });
 
+els.detailedHelpButton?.addEventListener("click", () => {
+  closeModal(els.helpModal);
+  openModal(els.detailedHelpModal);
+});
+
+els.detailedHelpCloseButton?.addEventListener("click", () => {
+  closeModal(els.detailedHelpModal);
+});
+
 els.bookmarkLibraryButton?.addEventListener("click", () => {
   showUserLibrary("bookmarks");
 });
@@ -5778,6 +5797,7 @@ for (const modal of [
   els.authModal,
   els.signupModal,
   els.helpModal,
+  els.detailedHelpModal,
   els.privacyModal,
   els.libraryModal,
   els.viewerSettingsModal,

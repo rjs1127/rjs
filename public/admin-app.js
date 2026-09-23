@@ -59,6 +59,7 @@ const els = {
   driveListPagination: document.getElementById("driveListPagination"),
   driveListEmpty: document.getElementById("driveListEmpty"),
   driveListMessage: document.getElementById("driveListMessage"),
+  driveLastSyncStatus: document.getElementById("driveLastSyncStatus"),
   driveSummaryFilters: document.getElementById("driveSummaryFilters"),
   settingsForm: document.getElementById("settingsForm"),
   faviconUrlInput: document.getElementById("faviconUrlInput"),
@@ -1116,6 +1117,20 @@ async function loadResourceUsage(precise = false) {
   }
 }
 
+let duplicateDismissalsLoaded = false;
+let duplicateDismissedPairs = new Set();
+
+function duplicatePairKey(aKey, bKey) {
+  return [String(aKey || ""), String(bKey || "")].sort().join("||");
+}
+
+async function ensureDuplicateDismissalsLoaded() {
+  if (duplicateDismissalsLoaded) return;
+  const data = await api("/api/admin/duplicate-dismissals", { method: "GET" });
+  duplicateDismissedPairs = new Set(Array.isArray(data.pairs) ? data.pairs : []);
+  duplicateDismissalsLoaded = true;
+}
+
 function normalizeDuplicateText(value = "") {
   return String(value || "")
     .normalize("NFKC")
@@ -1153,11 +1168,13 @@ function normalizeLooseDuplicateTitle(value = "") {
 }
 
 function duplicateEntry(source, item, index) {
+  const key = source === "postype"
+    ? `postype:${String(item.id || item.rowNumber || index)}`
+    : `drive:${String(item.id || index)}`;
+  item._duplicateEntryKey = key;
   return {
     source,
-    key: source === "postype"
-      ? `postype:${String(item.id || item.rowNumber || index)}`
-      : `drive:${String(item.id || index)}`,
+    key,
     item,
     title: String(item.title || "").trim(),
     author: String(item.author || "").trim(),
@@ -1170,6 +1187,7 @@ function duplicateEntry(source, item, index) {
 
 function addDuplicateMatch(entry, target, level, reason) {
   if (!entry || !target || entry.key === target.key) return;
+  if (duplicateDismissedPairs.has(duplicatePairKey(entry.key, target.key))) return;
   const item = entry.item;
   if (!item._duplicate) item._duplicate = { level: "", matches: [] };
   const existing = item._duplicate.matches.find((match) => match.key === target.key);
@@ -1208,6 +1226,8 @@ function rebuildDuplicateIndex() {
     const a = entries[i];
     for (let j = i + 1; j < entries.length; j += 1) {
       const b = entries[j];
+      // Drive TXT와 POSTYPE은 서로 다른 콘텐츠 유형이므로 교차 소스는 중복 후보로 잡지 않는다.
+      if (a.source !== b.source) continue;
       let level = "";
       let reason = "";
 
@@ -1277,15 +1297,38 @@ function renderDuplicateInfo(item) {
     ? `<span class="duplicate-more">외 ${info.matches.length - visible.length}건</span>`
     : "";
 
+  const dismissButton = !confirmed
+    ? `<button type="button" class="duplicate-dismiss-button" data-duplicate-dismiss-key="${escapeHtml(item._duplicateEntryKey || "")}">중복 아님</button>`
+    : "";
+
   return `
     <div class="duplicate-info ${confirmed ? "is-confirmed" : "is-suspect"}">
-      <span class="duplicate-badge">${confirmed ? "중복 확정" : "중복 의심"}</span>
+      <div class="duplicate-info-head"><span class="duplicate-badge">${confirmed ? "중복 확정" : "중복 의심"}</span>${dismissButton}</div>
       <div class="duplicate-matches">${rows}${more}</div>
     </div>`;
 }
 
+async function dismissDuplicateSuspicions(itemKey) {
+  const item = [...postypeAdminItems, ...driveAdminItems].find((candidate) => candidate._duplicateEntryKey === itemKey);
+  if (!item?._duplicate?.matches?.length) return;
+  const pairs = item._duplicate.matches
+    .filter((match) => match.level !== "confirmed")
+    .map((match) => duplicatePairKey(itemKey, match.key));
+  if (!pairs.length) return;
+
+  const data = await api("/api/admin/duplicate-dismissals", {
+    method: "POST",
+    body: JSON.stringify({ pairs }),
+  });
+  duplicateDismissedPairs = new Set(Array.isArray(data.pairs) ? data.pairs : [...duplicateDismissedPairs, ...pairs]);
+  rebuildDuplicateIndex();
+  renderDriveAdminList();
+  renderPostypeAdminList();
+}
+
 async function ensureDuplicateReferenceData(source) {
   try {
+    await ensureDuplicateDismissalsLoaded();
     if (source !== "drive" && !driveAdminLoaded) {
       const driveData = await api("/api/admin/drive-items", { method: "GET" });
       driveAdminItems = mapDriveAdminItems(driveData.items || []);
@@ -1599,6 +1642,32 @@ function renderDriveAdminList() {
   syncDriveSummaryFilterButtons();
 }
 
+function formatAdminDateTime(value) {
+  if (!value) return "기록 없음";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "기록 없음";
+  return date.toLocaleString("ko-KR", {
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+    hour12: false,
+  });
+}
+
+function renderDriveLastSyncStatus(lastSync) {
+  if (!els.driveLastSyncStatus) return;
+  if (!lastSync) {
+    els.driveLastSyncStatus.innerHTML = `<strong>마지막 동기화</strong><span>기록 없음</span>`;
+    return;
+  }
+  const added = Number(lastSync.addedCount || 0);
+  const updated = Number(lastSync.updatedCount || 0);
+  const removed = Number(lastSync.removedCount || 0);
+  els.driveLastSyncStatus.innerHTML = `
+    <strong>마지막 동기화</strong>
+    <span>${escapeHtml(formatAdminDateTime(lastSync.checkedAt || lastSync.syncedAt))}</span>
+    <em>추가 ${added} · 수정 ${updated} · 삭제 ${removed}</em>`;
+}
+
 async function loadDriveAdminList() {
   if (!els.driveListBody) return;
 
@@ -1610,6 +1679,7 @@ async function loadDriveAdminList() {
   });
 
   driveAdminItems = mapDriveAdminItems(data.items || []);
+  renderDriveLastSyncStatus(data.lastSync || null);
 
   driveAdminPage = 1;
   driveAdminFilter = "all";
@@ -2730,9 +2800,11 @@ els.driveRescanButton?.addEventListener("click", async () => {
     const added = Number(data.addedCount || 0);
     const updated = Number(data.updatedCount || 0);
     const removed = Number(data.removedCount || 0);
-    els.driveListMessage.textContent = added || updated || removed
-      ? `Drive 재동기화 완료 · 추가 ${added} / 수정 ${updated} / 삭제 ${removed}`
-      : "Drive 재동기화 완료 · 변경 없음";
+    renderDriveLastSyncStatus(data.lastSync || {
+      checkedAt: data.checkedAt, addedCount: added, updatedCount: updated, removedCount: removed,
+    });
+    els.driveListMessage.textContent =
+      `Drive 재동기화 완료 · 추가 ${added} / 수정 ${updated} / 삭제 ${removed}`;
   } catch (error) {
     els.driveListMessage.textContent =
       error.message || "Drive 다시 읽기에 실패했습니다.";
@@ -2740,6 +2812,31 @@ els.driveRescanButton?.addEventListener("click", async () => {
     els.driveRescanButton.disabled = false;
   }
 });
+
+for (const container of [els.driveListBody, els.postypeListBody]) {
+  container?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-duplicate-dismiss-key]");
+    if (!button) return;
+    button.disabled = true;
+    try {
+      const isPostype = Boolean(button.closest("[data-postype-id]"));
+      await dismissDuplicateSuspicions(button.dataset.duplicateDismissKey || "");
+      const targetMessage = isPostype ? els.postypeListMessage : els.driveListMessage;
+      if (targetMessage) {
+        targetMessage.hidden = false;
+        targetMessage.textContent = "중복 아님으로 저장했습니다. 같은 조합은 다시 중복 의심으로 표시되지 않습니다.";
+      }
+    } catch (error) {
+      const targetMessage = button.closest("[data-postype-id]") ? els.postypeListMessage : els.driveListMessage;
+      if (targetMessage) {
+        targetMessage.hidden = false;
+        targetMessage.textContent = error.message || "중복 제외 저장에 실패했습니다.";
+      }
+    } finally {
+      if (button.isConnected) button.disabled = false;
+    }
+  });
+}
 
 els.driveTypeSaveButton?.addEventListener("click", async () => {
   try {

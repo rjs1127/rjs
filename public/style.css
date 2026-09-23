@@ -4032,3 +4032,18 @@ html.theme-dark .list-source-badge.drive {
   background: #2d4568;
   color: #dbe9ff;
 }
+
+/* v8.23 - help actions and detailed guide */
+.help-modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.help-modal.is-logged-in .help-modal-actions { grid-template-columns:1fr; }
+.detailed-help-modal { width:min(100%,760px); max-height:min(88dvh,820px); }
+.detailed-help-sections { display:grid; gap:10px; margin-bottom:18px; }
+.detailed-help-sections section { padding:14px 15px; border:1px solid var(--line-soft); border-radius:14px; background:rgba(255,255,255,.58); }
+.detailed-help-sections h3 { margin:0 0 7px; font-size:13px; }
+.detailed-help-sections p { margin:5px 0 0; color:var(--muted); font-size:11px; line-height:1.7; }
+html.theme-dark .detailed-help-sections section { background:var(--surface-strong); border-color:var(--line); }
+@media (max-width:560px) {
+  .help-modal-actions { grid-template-columns:1fr; }
+  .detailed-help-modal { width:100%; max-height:90dvh; padding:22px 18px; }
+  .detailed-help-sections section { padding:12px; }
+}
