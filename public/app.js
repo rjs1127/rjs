@@ -47,6 +47,7 @@ const state = {
   pendingAuthReason: "",
   remoteProgressSyncedAt: new Map(),
   progressSavePending: new Map(),
+  localProgressSavedAt: new Map(),
   lastExitProgressSignature: "",
   lastExitProgressAt: 0,
   libraryKind: "bookmarks",
@@ -68,7 +69,8 @@ const state = {
 
 const LARGE_FILE_LOADING_THRESHOLD_BYTES = 810 * 1024;
 const LARGE_FILE_MIN_LOADING_VISIBLE_MS = 1700;
-const READER_REMOTE_SYNC_INTERVAL_MS = 60 * 1000;
+const READER_LOCAL_SAVE_INTERVAL_MS = 10 * 1000;
+const READER_REMOTE_SYNC_INTERVAL_MS = 120 * 1000;
 const READER_MIN_MEANINGFUL_SCROLL_PX = 24;
 const READER_END_DISTANCE_PX = 140;
 const READER_PROGRESS_PRECISION = 100; // 0.01% 단위 저장 (모드 간 위치 정밀도 향상)
@@ -656,6 +658,7 @@ function clearUserSession(clearToken = true) {
   state.remoteProgressState = new Map();
   state.remoteProgressSyncedAt = new Map();
   state.progressSavePending = new Map();
+  state.localProgressSavedAt = new Map();
   state.lastExitProgressSignature = "";
   state.lastExitProgressAt = 0;
   state.visitRecordedUserId = "";
@@ -1457,6 +1460,14 @@ async function persistProgress(item, saved) {
   const payload = buildProgressPayload(item, saved);
   const signature = getProgressPayloadSignature(payload);
 
+  // Always keep the newest point locally before attempting the network write.
+  // If the request fails or the browser/app is killed, the same device can
+  // recover this position on the next open.
+  writeLocalReaderProgress(item, saved, { force: true });
+  const localSavedAtForRequest = Number(
+    state.localProgressSavedAt.get(item.id) || 0
+  );
+
   // A scroll timer, reader close, visibilitychange and pagehide can all fire
   // around the same moment. If the exact same position is already being sent,
   // do not create another Functions request / D1 write while the first one is
@@ -1499,6 +1510,10 @@ async function persistProgress(item, saved) {
       chunkRatio: payload.chunkRatio,
       readAt: savedEntry?.readAt || null,
     });
+    clearLocalReaderProgressIfNotNewer(
+      item.id,
+      localSavedAtForRequest
+    );
     updateResumeShortcut();
     if (state.items.length) render();
     return true;
@@ -2649,39 +2664,151 @@ function setView(view) {
 
 const READER_PROGRESS_PREFIX = "archiveReaderProgress:v1:";
 
+function getLocalReaderProgressKey(fileId) {
+  const userId = String(state.user?.userId || "").trim();
+  const safeFileId = String(fileId || "").trim();
+  if (!userId || !safeFileId) return "";
+  return `${READER_PROGRESS_PREFIX}${encodeURIComponent(userId)}:${encodeURIComponent(safeFileId)}`;
+}
+
+function readLocalReaderProgress(fileId) {
+  const key = getLocalReaderProgressKey(fileId);
+  if (!key) return null;
+
+  try {
+    const parsed = JSON.parse(localStorage.getItem(key) || "null");
+    if (!parsed || typeof parsed !== "object") return null;
+
+    const percent = Number(parsed.percent || 0);
+    const savedAt = Number(parsed.savedAt || 0);
+    if (!Number.isFinite(percent) || !Number.isFinite(savedAt) || savedAt <= 0) {
+      return null;
+    }
+
+    return {
+      mode: parsed.mode === "chunk" ? "chunk" : "scroll",
+      scrollTop: parsed.scrollTop == null ? null : Number(parsed.scrollTop),
+      chunkIndex: parsed.chunkIndex == null ? null : Number(parsed.chunkIndex),
+      chunkRatio: parsed.chunkRatio == null ? null : Number(parsed.chunkRatio),
+      percent: normalizeReaderProgressPercent(percent),
+      read: Boolean(parsed.read),
+      savedAt,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalReaderProgress(item, saved, options = {}) {
+  if (!state.user || !item || !saved) return false;
+
+  const key = getLocalReaderProgressKey(item.id);
+  if (!key) return false;
+
+  const now = Date.now();
+  const previousSavedAt = Number(state.localProgressSavedAt.get(item.id) || 0);
+  if (
+    !options.force &&
+    previousSavedAt > 0 &&
+    now - previousSavedAt < READER_LOCAL_SAVE_INTERVAL_MS
+  ) {
+    return false;
+  }
+
+  try {
+    localStorage.setItem(key, JSON.stringify({
+      mode: saved.mode === "chunk" ? "chunk" : "scroll",
+      scrollTop: saved.scrollTop ?? null,
+      chunkIndex: saved.chunkIndex ?? null,
+      chunkRatio: saved.chunkRatio ?? null,
+      percent: normalizeReaderProgressPercent(saved.percent),
+      read: Boolean(saved.read),
+      savedAt: now,
+    }));
+    state.localProgressSavedAt.set(item.id, now);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function clearLocalReaderProgress(fileId) {
+  const key = getLocalReaderProgressKey(fileId);
+  if (!key) return;
+
+  try {
+    localStorage.removeItem(key);
+  } catch {}
+  state.localProgressSavedAt.delete(fileId);
+}
+
+function clearLocalReaderProgressIfNotNewer(fileId, syncedSavedAt) {
+  const current = readLocalReaderProgress(fileId);
+  if (current && Number(current.savedAt || 0) > Number(syncedSavedAt || 0)) {
+    return false;
+  }
+
+  clearLocalReaderProgress(fileId);
+  return true;
+}
+
+function getRemoteReaderProgress(id) {
+  const entry = getUserLibraryEntry(id);
+  if (!entry) return null;
+
+  const base = {
+    percent: Number(entry.progressPercent || 0),
+    read: Boolean(entry.readAt),
+    savedAt: Number(entry.updatedAt || 0),
+  };
+
+  if (Number.isFinite(entry.chunkIndex)) {
+    return {
+      ...base,
+      mode: "chunk",
+      chunkIndex: entry.chunkIndex,
+      chunkRatio: Number(entry.chunkRatio || 0),
+    };
+  }
+
+  return {
+    ...base,
+    mode: "scroll",
+    scrollTop: Number.isFinite(entry.scrollTop) ? entry.scrollTop : 0,
+  };
+}
+
 function getReaderProgress(id) {
   if (!id || !state.user) return null;
 
-  const entry = getUserLibraryEntry(id);
+  const remote = getRemoteReaderProgress(id);
+  const local = readLocalReaderProgress(id);
+  const latest =
+    local && (!remote || Number(local.savedAt || 0) > Number(remote.savedAt || 0))
+      ? local
+      : remote;
+
   if (
-    !entry ||
-    entry.readAt ||
-    entry.progressPercent <= 0
+    !latest ||
+    latest.read ||
+    Number(latest.percent || 0) <= 0
   ) {
     return null;
   }
 
-  if (Number.isFinite(entry.chunkIndex)) {
+  if (latest.mode === "chunk" && Number.isFinite(latest.chunkIndex)) {
     return {
       mode: "chunk",
-      chunkIndex: entry.chunkIndex,
-      chunkRatio: Number(entry.chunkRatio || 0),
-      percent: entry.progressPercent,
-    };
-  }
-
-  if (Number.isFinite(entry.scrollTop)) {
-    return {
-      mode: "scroll",
-      scrollTop: entry.scrollTop,
-      percent: entry.progressPercent,
+      chunkIndex: latest.chunkIndex,
+      chunkRatio: Number(latest.chunkRatio || 0),
+      percent: latest.percent,
     };
   }
 
   return {
     mode: "scroll",
-    scrollTop: 0,
-    percent: entry.progressPercent,
+    scrollTop: Number(latest.scrollTop || 0),
+    percent: latest.percent,
   };
 }
 
@@ -2902,6 +3029,11 @@ function saveReaderProgress() {
       : (currentEntry?.readAt || null),
     updatedAt: Date.now(),
   });
+
+  // Keep a lightweight same-device recovery point more frequently than the
+  // server sync. The helper is intentionally centralized so a future native
+  // shell can replace Web Storage with a Capacitor/native preferences adapter.
+  writeLocalReaderProgress(item, saved);
 
   return saved;
 }
@@ -5303,6 +5435,7 @@ els.readerResume?.addEventListener("click", async (event) => {
         chunkRatio: null,
         updatedAt: Date.now(),
       });
+      clearLocalReaderProgress(item.id);
 
       persistProgress(item, {
         mode: "scroll",
@@ -6278,7 +6411,13 @@ function flushReaderProgressBeforePageExit() {
   if (!state.user || !item || state.suspendReaderProgressSave) return;
 
   const saved = saveReaderProgress();
-  if (!saved || !shouldPersistProgress(item.id, saved)) return;
+  if (!saved) return;
+
+  // pagehide/visibilitychange may be the last JavaScript we get to run.
+  // Persist the newest point locally even if the keepalive request cannot finish.
+  writeLocalReaderProgress(item, saved, { force: true });
+
+  if (!shouldPersistProgress(item.id, saved)) return;
 
   const token = getAuthToken();
   if (!token) return;
