@@ -4029,3 +4029,25 @@ html.theme-dark .recent-postype-new-badge {
   }
   html.theme-dark .recent-postype-bolt { color:#efc94f; }
 }
+
+
+/* v8.30 - mobile recent POSTYPE bolt follows the published date */
+.postype-latest-meta {
+  display:inline-flex;
+  align-items:center;
+  gap:3px;
+}
+@media (max-width:640px) {
+  .content-card .card-tags > .recent-postype-bolt,
+  .content-list .list-content-type-wrap .recent-postype-bolt {
+    display:none !important;
+  }
+  .card-source-meta .postype-latest-meta .recent-postype-bolt,
+  .content-list .list-source-meta-mobile .recent-postype-bolt {
+    display:inline-grid;
+    margin:0 0 0 1px;
+  }
+  .card-source-meta .postype-latest-meta {
+    white-space:nowrap;
+  }
+}

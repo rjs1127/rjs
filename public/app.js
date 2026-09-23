@@ -2254,11 +2254,14 @@ function getPostypeMetaHtml(item) {
     item.status,
     item.subCp1 ? `서브 ${item.subCp1}` : "",
     item.subCp2 ? `서브 ${item.subCp2}` : "",
-    item.latestPublishedDate ? `최근발행 ${formatArchiveDate(item.latestPublishedDate)}` : "",
   ].filter(Boolean);
+  const baseHtml = parts.length ? `${escapeHtml(parts.join(" · "))}${item.latestPublishedDate ? " · " : ""}` : "";
+  const latestHtml = item.latestPublishedDate
+    ? `<span class="postype-latest-meta"><span>최근발행 ${escapeHtml(formatArchiveDate(item.latestPublishedDate))}</span>${getRecentPostypeBoltHtml(item)}</span>`
+    : "";
 
-  if (!parts.length) return "";
-  return `<p class="card-source-meta">${escapeHtml(parts.join(" · "))}</p>`;
+  if (!baseHtml && !latestHtml) return "";
+  return `<p class="card-source-meta">${baseHtml}${latestHtml}</p>`;
 }
 
 function getPostypeBookmarkButtonHtml(item, className = "postype-bookmark-button") {
@@ -2455,7 +2458,6 @@ function renderCards(items) {
           ${getSourceBadgeHtml(item, "card-tag source-badge")}
           <span class="card-tag card-cp-tag">${escapeHtml(item.combination)}</span>
           <span class="card-tag card-publish-tag">${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>
-          ${getRecentPostypeBoltHtml(item)}
           <span class="card-tag card-status-tag ${getCardStatusToneClass(item)}">${escapeHtml(getItemStatusLabel(item))}</span>
         </div>
         ${getItemReadingBadge(item)}
@@ -2501,7 +2503,7 @@ function renderList(items) {
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
       class="${item.source === "postype" ? "postype-item" : "drive-item"}">
       <td>${escapeHtml(item.combination)}</td>
-      <td><span class="list-content-type-wrap"><span>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span>${getRecentPostypeBoltHtml(item)}</span></td>
+      <td><span class="list-content-type-wrap"><span>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span></span></td>
       <td class="list-title">
         <span class="list-title-row">
           <span class="list-title-main">
@@ -2534,7 +2536,7 @@ function renderList(items) {
                 ]
                   .filter(Boolean)
                   .join(" · ")
-              )}</span>${item.latestPublishedDate ? `<span class="list-source-meta-mobile"><span class="update-icon" aria-hidden="true">UP</span><span>${escapeHtml(formatCompactArchiveDate(item.latestPublishedDate))}</span></span>` : ""}</span>`
+              )}</span>${item.latestPublishedDate ? `<span class="list-source-meta-mobile"><span class="update-icon" aria-hidden="true">UP</span><span>${escapeHtml(formatCompactArchiveDate(item.latestPublishedDate))}</span>${getRecentPostypeBoltHtml(item)}</span>` : ""}</span>`
             : ""
         }
       </td>

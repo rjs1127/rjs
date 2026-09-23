@@ -4079,3 +4079,30 @@ html.theme-dark .detailed-help-sections section { background:var(--surface-stron
   .resume-shortcut-button,
   .header-icon-button { transition:none; }
 }
+
+
+/* v8.30 - recent POSTYPE notice + help action alignment */
+.recent-postype-guide-note {
+  margin:-5px 0 12px;
+  color:var(--muted);
+  font-size:9px;
+  font-weight:650;
+  line-height:1.5;
+  letter-spacing:-.01em;
+}
+.help-modal-actions:has(#helpLoginButton[hidden]) {
+  grid-template-columns:minmax(0,1fr);
+  justify-items:center;
+}
+.help-modal-actions:has(#helpLoginButton[hidden]) #detailedHelpButton {
+  width:min(50%,240px);
+  min-width:180px;
+}
+.detailed-help-sections strong { color:var(--ink); font-weight:850; }
+@media (max-width:560px) {
+  .recent-postype-guide-note { margin-top:-3px; margin-bottom:10px; font-size:8.5px; }
+  .help-modal-actions:has(#helpLoginButton[hidden]) #detailedHelpButton {
+    width:100%;
+    min-width:0;
+  }
+}
