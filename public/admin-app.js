@@ -3463,8 +3463,9 @@ function renderHistoryActivity(days = historyDays, mode = historyActivityMode) {
     ? rows.map((row, index) => {
         const height = row.count ? Math.max(6, Math.round((row.count / max) * 100)) : 2;
         const showLabel = index === 0 || index === rows.length - 1 || index % labelEvery === 0;
+        const showCount = row.count > 0 && (mode === "day" || mode === "hour" ? showLabel : true);
         return `<div class="history-activity-column${row.count ? "" : " is-empty"}${showLabel ? " has-label" : ""}" title="${escapeHtml(row.title)} · ${row.count.toLocaleString("ko-KR")}개 커밋">
-          <span class="history-activity-count">${row.count ? row.count.toLocaleString("ko-KR") : ""}</span>
+          <span class="history-activity-count">${showCount ? row.count.toLocaleString("ko-KR") : ""}</span>
           <i style="height:${height}%"></i>
           <small>${showLabel ? escapeHtml(row.label) : ""}</small>
         </div>`;

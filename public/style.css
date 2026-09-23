@@ -4049,3 +4049,33 @@ html.theme-dark .detailed-help-sections section { background:var(--surface-stron
   .detailed-help-modal { width:100%; max-height:90dvh; padding:22px 18px; }
   .detailed-help-sections section { padding:12px; }
 }
+
+/* v8.29 - subtle main-page motion feedback (CSS only) */
+.simple-modal-overlay:not([hidden]) {
+  animation:rjs-ui-fade-in .16s ease-out both;
+}
+.simple-modal-overlay:not([hidden]) .simple-modal {
+  animation:rjs-ui-modal-in .18s cubic-bezier(.2,.72,.3,1) both;
+}
+@media (hover:none) and (pointer:coarse) {
+  .content-card:active { transform:scale(.992); }
+  .quick-filter-button:active,
+  .resume-shortcut-button:active,
+  .header-icon-button:active { transform:scale(.97); }
+}
+@keyframes rjs-ui-fade-in {
+  from { opacity:0; }
+  to { opacity:1; }
+}
+@keyframes rjs-ui-modal-in {
+  from { opacity:0; transform:translateY(7px) scale(.992); }
+  to { opacity:1; transform:translateY(0) scale(1); }
+}
+@media (prefers-reduced-motion:reduce) {
+  .simple-modal-overlay:not([hidden]),
+  .simple-modal-overlay:not([hidden]) .simple-modal { animation:none; }
+  .content-card,
+  .quick-filter-button,
+  .resume-shortcut-button,
+  .header-icon-button { transition:none; }
+}
