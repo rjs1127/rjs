@@ -826,15 +826,9 @@ function requireLoginForPersonalFilter(message) {
   return false;
 }
 
-async function loadUserLibrary() {
-  if (!state.user) {
-    state.userLibrary = new Map();
-    return;
-  }
-
-  const data = await userApi("/api/user/library");
+function applyUserLibraryRows(rows = []) {
   state.userLibrary = new Map(
-    (data.items || []).map((row) => {
+    rows.map((row) => {
       const normalized = normalizeLibraryRow(row);
       return [normalized.fileId, normalized];
     })
@@ -864,6 +858,16 @@ async function loadUserLibrary() {
   }
 }
 
+async function loadUserLibrary() {
+  if (!state.user) {
+    state.userLibrary = new Map();
+    return;
+  }
+
+  const data = await userApi("/api/user/library");
+  applyUserLibraryRows(data.items || []);
+}
+
 
 function normalizeProfileLike(row) {
   return {
@@ -884,6 +888,23 @@ function normalizeSavedQuote(row) {
   };
 }
 
+function applyUserProfileData(data = {}) {
+  state.userLikes = new Map(
+    (data.likes || []).map((row) => {
+      const like = normalizeProfileLike(row);
+      return [like.workId, like];
+    })
+  );
+  state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+  state.profileUserCreatedAt = data.user?.createdAt == null
+    ? null
+    : Number(data.user.createdAt);
+
+  updateReaderLikeButton();
+  if (state.profileOpen) renderProfilePage();
+  if (state.items.length) render();
+}
+
 async function loadUserProfileData() {
   if (!state.user) {
     state.userLikes = new Map();
@@ -894,25 +915,32 @@ async function loadUserProfileData() {
 
   try {
     const data = await userApi("/api/user/profile");
-    state.userLikes = new Map(
-      (data.likes || []).map((row) => {
-        const like = normalizeProfileLike(row);
-        return [like.workId, like];
-      })
-    );
-    state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
-    state.profileUserCreatedAt = data.user?.createdAt == null
-      ? null
-      : Number(data.user.createdAt);
+    applyUserProfileData(data);
   } catch (error) {
     console.warn("개인화 데이터 불러오기 실패", error);
     state.userLikes = new Map();
     state.savedQuotes = [];
   }
+}
 
-  updateReaderLikeButton();
-  if (state.profileOpen) renderProfilePage();
-  if (state.items.length) render();
+async function loadUserBootstrap() {
+  if (!state.user) return;
+
+  const data = await userApi("/api/user/bootstrap", {
+    method: "POST",
+    body: "{}",
+  });
+
+  if (data.user?.userId) {
+    state.user = { ...state.user, ...data.user };
+  }
+
+  applyUserLibraryRows(data.items || []);
+  applyUserProfileData(data);
+
+  if (data.visitRecorded !== false) {
+    state.visitRecordedUserId = state.user?.userId || "";
+  }
 }
 
 function isItemLiked(itemOrId) {
@@ -1191,13 +1219,21 @@ async function restoreAuth() {
   }
 
   try {
-    const data = await userApi("/api/auth/me");
+    // 로그인 첫 화면에 필요한 개인화 데이터를 한 번의 요청으로 복원한다.
+    // 기존 /auth/me + /user/library + /user/profile + /user/visit 호출을
+    // 합쳐 Functions/D1 세션 조회 중복을 줄인다.
+    const data = await userApi("/api/user/bootstrap", {
+      method: "POST",
+      body: "{}",
+    });
     state.user = data.user;
     applyUserPreferences();
     updateAccountUi();
-    await loadUserLibrary();
-    await loadUserProfileData();
-    await recordLoggedInVisit();
+    applyUserLibraryRows(data.items || []);
+    applyUserProfileData(data);
+    if (data.visitRecorded !== false) {
+      state.visitRecordedUserId = state.user?.userId || "";
+    }
   } catch {
     clearUserSession(true);
   }
@@ -5406,9 +5442,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
     state.user = data.user;
     applyUserPreferences();
     updateAccountUi();
-    await loadUserLibrary();
-    await loadUserProfileData();
-    await recordLoggedInVisit();
+    await loadUserBootstrap();
 
     els.signupFormView.hidden = true;
     els.signupCompleteView.hidden = false;
@@ -5442,9 +5476,7 @@ els.authForm?.addEventListener("submit", async (event) => {
     state.user = data.user;
     applyUserPreferences();
     updateAccountUi();
-    await loadUserLibrary();
-    await loadUserProfileData();
-    await recordLoggedInVisit();
+    await loadUserBootstrap();
 
     els.authPassword.value = "";
     state.pendingAuthReason = "";

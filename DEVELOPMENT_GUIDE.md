@@ -33,6 +33,8 @@
 - 사이트명은 런타임 API/KV 조회가 아니라 빌드타임 정적 주입 구조를 유지한다.
 - 관리자 전체 ZIP 배포는 Worker subrequest 한도를 피하도록 파일 준비를 분할하되 최종 GitHub commit은 가능한 한 1개만 만든다.
 - Cloudflare KV/D1/R2/API 호출을 불필요하게 늘리지 않는다.
+- 로그인 첫 진입의 인증·라이브러리·개인화·방문 기록은 `/api/user/bootstrap` 1회로 통합하는 구조를 유지한다. 같은 초기 화면 데이터 때문에 인증 세션을 여러 Functions 요청에서 반복 조회하지 않는다.
+- 성능 최적화는 `측정 → 저위험 요청 통합/중복 제거 → 재측정` 순서로 진행하며, 리소스 절감 목적으로 정상 동작 중인 뷰어·이어보기·개인화 저장 시맨틱을 바꾸지 않는다.
 - API token과 Secret은 브라우저 코드에 넣지 않는다.
 - 관리자 리소스의 Cloudflare Pages 배포 현황은 서버에서만 조회하며 `CLOUDFLARE_PAGES_TOKEN` 전용 Secret을 사용한다. 기존 Analytics/KV/D1/R2 통계는 `CLOUDFLARE_ANALYTICS_TOKEN`을 그대로 사용해 기능을 분리한다.
 - Pages 월 배포 조회는 필요한 페이지만 읽고 최근 내역은 UI에서 기본 10건만 표시해 불필요한 호출/렌더링을 늘리지 않는다.
