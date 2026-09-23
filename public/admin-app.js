@@ -2191,13 +2191,20 @@ function collectPostypeBulkItems() {
 }
 
 async function loadAdmin() {
-  const data = await api("/api/admin/data");
+  const archiveRequest = api("/api/archive", { method: "GET" })
+    .then((value) => ({ ok: true, value }))
+    .catch((error) => ({ ok: false, error }));
+
+  const [data, archiveResult] = await Promise.all([
+    api("/api/admin/data"),
+    archiveRequest
+  ]);
 
   let archiveData = { items: [], postypeSyncedAt: null };
-  try {
-    archiveData = await api("/api/archive", { method: "GET" });
-  } catch (error) {
-    console.warn("상단 소스 요약 로딩 실패", error);
+  if (archiveResult.ok) {
+    archiveData = archiveResult.value;
+  } else {
+    console.warn("상단 소스 요약 로딩 실패", archiveResult.error);
   }
 
   const reviewCount = Array.isArray(data.needsReview) ? data.needsReview.length : 0;
