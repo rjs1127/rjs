@@ -121,7 +121,7 @@ function decodeBase64Utf8(value) {
 
 function getLatestReadmeVersionSectionServer(readmeText) {
   const text = String(readmeText || "").replace(/\r\n/g, "\n");
-  const headingPattern = /^##\s+(v(\d+)(?:\.(\d+))?(?:\.(\d+))?)(?:\s+.*)?$/gm;
+  const headingPattern = /^#{1,2}\s+(v(\d+)(?:\.(\d+))?(?:\.(\d+))?)(?:\s+.*)?$/gm;
   const matches = [];
   let match;
 
@@ -150,7 +150,7 @@ function getLatestReadmeVersionSectionServer(readmeText) {
   const latest = matches[0];
   const sectionStart = latest.index + latest.headingLength;
   const after = text.slice(sectionStart);
-  const nextHeading = after.match(/^##\s+v\d+(?:\.\d+)*(?:\s+.*)?$/m);
+  const nextHeading = after.match(/^#{1,2}\s+v\d+(?:\.\d+)*(?:\s+.*)?$/m);
   const section = nextHeading ? after.slice(0, nextHeading.index) : after;
 
   return { version: latest.version, section };
@@ -204,6 +204,46 @@ function sanitizeHistoryMessage(value) {
     .trim() || "변경사항 기록";
 }
 
+function normalizeVersionLabelServer(value) {
+  const match = String(value || "").trim().match(/^v?(\d+(?:\.\d+){1,2})$/i);
+  return match ? `v${match[1]}` : "";
+}
+
+function applyVersionToCommitMessage(message, version) {
+  const clean = sanitizeHistoryMessage(message);
+  const normalizedVersion = normalizeVersionLabelServer(version);
+  if (!normalizedVersion) return clean;
+  if (/^v\d+(?:\.\d+){1,2}\s*:/i.test(clean)) {
+    return clean.replace(/^v\d+(?:\.\d+){1,2}\s*:/i, `${normalizedVersion}:`);
+  }
+  return `${normalizedVersion}: ${clean}`;
+}
+
+async function fetchCommitVersion(token, sha) {
+  if (!sha) return "";
+  try {
+    const file = await gh(
+      token,
+      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/public/version.json?ref=${encodeURIComponent(sha)}`
+    );
+    const text = file?.content ? decodeBase64Utf8(String(file.content).replace(/\s+/g, "")) : "";
+    if (!text) return "";
+    return normalizeVersionLabelServer(JSON.parse(text)?.version || "");
+  } catch {
+    return "";
+  }
+}
+
+async function correctRecentHistoryVersions(token, commits = [], limit = 16) {
+  const rows = commits.map((item) => ({ ...item }));
+  const start = Math.max(0, rows.length - Math.max(1, Number(limit) || 16));
+  for (let index = start; index < rows.length; index += 1) {
+    const version = await fetchCommitVersion(token, rows[index]?.sha);
+    if (version) rows[index].message = applyVersionToCommitMessage(rows[index].message, version);
+  }
+  return rows;
+}
+
 async function fetchGithubCommitHistory(token) {
   const commits = [];
 
@@ -219,6 +259,7 @@ async function fetchGithubCommitHistory(token) {
       const committedAt = row?.commit?.committer?.date || row?.commit?.author?.date || "";
       if (!committedAt) continue;
       commits.push({
+        sha: String(row?.sha || ""),
         committedAt,
         message: sanitizeHistoryMessage(row?.commit?.message),
       });
@@ -274,7 +315,8 @@ function buildHistoryMarkdown(commits = [], pendingCommit = null) {
 }
 
 async function createHistoryBlob(token, commitMessage) {
-  const commits = await fetchGithubCommitHistory(token);
+  const rawCommits = await fetchGithubCommitHistory(token);
+  const commits = await correctRecentHistoryVersions(token, rawCommits);
   const pendingCommit = {
     committedAt: new Date().toISOString(),
     message: sanitizeHistoryMessage(commitMessage),
@@ -436,6 +478,7 @@ export async function onRequestPost(context) {
     const body = await context.request.json();
     const mode = String(body?.mode || "legacy").trim().toLowerCase();
     let commitMessage = String(body?.message || "").trim();
+    const deployVersion = normalizeVersionLabelServer(body?.deployVersion || "");
 
     // v7.69: Free Workers는 외부 subrequest가 invocation당 50회이므로
     // 파일 blob 생성과 최종 commit을 여러 요청으로 나눠 처리한다.
@@ -521,6 +564,7 @@ export async function onRequestPost(context) {
       if (!commitMessage || commitMessage === "Archive site update") {
         commitMessage = `Archive update (${treeEntries.length} files)`;
       }
+      commitMessage = applyVersionToCommitMessage(commitMessage, deployVersion);
 
       const historyEntry = await createHistoryBlob(token, commitMessage);
       const historyIndex = treeEntries.findIndex((entry) => entry.path === "HISTORY.md");
@@ -627,7 +671,9 @@ export async function onRequestPost(context) {
       commitMessage = buildCommitMessageFromReadmeServer(readmeText, files.length);
     }
 
-    const historyCommits = await fetchGithubCommitHistory(token);
+    commitMessage = applyVersionToCommitMessage(commitMessage, deployVersion);
+    const rawHistoryCommits = await fetchGithubCommitHistory(token);
+    const historyCommits = await correctRecentHistoryVersions(token, rawHistoryCommits);
     const historyMarkdown = buildHistoryMarkdown(historyCommits, {
       committedAt: new Date().toISOString(),
       message: sanitizeHistoryMessage(commitMessage),
