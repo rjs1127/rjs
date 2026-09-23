@@ -6310,6 +6310,7 @@ els.feedbackForm?.addEventListener("submit", async (event) => {
         website: els.feedbackWebsite?.value || "",
         page: `${location.pathname}${location.search}`,
         version: String(els.publicVersion?.textContent || "").trim(),
+        diagnostic: getIssueReportText(),
         turnstileToken: feedbackTurnstileToken,
       }),
     });

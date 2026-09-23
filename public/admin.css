@@ -3094,7 +3094,7 @@ body.history-modal-open { overflow:hidden; }
 .feedback-admin-card-meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;color:#817970;font-size:10px}
 .feedback-admin-card-category{display:inline-flex;align-items:center;border-radius:999px;background:#f1ece5;padding:4px 8px;font-weight:800;color:#514a43}
 .feedback-admin-card-message{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:#24211e}
-.feedback-admin-card-context{margin-top:10px;padding-top:9px;border-top:1px dashed #e5ded6;color:#8a837c;font-size:10px;line-height:1.6}
+.feedback-admin-card-context{display:block;width:100%;margin-top:10px;padding:9px 0 0;border:0;border-top:1px dashed #e5ded6;background:transparent;color:#8a837c;font:inherit;font-size:10px;line-height:1.6;text-align:left;cursor:pointer}.feedback-admin-card-context:hover{color:#5f5852}.feedback-admin-card-context span{margin-left:4px}.feedback-admin-diagnostic{margin:8px 0 0;padding:10px 11px;border:1px solid #e7e0d8;border-radius:10px;background:#f8f5f1;color:#5f5852;font:500 10px/1.6 ui-monospace,SFMono-Regular,Consolas,monospace;white-space:pre-wrap;overflow-wrap:anywhere}.feedback-admin-diagnostic[hidden]{display:none}
 .feedback-admin-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .feedback-admin-actions button{border:1px solid #d8d0c7;border-radius:999px;background:#fff;padding:6px 9px;font-size:10px;font-weight:800;color:#6e675f;cursor:pointer}
 .feedback-admin-actions button.is-active{background:#1f1d1b;color:#fff;border-color:#1f1d1b}

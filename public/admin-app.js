@@ -398,7 +398,8 @@ function renderFeedbackAdmin(data = {}) {
           </div>
         </div>
         <div class="feedback-admin-card-message">${escapeHtml(item.message || "")}</div>
-        <div class="feedback-admin-card-context">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")}</div>
+        <button type="button" class="feedback-admin-card-context" data-feedback-context aria-expanded="false">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")} <span aria-hidden="true">▾</span></button>
+        <pre class="feedback-admin-diagnostic" data-feedback-diagnostic hidden>${escapeHtml(item.diagnostic || "이 의견에는 저장된 진단정보가 없습니다.")}</pre>
       </article>`;
   }).join("");
 }
@@ -3938,6 +3939,20 @@ document.addEventListener("click", (event) => {
     loadFeedbackAdmin().catch(console.error);
     return;
   }
+  const contextButton = event.target.closest("[data-feedback-context]");
+  if (contextButton) {
+    const card = contextButton.closest("[data-feedback-id]");
+    const detail = card?.querySelector("[data-feedback-diagnostic]");
+    if (detail) {
+      const opening = detail.hidden;
+      detail.hidden = !opening;
+      contextButton.setAttribute("aria-expanded", opening ? "true" : "false");
+      const arrow = contextButton.querySelector("span");
+      if (arrow) arrow.textContent = opening ? "▴" : "▾";
+    }
+    return;
+  }
+
   const statusButton = event.target.closest("[data-feedback-status]");
   if (!statusButton) return;
   const card = statusButton.closest("[data-feedback-id]");

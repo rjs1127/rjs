@@ -12,11 +12,15 @@ async function ensureFeedbackSchema(db) {
       message TEXT NOT NULL,
       page TEXT,
       version TEXT,
+      diagnostic TEXT,
       status TEXT NOT NULL DEFAULT 'new',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `).run();
+  try {
+    await db.prepare(`ALTER TABLE feedback ADD COLUMN diagnostic TEXT`).run();
+  } catch (_) {}
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_feedback_status_created
     ON feedback(status, created_at DESC)
@@ -82,6 +86,7 @@ export async function onRequestPost(context) {
     const message = String(body?.message || "").trim();
     const page = String(body?.page || "").trim().slice(0, 300);
     const version = String(body?.version || "").trim().slice(0, 40);
+    const diagnostic = String(body?.diagnostic || "").trim().slice(0, 8000);
 
     if (message.length < 5 || message.length > 3000) {
       return jsonResponse({ error: "내용은 5자 이상 3000자 이하로 입력해 주세요." }, 400);
@@ -91,9 +96,9 @@ export async function onRequestPost(context) {
     await ensureFeedbackSchema(db);
     const now = Date.now();
     const result = await db.prepare(`
-      INSERT INTO feedback(category, message, page, version, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 'new', ?, ?)
-    `).bind(category, message, page || null, version || null, now, now).run();
+      INSERT INTO feedback(category, message, page, version, diagnostic, status, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, 'new', ?, ?)
+    `).bind(category, message, page || null, version || null, diagnostic || null, now, now).run();
 
     return jsonResponse({ ok: true, id: Number(result?.meta?.last_row_id || 0) }, 201, {
       "cache-control": "no-store",

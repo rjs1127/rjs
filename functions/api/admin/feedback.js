@@ -10,11 +10,15 @@ async function ensureFeedbackSchema(db) {
       message TEXT NOT NULL,
       page TEXT,
       version TEXT,
+      diagnostic TEXT,
       status TEXT NOT NULL DEFAULT 'new',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `).run();
+  try {
+    await db.prepare(`ALTER TABLE feedback ADD COLUMN diagnostic TEXT`).run();
+  } catch (_) {}
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_feedback_status_created
     ON feedback(status, created_at DESC)
@@ -34,13 +38,13 @@ export async function onRequestGet(context) {
 
     const rows = safeStatus === "all"
       ? await db.prepare(`
-          SELECT feedback_id, category, message, page, version, status, created_at, updated_at
+          SELECT feedback_id, category, message, page, version, diagnostic, status, created_at, updated_at
           FROM feedback
           ORDER BY created_at DESC
           LIMIT 300
         `).all()
       : await db.prepare(`
-          SELECT feedback_id, category, message, page, version, status, created_at, updated_at
+          SELECT feedback_id, category, message, page, version, diagnostic, status, created_at, updated_at
           FROM feedback
           WHERE status = ?
           ORDER BY created_at DESC
