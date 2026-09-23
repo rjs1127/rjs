@@ -4390,3 +4390,70 @@ html.theme-dark .profile-quote-share-toggle[aria-checked="true"] .profile-quote-
   .profile-quote-share-toggle-track,
   .profile-quote-share-toggle-track > span { transition:none !important; }
 }
+
+
+/* v8.45 - content header / quote toggle / share background drag */
+.content-section .section-head {
+  align-items:stretch;
+}
+.content-section .section-head-actions {
+  align-self:stretch;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  justify-content:flex-start;
+  gap:8px;
+  padding-top:1px;
+}
+.content-section .section-head-actions .quote-feed-entry-button {
+  min-height:25px;
+  padding:4px 9px;
+  border:1px solid rgba(91,83,76,.14);
+  border-radius:999px;
+  background:rgba(91,83,76,.055);
+  color:var(--theme-muted);
+  font-size:9.5px;
+  box-shadow:none;
+}
+.content-section .section-head-actions .result-count {
+  margin:0;
+  color:var(--theme-muted);
+  font-size:13px;
+  font-weight:760;
+  line-height:1.1;
+}
+.profile-quote-share-toggle:disabled {
+  opacity:.72;
+  cursor:not-allowed;
+}
+
+@media (min-width:720px) {
+  .reader-share-thumbs {
+    cursor:grab;
+    user-select:none;
+  }
+  .reader-share-thumbs.is-dragging {
+    cursor:grabbing;
+  }
+  .reader-share-thumbs.is-dragging .reader-share-thumb {
+    pointer-events:none;
+  }
+}
+
+@media (max-width:719px) {
+  .content-section .section-head {
+    gap:12px;
+  }
+  .content-section .section-head-actions {
+    gap:6px;
+    padding-top:0;
+  }
+  .content-section .section-head-actions .quote-feed-entry-button {
+    min-height:23px;
+    padding:3px 8px;
+    font-size:8.5px;
+  }
+  .content-section .section-head-actions .result-count {
+    font-size:11px;
+  }
+}

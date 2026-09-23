@@ -726,6 +726,7 @@ function clearUserSession(clearToken = true) {
 
 function updateAccountUi() {
   const loggedIn = Boolean(state.user?.userId);
+  document.documentElement.classList.remove("auth-session-pending");
 
   if (els.loginButton) {
     if (loggedIn) {
@@ -1217,7 +1218,7 @@ function renderProfilePage() {
           <div class="profile-entry-actions">
             <button type="button" class="profile-quote-share-toggle" data-profile-quote-share="${quote.id}" role="switch" aria-checked="${quote.shared ? "true" : "false"}" ${quote._shareSaving ? "disabled" : ""}>
               <span class="profile-quote-share-toggle-track" aria-hidden="true"><span></span></span>
-              <span class="profile-quote-share-toggle-label">${quote._shareSaving ? "반영 중" : "피드 공유"}</span>
+              <span class="profile-quote-share-toggle-label">피드 공유</span>
             </button>
             <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
             <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
@@ -1517,6 +1518,8 @@ function queueSavedQuoteShare(quote, workId = "") {
       quote.shared = persisted;
       window.alert("문장 공개 상태를 변경하지 못했습니다. 다시 시도해 주세요.");
     } finally {
+      // 응답 직후의 연속 재클릭도 잠깐 막아 깜빡임과 반복 요청을 줄인다.
+      await new Promise((resolve) => window.setTimeout(resolve, 300));
       quote._shareSaving = false;
       if (state.profileOpen) renderProfilePage();
     }
@@ -5916,6 +5919,12 @@ els.viewerSettingsButton?.addEventListener("click", () => {
 
 els.loginButton?.addEventListener("click", () => {
   if (state.user) {
+    const compactMobile = window.matchMedia("(max-width: 760px)").matches
+      && els.siteHeader?.classList.contains("compact-mode");
+    if (compactMobile) {
+      els.logoutButton?.click();
+      return;
+    }
     showProfilePage("bookmarks");
     return;
   }
@@ -6482,9 +6491,15 @@ document.querySelectorAll("[data-close-modal]").forEach((button) => {
   });
 });
 
-document.addEventListener("pointerdown", (event) => {
+document.addEventListener("click", (event) => {
   const overlay = event.target instanceof Element ? event.target.closest(".simple-modal-overlay") : null;
   if (!overlay || overlay.hidden || event.target !== overlay) return;
+
+  // Close only after the complete click gesture has resolved. Closing on
+  // pointerdown can expose the content underneath before the browser emits
+  // the follow-up click, causing the tap to activate a background card.
+  event.preventDefault();
+  event.stopPropagation();
   dismissSimpleModal(overlay);
 });
 
@@ -7458,7 +7473,49 @@ function ensureReaderShareUi() {
     if (event.target === backdrop) close();
   });
 
+  let suppressThumbClick = false;
+  let thumbDragPointerId = null;
+  let thumbDragStartX = 0;
+  let thumbDragStartScrollLeft = 0;
+  let thumbDragMoved = false;
+
+  thumbs.addEventListener("pointerdown", (event) => {
+    if (event.pointerType !== "mouse" || event.button !== 0) return;
+    thumbDragPointerId = event.pointerId;
+    thumbDragStartX = event.clientX;
+    thumbDragStartScrollLeft = thumbs.scrollLeft;
+    thumbDragMoved = false;
+    thumbs.classList.add("is-dragging");
+    thumbs.setPointerCapture?.(event.pointerId);
+  });
+
+  thumbs.addEventListener("pointermove", (event) => {
+    if (thumbDragPointerId !== event.pointerId) return;
+    const deltaX = event.clientX - thumbDragStartX;
+    if (Math.abs(deltaX) > 3) thumbDragMoved = true;
+    if (!thumbDragMoved) return;
+    event.preventDefault();
+    thumbs.scrollLeft = thumbDragStartScrollLeft - deltaX;
+  });
+
+  const finishThumbDrag = (event) => {
+    if (thumbDragPointerId !== event.pointerId) return;
+    suppressThumbClick = thumbDragMoved;
+    thumbDragPointerId = null;
+    thumbs.classList.remove("is-dragging");
+    try { thumbs.releasePointerCapture?.(event.pointerId); } catch {}
+    if (suppressThumbClick) {
+      window.setTimeout(() => { suppressThumbClick = false; }, 0);
+    }
+  };
+  thumbs.addEventListener("pointerup", finishThumbDrag);
+  thumbs.addEventListener("pointercancel", finishThumbDrag);
+
   thumbs.addEventListener("click", (event) => {
+    if (suppressThumbClick) {
+      event.preventDefault();
+      return;
+    }
     const button = event.target.closest("[data-share-background]");
     if (!button) return;
     state.readerShareBackground = Math.max(0, Math.min(

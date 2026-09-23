@@ -22,6 +22,13 @@
       if (themeColor) {
         themeColor.setAttribute("content", theme === "dark" ? "#171614" : "#f6f3ee");
       }
+
+      // 로그인 토큰이 있으면 인증 복원이 끝날 때까지 비로그인 계정 UI가 먼저 보이지 않게 한다.
+      try {
+        if (localStorage.getItem("rjsBookAuthTokenV1")) {
+          root.classList.add("auth-session-pending");
+        }
+      } catch {}
     })();
   </script>
   <title>__SITE_NAME__</title>
@@ -35,9 +42,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=844" />
+  <link rel="stylesheet" href="/style.css?v=845" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=844" />
+  <link rel="stylesheet" href="/theme.css?v=845" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -297,20 +304,19 @@
             <p class="section-kicker">CONTENTS</p>
             <h2>콘텐츠</h2>
           </div>
+          <div class="section-head-actions" aria-label="콘텐츠 보조 정보">
+            <button id="quoteFeedButton" class="quote-feed-entry-button" type="button">
+              <span class="quote-feed-entry-icon" aria-hidden="true">✦</span>
+              <span>문장 피드</span>
+            </button>
+            <p id="resultCount" class="result-count">불러오는 중…</p>
+          </div>
         </div>
         <p id="recentPostypeGuideNote" class="recent-postype-guide-note" hidden>처음 접속하면 최근 7일 내 발행된 POSTYPE 콘텐츠가 목록 상단에 먼저 표시돼요.</p>
 
         <div id="status" class="status-card">
           <div class="spinner" aria-hidden="true"></div>
           <p>저장된 콘텐츠 목록을 불러오고 있어요.</p>
-        </div>
-
-        <div class="content-list-meta-bar">
-          <p id="resultCount" class="result-count">불러오는 중…</p>
-          <button id="quoteFeedButton" class="quote-feed-entry-button" type="button">
-            <span class="quote-feed-entry-icon" aria-hidden="true">✦</span>
-            <span>문장 피드</span>
-          </button>
         </div>
 
         <div id="contentGrid" class="content-grid" hidden></div>
@@ -838,6 +844,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=844" defer></script>
+  <script src="/app.js?v=845" defer></script>
 </body>
 </html>

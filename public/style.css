@@ -4106,3 +4106,34 @@ html.theme-dark .detailed-help-sections section { background:var(--surface-stron
     min-width:0;
   }
 }
+
+
+/* v8.45 - auth first-paint + compact mobile account */
+html.auth-session-pending #loginButton,
+html.auth-session-pending #signupButton {
+  visibility:hidden !important;
+}
+
+@media (max-width:760px) {
+  .site-header.compact-mode #loginButton.logged-in {
+    width:auto;
+    min-width:52px;
+    max-width:58px;
+    min-height:28px;
+    margin-left:2px;
+    padding:4px 8px;
+    justify-content:center;
+    gap:0;
+  }
+  .site-header.compact-mode #loginButton.logged-in .account-avatar,
+  .site-header.compact-mode #loginButton.logged-in .account-id {
+    display:none !important;
+  }
+  .site-header.compact-mode #loginButton.logged-in::after {
+    content:"로그아웃";
+    display:block;
+    font-size:9px;
+    font-weight:850;
+    white-space:nowrap;
+  }
+}
