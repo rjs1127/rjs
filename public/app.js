@@ -6139,12 +6139,37 @@ async function loadTurnstileApi() {
   return window.turnstile;
 }
 
+function resetFeedbackTurnstile(message = "자동 입력 방지 확인을 다시 진행해 주세요.", isError = false) {
+  feedbackTurnstileToken = "";
+  setFeedbackSubmitReady(false);
+  setFeedbackTurnstileHint(message, isError);
+  if (feedbackTurnstileWidgetId !== null && window.turnstile?.reset) {
+    window.turnstile.reset(feedbackTurnstileWidgetId);
+  }
+}
+
+function removeFeedbackTurnstile() {
+  feedbackTurnstileToken = "";
+  setFeedbackSubmitReady(false);
+  if (feedbackTurnstileWidgetId !== null && window.turnstile?.remove) {
+    try { window.turnstile.remove(feedbackTurnstileWidgetId); } catch {}
+  }
+  feedbackTurnstileWidgetId = null;
+  if (els.feedbackTurnstile) els.feedbackTurnstile.replaceChildren();
+}
+
 async function ensureFeedbackTurnstile() {
   if (!els.feedbackTurnstile) return;
-  if (feedbackTurnstileWidgetId !== null && window.turnstile?.reset) {
-    feedbackTurnstileToken = "";
-    setFeedbackSubmitReady(false);
-    window.turnstile.reset(feedbackTurnstileWidgetId);
+
+  // 이미 렌더링된 위젯은 모달을 닫았다 다시 열어도 그대로 재사용한다.
+  // 유효한 토큰까지 있으면 추가 reset/render/network 호출이 없다.
+  if (feedbackTurnstileWidgetId !== null) {
+    if (feedbackTurnstileToken) {
+      setFeedbackSubmitReady(true);
+      setFeedbackTurnstileHint("자동 입력 방지 확인이 완료됐어요.");
+    } else {
+      setFeedbackSubmitReady(false);
+    }
     return;
   }
   if (feedbackTurnstileLoading) return feedbackTurnstileLoading;
@@ -6152,12 +6177,14 @@ async function ensureFeedbackTurnstile() {
   feedbackTurnstileLoading = (async () => {
     setFeedbackSubmitReady(false);
     setFeedbackTurnstileHint("자동 입력 방지 확인을 준비하는 중이에요.");
-    const configResponse = await fetch("/api/feedback", { cache: "no-store", credentials: "omit" });
-    const config = await configResponse.json().catch(() => ({}));
-    if (!configResponse.ok || !config?.siteKey) {
-      throw new Error(config?.error || "자동 입력 방지 설정이 아직 완료되지 않았습니다.");
+    if (!feedbackTurnstileSiteKey) {
+      const configResponse = await fetch("/api/feedback", { cache: "no-store", credentials: "omit" });
+      const config = await configResponse.json().catch(() => ({}));
+      if (!configResponse.ok || !config?.siteKey) {
+        throw new Error(config?.error || "자동 입력 방지 설정이 아직 완료되지 않았습니다.");
+      }
+      feedbackTurnstileSiteKey = String(config.siteKey);
     }
-    feedbackTurnstileSiteKey = String(config.siteKey);
     const turnstile = await loadTurnstileApi();
     feedbackTurnstileWidgetId = turnstile.render(els.feedbackTurnstile, {
       sitekey: feedbackTurnstileSiteKey,
@@ -6171,9 +6198,7 @@ async function ensureFeedbackTurnstile() {
         setFeedbackTurnstileHint("자동 입력 방지 확인이 완료됐어요.");
       },
       "expired-callback"() {
-        feedbackTurnstileToken = "";
-        setFeedbackSubmitReady(false);
-        setFeedbackTurnstileHint("확인 시간이 지나 다시 확인이 필요해요.", true);
+        resetFeedbackTurnstile("확인 시간이 지나 새 확인을 시작했어요.");
       },
       "error-callback"() {
         feedbackTurnstileToken = "";
@@ -6261,15 +6286,16 @@ els.feedbackForm?.addEventListener("submit", async (event) => {
     els.feedbackMessageState.textContent = "의견을 보냈어요. 고맙습니다.";
     els.feedbackMessageState.hidden = false;
     window.setTimeout(() => closeModal(els.feedbackModal), 900);
+    // Siteverify 토큰은 1회용이므로 성공 후 위젯을 제거한다.
+    // 닫힌 모달 뒤에서 새 챌린지를 미리 호출하지 않고, 다음 의견창 오픈 때 새로 렌더링한다.
+    removeFeedbackTurnstile();
   } catch (error) {
     els.feedbackMessageState.textContent = error.message || "의견을 보내지 못했습니다.";
     els.feedbackMessageState.classList.add("is-error");
     els.feedbackMessageState.hidden = false;
+    // 서버 검증을 시도한 토큰은 재사용하지 않는다. 실패 시 현재 창에서 새 확인으로 초기화한다.
+    resetFeedbackTurnstile("자동 입력 방지 확인을 다시 진행해 주세요.", true);
   } finally {
-    feedbackTurnstileToken = "";
-    if (feedbackTurnstileWidgetId !== null && window.turnstile?.reset) {
-      window.turnstile.reset(feedbackTurnstileWidgetId);
-    }
     els.feedbackSubmitButton.disabled = true;
     els.feedbackSubmitButton.textContent = "익명으로 보내기";
   }
