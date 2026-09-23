@@ -8047,25 +8047,6 @@ function updateNetworkStatus() {
   els.networkStatusBanner.hidden = navigator.onLine;
 }
 
-async function loadPublicVersion() {
-  if (!els.publicVersion) return;
-
-  try {
-    const response = await fetch(`/version.json?ts=${Date.now()}`, {
-      method: "GET",
-      cache: "no-store",
-      credentials: "same-origin",
-    });
-
-    if (!response.ok) throw new Error("version fetch failed");
-
-    const data = await response.json();
-    const version = String(data?.version || "").trim();
-    if (version) els.publicVersion.textContent = version;
-  } catch (error) {
-    console.warn("사용자 페이지 버전 확인 실패", error);
-  }
-}
 
 if (history.state?.rjsReaderOpen) {
   history.replaceState(
@@ -8089,6 +8070,5 @@ updateCompactHeader();
 syncViewButtons();
 syncQuickFilterButtons();
 updateAccountUi();
-loadPublicVersion();
 loadArchive();
 restoreAuth();
