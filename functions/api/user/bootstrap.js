@@ -30,7 +30,12 @@ export async function onRequestPost(context) {
         SELECT
           u.user_id,
           u.created_at,
-          v.last_visit_at
+          v.last_visit_at,
+          (
+            SELECT COUNT(*)
+            FROM user_quotes q
+            WHERE q.user_id = u.user_id
+          ) AS saved_quote_count
         FROM users u
         LEFT JOIN user_visit_stats v ON v.user_id = u.user_id
         WHERE u.user_id = ?
@@ -104,6 +109,7 @@ export async function onRequestPost(context) {
       user: {
         userId: auth.userId,
         createdAt: userRow?.created_at == null ? null : Number(userRow.created_at),
+        savedQuoteCount: Number(userRow?.saved_quote_count || 0),
       },
       items: itemsResult?.results || [],
       likes: likesResult?.results || [],

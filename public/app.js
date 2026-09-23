@@ -38,6 +38,7 @@ const state = {
   userLibrary: new Map(),
   userLikes: new Map(),
   savedQuotes: [],
+  savedQuoteCount: null,
   savedQuotesLoaded: false,
   savedQuotesLoading: false,
   savedQuotesError: false,
@@ -677,6 +678,7 @@ function clearUserSession(clearToken = true) {
   state.userLibrary = new Map();
   state.userLikes = new Map();
   state.savedQuotes = [];
+  state.savedQuoteCount = null;
   state.savedQuotesLoaded = false;
   state.savedQuotesLoading = false;
   state.savedQuotesError = false;
@@ -931,9 +933,12 @@ function applyUserProfileData(data = {}) {
   );
   if (Array.isArray(data.quotes)) {
     state.savedQuotes = data.quotes.map(normalizeSavedQuote);
+    state.savedQuoteCount = state.savedQuotes.length;
     state.savedQuotesLoaded = true;
     state.savedQuotesLoading = false;
     state.savedQuotesError = false;
+  } else if (data.user?.savedQuoteCount != null) {
+    state.savedQuoteCount = Math.max(0, Number(data.user.savedQuoteCount) || 0);
   }
   state.profileUserCreatedAt = data.user?.createdAt == null
     ? null
@@ -973,6 +978,7 @@ async function loadSavedQuotes() {
   try {
     const data = await userApi("/api/user/profile?section=quotes");
     state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+    state.savedQuoteCount = state.savedQuotes.length;
     state.savedQuotesLoaded = true;
   } catch (error) {
     console.warn("저장문장 불러오기 실패", error);
@@ -1123,7 +1129,14 @@ function renderProfilePage() {
   if (els.profileBookmarkCount) els.profileBookmarkCount.textContent = String(bookmarked.length);
   if (els.profileRecentCount) els.profileRecentCount.textContent = String(recent.length);
   if (els.profileLikeCount) els.profileLikeCount.textContent = String(likes.length);
-  if (els.profileQuoteCount) els.profileQuoteCount.textContent = state.savedQuotesLoaded ? String(quotes.length) : "—";
+  if (els.profileQuoteCount) {
+    const quoteCount = state.savedQuotesLoaded
+      ? quotes.length
+      : Number.isFinite(state.savedQuoteCount)
+        ? Math.max(0, Number(state.savedQuoteCount))
+        : null;
+    els.profileQuoteCount.textContent = quoteCount == null ? "—" : String(quoteCount);
+  }
   if (els.profileSummary) {
     const joined = formatProfileDate(state.profileUserCreatedAt);
     const profileUserId = String(state.user?.userId || state.user?.id || "").trim();
@@ -1255,13 +1268,14 @@ function getQuoteFeedCardSizes(text) {
 }
 
 function formatQuoteFeedDate(value) {
-  const date = new Date(Number(value || 0));
-  if (Number.isNaN(date.getTime())) return "";
-  return new Intl.DateTimeFormat("ko-KR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(date);
+  const timestamp = Number(value || 0);
+  if (!Number.isFinite(timestamp) || timestamp <= 0) return "";
+  const kst = new Date(timestamp + (9 * 60 * 60 * 1000));
+  if (Number.isNaN(kst.getTime())) return "";
+  const year = String(kst.getUTCFullYear()).slice(-2);
+  const month = String(kst.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(kst.getUTCDate()).padStart(2, "0");
+  return `${year}${month}${day}`;
 }
 
 function findQuoteFeedWork(item) {
@@ -1392,7 +1406,10 @@ function openQuoteFeedDetail(item) {
     els.quoteFeedModalPreview.style.setProperty("--quote-bg", theme.background);
     els.quoteFeedModalPreview.style.setProperty("--quote-color", theme.text);
   }
-  if (els.quoteFeedModalText) els.quoteFeedModalText.textContent = item.quoteText;
+  if (els.quoteFeedModalText) {
+    els.quoteFeedModalText.textContent = item.quoteText;
+    els.quoteFeedModalText.scrollTop = 0;
+  }
   if (els.quoteFeedModalTitle) els.quoteFeedModalTitle.textContent = item.title || "제목 미상";
   if (els.quoteFeedModalAuthor) els.quoteFeedModalAuthor.textContent = item.author || "작성자 미상";
   if (els.quoteFeedModalDate) els.quoteFeedModalDate.textContent = formatQuoteFeedDate(item.sharedAt);
@@ -1400,6 +1417,9 @@ function openQuoteFeedDetail(item) {
     els.quoteFeedOpenWorkButton.hidden = !findQuoteFeedWork(item);
   }
   openModal(els.quoteFeedModal);
+  if (els.quoteFeedModalText) {
+    requestAnimationFrame(() => { els.quoteFeedModalText.scrollTop = 0; });
+  }
 }
 
 async function setSavedQuoteShared(quote, shared, workId = "") {
@@ -1484,7 +1504,14 @@ async function saveCurrentReaderQuote() {
     }),
   });
   const savedQuote = data.quote ? normalizeSavedQuote(data.quote) : null;
-  if (savedQuote && state.savedQuotesLoaded) state.savedQuotes.unshift(savedQuote);
+  if (savedQuote) {
+    if (state.savedQuotesLoaded) {
+      state.savedQuotes.unshift(savedQuote);
+      state.savedQuoteCount = state.savedQuotes.length;
+    } else {
+      state.savedQuoteCount = Math.max(0, Number(state.savedQuoteCount || 0)) + 1;
+    }
+  }
   if (state.profileOpen) renderProfilePage();
   return savedQuote;
 }
@@ -6197,6 +6224,8 @@ els.profileList?.addEventListener("click", async (event) => {
     if (!id || !window.confirm("저장한 문장을 삭제할까요?")) return;
     await userApi("/api/user/profile", { method:"POST", body:JSON.stringify({ action:"quote_delete", id }) });
     state.savedQuotes = state.savedQuotes.filter((entry) => entry.id !== id);
+    if (state.savedQuotesLoaded) state.savedQuoteCount = state.savedQuotes.length;
+    else if (Number.isFinite(state.savedQuoteCount)) state.savedQuoteCount = Math.max(0, state.savedQuoteCount - 1);
     renderProfilePage();
   }
 });
