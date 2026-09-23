@@ -375,8 +375,18 @@ const els = {
   signupMessage: document.getElementById("signupMessage"),
   signupGoLoginButton: document.getElementById("signupGoLoginButton"),
   signupCompleteButton: document.getElementById("signupCompleteButton"),
+  feedbackModal: document.getElementById("feedbackModal"),
+  feedbackForm: document.getElementById("feedbackForm"),
+  feedbackCategory: document.getElementById("feedbackCategory"),
+  feedbackMessage: document.getElementById("feedbackMessage"),
+  feedbackWebsite: document.getElementById("feedbackWebsite"),
+  feedbackSubmitButton: document.getElementById("feedbackSubmitButton"),
+  feedbackMessageState: document.getElementById("feedbackMessageState"),
+  feedbackTurnstile: document.getElementById("feedbackTurnstile"),
+  feedbackTurnstileHint: document.getElementById("feedbackTurnstileHint"),
   helpModal: document.getElementById("helpModal"),
   helpLoginButton: document.getElementById("helpLoginButton"),
+  helpFeedbackButton: document.getElementById("helpFeedbackButton"),
   detailedHelpButton: document.getElementById("detailedHelpButton"),
   detailedHelpModal: document.getElementById("detailedHelpModal"),
   detailedHelpCloseButton: document.getElementById("detailedHelpCloseButton"),
@@ -6091,6 +6101,178 @@ els.loginButton?.addEventListener("click", () => {
 
 els.signupButton?.addEventListener("click", () => {
   openSignupModal();
+});
+
+
+let feedbackTurnstileWidgetId = null;
+let feedbackTurnstileToken = "";
+let feedbackTurnstileSiteKey = "";
+let feedbackTurnstileLoading = null;
+
+function setFeedbackSubmitReady(ready) {
+  if (!els.feedbackSubmitButton) return;
+  els.feedbackSubmitButton.disabled = !ready;
+}
+
+function setFeedbackTurnstileHint(message, isError = false) {
+  if (!els.feedbackTurnstileHint) return;
+  els.feedbackTurnstileHint.textContent = message;
+  els.feedbackTurnstileHint.classList.toggle("is-error", Boolean(isError));
+}
+
+async function loadTurnstileApi() {
+  if (window.turnstile?.render) return window.turnstile;
+  const existing = document.querySelector('script[data-rjs-turnstile="true"]');
+  if (!existing) {
+    const script = document.createElement("script");
+    script.src = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+    script.async = true;
+    script.defer = true;
+    script.dataset.rjsTurnstile = "true";
+    document.head.appendChild(script);
+  }
+  const started = Date.now();
+  while (!window.turnstile?.render) {
+    if (Date.now() - started > 10000) throw new Error("자동 입력 방지 확인을 불러오지 못했습니다.");
+    await new Promise((resolve) => window.setTimeout(resolve, 80));
+  }
+  return window.turnstile;
+}
+
+async function ensureFeedbackTurnstile() {
+  if (!els.feedbackTurnstile) return;
+  if (feedbackTurnstileWidgetId !== null && window.turnstile?.reset) {
+    feedbackTurnstileToken = "";
+    setFeedbackSubmitReady(false);
+    window.turnstile.reset(feedbackTurnstileWidgetId);
+    return;
+  }
+  if (feedbackTurnstileLoading) return feedbackTurnstileLoading;
+
+  feedbackTurnstileLoading = (async () => {
+    setFeedbackSubmitReady(false);
+    setFeedbackTurnstileHint("자동 입력 방지 확인을 준비하는 중이에요.");
+    const configResponse = await fetch("/api/feedback", { cache: "no-store", credentials: "omit" });
+    const config = await configResponse.json().catch(() => ({}));
+    if (!configResponse.ok || !config?.siteKey) {
+      throw new Error(config?.error || "자동 입력 방지 설정이 아직 완료되지 않았습니다.");
+    }
+    feedbackTurnstileSiteKey = String(config.siteKey);
+    const turnstile = await loadTurnstileApi();
+    feedbackTurnstileWidgetId = turnstile.render(els.feedbackTurnstile, {
+      sitekey: feedbackTurnstileSiteKey,
+      theme: "auto",
+      size: window.innerWidth < 360 ? "compact" : "flexible",
+      language: "ko",
+      action: "feedback",
+      callback(token) {
+        feedbackTurnstileToken = String(token || "");
+        setFeedbackSubmitReady(Boolean(feedbackTurnstileToken));
+        setFeedbackTurnstileHint("자동 입력 방지 확인이 완료됐어요.");
+      },
+      "expired-callback"() {
+        feedbackTurnstileToken = "";
+        setFeedbackSubmitReady(false);
+        setFeedbackTurnstileHint("확인 시간이 지나 다시 확인이 필요해요.", true);
+      },
+      "error-callback"() {
+        feedbackTurnstileToken = "";
+        setFeedbackSubmitReady(false);
+        setFeedbackTurnstileHint("자동 입력 방지 확인에 실패했어요. 잠시 후 다시 시도해 주세요.", true);
+      },
+    });
+  })().catch((error) => {
+    setFeedbackSubmitReady(false);
+    setFeedbackTurnstileHint(error.message || "자동 입력 방지 확인을 불러오지 못했습니다.", true);
+    if (els.feedbackMessageState) {
+      els.feedbackMessageState.textContent = error.message || "자동 입력 방지 확인을 불러오지 못했습니다.";
+      els.feedbackMessageState.classList.add("is-error");
+      els.feedbackMessageState.hidden = false;
+    }
+  }).finally(() => {
+    feedbackTurnstileLoading = null;
+  });
+
+  return feedbackTurnstileLoading;
+}
+
+function openFeedbackModal() {
+  if (els.feedbackMessageState) {
+    els.feedbackMessageState.hidden = true;
+    els.feedbackMessageState.classList.remove("is-error");
+  }
+  openModal(els.feedbackModal);
+  ensureFeedbackTurnstile();
+}
+
+els.helpFeedbackButton?.addEventListener("click", () => {
+  openFeedbackModal();
+});
+
+els.feedbackForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = String(els.feedbackMessage?.value || "").trim();
+  if (message.length < 5) {
+    els.feedbackMessageState.textContent = "내용을 5자 이상 입력해 주세요.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+    return;
+  }
+
+  const lastSentAt = Number(localStorage.getItem("archiveFeedbackSentAt") || 0);
+  if (Date.now() - lastSentAt < 30000) {
+    els.feedbackMessageState.textContent = "잠시 후 다시 보내주세요.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+    return;
+  }
+
+  if (!feedbackTurnstileToken) {
+    els.feedbackMessageState.textContent = "자동 입력 방지 확인을 완료해 주세요.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+    return;
+  }
+
+  els.feedbackSubmitButton.disabled = true;
+  els.feedbackSubmitButton.textContent = "보내는 중…";
+  els.feedbackMessageState.hidden = true;
+  els.feedbackMessageState.classList.remove("is-error");
+
+  try {
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      credentials: "omit",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        category: els.feedbackCategory?.value || "기타",
+        message,
+        website: els.feedbackWebsite?.value || "",
+        page: `${location.pathname}${location.search}`,
+        version: String(els.publicVersion?.textContent || "").trim(),
+        turnstileToken: feedbackTurnstileToken,
+      }),
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || "의견을 보내지 못했습니다.");
+    localStorage.setItem("archiveFeedbackSentAt", String(Date.now()));
+    els.feedbackMessage.value = "";
+    if (els.feedbackWebsite) els.feedbackWebsite.value = "";
+    els.feedbackMessageState.textContent = "의견을 보냈어요. 고맙습니다.";
+    els.feedbackMessageState.hidden = false;
+    window.setTimeout(() => closeModal(els.feedbackModal), 900);
+  } catch (error) {
+    els.feedbackMessageState.textContent = error.message || "의견을 보내지 못했습니다.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+  } finally {
+    feedbackTurnstileToken = "";
+    if (feedbackTurnstileWidgetId !== null && window.turnstile?.reset) {
+      window.turnstile.reset(feedbackTurnstileWidgetId);
+    }
+    els.feedbackSubmitButton.disabled = true;
+    els.feedbackSubmitButton.textContent = "익명으로 보내기";
+  }
 });
 
 els.helpButton?.addEventListener("click", () => {

@@ -104,6 +104,15 @@ const els = {
   userTableBody: document.getElementById("userTableBody"),
   userEmpty: document.getElementById("userEmpty"),
   userMessage: document.getElementById("userMessage"),
+  feedbackTabBadge: document.getElementById("feedbackTabBadge"),
+  feedbackRefreshButton: document.getElementById("feedbackRefreshButton"),
+  feedbackCountAll: document.getElementById("feedbackCountAll"),
+  feedbackCountNew: document.getElementById("feedbackCountNew"),
+  feedbackCountChecked: document.getElementById("feedbackCountChecked"),
+  feedbackCountDone: document.getElementById("feedbackCountDone"),
+  feedbackAdminList: document.getElementById("feedbackAdminList"),
+  feedbackAdminEmpty: document.getElementById("feedbackAdminEmpty"),
+  feedbackAdminMessage: document.getElementById("feedbackAdminMessage"),
   resourceRefreshButton: document.getElementById("resourceRefreshButton"),
   resourcePreciseButton: document.getElementById("resourcePreciseButton"),
   resourceKvState: document.getElementById("resourceKvState"),
@@ -191,6 +200,8 @@ let driveAdminLoaded = false;
 const DRIVE_ADMIN_PAGE_SIZE = 30;
 let driveAdminPage = 1;
 let driveAdminFilter = "all";
+let feedbackAdminLoaded = false;
+let feedbackAdminFilter = "all";
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
 let resourceAnalyticsPeriod = "today";
@@ -327,6 +338,16 @@ function setActiveTab(name) {
     });
   }
 
+  if (name === "feedback" && !feedbackAdminLoaded) {
+    loadFeedbackAdmin().catch((error) => {
+      console.error(error);
+      if (els.feedbackAdminMessage) {
+        els.feedbackAdminMessage.hidden = false;
+        els.feedbackAdminMessage.textContent = error.message || "의견함을 불러오지 못했습니다.";
+      }
+    });
+  }
+
   if (name === "resources" && !resourceUsageLoaded) {
     loadResourceUsage(false).catch((error) => {
       console.error(error);
@@ -337,6 +358,57 @@ function setActiveTab(name) {
       }
     });
   }
+}
+
+function feedbackStatusLabel(status) {
+  if (status === "checked") return "확인";
+  if (status === "done") return "처리완료";
+  return "미확인";
+}
+
+function renderFeedbackAdmin(data = {}) {
+  const items = Array.isArray(data.items) ? data.items : [];
+  const counts = data.counts || {};
+  els.feedbackCountAll.textContent = Number(counts.total || 0).toLocaleString("ko-KR");
+  els.feedbackCountNew.textContent = Number(counts.new || 0).toLocaleString("ko-KR");
+  els.feedbackCountChecked.textContent = Number(counts.checked || 0).toLocaleString("ko-KR");
+  els.feedbackCountDone.textContent = Number(counts.done || 0).toLocaleString("ko-KR");
+  if (els.feedbackTabBadge) {
+    const newCount = Number(counts.new || 0);
+    els.feedbackTabBadge.textContent = String(newCount);
+    els.feedbackTabBadge.hidden = newCount <= 0;
+  }
+  document.querySelectorAll("[data-feedback-filter]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.feedbackFilter === feedbackAdminFilter);
+  });
+  els.feedbackAdminEmpty.hidden = items.length > 0;
+  els.feedbackAdminList.innerHTML = items.map((item) => {
+    const id = Number(item.feedback_id || 0);
+    const status = String(item.status || "new");
+    return `
+      <article class="feedback-admin-card" data-feedback-id="${id}">
+        <div class="feedback-admin-card-head">
+          <div class="feedback-admin-card-meta">
+            <span class="feedback-admin-card-category">${escapeHtml(item.category || "기타")}</span>
+            <span>${escapeHtml(formatDate(item.created_at))}</span>
+            <span>${escapeHtml(feedbackStatusLabel(status))}</span>
+          </div>
+          <div class="feedback-admin-actions">
+            ${["new", "checked", "done"].map((value) => `<button type="button" data-feedback-status="${value}" class="${status === value ? "is-active" : ""}">${escapeHtml(feedbackStatusLabel(value))}</button>`).join("")}
+          </div>
+        </div>
+        <div class="feedback-admin-card-message">${escapeHtml(item.message || "")}</div>
+        <div class="feedback-admin-card-context">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")}</div>
+      </article>`;
+  }).join("");
+}
+
+async function loadFeedbackAdmin() {
+  if (!els.feedbackAdminList) return;
+  els.feedbackAdminMessage.hidden = true;
+  const data = await api(`/api/admin/feedback?status=${encodeURIComponent(feedbackAdminFilter)}`, { method: "GET" });
+  renderFeedbackAdmin(data);
+  feedbackAdminLoaded = true;
 }
 
 function renderDiagnostics(items = []) {
@@ -3849,6 +3921,42 @@ els.deployButton.addEventListener("click", async () => {
 });
 
 
+
+els.feedbackRefreshButton?.addEventListener("click", () => {
+  feedbackAdminLoaded = false;
+  loadFeedbackAdmin().catch((error) => {
+    els.feedbackAdminMessage.hidden = false;
+    els.feedbackAdminMessage.textContent = error.message || "의견함을 불러오지 못했습니다.";
+  });
+});
+
+document.addEventListener("click", (event) => {
+  const filterButton = event.target.closest("[data-feedback-filter]");
+  if (filterButton) {
+    feedbackAdminFilter = filterButton.dataset.feedbackFilter || "all";
+    feedbackAdminLoaded = false;
+    loadFeedbackAdmin().catch(console.error);
+    return;
+  }
+  const statusButton = event.target.closest("[data-feedback-status]");
+  if (!statusButton) return;
+  const card = statusButton.closest("[data-feedback-id]");
+  const id = Number(card?.dataset.feedbackId || 0);
+  if (!id) return;
+  statusButton.disabled = true;
+  api("/api/admin/feedback", {
+    method: "PATCH",
+    body: JSON.stringify({ id, status: statusButton.dataset.feedbackStatus }),
+  }).then(() => {
+    feedbackAdminLoaded = false;
+    return loadFeedbackAdmin();
+  }).catch((error) => {
+    els.feedbackAdminMessage.hidden = false;
+    els.feedbackAdminMessage.textContent = error.message || "상태를 변경하지 못했습니다.";
+  }).finally(() => {
+    statusButton.disabled = false;
+  });
+});
 
 els.adminLogoutButton?.addEventListener("click", async () => {
   try {

@@ -4137,3 +4137,93 @@ html.auth-session-pending #signupButton {
     white-space:nowrap;
   }
 }
+
+
+/* v8.52 anonymous feedback */
+.feedback-modal { width: min(92vw, 560px); }
+.feedback-form { display: grid; gap: 14px; margin-top: 16px; }
+.feedback-form label { display: grid; gap: 7px; }
+.feedback-form label > span { font-size: 11px; font-weight: 800; color: var(--muted); }
+.feedback-form select, .feedback-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); padding: 11px 12px; font: inherit; outline: none; }
+.feedback-form textarea { resize: vertical; min-height: 150px; line-height: 1.6; }
+.feedback-form select:focus, .feedback-form textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(80,72,64,.08); }
+.feedback-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.feedback-form-footer small { color: var(--muted); font-size: 10px; line-height: 1.5; }
+.feedback-honeypot { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
+.feedback-message { margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
+.feedback-message.is-error { color: #a33; }
+html.theme-dark .feedback-form select, html.theme-dark .feedback-form textarea { background: var(--paper); color: var(--ink); }
+@media (max-width: 760px) { .feedback-form-footer { align-items: stretch; flex-direction: column; } .feedback-form-footer .modal-primary-button { width: 100%; } }
+
+
+/* v8.52 - help-integrated anonymous feedback + Turnstile */
+.help-modal-actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.help-modal-actions > button,
+.help-modal.is-logged-in .help-modal-actions > button {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  white-space: nowrap;
+}
+.help-modal-actions:has(#helpLoginButton[hidden]) {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-items: stretch;
+}
+.help-modal-actions:has(#helpLoginButton[hidden]) #detailedHelpButton,
+.help-modal-actions:has(#helpLoginButton[hidden]) #helpFeedbackButton {
+  width: 100%;
+  min-width: 0;
+}
+.feedback-turnstile-wrap {
+  display: grid;
+  gap: 6px;
+  justify-items: stretch;
+  min-width: 0;
+}
+.feedback-turnstile {
+  width: 100%;
+  min-height: 65px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.feedback-turnstile-wrap > small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.5;
+}
+.feedback-turnstile-wrap > small.is-error { color: #a33; }
+@media (max-width: 560px) {
+  .help-modal-actions,
+  .help-modal.is-logged-in .help-modal-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+  }
+  .help-modal-actions:has(#helpLoginButton[hidden]) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .help-modal-actions > button,
+  .help-modal.is-logged-in .help-modal-actions > button {
+    width: 100%;
+    min-width: 0;
+    padding-left: 4px;
+    padding-right: 4px;
+    font-size: 10px;
+    letter-spacing: -0.03em;
+  }
+  .feedback-turnstile { min-height: 0; }
+}
+/* Keep the help action ratio stable even on browsers where :has() is unavailable. */
+.help-modal.is-logged-in .help-modal-actions {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  justify-items: stretch;
+}
+@media (max-width: 560px) {
+  .help-modal.is-logged-in .help-modal-actions {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

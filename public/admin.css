@@ -3080,3 +3080,22 @@ body.history-modal-open { overflow:hidden; }
     font-size: 20px;
   }
 }
+
+/* v8.52 anonymous feedback inbox */
+.admin-tab-badge{display:inline-grid;place-items:center;min-width:18px;height:18px;margin-left:4px;padding:0 5px;border-radius:999px;background:#1f1d1b;color:#fff;font-size:9px;font-weight:900;line-height:1}
+.admin-tab-badge[hidden]{display:none}
+.feedback-admin-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin:18px 0}
+.feedback-admin-summary button{display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid #ded7ce;border-radius:14px;background:#fffdf9;padding:12px 14px;color:#6f6962;cursor:pointer;font:inherit}
+.feedback-admin-summary button strong{font-size:18px;color:#1b1917}
+.feedback-admin-summary button.is-active{border-color:#91877a;background:#f5f1eb;color:#1b1917}
+.feedback-admin-list{display:grid;gap:10px}
+.feedback-admin-card{border:1px solid #ded7ce;border-radius:16px;background:#fffdf9;padding:15px 16px}
+.feedback-admin-card-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
+.feedback-admin-card-meta{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;color:#817970;font-size:10px}
+.feedback-admin-card-category{display:inline-flex;align-items:center;border-radius:999px;background:#f1ece5;padding:4px 8px;font-weight:800;color:#514a43}
+.feedback-admin-card-message{white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.7;color:#24211e}
+.feedback-admin-card-context{margin-top:10px;padding-top:9px;border-top:1px dashed #e5ded6;color:#8a837c;font-size:10px;line-height:1.6}
+.feedback-admin-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.feedback-admin-actions button{border:1px solid #d8d0c7;border-radius:999px;background:#fff;padding:6px 9px;font-size:10px;font-weight:800;color:#6e675f;cursor:pointer}
+.feedback-admin-actions button.is-active{background:#1f1d1b;color:#fff;border-color:#1f1d1b}
+@media(max-width:700px){.feedback-admin-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.feedback-admin-card-head{display:block}.feedback-admin-actions{justify-content:flex-start;margin-top:10px}}

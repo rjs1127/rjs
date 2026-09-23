@@ -46,9 +46,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=851" />
+  <link rel="stylesheet" href="/style.css?v=852" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=851" />
+  <link rel="stylesheet" href="/theme.css?v=852" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -427,7 +427,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.51</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.52</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -667,6 +667,44 @@
     </section>
   </div>
 
+  <div id="feedbackModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal feedback-modal" role="dialog" aria-modal="true" aria-labelledby="feedbackModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="feedbackModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">ANONYMOUS FEEDBACK</p>
+      <h2 id="feedbackModalTitle">익명 의견 보내기</h2>
+      <p class="simple-modal-description">문의·오류·기능 제안 등 자유롭게 남겨주세요. 로그인 정보나 사용자 ID는 저장하지 않습니다.</p>
+      <form id="feedbackForm" class="feedback-form">
+        <label>
+          <span>구분</span>
+          <select id="feedbackCategory">
+            <option value="문의">문의</option>
+            <option value="오류·수정">오류·수정</option>
+            <option value="기능 제안">기능 제안</option>
+            <option value="추가 요청">추가 요청</option>
+            <option value="기타">기타</option>
+          </select>
+        </label>
+        <label>
+          <span>내용</span>
+          <textarea id="feedbackMessage" rows="7" maxlength="3000" placeholder="어떤 점이 불편했는지, 어떤 기능이 있으면 좋은지 편하게 적어주세요." required></textarea>
+        </label>
+        <label class="feedback-honeypot" aria-hidden="true">
+          <span>웹사이트</span>
+          <input id="feedbackWebsite" type="text" tabindex="-1" autocomplete="off" />
+        </label>
+        <div class="feedback-turnstile-wrap">
+          <div id="feedbackTurnstile" class="feedback-turnstile" aria-label="자동 입력 방지 확인"></div>
+          <small id="feedbackTurnstileHint">자동 입력 방지 확인 후 제출할 수 있어요.</small>
+        </div>
+        <div class="feedback-form-footer">
+          <small>현재 페이지 정보와 사이트 버전만 함께 저장됩니다.</small>
+          <button id="feedbackSubmitButton" class="modal-primary-button" type="submit">익명으로 보내기</button>
+        </div>
+        <p id="feedbackMessageState" class="feedback-message" hidden></p>
+      </form>
+    </section>
+  </div>
+
   <div id="helpModal" class="simple-modal-overlay" hidden>
     <section class="simple-modal help-modal" role="dialog" aria-modal="true" aria-labelledby="helpModalTitle">
       <button class="simple-modal-close" type="button" data-close-modal="helpModal" aria-label="닫기">×</button>
@@ -681,6 +719,7 @@
       </div>
       <div class="help-modal-actions">
         <button id="detailedHelpButton" class="modal-secondary-button" type="button">상세 도움말</button>
+        <button id="helpFeedbackButton" class="modal-secondary-button" type="button">익명 의견</button>
         <button id="helpLoginButton" class="modal-primary-button" type="button">로그인하기</button>
       </div>
     </section>
@@ -854,6 +893,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=851" defer></script>
+  <script src="/app.js?v=852" defer></script>
 </body>
 </html>
