@@ -4097,7 +4097,7 @@ html.theme-dark .recent-postype-new-badge {
 .quote-feed-card-source strong { font-size:10px; font-weight:800; }
 .quote-feed-card-source span { font-size:9px; opacity:.8; }
 .quote-feed-like-button {
-  position:absolute; z-index:2; left:8%; bottom:8%; display:inline-flex; align-items:center; gap:3px; min-height:24px;
+  position:absolute; z-index:2; right:8%; bottom:8%; display:inline-flex; align-items:center; gap:3px; min-height:24px;
   padding:3px 7px; border:1px solid rgba(42,39,36,.10); border-radius:999px; background:rgba(255,255,255,.48);
   color:inherit; font:inherit; font-size:10px; font-weight:800; cursor:pointer; backdrop-filter:blur(5px);
 }
@@ -4188,7 +4188,7 @@ html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
   .quote-feed-card-text { -webkit-line-clamp:7; font-size:var(--quote-mobile-size,11px); line-height:1.55; }
   .quote-feed-card-source strong { font-size:8px; }
   .quote-feed-card-source span,.quote-feed-card-brand { font-size:7px; }
-  .quote-feed-like-button { left:7%; bottom:7%; min-height:21px; padding:2px 6px; font-size:8px; }
+  .quote-feed-like-button { right:7%; bottom:7%; min-height:21px; padding:2px 6px; font-size:8px; }
   .quote-feed-detail-modal {
     width:calc(100% - 20px);
     max-height:calc(100dvh - max(20px, env(safe-area-inset-top)) - max(20px, env(safe-area-inset-bottom)));
@@ -4433,7 +4433,7 @@ html.theme-dark .profile-quote-share-toggle[aria-checked="true"] .profile-quote-
 .content-section .section-head-actions .result-count {
   margin:0;
   color:var(--theme-muted);
-  font-size:13px;
+  font-size:9px;
   font-weight:760;
   line-height:1.1;
 }
@@ -4495,7 +4495,7 @@ html.theme-dark .profile-quote-share-toggle[aria-checked="true"] .profile-quote-
   margin:0;
   justify-self:end;
   color:var(--theme-muted);
-  font-size:13px;
+  font-size:9px;
   font-weight:760;
   line-height:1.2;
   white-space:nowrap;
@@ -4519,6 +4519,6 @@ html.theme-dark .content-section .section-head-actions .quote-feed-entry-button:
 @media (max-width:719px) {
   .content-section .section-head { margin-bottom:11px; }
   .content-list-topline { gap:8px; min-height:20px; margin-bottom:8px; }
-  .content-list-topline .result-count { font-size:10.5px; }
+  .content-list-topline .result-count { font-size:8.5px; }
   .content-list-topline .recent-postype-guide-note { font-size:8.5px; }
 }

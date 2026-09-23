@@ -1,3 +1,9 @@
+## v8.51 - 콘텐츠 수 글자 크기·문장피드 좋아요 위치 조정
+- 콘텐츠 목록 상단 우측의 `콘텐츠 n개` 결과 수 글자 크기를 좌측 최근 POSTYPE 안내문구와 동일하게 맞춤(PC 9px / 모바일 8.5px)
+- 문장피드 카드 좋아요 버튼을 하단 좌측에서 하단 우측으로 이동하고 좋아요/취소·좋아요순 정렬 로직은 그대로 유지
+- 정적 리소스 캐시 버스터와 표시 버전을 `v8.51`로 갱신
+- 커밋 메시지 요약: `style: align list meta text and move quote like right`
+
 ## v8.50 - D1 용량 조회 보정·문장피드 좋아요 위치 조정
 - 관리자 `리소스` 탭의 `DB 현재 용량`을 D1에서 지원하지 않을 수 있는 `PRAGMA page_count/page_size` 대신 Cloudflare GraphQL `d1StorageAdaptiveGroups`의 `databaseSizeBytes`로 조회하도록 변경
 - 기존 Cloudflare Analytics 인증을 그대로 재사용하며, 관리자 리소스 조회 시 D1 저장용량 GraphQL 요청 1회를 추가해 `USER_DB` 실제 저장용량을 표시
