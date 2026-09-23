@@ -8593,6 +8593,8 @@ updatePageScrollTopButton();
 updateCompactHeader();
 syncViewButtons();
 syncQuickFilterButtons();
-updateAccountUi();
+// 저장된 로그인 토큰이 있으면 bootstrap 복원이 끝날 때까지 비로그인 UI를 노출하지 않는다.
+// updateAccountUi()는 auth-session-pending을 해제하므로 토큰이 없는 경우에만 초기 호출한다.
+if (!getAuthToken()) updateAccountUi();
 loadArchive();
 restoreAuth();
