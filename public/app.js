@@ -46,6 +46,7 @@ const state = {
   authMode: "login",
   pendingAuthReason: "",
   remoteProgressSyncedAt: new Map(),
+  progressSavePending: new Map(),
   lastExitProgressSignature: "",
   lastExitProgressAt: 0,
   libraryKind: "bookmarks",
@@ -654,6 +655,7 @@ function clearUserSession(clearToken = true) {
   state.profileOpen = false;
   state.remoteProgressState = new Map();
   state.remoteProgressSyncedAt = new Map();
+  state.progressSavePending = new Map();
   state.lastExitProgressSignature = "";
   state.lastExitProgressAt = 0;
   state.visitRecordedUserId = "";
@@ -1433,11 +1435,35 @@ function shouldPersistProgress(fileId, saved) {
   return false;
 }
 
+function getProgressPayloadSignature(payload) {
+  if (!payload) return "";
+
+  return [
+    payload.fileId || "",
+    payload.percent ?? "",
+    payload.mode || "",
+    payload.scrollTop ?? "",
+    payload.chunkIndex ?? "",
+    payload.chunkRatio ?? "",
+    payload.read ? 1 : 0,
+    payload.clearLegacyRead ? 1 : 0,
+  ].join("|");
+}
+
 async function persistProgress(item, saved) {
-  if (!state.user || !item || !saved) return;
-  if (!shouldPersistProgress(item.id, saved)) return;
+  if (!state.user || !item || !saved) return false;
+  if (!shouldPersistProgress(item.id, saved)) return false;
 
   const payload = buildProgressPayload(item, saved);
+  const signature = getProgressPayloadSignature(payload);
+
+  // A scroll timer, reader close, visibilitychange and pagehide can all fire
+  // around the same moment. If the exact same position is already being sent,
+  // do not create another Functions request / D1 write while the first one is
+  // still in flight.
+  if (state.progressSavePending.get(item.id) === signature) {
+    return false;
+  }
 
   const currentEntry = getUserLibraryEntry(item.id);
   const nextReadAt = payload.read
@@ -1452,6 +1478,8 @@ async function persistProgress(item, saved) {
     readAt: nextReadAt,
     updatedAt: Date.now(),
   });
+
+  state.progressSavePending.set(item.id, signature);
 
   try {
     await userApi("/api/user/item", {
@@ -1473,8 +1501,14 @@ async function persistProgress(item, saved) {
     });
     updateResumeShortcut();
     if (state.items.length) render();
+    return true;
   } catch (error) {
     console.warn("이어보기 저장 실패", error);
+    return false;
+  } finally {
+    if (state.progressSavePending.get(item.id) === signature) {
+      state.progressSavePending.delete(item.id);
+    }
   }
 }
 
@@ -6250,14 +6284,14 @@ function flushReaderProgressBeforePageExit() {
   if (!token) return;
 
   const payload = buildProgressPayload(item, saved);
-  const signature = [
-    item.id,
-    payload.percent,
-    payload.mode,
-    payload.scrollTop ?? "",
-    payload.chunkIndex ?? "",
-    payload.chunkRatio ?? "",
-  ].join("|");
+  const signature = getProgressPayloadSignature(payload);
+
+  // If the normal progress save is already sending this exact position, an
+  // exit event must not duplicate it. This is the common overlap between the
+  // 1-minute save, reader close and mobile background/pagehide events.
+  if (state.progressSavePending.get(item.id) === signature) {
+    return;
+  }
 
   const now = Date.now();
   if (
