@@ -160,13 +160,28 @@ export async function onRequestPost(context) {
       if (!quote) return jsonResponse({ error: "저장 문장을 찾을 수 없습니다." }, 404);
 
       if (shared) {
+        const nextWorkId = cleanText(body?.workId, 300);
+        const nextTitle = cleanText(quote.title, 300);
+        const nextAuthor = cleanText(quote.author, 200);
+        const nextQuoteText = cleanText(quote.quote_text, 4000);
         const existing = await auth.db.prepare(`
-          SELECT shared_at
+          SELECT shared_at, work_id, title, author, quote_text
           FROM shared_quotes
           WHERE quote_id = ? AND user_id = ?
           LIMIT 1
         `).bind(id, auth.userId).first();
         const sharedAt = existing?.shared_at == null ? now : Number(existing.shared_at);
+
+        const unchanged = Boolean(existing) &&
+          String(existing.work_id || "") === nextWorkId &&
+          String(existing.title || "") === nextTitle &&
+          String(existing.author || "") === nextAuthor &&
+          String(existing.quote_text || "") === nextQuoteText;
+
+        if (unchanged) {
+          return jsonResponse({ ok: true, shared: true, sharedAt, changed: false });
+        }
+
         await auth.db.prepare(`
           INSERT INTO shared_quotes(quote_id, user_id, work_id, title, author, quote_text, shared_at)
           VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -179,13 +194,13 @@ export async function onRequestPost(context) {
         `).bind(
           id,
           auth.userId,
-          cleanText(body?.workId, 300),
-          cleanText(quote.title, 300),
-          cleanText(quote.author, 200),
-          cleanText(quote.quote_text, 4000),
+          nextWorkId,
+          nextTitle,
+          nextAuthor,
+          nextQuoteText,
           sharedAt
         ).run();
-        return jsonResponse({ ok: true, shared: true, sharedAt });
+        return jsonResponse({ ok: true, shared: true, sharedAt, changed: true });
       }
 
       await auth.db.prepare(`

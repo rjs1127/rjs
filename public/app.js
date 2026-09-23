@@ -467,16 +467,7 @@ let modalPageScrollY = 0;
 let modalLastFocusedElement = null;
 
 function getSimpleModals() {
-  return [
-    els.authModal,
-    els.signupModal,
-    els.helpModal,
-    els.detailedHelpModal,
-    els.privacyModal,
-    els.libraryModal,
-    els.viewerSettingsModal,
-    els.accountModal,
-  ].filter(Boolean);
+  return Array.from(document.querySelectorAll(".simple-modal-overlay"));
 }
 
 function getOpenSimpleModal() {
@@ -583,10 +574,20 @@ function focusModal(modal) {
   }
 }
 
-function closeModal(modal) {
+function getHistoryStateWithoutSimpleModal() {
+  const next = { ...(history.state || {}) };
+  delete next.rjsSimpleModal;
+  return next;
+}
+
+function closeModal(modal, { fromHistory = false } = {}) {
   if (!modal) return;
 
   modal.hidden = true;
+
+  if (!fromHistory && history.state?.rjsSimpleModal) {
+    history.replaceState(getHistoryStateWithoutSimpleModal(), "", location.href);
+  }
 
   if (!getOpenSimpleModal()) {
     unlockPageForModal();
@@ -607,8 +608,23 @@ function openModal(modal) {
   });
 
   modal.hidden = false;
+
+  const currentMarker = history.state?.rjsSimpleModal || "";
+  if (!currentMarker) {
+    history.pushState({ ...(history.state || {}), rjsSimpleModal: modal.id || "modal" }, "", location.href);
+  } else if (currentMarker !== modal.id) {
+    history.replaceState({ ...(history.state || {}), rjsSimpleModal: modal.id || "modal" }, "", location.href);
+  }
+
   focusModal(modal);
 }
+
+window.addEventListener("popstate", (event) => {
+  const openSimpleModal = getOpenSimpleModal();
+  if (openSimpleModal && !event.state?.rjsSimpleModal) {
+    closeModal(openSimpleModal, { fromHistory: true });
+  }
+});
 
 function setAuthMessage(message = "", isError = false) {
   if (!els.authMessage) return;
@@ -914,14 +930,17 @@ function normalizeProfileLike(row) {
 }
 
 function normalizeSavedQuote(row) {
+  const shared = Number(row?.is_shared ?? row?.shared ?? 0) === 1 || row?.shared === true;
   return {
     id: Number(row?.id || 0),
     title: String(row?.title || ""),
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
     createdAt: Number(row?.created_at ?? row?.createdAt ?? 0),
-    shared: Number(row?.is_shared ?? row?.shared ?? 0) === 1 || row?.shared === true,
+    shared,
     sharedAt: row?.shared_at == null && row?.sharedAt == null ? null : Number(row?.shared_at ?? row?.sharedAt),
+    _persistedShared: shared,
+    _shareSaving: false,
   };
 }
 
@@ -1196,7 +1215,10 @@ function renderProfilePage() {
             <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
           </div>
           <div class="profile-entry-actions">
-            <button type="button" class="profile-quote-share-button" data-profile-quote-share="${quote.id}" aria-pressed="${quote.shared ? "true" : "false"}">${quote.shared ? "공개 중" : "피드 공유"}</button>
+            <button type="button" class="profile-quote-share-toggle" data-profile-quote-share="${quote.id}" role="switch" aria-checked="${quote.shared ? "true" : "false"}" ${quote._shareSaving ? "disabled" : ""}>
+              <span class="profile-quote-share-toggle-track" aria-hidden="true"><span></span></span>
+              <span class="profile-quote-share-toggle-label">${quote._shareSaving ? "반영 중" : "피드 공유"}</span>
+            </button>
             <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
             <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
           </div>
@@ -1464,6 +1486,43 @@ async function setSavedQuoteShared(quote, shared, workId = "") {
   state.quoteFeedNextCursor = null;
   if (state.profileOpen) renderProfilePage();
   return quote;
+}
+
+const savedQuoteShareTimers = new Map();
+
+function queueSavedQuoteShare(quote, workId = "") {
+  if (!quote?.id || !state.user) return;
+  const quoteId = Number(quote.id);
+  const currentTimer = savedQuoteShareTimers.get(quoteId);
+  if (currentTimer) window.clearTimeout(currentTimer);
+
+  const timer = window.setTimeout(async () => {
+    savedQuoteShareTimers.delete(quoteId);
+    if (quote._shareSaving) return;
+
+    const persisted = quote._persistedShared === true;
+    const desired = quote.shared === true;
+    if (desired === persisted) {
+      if (state.profileOpen) renderProfilePage();
+      return;
+    }
+
+    quote._shareSaving = true;
+    if (state.profileOpen) renderProfilePage();
+    try {
+      await setSavedQuoteShared(quote, desired, workId);
+      quote._persistedShared = quote.shared === true;
+    } catch (error) {
+      console.warn("문장 공개 상태 변경 실패", error);
+      quote.shared = persisted;
+      window.alert("문장 공개 상태를 변경하지 못했습니다. 다시 시도해 주세요.");
+    } finally {
+      quote._shareSaving = false;
+      if (state.profileOpen) renderProfilePage();
+    }
+  }, 500);
+
+  savedQuoteShareTimers.set(quoteId, timer);
 }
 
 function getHistoryStateWithoutProfile() {
@@ -5885,7 +5944,6 @@ els.helpLoginButton?.addEventListener("click", () => {
 });
 
 els.detailedHelpButton?.addEventListener("click", () => {
-  closeModal(els.helpModal);
   openModal(els.detailedHelpModal);
 });
 
@@ -6222,20 +6280,23 @@ els.profileList?.addEventListener("click", async (event) => {
   const quoteShare = event.target.closest("[data-profile-quote-share]");
   if (quoteShare) {
     const quote = state.savedQuotes.find((entry) => String(entry.id) === String(quoteShare.dataset.profileQuoteShare));
-    if (!quote) return;
-    quoteShare.disabled = true;
-    const nextShared = !quote.shared;
+    if (!quote || quote._shareSaving) return;
+
+    quote.shared = !quote.shared;
+    renderProfilePage();
+
+    const matchedWork = state.items.find((candidate) =>
+      normalizeSearchText(candidate.title) === normalizeSearchText(quote.title) &&
+      normalizeSearchText(candidate.author) === normalizeSearchText(quote.author)
+    );
+
     try {
-      const matchedWork = state.items.find((candidate) =>
-        normalizeSearchText(candidate.title) === normalizeSearchText(quote.title) &&
-        normalizeSearchText(candidate.author) === normalizeSearchText(quote.author)
-      );
-      await setSavedQuoteShared(quote, nextShared, matchedWork?.id || "");
-      renderProfilePage();
+      queueSavedQuoteShare(quote, matchedWork?.id || "");
     } catch (error) {
       console.warn("문장 공개 상태 변경 실패", error);
+      quote.shared = quote._persistedShared === true;
+      renderProfilePage();
       window.alert("문장 공개 상태를 변경하지 못했습니다. 다시 시도해 주세요.");
-      quoteShare.disabled = false;
     }
     return;
   }
@@ -6406,26 +6467,26 @@ els.libraryModalList?.addEventListener("click", async (event) => {
   openContentItem(item);
 });
 
+function dismissSimpleModal(modal) {
+  if (!modal) return;
+  if (history.state?.rjsSimpleModal) {
+    history.back();
+    return;
+  }
+  closeModal(modal);
+}
+
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", () => {
-    closeModal(document.getElementById(button.dataset.closeModal));
+    dismissSimpleModal(document.getElementById(button.dataset.closeModal));
   });
 });
 
-for (const modal of [
-  els.authModal,
-  els.signupModal,
-  els.helpModal,
-  els.detailedHelpModal,
-  els.privacyModal,
-  els.libraryModal,
-  els.viewerSettingsModal,
-  els.accountModal,
-]) {
-  modal?.addEventListener("click", (event) => {
-    if (event.target === modal) closeModal(modal);
-  });
-}
+document.addEventListener("pointerdown", (event) => {
+  const overlay = event.target instanceof Element ? event.target.closest(".simple-modal-overlay") : null;
+  if (!overlay || overlay.hidden || event.target !== overlay) return;
+  dismissSimpleModal(overlay);
+});
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Tab") return;
@@ -6807,7 +6868,7 @@ document.addEventListener("keydown", (event) => {
   const openSimpleModal = getOpenSimpleModal();
 
   if (openSimpleModal) {
-    closeModal(openSimpleModal);
+    dismissSimpleModal(openSimpleModal);
     return;
   }
 
