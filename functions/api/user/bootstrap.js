@@ -23,8 +23,9 @@ export async function onRequestPost(context) {
     await ensureDownloadTrackingSchema(auth.db);
     await ensurePersonalizationSchema(auth.db);
 
-    // 로그인 직후 필요한 읽기 데이터를 한 번의 D1 batch로 묶는다.
-    const [userResult, itemsResult, likesResult, quotesResult] = await auth.db.batch([
+    // 로그인 직후 메인 화면에 필요한 읽기 데이터만 한 번의 D1 batch로 묶는다.
+    // 저장문장은 프로필의 저장문장 탭을 열 때 지연 로딩하여 초기 D1/응답 부하를 줄인다.
+    const [userResult, itemsResult, likesResult] = await auth.db.batch([
       auth.db.prepare(`
         SELECT
           u.user_id,
@@ -57,13 +58,6 @@ export async function onRequestPost(context) {
         FROM user_likes
         WHERE user_id = ?
         ORDER BY liked_at DESC
-        LIMIT 500
-      `).bind(auth.userId),
-      auth.db.prepare(`
-        SELECT id, title, author, quote_text, created_at
-        FROM user_quotes
-        WHERE user_id = ?
-        ORDER BY created_at DESC, id DESC
         LIMIT 500
       `).bind(auth.userId),
     ]);
@@ -113,7 +107,6 @@ export async function onRequestPost(context) {
       },
       items: itemsResult?.results || [],
       likes: likesResult?.results || [],
-      quotes: quotesResult?.results || [],
       visitRecorded,
       visitCounted,
       visitedAt: visitCounted ? now : (lastVisitAt || null),

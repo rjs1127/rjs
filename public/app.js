@@ -38,6 +38,9 @@ const state = {
   userLibrary: new Map(),
   userLikes: new Map(),
   savedQuotes: [],
+  savedQuotesLoaded: false,
+  savedQuotesLoading: false,
+  savedQuotesError: false,
   profileUserCreatedAt: null,
   profileTab: "bookmarks",
   profileSearch: "",
@@ -653,6 +656,9 @@ function clearUserSession(clearToken = true) {
   state.userLibrary = new Map();
   state.userLikes = new Map();
   state.savedQuotes = [];
+  state.savedQuotesLoaded = false;
+  state.savedQuotesLoading = false;
+  state.savedQuotesError = false;
   state.profileUserCreatedAt = null;
   state.profileOpen = false;
   state.remoteProgressState = new Map();
@@ -900,7 +906,12 @@ function applyUserProfileData(data = {}) {
       return [like.workId, like];
     })
   );
-  state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+  if (Array.isArray(data.quotes)) {
+    state.savedQuotes = data.quotes.map(normalizeSavedQuote);
+    state.savedQuotesLoaded = true;
+    state.savedQuotesLoading = false;
+    state.savedQuotesError = false;
+  }
   state.profileUserCreatedAt = data.user?.createdAt == null
     ? null
     : Number(data.user.createdAt);
@@ -925,6 +936,27 @@ async function loadUserProfileData() {
     console.warn("개인화 데이터 불러오기 실패", error);
     state.userLikes = new Map();
     state.savedQuotes = [];
+    state.savedQuotesLoaded = false;
+  }
+}
+
+async function loadSavedQuotes() {
+  if (!state.user || state.savedQuotesLoaded || state.savedQuotesLoading) return;
+
+  state.savedQuotesLoading = true;
+  state.savedQuotesError = false;
+  if (state.profileOpen && state.profileTab === "quotes") renderProfilePage();
+
+  try {
+    const data = await userApi("/api/user/profile?section=quotes");
+    state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+    state.savedQuotesLoaded = true;
+  } catch (error) {
+    console.warn("저장문장 불러오기 실패", error);
+    state.savedQuotesError = true;
+  } finally {
+    state.savedQuotesLoading = false;
+    if (state.profileOpen) renderProfilePage();
   }
 }
 
@@ -1068,7 +1100,7 @@ function renderProfilePage() {
   if (els.profileBookmarkCount) els.profileBookmarkCount.textContent = String(bookmarked.length);
   if (els.profileRecentCount) els.profileRecentCount.textContent = String(recent.length);
   if (els.profileLikeCount) els.profileLikeCount.textContent = String(likes.length);
-  if (els.profileQuoteCount) els.profileQuoteCount.textContent = String(quotes.length);
+  if (els.profileQuoteCount) els.profileQuoteCount.textContent = state.savedQuotesLoaded ? String(quotes.length) : "—";
   if (els.profileSummary) {
     const joined = formatProfileDate(state.profileUserCreatedAt);
     const profileUserId = String(state.user?.userId || state.user?.id || "").trim();
@@ -1110,19 +1142,28 @@ function renderProfilePage() {
         </div>`;
     }).join("") : '<div class="profile-empty">좋아요한 작품이 없습니다.</div>';
   } else {
-    rows = quotes.filter((quote) => !q || normalizeSearchText(`${quote.title} ${quote.author} ${quote.quoteText}`).includes(q));
-    html = rows.length ? rows.map((quote) => `
-      <div class="profile-entry quote-entry">
-        <div class="profile-entry-main">
-          <span class="profile-entry-title">${escapeHtml(quote.title || "제목 미상")}</span>
-          <span class="profile-entry-meta">${escapeHtml(quote.author || "작성자 미상")}</span>
-          <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
-        </div>
-        <div class="profile-entry-actions">
-          <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
-          <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
-        </div>
-      </div>`).join("") : '<div class="profile-empty">저장한 문장이 없습니다.</div>';
+    if (!state.savedQuotesLoaded) {
+      rows = [];
+      html = state.savedQuotesLoading
+        ? '<div class="profile-empty">저장한 문장을 불러오는 중입니다.</div>'
+        : state.savedQuotesError
+          ? '<div class="profile-empty">저장한 문장을 불러오지 못했습니다. 탭을 다시 눌러주세요.</div>'
+          : '<div class="profile-empty">저장한 문장을 불러오는 중입니다.</div>';
+    } else {
+      rows = quotes.filter((quote) => !q || normalizeSearchText(`${quote.title} ${quote.author} ${quote.quoteText}`).includes(q));
+      html = rows.length ? rows.map((quote) => `
+        <div class="profile-entry quote-entry">
+          <div class="profile-entry-main">
+            <span class="profile-entry-title">${escapeHtml(quote.title || "제목 미상")}</span>
+            <span class="profile-entry-meta">${escapeHtml(quote.author || "작성자 미상")}</span>
+            <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
+          </div>
+          <div class="profile-entry-actions">
+            <button type="button" data-profile-quote-copy="${quote.id}">복사</button>
+            <button type="button" data-profile-quote-delete="${quote.id}">삭제</button>
+          </div>
+        </div>`).join("") : '<div class="profile-empty">저장한 문장이 없습니다.</div>';
+    }
   }
 
   const pagedKinds = state.profileTab === "bookmarks" || state.profileTab === "recent";
@@ -1179,6 +1220,9 @@ function showProfilePage(tab = "bookmarks") {
   }
   els.profilePage.hidden = false;
   renderProfilePage();
+  if (state.profileTab === "quotes" && !state.savedQuotesLoaded) {
+    loadSavedQuotes();
+  }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
 
@@ -1210,7 +1254,7 @@ async function saveCurrentReaderQuote() {
       quoteText,
     }),
   });
-  if (data.quote) state.savedQuotes.unshift(normalizeSavedQuote(data.quote));
+  if (data.quote && state.savedQuotesLoaded) state.savedQuotes.unshift(normalizeSavedQuote(data.quote));
   if (state.profileOpen) renderProfilePage();
   return true;
 }
@@ -5788,6 +5832,9 @@ document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach
     state.profileVisibleLimit = 15;
     if (els.profileSearchInput) els.profileSearchInput.value = "";
     renderProfilePage();
+    if (state.profileTab === "quotes" && !state.savedQuotesLoaded) {
+      loadSavedQuotes();
+    }
   });
 });
 

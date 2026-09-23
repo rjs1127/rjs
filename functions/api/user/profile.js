@@ -14,6 +14,22 @@ export async function onRequestGet(context) {
     const auth = await requireUser(context);
     await ensurePersonalizationSchema(auth.db);
 
+    const section = new URL(context.request.url).searchParams.get("section") || "";
+    if (section === "quotes") {
+      const quotes = await auth.db.prepare(`
+        SELECT id, title, author, quote_text, created_at
+        FROM user_quotes
+        WHERE user_id = ?
+        ORDER BY created_at DESC, id DESC
+        LIMIT 500
+      `).bind(auth.userId).all();
+
+      return jsonResponse({
+        ok: true,
+        quotes: quotes?.results || [],
+      }, 200, { "cache-control": "no-store" });
+    }
+
     const [user, likes, quotes] = await Promise.all([
       auth.db.prepare(`
         SELECT user_id, created_at
