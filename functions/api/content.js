@@ -6,6 +6,40 @@ import {
   verifyFileInsideArchive,
   decodeTextSmart,
 } from "../_shared.js";
+import { requireUser } from "../_user.js";
+
+
+async function recordAuthenticatedRecentView(context, fileId) {
+  try {
+    if (!context.request.headers.get("authorization")) return;
+
+    const auth = await requireUser(context);
+    const now = Date.now();
+
+    await auth.db.prepare(`
+      INSERT INTO user_items(user_id, file_id, viewed_at, updated_at)
+      VALUES (?, ?, ?, ?)
+      ON CONFLICT(user_id, file_id) DO UPDATE SET
+        viewed_at = excluded.viewed_at,
+        updated_at = excluded.updated_at
+    `).bind(auth.userId, fileId, now, now).run();
+  } catch (error) {
+    // Recent-view tracking is best-effort and must never block public content.
+    console.warn("최근 조회 통합 기록 실패", error);
+  }
+}
+
+function scheduleAuthenticatedRecentView(context, fileId) {
+  if (!context.request.headers.get("authorization")) return;
+
+  const task = recordAuthenticatedRecentView(context, fileId);
+  if (typeof context.waitUntil === "function") {
+    context.waitUntil(task);
+    return;
+  }
+
+  task.catch(() => {});
+}
 
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
@@ -14,6 +48,10 @@ export async function onRequestGet(context) {
   const raw = url.searchParams.get("raw") === "1";
 
   if (!fileId) return jsonResponse({ error: "파일 ID가 없습니다." }, 400);
+
+  // Logged-in recent-view tracking shares this same Functions request instead
+  // of issuing a separate /api/user/item POST from the browser.
+  scheduleAuthenticatedRecentView(context, fileId);
 
   try {
     const kv = requireKv(context.env);

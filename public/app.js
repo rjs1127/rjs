@@ -1283,23 +1283,13 @@ function updateReaderBookmarkButton() {
   if (label) label.textContent = bookmarked ? "북마크됨" : "북마크";
 }
 
-async function recordRecentView(item) {
+function recordRecentView(item) {
   if (!state.user || !item) return;
 
-  const viewedAt = Date.now();
-  updateUserLibraryEntry(item.id, { viewedAt });
-
-  try {
-    await userApi("/api/user/item", {
-      method: "POST",
-      body: JSON.stringify({
-        action: "view",
-        fileId: item.id,
-      }),
-    });
-  } catch (error) {
-    console.warn("최근 조회 저장 실패", error);
-  }
+  // The server-side recent-view write is folded into /api/content so opening
+  // one work does not create a second Functions round trip. Keep the local
+  // timestamp immediate so recent-item UI still updates without waiting.
+  updateUserLibraryEntry(item.id, { viewedAt: Date.now() });
 }
 
 
@@ -4602,7 +4592,15 @@ async function openReader(item) {
       raw: "1",
     });
 
-    const response = await fetch(`/api/content?${params.toString()}`);
+    const contentHeaders = new Headers();
+    const contentAuthToken = getAuthToken();
+    if (state.user && contentAuthToken) {
+      contentHeaders.set("authorization", `Bearer ${contentAuthToken}`);
+    }
+
+    const response = await fetch(`/api/content?${params.toString()}`, {
+      headers: contentHeaders,
+    });
 
     window.clearInterval(waitTimer);
 
