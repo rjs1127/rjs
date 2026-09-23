@@ -154,6 +154,8 @@ const els = {
   historyDetailModal: document.getElementById("historyDetailModal"),
   historyModalTitle: document.getElementById("historyModalTitle"),
   historyModalMeta: document.getElementById("historyModalMeta"),
+  historyModalVersionButton: document.getElementById("historyModalVersionButton"),
+  historyModalVersions: document.getElementById("historyModalVersions"),
   historyModalEntries: document.getElementById("historyModalEntries"),
   historyModalCloseButton: document.getElementById("historyModalCloseButton"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
@@ -189,7 +191,7 @@ let resourceAnalyticsPeriod = "today";
 let resourcePagesVisibleLimit = 10;
 let historyLoaded = false;
 let historyDays = [];
-let historyActivityMode = "month";
+let historyActivityMode = "hour";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -3454,14 +3456,17 @@ function renderHistoryActivity(days = historyDays, mode = historyActivityMode) {
   if (!els.historyActivityGraph) return;
   const rows = getHistoryActivityRows(days, mode);
   const max = Math.max(1, ...rows.map((row) => row.count));
+  const labelEvery = mode === "day" ? 5 : mode === "hour" ? 3 : mode === "week" ? 2 : 1;
 
+  els.historyActivityGraph.dataset.mode = mode;
   els.historyActivityGraph.innerHTML = rows.length
-    ? rows.map((row) => {
-        const height = row.count ? Math.max(8, Math.round((row.count / max) * 100)) : 0;
-        return `<div class="history-activity-column${row.count ? "" : " is-empty"}" title="${escapeHtml(row.title)} · ${row.count.toLocaleString("ko-KR")}개 커밋">
+    ? rows.map((row, index) => {
+        const height = row.count ? Math.max(6, Math.round((row.count / max) * 100)) : 2;
+        const showLabel = index === 0 || index === rows.length - 1 || index % labelEvery === 0;
+        return `<div class="history-activity-column${row.count ? "" : " is-empty"}${showLabel ? " has-label" : ""}" title="${escapeHtml(row.title)} · ${row.count.toLocaleString("ko-KR")}개 커밋">
           <span class="history-activity-count">${row.count ? row.count.toLocaleString("ko-KR") : ""}</span>
           <i style="height:${height}%"></i>
-          <small>${escapeHtml(row.label)}</small>
+          <small>${showLabel ? escapeHtml(row.label) : ""}</small>
         </div>`;
       }).join("")
     : `<div class="history-empty">표시할 활동 데이터가 없습니다.</div>`;
@@ -3515,7 +3520,18 @@ function openHistoryModal(date) {
   const entries = Array.isArray(day.entries) ? day.entries : [];
   const versions = [...new Set(entries.map((entry) => getHistoryVersion(entry.message)).filter(Boolean))];
   if (els.historyModalTitle) els.historyModalTitle.textContent = formatHistoryDateLabel(day.date);
-  if (els.historyModalMeta) els.historyModalMeta.textContent = `${entries.length.toLocaleString("ko-KR")}개 변경${versions.length ? ` · ${versions.join(", ")}` : ""}`;
+  if (els.historyModalMeta) els.historyModalMeta.textContent = "";
+  if (els.historyModalVersionButton) {
+    els.historyModalVersionButton.textContent = `${entries.length.toLocaleString("ko-KR")}개 변경`;
+    els.historyModalVersionButton.setAttribute("aria-expanded", "false");
+    els.historyModalVersionButton.disabled = versions.length === 0;
+  }
+  if (els.historyModalVersions) {
+    els.historyModalVersions.hidden = true;
+    els.historyModalVersions.innerHTML = versions.length
+      ? `<span>포함 버전</span><div>${versions.map((version) => `<b>${escapeHtml(version)}</b>`).join("")}</div>`
+      : "";
+  }
   if (els.historyModalEntries) {
     els.historyModalEntries.innerHTML = entries.length
       ? entries.map((entry) => `<div class="history-modal-entry">
@@ -3536,6 +3552,13 @@ els.historyActivityModes?.addEventListener("click", (event) => {
   if (!["hour", "day", "week", "month"].includes(mode)) return;
   historyActivityMode = mode;
   renderHistoryActivity(historyDays, historyActivityMode);
+});
+
+els.historyModalVersionButton?.addEventListener("click", () => {
+  if (!els.historyModalVersions || els.historyModalVersionButton.disabled) return;
+  const nextExpanded = els.historyModalVersions.hidden;
+  els.historyModalVersions.hidden = !nextExpanded;
+  els.historyModalVersionButton.setAttribute("aria-expanded", String(nextExpanded));
 });
 
 els.historyTimeline?.addEventListener("click", (event) => {

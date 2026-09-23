@@ -2769,3 +2769,136 @@ body.history-modal-open { overflow:hidden; }
   .history-modal-entries { padding:6px 15px 16px; }
   .history-modal-entry { grid-template-columns:42px minmax(0,1fr); gap:8px; }
 }
+
+/* v8.28 - refined history activity + compact daily versions */
+.history-activity-card {
+  position:relative;
+  overflow:hidden;
+  padding:18px 18px 15px;
+  border:1px solid #e5ddd3;
+  border-radius:19px;
+  background:linear-gradient(145deg,#fffdf9 0%,#f9f5ef 58%,#f6f0fb 100%);
+  color:#2d2824;
+  box-shadow:0 8px 24px rgba(70,55,42,.045);
+}
+.history-activity-card::after {
+  content:"";
+  position:absolute;
+  right:-42px;
+  top:-52px;
+  width:150px;
+  height:150px;
+  border-radius:50%;
+  background:rgba(137,111,170,.07);
+  pointer-events:none;
+}
+.history-activity-head { position:relative; z-index:1; align-items:flex-start; margin-bottom:11px; }
+.history-activity-head span { color:#85776b; }
+.history-activity-head strong { color:#312b26; font-size:17px; }
+.history-activity-head small { color:#978b80; }
+.history-activity-tools { position:relative; z-index:2; }
+.history-activity-modes {
+  gap:3px;
+  padding:3px;
+  border:1px solid #e2d9d0;
+  border-radius:12px;
+  background:rgba(255,255,255,.72);
+  box-shadow:0 3px 12px rgba(70,55,42,.035);
+}
+.history-activity-modes button { color:#8b8178; border-radius:9px; }
+.history-activity-modes button:hover { color:#59486c; background:#f4eef9; }
+.history-activity-modes button.is-active {
+  background:#6f5a87;
+  color:#fff;
+  box-shadow:0 4px 12px rgba(111,90,135,.18);
+}
+.history-activity-graph {
+  position:relative;
+  z-index:1;
+  display:flex;
+  align-items:flex-end;
+  gap:3px;
+  width:100%;
+  min-height:150px;
+  overflow:hidden;
+  padding:16px 4px 2px;
+  border-top:1px solid rgba(214,203,192,.58);
+  background:
+    linear-gradient(to top, rgba(127,109,145,.055) 1px, transparent 1px) 0 12px / 100% 31px;
+}
+.history-activity-column {
+  flex:1 1 0;
+  min-width:0;
+  height:122px;
+  grid-template-rows:18px 1fr 18px;
+  gap:3px;
+}
+.history-activity-column i {
+  width:clamp(4px,70%,18px);
+  min-height:2px;
+  border-radius:7px 7px 3px 3px;
+  background:linear-gradient(180deg,#b8a2ce 0%,#77608f 100%);
+  box-shadow:0 5px 12px rgba(111,90,135,.10);
+}
+.history-activity-column.is-empty i { min-height:2px; background:#e9e1da; box-shadow:none; }
+.history-activity-column small {
+  max-width:100%;
+  overflow:visible;
+  color:#93877c;
+  font-size:8px;
+  line-height:1;
+  white-space:nowrap;
+}
+.history-activity-count { color:#776b62; font-size:8px; font-weight:850; }
+.history-activity-column:not(.has-label) small { visibility:hidden; }
+
+.history-modal-head p:empty { display:none; }
+.history-modal-version-button {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  margin-top:7px;
+  padding:5px 9px;
+  border:1px solid #d9cde3;
+  border-radius:999px;
+  background:#fff;
+  color:#6c5682;
+  font:inherit;
+  font-size:10px;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+  box-shadow:0 2px 7px rgba(87,65,106,.06);
+}
+.history-modal-version-button:hover { background:#f7f1fb; border-color:#cbb9da; }
+.history-modal-version-button:disabled { cursor:default; opacity:.7; }
+.history-modal-version-button[aria-expanded="true"] { background:#6f5a87; border-color:#6f5a87; color:#fff; }
+.history-modal-versions[hidden] { display:none; }
+.history-modal-versions {
+  margin-top:8px;
+  max-width:520px;
+  padding:9px 10px;
+  border:1px solid #e6ddd5;
+  border-radius:12px;
+  background:rgba(255,255,255,.82);
+}
+.history-modal-versions > span { display:block; margin-bottom:6px; color:#9a8f85; font-size:9px; font-weight:850; letter-spacing:.06em; }
+.history-modal-versions > div { display:flex; flex-wrap:wrap; gap:5px; }
+.history-modal-versions b {
+  padding:3px 6px;
+  border-radius:7px;
+  background:#f3edf8;
+  color:#6f5a87;
+  font-size:9px;
+  font-weight:850;
+}
+
+@media (max-width: 720px) {
+  .history-activity-card { padding:15px 12px 12px; }
+  .history-activity-head { gap:10px; }
+  .history-activity-graph { gap:2px; min-height:136px; padding-left:0; padding-right:0; }
+  .history-activity-column { height:110px; }
+  .history-activity-column i { width:clamp(3px,72%,14px); }
+  .history-activity-column small, .history-activity-count { font-size:7px; }
+  .history-modal-versions { max-height:112px; overflow:auto; }
+}
