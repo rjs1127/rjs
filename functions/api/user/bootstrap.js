@@ -7,6 +7,7 @@ import {
 } from "../../_user.js";
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
+const VISIT_SESSION_WINDOW_MS = 30 * 60 * 1000;
 
 function getKstDateKey(timestamp) {
   return new Date(timestamp + KST_OFFSET_MS)
@@ -25,9 +26,13 @@ export async function onRequestPost(context) {
     // 로그인 직후 필요한 읽기 데이터를 한 번의 D1 batch로 묶는다.
     const [userResult, itemsResult, likesResult, quotesResult] = await auth.db.batch([
       auth.db.prepare(`
-        SELECT user_id, created_at
-        FROM users
-        WHERE user_id = ?
+        SELECT
+          u.user_id,
+          u.created_at,
+          v.last_visit_at
+        FROM users u
+        LEFT JOIN user_visit_stats v ON v.user_id = u.user_id
+        WHERE u.user_id = ?
         LIMIT 1
       `).bind(auth.userId),
       auth.db.prepare(`
@@ -65,33 +70,40 @@ export async function onRequestPost(context) {
 
     const now = Date.now();
     const metricDate = getKstDateKey(now);
-    let visitRecorded = true;
-
-    // 방문 통계는 개인화 데이터 로딩 성공 여부와 분리해 best-effort로 기록한다.
-    // 실패하더라도 로그인/라이브러리 복원을 막지 않는다.
-    try {
-      await auth.db.batch([
-        auth.db.prepare(`
-          INSERT INTO user_visit_stats(user_id, visit_count, last_visit_at)
-          VALUES (?, 1, ?)
-          ON CONFLICT(user_id) DO UPDATE SET
-            visit_count = user_visit_stats.visit_count + 1,
-            last_visit_at = excluded.last_visit_at
-        `).bind(auth.userId, now),
-        auth.db.prepare(`
-          INSERT INTO daily_user_metrics(metric_date, visit_count, updated_at)
-          VALUES (?, 1, ?)
-          ON CONFLICT(metric_date) DO UPDATE SET
-            visit_count = daily_user_metrics.visit_count + 1,
-            updated_at = excluded.updated_at
-        `).bind(metricDate, now),
-      ]);
-    } catch (error) {
-      visitRecorded = false;
-      console.warn("로그인 초기 방문 통계 기록 실패", error);
-    }
-
     const userRow = userResult?.results?.[0] || null;
+    const lastVisitAt = Number(userRow?.last_visit_at || 0);
+    const shouldCountVisit =
+      !lastVisitAt || now - lastVisitAt >= VISIT_SESSION_WINDOW_MS;
+    let visitRecorded = true;
+    let visitCounted = false;
+
+    // 방문 통계는 새로고침 횟수가 아니라 30분 단위의 방문 세션으로 집계한다.
+    // 같은 사용자가 짧은 시간 안에 반복 새로고침해도 D1 write와 방문 수를 늘리지 않는다.
+    // last_visit_at은 위의 기존 user 조회에 JOIN하여 별도 D1 조회를 추가하지 않는다.
+    if (shouldCountVisit) {
+      try {
+        await auth.db.batch([
+          auth.db.prepare(`
+            INSERT INTO user_visit_stats(user_id, visit_count, last_visit_at)
+            VALUES (?, 1, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+              visit_count = user_visit_stats.visit_count + 1,
+              last_visit_at = excluded.last_visit_at
+          `).bind(auth.userId, now),
+          auth.db.prepare(`
+            INSERT INTO daily_user_metrics(metric_date, visit_count, updated_at)
+            VALUES (?, 1, ?)
+            ON CONFLICT(metric_date) DO UPDATE SET
+              visit_count = daily_user_metrics.visit_count + 1,
+              updated_at = excluded.updated_at
+          `).bind(metricDate, now),
+        ]);
+        visitCounted = true;
+      } catch (error) {
+        visitRecorded = false;
+        console.warn("로그인 초기 방문 통계 기록 실패", error);
+      }
+    }
 
     return jsonResponse({
       ok: true,
@@ -103,7 +115,8 @@ export async function onRequestPost(context) {
       likes: likesResult?.results || [],
       quotes: quotesResult?.results || [],
       visitRecorded,
-      visitedAt: visitRecorded ? now : null,
+      visitCounted,
+      visitedAt: visitCounted ? now : (lastVisitAt || null),
     }, 200, { "cache-control": "no-store" });
   } catch (error) {
     return userErrorResponse(error);
