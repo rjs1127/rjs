@@ -7997,6 +7997,27 @@ function ensureReaderShareUi() {
     }
   });
 
+  input.addEventListener("paste", (event) => {
+    if (getReaderShareSourceItem()?.source !== "postype") return;
+
+    const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
+    if (!clipboardText) return;
+
+    // TXT 본문에서 문장을 처음 선택할 때와 같은 규칙을 재사용한다.
+    // 한 번의 줄바꿈은 유지하고, 빈 줄처럼 연속된 줄바꿈만 한 줄로 축소한다.
+    // 사용자가 편집창에서 직접 입력한 Enter 역시 input 이벤트 경로를 그대로 타므로 보존된다.
+    const normalized = normalizeReaderShareInitialText(clipboardText);
+
+    if (!normalized) return;
+
+    event.preventDefault();
+    const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+    const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
+    input.setRangeText(normalized, start, end, "end");
+    state.readerShareText = String(input.value || "");
+    updateReaderSharePreview();
+  });
+
   input.addEventListener("input", () => {
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
