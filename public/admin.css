@@ -2725,3 +2725,47 @@ button.primary,
   .history-day-head { align-items:flex-start; }
   .history-entry { grid-template-columns:38px minmax(0,1fr); gap:7px; }
 }
+
+
+/* v8.27 - compact history timeline, detail modal, activity granularity */
+.history-activity-tools { display:flex; align-items:flex-end; flex-direction:column; gap:7px; }
+.history-activity-modes { display:flex; align-items:center; gap:4px; padding:3px; border:1px solid rgba(255,255,255,.12); border-radius:11px; background:rgba(255,255,255,.045); }
+.history-activity-modes button { appearance:none; border:0; border-radius:8px; padding:6px 9px; background:transparent; color:#aaa29a; font:inherit; font-size:10px; font-weight:850; cursor:pointer; transition:background .16s ease,color .16s ease,box-shadow .16s ease; }
+.history-activity-modes button:hover { color:#fff; background:rgba(255,255,255,.07); }
+.history-activity-modes button.is-active { background:#f4eefc; color:#5f4a79; box-shadow:0 2px 8px rgba(0,0,0,.16); }
+.history-activity-column.is-empty i { min-height:2px; background:rgba(255,255,255,.09); box-shadow:none; }
+.history-day-card { width:100%; text-align:left; font:inherit; color:inherit; cursor:pointer; transition:border-color .16s ease,transform .16s ease,box-shadow .16s ease,background .16s ease; }
+.history-day-card:hover { transform:translateY(-1px); border-color:#d6c9e5; box-shadow:0 8px 22px rgba(73,56,91,.07); background:#fff; }
+.history-day-card:focus-visible { outline:2px solid #8f78ac; outline-offset:2px; }
+.history-day-head { padding-bottom:0; border-bottom:0; }
+.history-day-head > span { display:flex; align-items:center; gap:9px; }
+.history-day-head > span em { color:#6d5885; font-style:normal; font-size:10px; font-weight:900; text-transform:none; letter-spacing:-.01em; }
+.history-modal[hidden] { display:none; }
+.history-modal { position:fixed; inset:0; z-index:1200; display:grid; place-items:center; padding:22px; }
+.history-modal-backdrop { position:absolute; inset:0; background:rgba(28,24,22,.48); backdrop-filter:blur(5px); }
+.history-modal-dialog { position:relative; z-index:1; width:min(680px,100%); max-height:min(78vh,760px); overflow:hidden; display:flex; flex-direction:column; border:1px solid #e1d7cc; border-radius:22px; background:#fffdf9; box-shadow:0 28px 80px rgba(36,28,22,.22); }
+.history-modal-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding:20px 21px 16px; border-bottom:1px solid #eee6dd; background:linear-gradient(135deg,#fffdf9 0%,#f7f2fb 100%); }
+.history-modal-head > div { min-width:0; }
+.history-modal-head span { color:#82758f; font-size:9px; font-weight:900; letter-spacing:.14em; }
+.history-modal-head h3 { margin:4px 0 3px; color:#2d2824; font-size:21px; letter-spacing:-.04em; }
+.history-modal-head p { margin:0; color:#958b82; font-size:11px; }
+.history-modal-close { flex:0 0 auto; width:34px; height:34px; border:1px solid #ded4ca; border-radius:11px; background:#fff; color:#6b625a; font-size:21px; line-height:1; cursor:pointer; }
+.history-modal-close:hover { background:#f5f0ea; }
+.history-modal-entries { overflow:auto; padding:8px 20px 20px; }
+.history-modal-entry { display:grid; grid-template-columns:50px minmax(0,1fr); gap:12px; align-items:start; padding:13px 2px; border-bottom:1px solid #eee7df; }
+.history-modal-entry:last-child { border-bottom:0; }
+.history-modal-entry time { padding-top:2px; color:#9d9289; font-size:10px; font-weight:850; font-variant-numeric:tabular-nums; }
+.history-modal-entry p { margin:0; color:#4f4842; font-size:12px; line-height:1.55; overflow-wrap:anywhere; }
+body.history-modal-open { overflow:hidden; }
+@media (max-width:620px) {
+  .history-activity-tools { width:100%; align-items:flex-start; }
+  .history-activity-modes { width:100%; }
+  .history-activity-modes button { flex:1; padding:7px 4px; }
+  .history-day-head > span em { display:none; }
+  .history-modal { padding:12px; align-items:end; }
+  .history-modal-dialog { max-height:82vh; border-radius:20px 20px 14px 14px; }
+  .history-modal-head { padding:17px 16px 14px; }
+  .history-modal-head h3 { font-size:19px; }
+  .history-modal-entries { padding:6px 15px 16px; }
+  .history-modal-entry { grid-template-columns:42px minmax(0,1fr); gap:8px; }
+}

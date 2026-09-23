@@ -148,8 +148,14 @@ const els = {
   historyLastDate: document.getElementById("historyLastDate"),
   historyActivityCaption: document.getElementById("historyActivityCaption"),
   historyActivityGraph: document.getElementById("historyActivityGraph"),
+  historyActivityModes: document.getElementById("historyActivityModes"),
   historyTimeline: document.getElementById("historyTimeline"),
   historyMessage: document.getElementById("historyMessage"),
+  historyDetailModal: document.getElementById("historyDetailModal"),
+  historyModalTitle: document.getElementById("historyModalTitle"),
+  historyModalMeta: document.getElementById("historyModalMeta"),
+  historyModalEntries: document.getElementById("historyModalEntries"),
+  historyModalCloseButton: document.getElementById("historyModalCloseButton"),
   tabs: Array.from(document.querySelectorAll("[data-tab-target]")),
   panels: Array.from(document.querySelectorAll("[data-tab-panel]")),
 };
@@ -182,6 +188,8 @@ let resourceUsageData = null;
 let resourceAnalyticsPeriod = "today";
 let resourcePagesVisibleLimit = 10;
 let historyLoaded = false;
+let historyDays = [];
+let historyActivityMode = "month";
 
 function escapeHtml(value = "") {
   return String(value)
@@ -3368,36 +3376,106 @@ function getHistoryVersion(message) {
   return String(message || "").match(/\bv?(\d+\.\d+(?:\.\d+)?)\b/i)?.[0] || "";
 }
 
-function renderHistoryActivity(days = []) {
-  if (!els.historyActivityGraph) return;
+function parseHistoryDateUtc(value) {
+  const match = String(value || "").match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  return new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+}
+
+function formatHistoryBucketDate(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function getHistoryActivityRows(days = [], mode = "month") {
+  if (mode === "hour") {
+    const counts = Array.from({ length: 24 }, () => 0);
+    for (const day of days) {
+      for (const entry of Array.isArray(day.entries) ? day.entries : []) {
+        const hour = Number(String(entry.time || "").slice(0, 2));
+        if (Number.isInteger(hour) && hour >= 0 && hour < 24) counts[hour] += 1;
+      }
+    }
+    return counts.map((count, hour) => ({
+      key: String(hour).padStart(2, "0"),
+      label: `${String(hour).padStart(2, "0")}시`,
+      count,
+      title: `${String(hour).padStart(2, "0")}:00–${String(hour).padStart(2, "0")}:59`,
+    }));
+  }
+
+  const dateCounts = new Map(days.map((day) => [String(day.date || ""), Array.isArray(day.entries) ? day.entries.length : 0]));
+  const latestDate = days.map((day) => parseHistoryDateUtc(day.date)).filter(Boolean).sort((a, b) => b - a)[0];
+  if (!latestDate) return [];
+
+  if (mode === "day") {
+    const rows = [];
+    for (let offset = 29; offset >= 0; offset -= 1) {
+      const date = new Date(latestDate.getTime() - offset * 86400000);
+      const key = formatHistoryBucketDate(date);
+      rows.push({ key, label: `${date.getUTCMonth() + 1}/${date.getUTCDate()}`, count: dateCounts.get(key) || 0, title: key });
+    }
+    return rows;
+  }
+
+  if (mode === "week") {
+    const weekday = latestDate.getUTCDay();
+    const mondayOffset = (weekday + 6) % 7;
+    const latestMonday = new Date(latestDate.getTime() - mondayOffset * 86400000);
+    const rows = [];
+    for (let offset = 15; offset >= 0; offset -= 1) {
+      const start = new Date(latestMonday.getTime() - offset * 7 * 86400000);
+      let count = 0;
+      for (let i = 0; i < 7; i += 1) {
+        const key = formatHistoryBucketDate(new Date(start.getTime() + i * 86400000));
+        count += dateCounts.get(key) || 0;
+      }
+      const key = formatHistoryBucketDate(start);
+      rows.push({ key, label: `${start.getUTCMonth() + 1}/${start.getUTCDate()}`, count, title: `${key} 시작 주` });
+    }
+    return rows;
+  }
+
   const monthly = new Map();
   for (const day of days) {
     const month = String(day.date || "").slice(0, 7);
-    if (!month) continue;
-    monthly.set(month, (monthly.get(month) || 0) + (Array.isArray(day.entries) ? day.entries.length : 0));
+    if (month) monthly.set(month, (monthly.get(month) || 0) + (Array.isArray(day.entries) ? day.entries.length : 0));
   }
+  const latestMonth = new Date(Date.UTC(latestDate.getUTCFullYear(), latestDate.getUTCMonth(), 1));
+  const rows = [];
+  for (let offset = 17; offset >= 0; offset -= 1) {
+    const date = new Date(Date.UTC(latestMonth.getUTCFullYear(), latestMonth.getUTCMonth() - offset, 1));
+    const key = `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
+    rows.push({ key, label: `${date.getUTCMonth() + 1}월`, count: monthly.get(key) || 0, title: key });
+  }
+  return rows;
+}
 
-  const rows = [...monthly.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  const visible = rows.slice(-18);
-  const max = Math.max(1, ...visible.map(([, count]) => count));
+function renderHistoryActivity(days = historyDays, mode = historyActivityMode) {
+  if (!els.historyActivityGraph) return;
+  const rows = getHistoryActivityRows(days, mode);
+  const max = Math.max(1, ...rows.map((row) => row.count));
 
-  els.historyActivityGraph.innerHTML = visible.length
-    ? visible.map(([month, count]) => {
-        const height = Math.max(12, Math.round((count / max) * 100));
-        const label = `${Number(month.slice(5, 7))}월`;
-        return `<div class="history-activity-column" title="${escapeHtml(month)} · ${count.toLocaleString("ko-KR")}개 커밋">
-          <span class="history-activity-count">${count.toLocaleString("ko-KR")}</span>
+  els.historyActivityGraph.innerHTML = rows.length
+    ? rows.map((row) => {
+        const height = row.count ? Math.max(8, Math.round((row.count / max) * 100)) : 0;
+        return `<div class="history-activity-column${row.count ? "" : " is-empty"}" title="${escapeHtml(row.title)} · ${row.count.toLocaleString("ko-KR")}개 커밋">
+          <span class="history-activity-count">${row.count ? row.count.toLocaleString("ko-KR") : ""}</span>
           <i style="height:${height}%"></i>
-          <small>${escapeHtml(label)}</small>
+          <small>${escapeHtml(row.label)}</small>
         </div>`;
       }).join("")
     : `<div class="history-empty">표시할 활동 데이터가 없습니다.</div>`;
 
-  if (els.historyActivityCaption) {
-    els.historyActivityCaption.textContent = visible.length
-      ? `최근 ${visible.length.toLocaleString("ko-KR")}개월 · 월별 커밋 수`
-      : "활동 데이터 없음";
-  }
+  const captions = {
+    hour: "전체 기간 · 시간대별 커밋 수",
+    day: "최근 30일 · 일자별 커밋 수",
+    week: "최근 16주 · 주간별 커밋 수",
+    month: "최근 18개월 · 월별 커밋 수",
+  };
+  if (els.historyActivityCaption) els.historyActivityCaption.textContent = rows.length ? captions[mode] : "활동 데이터 없음";
+  els.historyActivityModes?.querySelectorAll("[data-history-mode]").forEach((button) => {
+    button.classList.toggle("is-active", button.dataset.historyMode === mode);
+  });
 }
 
 function renderHistoryTimeline(days = []) {
@@ -3412,24 +3490,66 @@ function renderHistoryTimeline(days = []) {
     const version = entries.map((entry) => getHistoryVersion(entry.message)).find(Boolean) || "";
     return `<article class="history-day${index === 0 ? " is-latest" : ""}">
       <div class="history-rail" aria-hidden="true"><span></span></div>
-      <div class="history-day-card">
+      <button class="history-day-card" type="button" data-history-date="${escapeHtml(day.date)}" aria-label="${escapeHtml(formatHistoryDateLabel(day.date))} 변경 내역 보기">
         <div class="history-day-head">
           <div>
             <time datetime="${escapeHtml(day.date)}">${escapeHtml(formatHistoryDateLabel(day.date))}</time>
             ${version ? `<b>${escapeHtml(version)}</b>` : ""}
           </div>
-          <span>${entries.length.toLocaleString("ko-KR")} changes</span>
+          <span>${entries.length.toLocaleString("ko-KR")} changes <em>상세보기 ›</em></span>
         </div>
-        <div class="history-entry-list">
-          ${entries.map((entry) => `<div class="history-entry">
-            <span>${escapeHtml(entry.time || "--:--")}</span>
-            <p>${escapeHtml(entry.message || "변경사항 기록")}</p>
-          </div>`).join("")}
-        </div>
-      </div>
+      </button>
     </article>`;
   }).join("");
 }
+
+function closeHistoryModal() {
+  if (!els.historyDetailModal) return;
+  els.historyDetailModal.hidden = true;
+  document.body.classList.remove("history-modal-open");
+}
+
+function openHistoryModal(date) {
+  const day = historyDays.find((item) => item.date === date);
+  if (!day || !els.historyDetailModal) return;
+  const entries = Array.isArray(day.entries) ? day.entries : [];
+  const versions = [...new Set(entries.map((entry) => getHistoryVersion(entry.message)).filter(Boolean))];
+  if (els.historyModalTitle) els.historyModalTitle.textContent = formatHistoryDateLabel(day.date);
+  if (els.historyModalMeta) els.historyModalMeta.textContent = `${entries.length.toLocaleString("ko-KR")}개 변경${versions.length ? ` · ${versions.join(", ")}` : ""}`;
+  if (els.historyModalEntries) {
+    els.historyModalEntries.innerHTML = entries.length
+      ? entries.map((entry) => `<div class="history-modal-entry">
+          <time>${escapeHtml(entry.time || "--:--")}</time>
+          <p>${escapeHtml(entry.message || "변경사항 기록")}</p>
+        </div>`).join("")
+      : `<div class="history-empty">표시할 변경 내역이 없습니다.</div>`;
+  }
+  els.historyDetailModal.hidden = false;
+  document.body.classList.add("history-modal-open");
+  els.historyModalCloseButton?.focus();
+}
+
+els.historyActivityModes?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-mode]");
+  if (!button) return;
+  const mode = button.dataset.historyMode;
+  if (!["hour", "day", "week", "month"].includes(mode)) return;
+  historyActivityMode = mode;
+  renderHistoryActivity(historyDays, historyActivityMode);
+});
+
+els.historyTimeline?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-history-date]");
+  if (button) openHistoryModal(button.dataset.historyDate);
+});
+
+els.historyModalCloseButton?.addEventListener("click", closeHistoryModal);
+els.historyDetailModal?.addEventListener("click", (event) => {
+  if (event.target.closest("[data-history-modal-close]")) closeHistoryModal();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && els.historyDetailModal && !els.historyDetailModal.hidden) closeHistoryModal();
+});
 
 async function loadHistory(force = false) {
   if (historyLoaded && !force) return;
@@ -3440,13 +3560,14 @@ async function loadHistory(force = false) {
     const data = await api("/api/admin/history", { method: "GET" });
     const summary = data?.summary || {};
     const days = Array.isArray(data?.days) ? data.days : [];
+    historyDays = days;
 
     if (els.historyFirstDate) els.historyFirstDate.textContent = summary.firstDate ? formatHistoryDateLabel(summary.firstDate) : "-";
     if (els.historyCommitCount) els.historyCommitCount.textContent = Number(summary.commitCount || 0).toLocaleString("ko-KR");
     if (els.historyActiveDays) els.historyActiveDays.textContent = Number(summary.activeDays || 0).toLocaleString("ko-KR");
     if (els.historyLastDate) els.historyLastDate.textContent = summary.lastDate ? formatHistoryDateLabel(summary.lastDate) : "-";
 
-    renderHistoryActivity(days);
+    renderHistoryActivity(days, historyActivityMode);
     renderHistoryTimeline(days);
     if (data?.historyFilePending && els.historyMessage) {
       els.historyMessage.hidden = false;
