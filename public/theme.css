@@ -4195,3 +4195,97 @@ html.theme-dark .reader-share-public-copy small { color:var(--theme-muted); }
 @media (prefers-reduced-motion: reduce) {
   .quote-feed-card,.quote-feed-entry-button,.reader-share-public-toggle,.reader-share-public-toggle::after { transition:none !important; }
 }
+
+/* v8.43 final - quote feed layout refinements */
+.content-list-meta-bar {
+  display:flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:8px;
+  margin:8px 0 12px;
+  min-height:28px;
+}
+.content-list-meta-bar .result-count { margin:0; }
+.quote-feed-entry-button {
+  min-height:28px;
+  padding:5px 10px;
+  border:1px solid rgba(91,83,76,.16);
+  border-radius:999px;
+  background:rgba(91,83,76,.065);
+  color:var(--theme-muted);
+  font-size:10px;
+  font-weight:800;
+  box-shadow:0 2px 8px rgba(43,37,32,.035);
+}
+.quote-feed-entry-button:hover {
+  color:var(--theme-text);
+  background:rgba(91,83,76,.1);
+  border-color:rgba(91,83,76,.23);
+}
+
+/* 카드에는 기능명 라벨을 반복하지 않고 문장과 출처에 집중한다. */
+.quote-feed-card-inner { padding:10% 9% 9%; }
+.quote-feed-card-copy { padding:6% 0 2%; }
+.quote-feed-card-source { margin-top:11%; }
+
+.quote-feed-detail-preview { position:relative; }
+.quote-feed-detail-date {
+  position:absolute;
+  top:16px;
+  left:16px;
+  z-index:2;
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:4px 8px;
+  border:1px solid rgba(91,83,76,.13);
+  border-radius:999px;
+  background:rgba(250,248,244,.78);
+  color:#716960;
+  font-size:9px;
+  font-weight:800;
+  letter-spacing:.03em;
+  opacity:.68;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+.quote-feed-detail-text {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  overflow-y:hidden;
+  padding:28px 4px 12px;
+}
+.quote-feed-detail-text.is-long {
+  display:block;
+  overflow-y:auto;
+  padding-top:30px;
+  padding-bottom:18px;
+}
+.quote-feed-detail-source { padding-top:18px; }
+.quote-feed-detail-foot {
+  justify-content:center;
+  padding-top:14px;
+}
+.quote-feed-detail-foot .modal-primary-button {
+  width:100%;
+  min-height:42px;
+}
+
+html.theme-dark .quote-feed-entry-button {
+  background:rgba(255,255,255,.055);
+  border-color:rgba(255,255,255,.09);
+}
+
+@media (max-width: 719px) {
+  .content-list-meta-bar { gap:6px; margin:7px 0 10px; }
+  .quote-feed-entry-button { min-height:25px; padding:4px 8px; font-size:9px; }
+  .quote-feed-card-inner { padding:10% 9% 9%; }
+  .quote-feed-card-copy { padding:5% 0 1%; }
+  .quote-feed-card-source { margin-top:13%; }
+  .quote-feed-detail-date { top:13px; left:13px; min-height:22px; padding:3px 7px; font-size:8px; }
+  .quote-feed-detail-text { padding:27px 4px 10px; }
+  .quote-feed-detail-text.is-long { padding-top:30px; padding-bottom:16px; }
+  .quote-feed-detail-source { padding-top:15px; }
+  .quote-feed-detail-foot { padding:10px 2px 1px; }
+}

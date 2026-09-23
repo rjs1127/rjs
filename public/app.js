@@ -1314,7 +1314,6 @@ function renderQuoteFeed() {
         <button type="button" class="quote-feed-card" data-quote-feed-id="${item.quoteId}"
           style="--quote-bg:${theme.background};--quote-color:${theme.text};--quote-size:${sizes.desktop}px;--quote-mobile-size:${sizes.mobile}px">
           <span class="quote-feed-card-inner">
-            <span class="quote-feed-card-brand">문장 피드</span>
             <span class="quote-feed-card-copy"><span class="quote-feed-card-text">${escapeHtml(item.quoteText)}</span></span>
             <span class="quote-feed-card-source">
               <strong>${escapeHtml(item.title || "제목 미상")}</strong>
@@ -1418,7 +1417,16 @@ function openQuoteFeedDetail(item) {
   }
   openModal(els.quoteFeedModal);
   if (els.quoteFeedModalText) {
-    requestAnimationFrame(() => { els.quoteFeedModalText.scrollTop = 0; });
+    requestAnimationFrame(() => {
+      const textEl = els.quoteFeedModalText;
+      textEl.scrollTop = 0;
+      textEl.classList.remove("is-long");
+      // 짧은 문장은 중앙, 실제로 넘치는 긴 문장만 상단 기준 스크롤형으로 전환한다.
+      if (textEl.scrollHeight > textEl.clientHeight + 2) {
+        textEl.classList.add("is-long");
+        textEl.scrollTop = 0;
+      }
+    });
   }
 }
 

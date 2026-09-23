@@ -297,15 +297,16 @@
             <p class="section-kicker">CONTENTS</p>
             <h2>콘텐츠</h2>
           </div>
-          <div class="section-head-actions">
-            <p id="resultCount" class="result-count">불러오는 중…</p>
-            <button id="quoteFeedButton" class="quote-feed-entry-button" type="button">
-              <span class="quote-feed-entry-icon" aria-hidden="true">✦</span>
-              <span>문장 피드</span>
-            </button>
-          </div>
         </div>
         <p class="recent-postype-guide-note">처음 접속하면 최근 7일 내 발행된 POSTYPE 콘텐츠가 목록 상단에 먼저 표시돼요.</p>
+
+        <div class="content-list-meta-bar">
+          <p id="resultCount" class="result-count">불러오는 중…</p>
+          <button id="quoteFeedButton" class="quote-feed-entry-button" type="button">
+            <span class="quote-feed-entry-icon" aria-hidden="true">✦</span>
+            <span>문장 피드</span>
+          </button>
+        </div>
 
         <div id="status" class="status-card">
           <div class="spinner" aria-hidden="true"></div>
@@ -637,6 +638,7 @@
     <section class="simple-modal quote-feed-detail-modal" role="dialog" aria-modal="true" aria-labelledby="quoteFeedModalTitle">
       <button class="simple-modal-close" type="button" data-close-modal="quoteFeedModal" aria-label="닫기">×</button>
       <div id="quoteFeedModalPreview" class="quote-feed-detail-preview">
+        <span id="quoteFeedModalDate" class="quote-feed-detail-date"></span>
         <p id="quoteFeedModalText" class="quote-feed-detail-text"></p>
         <div class="quote-feed-detail-source">
           <strong id="quoteFeedModalTitle">작품명</strong>
@@ -644,7 +646,6 @@
         </div>
       </div>
       <div class="quote-feed-detail-foot">
-        <span id="quoteFeedModalDate" class="quote-feed-detail-date"></span>
         <button id="quoteFeedOpenWorkButton" class="modal-primary-button" type="button">작품 열기</button>
       </div>
     </section>
