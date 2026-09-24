@@ -1,3 +1,18 @@
+# v8.65
+
+- POSTYPE 문장 입력의 별도 줄바꿈 정리 로직을 제거하고 TXT 드래그 문장에 이미 사용 중인 `normalizeReaderShareInitialText()`를 공통으로 재사용합니다.
+- 공통 정리 함수에 U+0085 줄구분자 처리를 추가해 POSTYPE 복사 텍스트의 빈 줄도 같은 규칙으로 제거합니다.
+- 붙여넣기 직후와 문장 저장 직전에 같은 공통 정리 함수를 적용합니다.
+- 커밋 메시지 요약: `fix: unify postype quote normalization with txt`
+
+# v8.64
+
+- POSTYPE 문장 입력창의 빈 줄 제거를 브라우저 paste 이벤트 의존 방식에서 최종 textarea 값 정규화 방식으로 변경했습니다.
+- PC/iOS/Android 모두 붙여넣기 경로와 무관하게 빈 줄을 제거하고, 내용이 있는 줄 사이의 한 번 줄바꿈만 유지합니다.
+- 한글 IME 조합 중에는 값을 건드리지 않고 입력 확정 후 정리하며, 저장 직전에도 한 번 더 정리합니다.
+- v8.63의 마이페이지/문장피드 콘텐츠 복귀 수정과 문장 이미지 모달 뒤로가기 동작은 유지합니다.
+- 커밋 메시지 요약: `fix: normalize postype quote blank lines from final input value`
+
 # v8.63
 
 - POSTYPE 문장 붙여넣기 후 최종 textarea 값을 다시 정리해 PC/iOS/Android 모두에서 빈 줄을 완전히 제거하고 내용이 있는 줄만 한 줄바꿈으로 연결합니다.

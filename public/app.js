@@ -8010,56 +8010,35 @@ function ensureReaderShareUi() {
     }
   });
 
-  let readerSharePastePending = false;
-  let readerSharePasteCleanupTimer = 0;
-  const normalizeReaderSharePastedValue = () => {
-    const normalized = normalizeReaderShareInitialText(input.value);
-    if (normalized !== input.value) {
-      input.value = normalized;
-      try {
-        const end = input.value.length;
-        input.setSelectionRange(end, end);
-      } catch (_) {}
-    }
-    readerSharePastePending = false;
-    state.readerShareText = String(input.value || "");
-    updateReaderSharePreview();
+  const normalizePostypeReaderShareInput = () => {
+    if (getReaderShareSourceItem()?.source !== "postype") return;
+    const raw = String(input.value || "");
+    const normalized = normalizeReaderShareInitialText(raw);
+    if (normalized === raw) return;
+    input.value = normalized;
+    try {
+      const end = normalized.length;
+      input.setSelectionRange(end, end);
+    } catch (_) {}
   };
 
-  const scheduleReaderSharePasteCleanup = () => {
-    window.clearTimeout(readerSharePasteCleanupTimer);
-    window.requestAnimationFrame(() => {
-      if (readerSharePastePending) normalizeReaderSharePastedValue();
-    });
-    readerSharePasteCleanupTimer = window.setTimeout(() => {
-      if (readerSharePastePending) normalizeReaderSharePastedValue();
-    }, 80);
-  };
-
-  input.addEventListener("paste", (event) => {
-    // 문장 편집창에서 붙여넣은 텍스트는 출처/브라우저와 무관하게 같은 규칙을 쓴다.
-    // 한 번의 줄바꿈은 유지하고 공백뿐인 빈 줄은 전부 제거한다.
-    readerSharePastePending = true;
-    const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
-    if (clipboardText) {
-      const normalized = normalizeReaderShareInitialText(clipboardText);
-      if (normalized) {
-        event.preventDefault();
-        const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
-        const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
-        input.setRangeText(normalized, start, end, "end");
-      }
-    }
-    // clipboardData가 비는 iOS/Android/컨텍스트 메뉴 붙여넣기까지 대비해
-    // 실제 삽입이 끝난 다음 최종 textarea 값을 반드시 한 번 더 정리한다.
-    scheduleReaderSharePasteCleanup();
+  input.addEventListener("paste", () => {
+    // POSTYPE도 TXT 선택문장과 동일한 공통 정리 함수를 사용한다.
+    // 브라우저 기본 붙여넣기가 끝난 뒤 최종 textarea 값을 정리한다.
+    window.setTimeout(() => {
+      normalizePostypeReaderShareInput();
+      state.readerShareText = String(input.value || "");
+      updateReaderSharePreview();
+    }, 0);
   });
 
-  input.addEventListener("input", () => {
-    if (readerSharePastePending) {
-      scheduleReaderSharePasteCleanup();
-      return;
-    }
+  input.addEventListener("input", (event) => {
+    if (event.isComposing) return;
+    state.readerShareText = String(input.value || "");
+    updateReaderSharePreview();
+  });
+
+  input.addEventListener("compositionend", () => {
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
@@ -8076,9 +8055,10 @@ function ensureReaderShareUi() {
     try {
       // POSTYPE 직접 입력은 selection 상태가 아니라 현재 textarea 값을 최종 기준으로 사용한다.
       // paste/IME/모바일 입력 타이밍과 무관하게 저장 버튼을 누른 순간의 값을 확정한다.
+      const sourceItem = getReaderShareSourceItem();
+      if (sourceItem?.source === "postype") normalizePostypeReaderShareInput();
       const currentText = String(input?.value || "");
       state.readerShareText = currentText;
-      const sourceItem = getReaderShareSourceItem();
       const savedQuote = await saveCurrentReaderQuote({
         quoteText: currentText,
         sourceItem,
@@ -8900,7 +8880,7 @@ function getReaderShareEditedText(rawText) {
 
 function normalizeReaderShareInitialText(rawText) {
   return String(rawText || "")
-    .replace(/\r\n?|\u2028|\u2029/g, "\n")
+    .replace(/\r\n?|\u0085|\u2028|\u2029/g, "\n")
     .replace(/\u00a0|\u3000/g, " ")
     .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "")
     .replace(/[\t\f\v]+/g, " ")
