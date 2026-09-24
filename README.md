@@ -1,3 +1,11 @@
+# v8.61
+
+- POSTYPE 문장 붙여넣기에서 CR/LF 외 Unicode 줄구분자·NBSP·제로폭 문자까지 정리해 공백만 있는 빈 줄을 확실히 제거합니다.
+- 정상적인 한 번의 줄바꿈과 사용자가 편집창에서 직접 입력한 Enter는 그대로 유지합니다.
+- 문장 이미지 편집 모달에 전용 history state를 추가해 브라우저/모바일 뒤로가기 시 배경 페이지가 움직이지 않고 모달이 먼저 닫히도록 수정했습니다.
+- 정적 리소스 캐시 버스터를 `v=861`로 갱신했습니다.
+- 커밋 메시지 요약: `fix: normalize postype paste gaps and close quote modal on back`
+
 # v8.60
 
 - POSTYPE 문장 입력창의 붙여넣기 정리를 기존 TXT 문장 선택과 동일한 규칙으로 맞췄습니다.

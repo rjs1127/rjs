@@ -1,3 +1,8 @@
+## v8.61 — 문장 입력 정규화·뒤로가기 기준
+
+- POSTYPE 직접 입력 paste는 CR/LF뿐 아니라 Unicode line separator, NBSP, ideographic space, zero-width 문자를 정규화한 뒤 빈 줄만 축소한다. 정상 한 번 줄바꿈과 사용자가 편집 후 직접 입력한 Enter는 유지한다.
+- 문장 이미지 편집 모달은 일반 페이지/리더 위에 독립 history marker를 쌓고, 모바일/브라우저 뒤로가기 시 배경 탐색보다 모달 닫기를 우선한다.
+
 ## v8.60 — POSTYPE 붙여넣기 정규화 기준
 
 - POSTYPE 문장 직접 입력의 붙여넣기 정규화는 TXT 본문 문장 최초 선택과 동일한 `normalizeReaderShareInitialText()` 규칙을 사용한다.

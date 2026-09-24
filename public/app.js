@@ -7892,7 +7892,7 @@ function ensureReaderShareUi() {
   sizes.innerHTML = Object.entries(READER_SHARE_SIZES).map(([key, size]) => `
     <button type="button" class="reader-share-chip" data-share-size="${key}" aria-label="${size.label}" title="${size.label}">${size.button}</button>`).join("");
 
-  const close = () => {
+  const close = ({ fromHistory = false } = {}) => {
     backdrop.hidden = true;
     lastSavedQuote = null;
     state.readerShareText = "";
@@ -7903,6 +7903,9 @@ function ensureReaderShareUi() {
       publicToggle.setAttribute("aria-pressed", "false");
     }
     resetReaderShareEditorOptions();
+    if (!fromHistory && history.state?.rjsReaderShare) {
+      history.replaceState(getHistoryStateWithoutReaderShare(), "", location.href);
+    }
   };
   backdrop.querySelector(".reader-share-close")?.addEventListener("click", close);
   backdrop.addEventListener("pointerdown", (event) => {
@@ -8003,9 +8006,10 @@ function ensureReaderShareUi() {
     const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
     if (!clipboardText) return;
 
-    // TXT 본문에서 문장을 처음 선택할 때와 같은 규칙을 재사용한다.
-    // 한 번의 줄바꿈은 유지하고, 빈 줄처럼 연속된 줄바꿈만 한 줄로 축소한다.
-    // 사용자가 편집창에서 직접 입력한 Enter 역시 input 이벤트 경로를 그대로 타므로 보존된다.
+    // POSTYPE 복사본에는 CR/LF 외에도 Unicode line separator, NBSP,
+    // zero-width 문자 등이 빈 줄 안에 섞일 수 있다. 붙여넣는 조각에 한해
+    // TXT 최초 선택과 같은 규칙으로 정리해 실제 빈 줄만 제거한다.
+    // 정상적인 한 번의 줄바꿈과 이후 사용자가 직접 입력한 Enter는 유지한다.
     const normalized = normalizeReaderShareInitialText(clipboardText);
 
     if (!normalized) return;
@@ -8795,6 +8799,12 @@ function resetReaderShareEditorOptions() {
   normalizeReaderShareWeightForFont();
 }
 
+function getHistoryStateWithoutReaderShare() {
+  const next = { ...(history.state || {}) };
+  delete next.rjsReaderShare;
+  return next;
+}
+
 function openReaderShareSheet(options = {}) {
   const { allowEmpty = false, presetText = null, sourceItem = null } = options || {};
   if (typeof presetText === "string") state.readerShareText = presetText;
@@ -8817,6 +8827,9 @@ function openReaderShareSheet(options = {}) {
     ? "작품에서 저장하고 싶은 문장을 직접 입력해 보세요."
     : "문장을 직접 입력하거나 수정해 보세요.";
   ui.backdrop.hidden = false;
+  if (!history.state?.rjsReaderShare) {
+    history.pushState({ ...(history.state || {}), rjsReaderShare: true }, "", location.href);
+  }
   updateReaderSharePreview();
   scheduleReaderShareBlobPreparation(0);
   updateReaderShareActionLabel();
@@ -8831,15 +8844,18 @@ function openReaderShareSheet(options = {}) {
   }
 }
 
-function closeReaderShareUi() {
+function closeReaderShareUi({ fromHistory = false } = {}) {
   if (!readerShareUi) return;
-  readerShareUi.backdrop.hidden = true;
   readerShareUi.floatButton.hidden = true;
   window.clearTimeout(readerSharePrepareTimer);
-  resetReaderShareEditorOptions();
-  state.readerShareText = "";
-  state.readerShareSourceItem = null;
+  readerShareUi.close?.({ fromHistory });
 }
+
+window.addEventListener("popstate", (event) => {
+  if (readerShareUi && !readerShareUi.backdrop.hidden && !event.state?.rjsReaderShare) {
+    closeReaderShareUi({ fromHistory: true });
+  }
+});
 
 function getReaderShareEditedText(rawText) {
   return String(rawText || "").replace(/\r\n?/g, "\n");
@@ -8847,14 +8863,14 @@ function getReaderShareEditedText(rawText) {
 
 function normalizeReaderShareInitialText(rawText) {
   return String(rawText || "")
-    .replace(/\u00a0/g, " ")
-    .replace(/\r\n?/g, "\n")
+    .replace(/\r\n?|\u2028|\u2029/g, "\n")
+    .replace(/\u00a0|\u3000/g, " ")
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "")
     .replace(/[\t\f\v]+/g, " ")
     .split("\n")
     .map((line) => line.replace(/ {2,}/g, " ").trim())
     .join("\n")
-    // Keep an intentional single line break, but collapse old text that has
-    // several blank/forced lines in a row when it is first selected.
+    // 정상 한 줄바꿈은 유지하되, 공백/제로폭 문자만 있던 빈 줄은 제거한다.
     .replace(/\n{2,}/g, "\n")
     .trim();
 }
