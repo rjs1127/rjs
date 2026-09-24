@@ -1,6 +1,7 @@
 import { jsonResponse } from "./_shared.js";
 
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 180;
+const USER_SESSION_COOKIE_NAME = "rjsBookServerSessionV1";
 
 function requireUserDb(env) {
   if (!env.USER_DB) {
@@ -387,10 +388,48 @@ function getBearerToken(request) {
   return match?.[1]?.trim() || "";
 }
 
+function getCookieToken(request, name = USER_SESSION_COOKIE_NAME) {
+  const header = request.headers.get("cookie") || "";
+  for (const part of header.split(";")) {
+    const [rawName, ...rawValue] = part.trim().split("=");
+    if (rawName !== name) continue;
+    try {
+      return decodeURIComponent(rawValue.join("="));
+    } catch {
+      return rawValue.join("=");
+    }
+  }
+  return "";
+}
+
+function buildUserSessionCookie(token, maxAgeSeconds = SESSION_TTL_SECONDS) {
+  const maxAge = Math.max(0, Number(maxAgeSeconds) || 0);
+  const expires = new Date(Date.now() + maxAge * 1000).toUTCString();
+  return [
+    `${USER_SESSION_COOKIE_NAME}=${encodeURIComponent(String(token || ""))}`,
+    `Max-Age=${maxAge}`,
+    `Expires=${expires}`,
+    "Path=/",
+    "SameSite=Lax",
+    "Secure",
+  ].join("; ");
+}
+
+function buildClearUserSessionCookie() {
+  return [
+    `${USER_SESSION_COOKIE_NAME}=`,
+    "Max-Age=0",
+    "Expires=Thu, 01 Jan 1970 00:00:00 GMT",
+    "Path=/",
+    "SameSite=Lax",
+    "Secure",
+  ].join("; ");
+}
+
 async function requireUser(context) {
   const db = requireUserDb(context.env);
 
-  const token = getBearerToken(context.request);
+  const token = getBearerToken(context.request) || getCookieToken(context.request);
   if (!token) {
     const error = new Error("로그인이 필요합니다.");
     error.status = 401;
@@ -448,6 +487,9 @@ export {
   sha256Hex,
   createSession,
   getBearerToken,
+  getCookieToken,
+  buildUserSessionCookie,
+  buildClearUserSessionCookie,
   requireUser,
   userErrorResponse,
 };

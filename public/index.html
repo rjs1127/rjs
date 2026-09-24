@@ -11,7 +11,11 @@
       try {
         const hasRememberCookie = String(document.cookie || "")
           .split(";")
-          .some((part) => part.trim().startsWith("rjsBookAuthRememberV1="));
+          .some((part) => {
+            const cookie = part.trim();
+            return cookie.startsWith("rjsBookAuthRememberV1=")
+              || cookie.startsWith("rjsBookServerSessionV1=");
+          });
         const hasAuthToken = Boolean(localStorage.getItem("rjsBookAuthTokenV1")) || hasRememberCookie;
         const storage = hasAuthToken ? localStorage : sessionStorage;
         theme = storage.getItem("rjsBookThemeV1") === "dark" ? "dark" : "light";
@@ -30,7 +34,11 @@
       try {
         const hasRememberCookie = String(document.cookie || "")
           .split(";")
-          .some((part) => part.trim().startsWith("rjsBookAuthRememberV1="));
+          .some((part) => {
+            const cookie = part.trim();
+            return cookie.startsWith("rjsBookAuthRememberV1=")
+              || cookie.startsWith("rjsBookServerSessionV1=");
+          });
         if (localStorage.getItem("rjsBookAuthTokenV1") || hasRememberCookie) {
           root.classList.add("auth-session-pending");
         }
@@ -905,6 +913,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=867" defer></script>
+  <script src="/app.js?v=868" defer></script>
 </body>
 </html>

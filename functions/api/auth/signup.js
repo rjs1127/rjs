@@ -7,6 +7,7 @@ import {
   randomHex,
   hashPassword,
   createSession,
+  buildUserSessionCookie,
   userErrorResponse,
 } from "../../_user.js";
 
@@ -45,7 +46,10 @@ export async function onRequestPost(context) {
       user: { userId },
       token: session.token,
       expiresAt: session.expiresAt,
-    }, 201, { "cache-control": "no-store" });
+    }, 201, {
+      "cache-control": "no-store",
+      "set-cookie": buildUserSessionCookie(session.token),
+    });
   } catch (error) {
     console.error(error);
     return userErrorResponse(error);

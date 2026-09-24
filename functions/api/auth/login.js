@@ -6,6 +6,8 @@ import {
   validateCredentials,
   hashPassword,
   createSession,
+  buildUserSessionCookie,
+  buildClearUserSessionCookie,
   userErrorResponse,
 } from "../../_user.js";
 
@@ -17,6 +19,7 @@ export async function onRequestPost(context) {
     const body = await context.request.json();
     const userId = normalizeUserId(body?.userId);
     const password = String(body?.password || "");
+    const remember = body?.remember !== false;
 
     validateCredentials(userId, password);
 
@@ -44,7 +47,12 @@ export async function onRequestPost(context) {
       user: { userId },
       token: session.token,
       expiresAt: session.expiresAt,
-    }, 200, { "cache-control": "no-store" });
+    }, 200, {
+      "cache-control": "no-store",
+      "set-cookie": remember
+        ? buildUserSessionCookie(session.token)
+        : buildClearUserSessionCookie(),
+    });
   } catch (error) {
     console.error(error);
     return userErrorResponse(error);

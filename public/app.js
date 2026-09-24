@@ -439,6 +439,7 @@ const els = {
 
 const AUTH_TOKEN_KEY = "rjsBookAuthTokenV1";
 const AUTH_COOKIE_KEY = "rjsBookAuthRememberV1";
+const AUTH_SERVER_COOKIE_KEY = "rjsBookServerSessionV1";
 const AUTH_REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
 
 function getAuthCookieToken() {
@@ -465,10 +466,31 @@ function setAuthCookieToken(token) {
   } catch {}
 }
 
+function getCookieValue(name) {
+  try {
+    const prefix = `${name}=`;
+    const entry = String(document.cookie || "")
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(prefix));
+    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+  } catch {
+    return "";
+  }
+}
+
+function clearServerAuthCookie() {
+  try {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    document.cookie = `${AUTH_SERVER_COOKIE_KEY}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+  } catch {}
+}
+
 function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY)
     || sessionStorage.getItem(AUTH_TOKEN_KEY)
     || getAuthCookieToken()
+    || getCookieValue(AUTH_SERVER_COOKIE_KEY)
     || "";
 }
 
@@ -477,7 +499,10 @@ function setAuthToken(token, remember = true) {
   sessionStorage.removeItem(AUTH_TOKEN_KEY);
   setAuthCookieToken("");
 
-  if (!token) return;
+  if (!token) {
+    clearServerAuthCookie();
+    return;
+  }
 
   if (remember) {
     localStorage.setItem(AUTH_TOKEN_KEY, token);
@@ -485,6 +510,7 @@ function setAuthToken(token, remember = true) {
     return;
   }
 
+  clearServerAuthCookie();
   sessionStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
@@ -6500,7 +6526,11 @@ els.authForm?.addEventListener("submit", async (event) => {
   try {
     const data = await userApi(endpoint, {
       method: "POST",
-      body: JSON.stringify({ userId, password }),
+      body: JSON.stringify({
+        userId,
+        password,
+        remember: els.authRemember?.checked !== false,
+      }),
     });
 
     setAuthToken(data.token, els.authRemember?.checked !== false);
@@ -9093,6 +9123,7 @@ function getIssueReportText() {
     `시간: ${new Date().toLocaleString("ko-KR")}`,
     `온라인: ${navigator.onLine ? "예" : "아니오"}`,
     `로그인: ${state.user ? "예" : "아니오"}`,
+    `인증 저장: local=${localStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / session=${sessionStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / jsCookie=${getAuthCookieToken() ? "있음" : "없음"} / serverCookie=${getCookieValue(AUTH_SERVER_COOKIE_KEY) ? "있음" : "없음"}`,
     `페이지: ${page}`,
     `화면: viewport ${viewport} / screen ${screenSize} / DPR ${dpr}`,
     `플랫폼: ${platform}`,
