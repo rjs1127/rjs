@@ -9,7 +9,10 @@
       const root = document.documentElement;
       let theme = "light";
       try {
-        const hasAuthToken = Boolean(localStorage.getItem("rjsBookAuthTokenV1"));
+        const hasRememberCookie = String(document.cookie || "")
+          .split(";")
+          .some((part) => part.trim().startsWith("rjsBookAuthRememberV1="));
+        const hasAuthToken = Boolean(localStorage.getItem("rjsBookAuthTokenV1")) || hasRememberCookie;
         const storage = hasAuthToken ? localStorage : sessionStorage;
         theme = storage.getItem("rjsBookThemeV1") === "dark" ? "dark" : "light";
       } catch (_) {}
@@ -25,7 +28,10 @@
 
       // 로그인 토큰이 있으면 인증 복원이 끝날 때까지 비로그인 계정 UI가 먼저 보이지 않게 한다.
       try {
-        if (localStorage.getItem("rjsBookAuthTokenV1")) {
+        const hasRememberCookie = String(document.cookie || "")
+          .split(";")
+          .some((part) => part.trim().startsWith("rjsBookAuthRememberV1="));
+        if (localStorage.getItem("rjsBookAuthTokenV1") || hasRememberCookie) {
           root.classList.add("auth-session-pending");
         }
       } catch {}
@@ -46,9 +52,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=866" />
+  <link rel="stylesheet" href="/style.css?v=867" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=866" />
+  <link rel="stylesheet" href="/theme.css?v=867" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -427,7 +433,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.66</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.67</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -899,6 +905,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=866" defer></script>
+  <script src="/app.js?v=867" defer></script>
 </body>
 </html>

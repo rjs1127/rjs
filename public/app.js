@@ -438,21 +438,54 @@ const els = {
 
 
 const AUTH_TOKEN_KEY = "rjsBookAuthTokenV1";
+const AUTH_COOKIE_KEY = "rjsBookAuthRememberV1";
+const AUTH_REMEMBER_MAX_AGE_SECONDS = 60 * 60 * 24 * 180;
+
+function getAuthCookieToken() {
+  try {
+    const prefix = `${AUTH_COOKIE_KEY}=`;
+    const entry = String(document.cookie || "")
+      .split(";")
+      .map((part) => part.trim())
+      .find((part) => part.startsWith(prefix));
+    return entry ? decodeURIComponent(entry.slice(prefix.length)) : "";
+  } catch {
+    return "";
+  }
+}
+
+function setAuthCookieToken(token) {
+  try {
+    const secure = window.location.protocol === "https:" ? "; Secure" : "";
+    if (!token) {
+      document.cookie = `${AUTH_COOKIE_KEY}=; Max-Age=0; Path=/; SameSite=Lax${secure}`;
+      return;
+    }
+    document.cookie = `${AUTH_COOKIE_KEY}=${encodeURIComponent(token)}; Max-Age=${AUTH_REMEMBER_MAX_AGE_SECONDS}; Path=/; SameSite=Lax${secure}`;
+  } catch {}
+}
 
 function getAuthToken() {
   return localStorage.getItem(AUTH_TOKEN_KEY)
     || sessionStorage.getItem(AUTH_TOKEN_KEY)
+    || getAuthCookieToken()
     || "";
 }
 
 function setAuthToken(token, remember = true) {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   sessionStorage.removeItem(AUTH_TOKEN_KEY);
+  setAuthCookieToken("");
 
   if (!token) return;
 
-  const storage = remember ? localStorage : sessionStorage;
-  storage.setItem(AUTH_TOKEN_KEY, token);
+  if (remember) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    setAuthCookieToken(token);
+    return;
+  }
+
+  sessionStorage.setItem(AUTH_TOKEN_KEY, token);
 }
 
 async function userApi(path, options = {}) {

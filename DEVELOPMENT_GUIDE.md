@@ -1,3 +1,11 @@
+# v8.67 로그인 유지 정책
+
+- 자동 로그인 선택 시 인증 토큰은 `localStorage`와 180일 `SameSite=Lax` 1st-party 쿠키에 함께 저장한다.
+- `getAuthToken()`은 localStorage → sessionStorage → 자동 로그인 쿠키 순으로 확인한다.
+- 자동 로그인 미선택은 기존처럼 sessionStorage만 사용하며, 자동 로그인 쿠키는 만들지 않는다.
+- 로그아웃/토큰 초기화 시 localStorage, sessionStorage, 자동 로그인 쿠키를 모두 제거한다.
+- Safari 비공개 브라우징은 브라우저가 창 종료 시 저장소를 폐기할 수 있으므로 영구 로그인 보장을 전제로 하지 않는다.
+
 ## v8.66 — 방문 통계·로그인 유지 기준
 
 - 관리자 `방문 통계`는 기존 `/api/admin/users?days=14` 응답을 재사용해 대시보드와 유저 관리의 추가 API 호출을 만들지 않는다.

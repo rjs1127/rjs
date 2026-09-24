@@ -1,3 +1,10 @@
+# v8.67
+
+- Safari 자동 로그인 안정성을 보강했습니다. 자동 로그인 선택 시 인증 토큰을 기존 localStorage와 함께 180일짜리 1st-party 쿠키에도 보관합니다.
+- 새 탭/새 창에서 localStorage 복원이 불안정한 경우에도 쿠키를 fallback으로 사용해 로그인 세션을 복원합니다.
+- 자동 로그인 해제/로그아웃 시 localStorage, sessionStorage, 자동 로그인 쿠키를 함께 정리합니다.
+- 커밋 메시지 요약: `fix: stabilize Safari auto login with cookie fallback`
+
 # v8.66
 
 - 관리자 대시보드의 `USER ACTIVITY / 최근 14일 이용 현황`을 별도 `방문 통계` 탭으로 분리했습니다.
