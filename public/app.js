@@ -8010,21 +8010,45 @@ function ensureReaderShareUi() {
     }
   });
 
+  const normalizePostypeReaderShareValue = (rawValue) => {
+    const normalizedLineBreaks = String(rawValue || "")
+      .replace(/\r\n?|\u0085|\u2028|\u2029/g, "\n")
+      .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+
+    const hadTrailingLineBreak = normalizedLineBreaks.endsWith("\n");
+    const lines = normalizedLineBreaks.split("\n");
+    const kept = [];
+
+    for (const line of lines) {
+      const visible = line.replace(/[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g, " ").trim();
+      if (!visible) continue;
+      kept.push(line.replace(/[\u00A0\u3000]/g, " ").trim());
+    }
+
+    let result = kept.join("\n");
+    // 사용자가 한 번 Enter를 친 직후에는 다음 줄 입력을 계속할 수 있도록
+    // 마지막 줄바꿈 하나만 유지한다. 여러 번 Enter를 쳐도 빈 줄은 생기지 않는다.
+    if (hadTrailingLineBreak && result) result += "\n";
+    return result;
+  };
+
   const normalizePostypeReaderShareInput = () => {
     if (getReaderShareSourceItem()?.source !== "postype") return;
     const raw = String(input.value || "");
-    const normalized = normalizeReaderShareInitialText(raw);
+    const selectionStart = Number.isInteger(input.selectionStart) ? input.selectionStart : raw.length;
+    const prefix = raw.slice(0, selectionStart);
+    const normalized = normalizePostypeReaderShareValue(raw);
     if (normalized === raw) return;
+
+    const normalizedPrefix = normalizePostypeReaderShareValue(prefix);
     input.value = normalized;
-    try {
-      const end = normalized.length;
-      input.setSelectionRange(end, end);
-    } catch (_) {}
+    const nextCursor = Math.min(normalized.length, normalizedPrefix.length);
+    try { input.setSelectionRange(nextCursor, nextCursor); } catch (_) {}
   };
 
   input.addEventListener("paste", () => {
-    // POSTYPE도 TXT 선택문장과 동일한 공통 정리 함수를 사용한다.
-    // 브라우저 기본 붙여넣기가 끝난 뒤 최종 textarea 값을 정리한다.
+    // 브라우저별 clipboardData/paste 이벤트 차이를 신뢰하지 않는다.
+    // 실제 붙여넣기가 끝난 최종 textarea 값을 input 이벤트에서 정리한다.
     window.setTimeout(() => {
       normalizePostypeReaderShareInput();
       state.readerShareText = String(input.value || "");
@@ -8034,11 +8058,13 @@ function ensureReaderShareUi() {
 
   input.addEventListener("input", (event) => {
     if (event.isComposing) return;
+    normalizePostypeReaderShareInput();
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
 
   input.addEventListener("compositionend", () => {
+    normalizePostypeReaderShareInput();
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
@@ -8880,7 +8906,7 @@ function getReaderShareEditedText(rawText) {
 
 function normalizeReaderShareInitialText(rawText) {
   return String(rawText || "")
-    .replace(/\r\n?|\u0085|\u2028|\u2029/g, "\n")
+    .replace(/\r\n?|\u2028|\u2029/g, "\n")
     .replace(/\u00a0|\u3000/g, " ")
     .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "")
     .replace(/[\t\f\v]+/g, " ")

@@ -1,9 +1,3 @@
-## v8.65 — 문장 초기 정리 함수 단일화
-
-- TXT 선택 문장과 POSTYPE 직접 입력 문장의 초기 텍스트 정리는 `normalizeReaderShareInitialText()` 하나를 공통 사용한다.
-- POSTYPE 전용 줄바꿈/빈 줄 정규화 함수를 별도로 만들지 않는다.
-- 사용자가 편집창에서 이후 직접 입력하는 내용은 일반 input 경로에서 임의 재정규화하지 않고, 붙여넣기 완료 및 저장 확정 시 공통 정리를 적용한다.
-
 ## v8.64 — POSTYPE 문장 입력 정규화 기준
 
 - POSTYPE 문장 직접 입력창의 빈 줄 제거는 `paste` 이벤트의 clipboardData 유무에 의존하지 않고 textarea 최종값 기준으로 처리한다.

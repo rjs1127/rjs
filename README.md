@@ -1,10 +1,3 @@
-# v8.65
-
-- POSTYPE 문장 입력의 별도 줄바꿈 정리 로직을 제거하고 TXT 드래그 문장에 이미 사용 중인 `normalizeReaderShareInitialText()`를 공통으로 재사용합니다.
-- 공통 정리 함수에 U+0085 줄구분자 처리를 추가해 POSTYPE 복사 텍스트의 빈 줄도 같은 규칙으로 제거합니다.
-- 붙여넣기 직후와 문장 저장 직전에 같은 공통 정리 함수를 적용합니다.
-- 커밋 메시지 요약: `fix: unify postype quote normalization with txt`
-
 # v8.64
 
 - POSTYPE 문장 입력창의 빈 줄 제거를 브라우저 paste 이벤트 의존 방식에서 최종 textarea 값 정규화 방식으로 변경했습니다.
