@@ -2121,6 +2121,26 @@ body.reader-open .page-scroll-top {
   outline: none;
 }
 
+.auth-form .auth-remember-row {
+  display:flex;
+  align-items:center;
+  gap:7px;
+  width:max-content;
+  cursor:pointer;
+}
+.auth-form .auth-remember-row input {
+  width:15px;
+  height:15px;
+  margin:0;
+  padding:0;
+  accent-color:var(--ink);
+}
+.auth-form .auth-remember-row span {
+  color:var(--muted);
+  font-size:10px;
+  font-weight:800;
+}
+
 .modal-primary-button,
 .modal-secondary-button {
   width: 100%;

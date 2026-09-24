@@ -93,11 +93,15 @@ const els = {
   deployCloudflareStatusMeta: document.getElementById("deployCloudflareStatusMeta"),
   dashboardTotalUsers: document.getElementById("dashboardTotalUsers"),
   dashboardTodaySignups: document.getElementById("dashboardTodaySignups"),
-  dashboardTodayVisits: document.getElementById("dashboardTodayVisits"),
-  dashboardTotalVisits: document.getElementById("dashboardTotalVisits"),
-  dashboardChart: document.getElementById("dashboardChart"),
-  dashboardDailyList: document.getElementById("dashboardDailyList"),
-  dashboardRefreshButton: document.getElementById("dashboardRefreshButton"),
+  visitTodayVisits: document.getElementById("visitTodayVisits"),
+  visitTotalVisits: document.getElementById("visitTotalVisits"),
+  visitPeriodUsers: document.getElementById("visitPeriodUsers"),
+  visitReturningUsers: document.getElementById("visitReturningUsers"),
+  visitReturnRate: document.getElementById("visitReturnRate"),
+  visitAverageVisits: document.getElementById("visitAverageVisits"),
+  visitChart: document.getElementById("visitChart"),
+  visitDailyList: document.getElementById("visitDailyList"),
+  visitRefreshButton: document.getElementById("visitRefreshButton"),
   userCountBadge: document.getElementById("userCountBadge"),
   userSearchInput: document.getElementById("userSearchInput"),
   userRefreshButton: document.getElementById("userRefreshButton"),
@@ -496,14 +500,42 @@ function renderDashboard(data = userAdminData) {
   const summary = data.summary || {};
   const daily = Array.isArray(data.daily) ? data.daily : [];
 
-  els.dashboardTotalUsers.textContent =
-    Number(summary.totalUsers || 0).toLocaleString("ko-KR");
-  els.dashboardTodaySignups.textContent =
-    Number(summary.todaySignups || 0).toLocaleString("ko-KR");
-  els.dashboardTodayVisits.textContent =
-    Number(summary.todayVisits || 0).toLocaleString("ko-KR");
-  els.dashboardTotalVisits.textContent =
-    Number(summary.totalVisits || 0).toLocaleString("ko-KR");
+  if (els.dashboardTotalUsers) {
+    els.dashboardTotalUsers.textContent =
+      Number(summary.totalUsers || 0).toLocaleString("ko-KR");
+  }
+  if (els.dashboardTodaySignups) {
+    els.dashboardTodaySignups.textContent =
+      Number(summary.todaySignups || 0).toLocaleString("ko-KR");
+  }
+
+  if (els.visitTodayVisits) {
+    els.visitTodayVisits.textContent =
+      Number(summary.todayVisits || 0).toLocaleString("ko-KR");
+  }
+  if (els.visitTotalVisits) {
+    els.visitTotalVisits.textContent =
+      Number(summary.totalVisits || 0).toLocaleString("ko-KR");
+  }
+  if (els.visitPeriodUsers) {
+    els.visitPeriodUsers.textContent =
+      Number(summary.periodActiveUsers || 0).toLocaleString("ko-KR");
+  }
+  if (els.visitReturningUsers) {
+    els.visitReturningUsers.textContent =
+      Number(summary.periodReturningUsers || 0).toLocaleString("ko-KR");
+  }
+  if (els.visitReturnRate) {
+    els.visitReturnRate.textContent = `${Number(summary.returnRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  }
+  if (els.visitAverageVisits) {
+    els.visitAverageVisits.textContent = Number(summary.averageVisitsPerActive || 0).toLocaleString("ko-KR", {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    });
+  }
+
+  if (!els.visitChart || !els.visitDailyList) return;
 
   const maxValue = Math.max(
     1,
@@ -513,7 +545,7 @@ function renderDashboard(data = userAdminData) {
     ])
   );
 
-  els.dashboardChart.innerHTML = daily.map((row) => {
+  els.visitChart.innerHTML = daily.map((row) => {
     const signupHeight = Math.max(
       row.signups ? 4 : 2,
       (Number(row.signups || 0) / maxValue) * 140
@@ -535,7 +567,7 @@ function renderDashboard(data = userAdminData) {
     `;
   }).join("");
 
-  els.dashboardDailyList.innerHTML = [...daily]
+  els.visitDailyList.innerHTML = [...daily]
     .reverse()
     .map((row) => `
       <div class="dashboard-daily-row">
@@ -2735,14 +2767,14 @@ els.resourcePreciseButton?.addEventListener("click", async () => {
   }
 });
 
-els.dashboardRefreshButton?.addEventListener("click", async () => {
-  els.dashboardRefreshButton.disabled = true;
+els.visitRefreshButton?.addEventListener("click", async () => {
+  els.visitRefreshButton.disabled = true;
   try {
     await loadUserAdminData(false);
   } catch (error) {
-    window.alert(error.message || "대시보드를 불러오지 못했습니다.");
+    window.alert(error.message || "방문 통계를 불러오지 못했습니다.");
   } finally {
-    els.dashboardRefreshButton.disabled = false;
+    els.visitRefreshButton.disabled = false;
   }
 });
 

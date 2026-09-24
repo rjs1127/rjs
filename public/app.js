@@ -362,6 +362,7 @@ const els = {
   authForm: document.getElementById("authForm"),
   authUserId: document.getElementById("authUserId"),
   authPassword: document.getElementById("authPassword"),
+  authRemember: document.getElementById("authRemember"),
   authSubmitButton: document.getElementById("authSubmitButton"),
   authMessage: document.getElementById("authMessage"),
   authGoSignupButton: document.getElementById("authGoSignupButton"),
@@ -439,15 +440,19 @@ const els = {
 const AUTH_TOKEN_KEY = "rjsBookAuthTokenV1";
 
 function getAuthToken() {
-  return localStorage.getItem(AUTH_TOKEN_KEY) || "";
+  return localStorage.getItem(AUTH_TOKEN_KEY)
+    || sessionStorage.getItem(AUTH_TOKEN_KEY)
+    || "";
 }
 
-function setAuthToken(token) {
-  if (token) {
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-  } else {
-    localStorage.removeItem(AUTH_TOKEN_KEY);
-  }
+function setAuthToken(token, remember = true) {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  sessionStorage.removeItem(AUTH_TOKEN_KEY);
+
+  if (!token) return;
+
+  const storage = remember ? localStorage : sessionStorage;
+  storage.setItem(AUTH_TOKEN_KEY, token);
 }
 
 async function userApi(path, options = {}) {
@@ -6465,7 +6470,7 @@ els.authForm?.addEventListener("submit", async (event) => {
       body: JSON.stringify({ userId, password }),
     });
 
-    setAuthToken(data.token);
+    setAuthToken(data.token, els.authRemember?.checked !== false);
     state.user = data.user;
     applyUserPreferences();
     updateAccountUi();

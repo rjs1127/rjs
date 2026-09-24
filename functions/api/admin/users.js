@@ -170,6 +170,8 @@ export async function onRequestGet(context) {
       dailyMetricRows,
       totalUsersRow,
       totalVisitsRow,
+      periodActiveUsersRow,
+      periodReturningUsersRow,
     ] = await Promise.all([
       db.prepare(`
         WITH
@@ -228,6 +230,19 @@ export async function onRequestGet(context) {
         SELECT COALESCE(SUM(visit_count), 0) AS count
         FROM user_visit_stats
       `).first(),
+
+      db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM user_visit_stats
+        WHERE last_visit_at >= ?
+      `).bind(from).first(),
+
+      db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM user_visit_stats
+        WHERE last_visit_at >= ?
+          AND visit_count >= 2
+      `).bind(from).first(),
     ]);
 
     const daily = new Map(
@@ -254,6 +269,18 @@ export async function onRequestGet(context) {
     }
 
     const dailyStats = [...daily.values()];
+    const periodVisits = dailyStats.reduce(
+      (sum, row) => sum + Number(row.visits || 0),
+      0
+    );
+    const periodActiveUsers = Number(periodActiveUsersRow?.count || 0);
+    const periodReturningUsers = Number(periodReturningUsersRow?.count || 0);
+    const returnRate = periodActiveUsers
+      ? (periodReturningUsers / periodActiveUsers) * 100
+      : 0;
+    const averageVisitsPerActive = periodActiveUsers
+      ? periodVisits / periodActiveUsers
+      : 0;
 
     const users = (usersResult.results || []).map((row) => ({
       userId: row.user_id,
@@ -277,6 +304,12 @@ export async function onRequestGet(context) {
           totalVisits: Number(totalVisitsRow?.count || 0),
           todaySignups: dailyStats.at(-1)?.signups || 0,
           todayVisits: dailyStats.at(-1)?.visits || 0,
+          periodDays: days,
+          periodVisits,
+          periodActiveUsers,
+          periodReturningUsers,
+          returnRate,
+          averageVisitsPerActive,
         },
         daily: dailyStats,
         users,
