@@ -50,6 +50,7 @@ const state = {
   quoteFeedLikeSaving: new Set(),
   quoteFeedOpen: false,
   quoteFeedActiveItem: null,
+  contentPageReturnScrollY: 0,
   profileUserCreatedAt: null,
   profileTab: "bookmarks",
   profileSearch: "",
@@ -1483,6 +1484,9 @@ function getHistoryStateWithoutQuoteFeed() {
 }
 
 function showQuoteFeedPage() {
+  if (!state.quoteFeedOpen && !state.profileOpen) {
+    state.contentPageReturnScrollY = Math.max(0, window.scrollY || 0);
+  }
   if (!state.quoteFeedOpen && !history.state?.rjsQuoteFeedPage) {
     history.pushState({ ...(history.state || {}), rjsQuoteFeedPage: true }, "", location.href);
   }
@@ -1627,6 +1631,9 @@ function showProfilePage(tab = "bookmarks") {
     openAuthModal("login", "내 정보를 보려면 로그인해 주세요.");
     return;
   }
+  if (!state.profileOpen && !state.quoteFeedOpen) {
+    state.contentPageReturnScrollY = Math.max(0, window.scrollY || 0);
+  }
   if (state.quoteFeedOpen) {
     hideQuoteFeedPage({ clearHistoryMarker: true });
   }
@@ -1659,6 +1666,13 @@ function hideProfilePage({ fromHistory = false, clearHistoryMarker = false } = {
   if (clearHistoryMarker && !fromHistory && history.state?.rjsProfilePage) {
     history.replaceState(getHistoryStateWithoutProfile(), "", location.href);
   }
+}
+
+function restoreContentPageScroll() {
+  const top = Math.max(0, Number(state.contentPageReturnScrollY || 0));
+  window.requestAnimationFrame(() => {
+    window.scrollTo({ top, behavior: "auto" });
+  });
 }
 
 function getReaderShareSourceItem() {
@@ -6549,7 +6563,7 @@ els.libraryViewAllButton?.addEventListener("click", () => {
 window.addEventListener("popstate", (event) => {
   if (state.profileOpen && !event.state?.rjsProfilePage) {
     hideProfilePage({ fromHistory: true });
-    window.scrollTo({ top: 0, behavior: "auto" });
+    restoreContentPageScroll();
   }
 });
 
@@ -6587,13 +6601,11 @@ els.quoteFeedButton?.addEventListener("click", () => {
   showQuoteFeedPage();
 });
 
-els.quoteFeedBackButton?.addEventListener("click", () => {
-  if (history.state?.rjsQuoteFeedPage) {
-    history.back();
-    return;
-  }
-  hideQuoteFeedPage();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+els.quoteFeedBackButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  hideQuoteFeedPage({ clearHistoryMarker: true });
+  restoreContentPageScroll();
 });
 
 els.quoteFeedMoreButton?.addEventListener("click", () => {
@@ -6627,17 +6639,15 @@ els.quoteFeedOpenWorkButton?.addEventListener("click", () => {
 window.addEventListener("popstate", (event) => {
   if (state.quoteFeedOpen && !event.state?.rjsQuoteFeedPage) {
     hideQuoteFeedPage({ fromHistory: true });
-    window.scrollTo({ top: 0, behavior: "auto" });
+    restoreContentPageScroll();
   }
 });
 
-els.profileBackButton?.addEventListener("click", () => {
-  if (history.state?.rjsProfilePage) {
-    history.back();
-    return;
-  }
-  hideProfilePage();
-  window.scrollTo({ top: 0, behavior: "smooth" });
+els.profileBackButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  hideProfilePage({ clearHistoryMarker: true });
+  restoreContentPageScroll();
 });
 
 els.profileLogoutButton?.addEventListener("click", () => {
@@ -8000,39 +8010,55 @@ function ensureReaderShareUi() {
     }
   });
 
-  input.addEventListener("paste", (event) => {
-    if (getReaderShareSourceItem()?.source !== "postype") return;
-
-    const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
-    if (!clipboardText) return;
-
-    // POSTYPE 복사본의 빈 줄은 모두 제거하되 실제 문장 사이 한 줄바꿈은 유지한다.
-    const normalized = normalizeReaderShareInitialText(clipboardText);
-    if (!normalized) return;
-
-    event.preventDefault();
-    const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
-    const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
-    input.setRangeText(normalized, start, end, "end");
+  let readerSharePastePending = false;
+  let readerSharePasteCleanupTimer = 0;
+  const normalizeReaderSharePastedValue = () => {
+    const normalized = normalizeReaderShareInitialText(input.value);
+    if (normalized !== input.value) {
+      input.value = normalized;
+      try {
+        const end = input.value.length;
+        input.setSelectionRange(end, end);
+      } catch (_) {}
+    }
+    readerSharePastePending = false;
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
+  };
+
+  const scheduleReaderSharePasteCleanup = () => {
+    window.clearTimeout(readerSharePasteCleanupTimer);
+    window.requestAnimationFrame(() => {
+      if (readerSharePastePending) normalizeReaderSharePastedValue();
+    });
+    readerSharePasteCleanupTimer = window.setTimeout(() => {
+      if (readerSharePastePending) normalizeReaderSharePastedValue();
+    }, 80);
+  };
+
+  input.addEventListener("paste", (event) => {
+    // 문장 편집창에서 붙여넣은 텍스트는 출처/브라우저와 무관하게 같은 규칙을 쓴다.
+    // 한 번의 줄바꿈은 유지하고 공백뿐인 빈 줄은 전부 제거한다.
+    readerSharePastePending = true;
+    const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
+    if (clipboardText) {
+      const normalized = normalizeReaderShareInitialText(clipboardText);
+      if (normalized) {
+        event.preventDefault();
+        const start = Number.isInteger(input.selectionStart) ? input.selectionStart : input.value.length;
+        const end = Number.isInteger(input.selectionEnd) ? input.selectionEnd : start;
+        input.setRangeText(normalized, start, end, "end");
+      }
+    }
+    // clipboardData가 비는 iOS/Android/컨텍스트 메뉴 붙여넣기까지 대비해
+    // 실제 삽입이 끝난 다음 최종 textarea 값을 반드시 한 번 더 정리한다.
+    scheduleReaderSharePasteCleanup();
   });
 
-  input.addEventListener("input", (event) => {
-    // 일부 Android 브라우저는 paste 이벤트에 clipboardData를 주지 않는다.
-    // 이 경우 브라우저 기본 붙여넣기 직후 전체 값을 한 번 정리한다.
-    if (
-      getReaderShareSourceItem()?.source === "postype" &&
-      event?.inputType === "insertFromPaste"
-    ) {
-      const normalized = normalizeReaderShareInitialText(input.value);
-      if (normalized !== input.value) {
-        input.value = normalized;
-        try {
-          const end = input.value.length;
-          input.setSelectionRange(end, end);
-        } catch (_) {}
-      }
+  input.addEventListener("input", () => {
+    if (readerSharePastePending) {
+      scheduleReaderSharePasteCleanup();
+      return;
     }
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
