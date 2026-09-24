@@ -1,3 +1,9 @@
+## v8.62 — POSTYPE 붙여넣기 빈 줄 처리
+
+- POSTYPE 직접 입력 모달의 붙여넣기는 내용이 없는 줄을 모두 제거하고, 내용이 있는 줄만 한 줄바꿈으로 연결한다.
+- 모바일 브라우저에서 ClipboardEvent 데이터가 비어 있을 수 있으므로 `insertFromPaste` 후처리를 함께 유지한다.
+- 사용자가 붙여넣기 후 직접 입력한 Enter는 일반 input으로 취급해 임의 정규화하지 않는다.
+
 ## v8.61 — 문장 입력 정규화·뒤로가기 기준
 
 - POSTYPE 직접 입력 paste는 CR/LF뿐 아니라 Unicode line separator, NBSP, ideographic space, zero-width 문자를 정규화한 뒤 빈 줄만 축소한다. 정상 한 번 줄바꿈과 사용자가 편집 후 직접 입력한 Enter는 유지한다.

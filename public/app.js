@@ -8006,12 +8006,8 @@ function ensureReaderShareUi() {
     const clipboardText = String(event.clipboardData?.getData("text/plain") || "");
     if (!clipboardText) return;
 
-    // POSTYPE 복사본에는 CR/LF 외에도 Unicode line separator, NBSP,
-    // zero-width 문자 등이 빈 줄 안에 섞일 수 있다. 붙여넣는 조각에 한해
-    // TXT 최초 선택과 같은 규칙으로 정리해 실제 빈 줄만 제거한다.
-    // 정상적인 한 번의 줄바꿈과 이후 사용자가 직접 입력한 Enter는 유지한다.
+    // POSTYPE 복사본의 빈 줄은 모두 제거하되 실제 문장 사이 한 줄바꿈은 유지한다.
     const normalized = normalizeReaderShareInitialText(clipboardText);
-
     if (!normalized) return;
 
     event.preventDefault();
@@ -8022,7 +8018,22 @@ function ensureReaderShareUi() {
     updateReaderSharePreview();
   });
 
-  input.addEventListener("input", () => {
+  input.addEventListener("input", (event) => {
+    // 일부 Android 브라우저는 paste 이벤트에 clipboardData를 주지 않는다.
+    // 이 경우 브라우저 기본 붙여넣기 직후 전체 값을 한 번 정리한다.
+    if (
+      getReaderShareSourceItem()?.source === "postype" &&
+      event?.inputType === "insertFromPaste"
+    ) {
+      const normalized = normalizeReaderShareInitialText(input.value);
+      if (normalized !== input.value) {
+        input.value = normalized;
+        try {
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        } catch (_) {}
+      }
+    }
     state.readerShareText = String(input.value || "");
     updateReaderSharePreview();
   });
@@ -8869,9 +8880,9 @@ function normalizeReaderShareInitialText(rawText) {
     .replace(/[\t\f\v]+/g, " ")
     .split("\n")
     .map((line) => line.replace(/ {2,}/g, " ").trim())
+    // 빈 줄은 개수와 상관없이 완전히 제거하고 실제 내용이 있는 줄만 남긴다.
+    .filter((line) => line.length > 0)
     .join("\n")
-    // 정상 한 줄바꿈은 유지하되, 공백/제로폭 문자만 있던 빈 줄은 제거한다.
-    .replace(/\n{2,}/g, "\n")
     .trim();
 }
 

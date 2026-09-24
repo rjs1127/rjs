@@ -1,3 +1,11 @@
+# v8.62
+
+- POSTYPE 문장 입력창의 붙여넣기에서 공백만 있는 빈 줄을 개수와 관계없이 완전히 제거하고, 내용이 있는 줄 사이에는 한 번의 줄바꿈만 유지하도록 정리했습니다.
+- Android 등 일부 모바일 브라우저에서 `paste` 이벤트의 clipboardData가 비어도 `insertFromPaste` 입력 이벤트를 통해 붙여넣기 직후 textarea 값을 다시 정리하도록 보강했습니다.
+- 문장 이미지 모달의 뒤로가기 종료 동작은 v8.61 기준을 그대로 유지합니다.
+- 정적 리소스 캐시 버스터를 `v=862`로 갱신했습니다.
+- 커밋 메시지 요약: `fix: normalize postype pasted blank lines on mobile`
+
 # v8.61
 
 - POSTYPE 문장 붙여넣기에서 CR/LF 외 Unicode 줄구분자·NBSP·제로폭 문자까지 정리해 공백만 있는 빈 줄을 확실히 제거합니다.
