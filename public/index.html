@@ -60,7 +60,7 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=867" />
+  <link rel="stylesheet" href="/style.css?v=874" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="/theme.css?v=867" />
   <style>
@@ -441,7 +441,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.72</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v8.74</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -543,6 +543,19 @@
     </button>
   </div>
 
+
+  <aside id="signupNudge" class="signup-nudge" aria-live="polite" hidden>
+    <button id="signupNudgeClose" class="signup-nudge-close" type="button" aria-label="가입 안내 닫기">×</button>
+    <div class="signup-nudge-copy">
+      <span class="signup-nudge-kicker">MY RJS BOOK</span>
+      <strong>읽은 기록을 계정에 이어서 보관해보세요.</strong>
+      <p>로그인하면 이어보기·북마크·최근 조회·좋아요·저장 문장을 다른 기기에서도 불러올 수 있어요.</p>
+    </div>
+    <div class="signup-nudge-actions">
+      <button id="signupNudgeLogin" type="button">로그인</button>
+      <button id="signupNudgeSignup" class="primary" type="button">회원가입</button>
+    </div>
+  </aside>
 
   <div id="authModal" class="simple-modal-overlay" hidden>
     <section class="simple-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
@@ -913,6 +926,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=872" defer></script>
+  <script src="/app.js?v=874" defer></script>
 </body>
 </html>

@@ -65,7 +65,12 @@ export async function onRequestGet(context) {
           SUM(CASE WHEN work_opens >= 1 THEN 1 ELSE 0 END) AS engaged_sessions,
           SUM(CASE WHEN work_opens >= 3 OR active_seconds >= 600 THEN 1 ELSE 0 END) AS active_sessions,
           SUM(CASE WHEN work_opens = 0 AND active_seconds < 600 THEN 1 ELSE 0 END) AS browse_sessions,
-          SUM(CASE WHEN work_opens BETWEEN 1 AND 2 AND active_seconds < 600 THEN 1 ELSE 0 END) AS reading_sessions
+          SUM(CASE WHEN work_opens BETWEEN 1 AND 2 AND active_seconds < 600 THEN 1 ELSE 0 END) AS reading_sessions,
+          COALESCE(SUM(signup_nudge_shown), 0) AS signup_nudge_shown,
+          COALESCE(SUM(signup_nudge_login_clicks), 0) AS signup_nudge_login_clicks,
+          COALESCE(SUM(signup_nudge_signup_clicks), 0) AS signup_nudge_signup_clicks,
+          COALESCE(SUM(signup_nudge_login_completed), 0) AS signup_nudge_login_completed,
+          COALESCE(SUM(signup_nudge_signup_completed), 0) AS signup_nudge_signup_completed
         FROM analytics_sessions
         WHERE started_at >= ?
       `).bind(from).first(),
@@ -266,6 +271,22 @@ export async function onRequestGet(context) {
         loggedSessions: Number(todayRow?.logged_sessions || 0),
         guestSessions: Number(todayRow?.guest_sessions || 0),
         workOpens: Number(todayRow?.work_opens || 0),
+      },
+      acquisition: {
+        shown: Number(summaryRow?.signup_nudge_shown || 0),
+        loginClicks: Number(summaryRow?.signup_nudge_login_clicks || 0),
+        signupClicks: Number(summaryRow?.signup_nudge_signup_clicks || 0),
+        loginCompleted: Number(summaryRow?.signup_nudge_login_completed || 0),
+        signupCompleted: Number(summaryRow?.signup_nudge_signup_completed || 0),
+        signupClickRate: Number(summaryRow?.signup_nudge_shown || 0)
+          ? (Number(summaryRow?.signup_nudge_signup_clicks || 0) / Number(summaryRow.signup_nudge_shown)) * 100
+          : 0,
+        signupCompletionRate: Number(summaryRow?.signup_nudge_shown || 0)
+          ? (Number(summaryRow?.signup_nudge_signup_completed || 0) / Number(summaryRow.signup_nudge_shown)) * 100
+          : 0,
+        signupClickToCompleteRate: Number(summaryRow?.signup_nudge_signup_clicks || 0)
+          ? (Number(summaryRow?.signup_nudge_signup_completed || 0) / Number(summaryRow.signup_nudge_signup_clicks)) * 100
+          : 0,
       },
       performance: {
         pageLoadMs: performanceRow?.page_load_ms == null ? null : Number(performanceRow.page_load_ms),

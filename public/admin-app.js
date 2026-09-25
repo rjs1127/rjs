@@ -109,6 +109,13 @@ const els = {
   visitEngagedText: document.getElementById("visitEngagedText"),
   visitActiveTimeAvg: document.getElementById("visitActiveTimeAvg"),
   visitTodayWorkOpens: document.getElementById("visitTodayWorkOpens"),
+  visitSignupShown: document.getElementById("visitSignupShown"),
+  visitSignupLoginClicks: document.getElementById("visitSignupLoginClicks"),
+  visitSignupLoginCompleted: document.getElementById("visitSignupLoginCompleted"),
+  visitSignupClicks: document.getElementById("visitSignupClicks"),
+  visitSignupClickRate: document.getElementById("visitSignupClickRate"),
+  visitSignupCompleted: document.getElementById("visitSignupCompleted"),
+  visitSignupCompletionRate: document.getElementById("visitSignupCompletionRate"),
   visitTrendChart: document.getElementById("visitTrendChart"),
   visitDailyListNew: document.getElementById("visitDailyListNew"),
   visitActivityLevels: document.getElementById("visitActivityLevels"),
@@ -662,6 +669,7 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   const summary = data.summary || {};
   const today = data.today || {};
   const performanceData = data.performance || {};
+  const acquisition = data.acquisition || {};
   const daily = Array.isArray(data.daily) ? data.daily : [];
   const sessions = Number(summary.sessions || 0);
   const guestSessions = Number(summary.guestSessions || 0);
@@ -685,6 +693,13 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitEngagedText) els.visitEngagedText.textContent = `작품 열기 세션 ${Number(summary.engagedRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
   if (els.visitActiveTimeAvg) els.visitActiveTimeAvg.textContent = formatVisitDuration(summary.averageActiveSecondsPerSession || 0);
   if (els.visitTodayWorkOpens) els.visitTodayWorkOpens.textContent = Number(today.workOpens || 0).toLocaleString("ko-KR");
+  if (els.visitSignupShown) els.visitSignupShown.textContent = Number(acquisition.shown || 0).toLocaleString("ko-KR");
+  if (els.visitSignupLoginClicks) els.visitSignupLoginClicks.textContent = Number(acquisition.loginClicks || 0).toLocaleString("ko-KR");
+  if (els.visitSignupLoginCompleted) els.visitSignupLoginCompleted.textContent = `완료 ${Number(acquisition.loginCompleted || 0).toLocaleString("ko-KR")}`;
+  if (els.visitSignupClicks) els.visitSignupClicks.textContent = Number(acquisition.signupClicks || 0).toLocaleString("ko-KR");
+  if (els.visitSignupClickRate) els.visitSignupClickRate.textContent = `노출 대비 ${Number(acquisition.signupClickRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitSignupCompleted) els.visitSignupCompleted.textContent = Number(acquisition.signupCompleted || 0).toLocaleString("ko-KR");
+  if (els.visitSignupCompletionRate) els.visitSignupCompletionRate.textContent = `노출 대비 ${Number(acquisition.signupCompletionRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}% · 클릭→완료 ${Number(acquisition.signupClickToCompleteRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
 
   if (els.visitTrendChart) {
     const maxValue = Math.max(1, ...daily.flatMap((row) => [Number(row.sessions || 0), Number(row.visitors || 0)]));
@@ -822,7 +837,7 @@ async function loadUserAdminData(showMessage = false) {
     api("/api/admin/analytics?days=14").catch((error) => {
       console.warn("전체 방문 통계를 불러오지 못했습니다.", error);
       return {
-        summary: {}, today: {}, performance: {}, daily: [], hourly: [],
+        summary: {}, today: {}, performance: {}, acquisition: {}, daily: [], hourly: [],
         devices: [], browsers: [], sources: [], referrers: [], recent: [],
         dataStartedAt: null,
       };
@@ -838,6 +853,7 @@ async function loadUserAdminData(showMessage = false) {
     summary: analytics.summary || {},
     today: analytics.today || {},
     performance: analytics.performance || {},
+    acquisition: analytics.acquisition || {},
     daily: analytics.daily || [],
     hourly: analytics.hourly || [],
     devices: analytics.devices || [],

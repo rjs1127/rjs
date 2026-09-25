@@ -260,7 +260,8 @@ async function ensureDownloadTrackingSchema(db) {
 async function ensureUserSchema(db) {
   if (schemaReadyPromise) return schemaReadyPromise;
 
-  schemaReadyPromise = db.batch([
+  schemaReadyPromise = (async () => {
+    await db.batch([
     db.prepare(`
       CREATE TABLE IF NOT EXISTS users (
         user_id TEXT PRIMARY KEY,
@@ -352,7 +353,12 @@ async function ensureUserSchema(db) {
         page_load_ms INTEGER,
         archive_load_ms INTEGER,
         reader_load_ms_sum INTEGER NOT NULL DEFAULT 0,
-        reader_load_count INTEGER NOT NULL DEFAULT 0
+        reader_load_count INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_shown INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0
       )
     `),
     db.prepare(`
@@ -374,7 +380,27 @@ async function ensureUserSchema(db) {
         updated_at INTEGER NOT NULL
       )
     `),
-  ]).catch((error) => {
+    ]);
+
+    // v8.74: 기존 방문 통계를 유지하면서 가입 유도 퍼널 집계 컬럼만 추가한다.
+    const analyticsInfo = await db.prepare("PRAGMA table_info(analytics_sessions)").all();
+    const analyticsColumns = new Set((analyticsInfo?.results || []).map((column) => String(column?.name || "")));
+    const analyticsMigrations = [
+      ["signup_nudge_shown", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_shown INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_login_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_signup_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_login_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0"],
+    ];
+    for (const [column, sql] of analyticsMigrations) {
+      if (analyticsColumns.has(column)) continue;
+      try {
+        await db.prepare(sql).run();
+      } catch (error) {
+        if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
+      }
+    }
+  })().catch((error) => {
     schemaReadyPromise = null;
     throw error;
   });

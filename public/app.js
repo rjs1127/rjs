@@ -107,6 +107,9 @@ const ANALYTICS_VISITOR_KEY = "rjsAnalyticsVisitorV1";
 const ANALYTICS_SESSION_KEY = "rjsAnalyticsSessionV1";
 const ANALYTICS_SESSION_WINDOW_MS = 30 * 60 * 1000;
 const ANALYTICS_HEARTBEAT_MS = 15 * 60 * 1000;
+const SIGNUP_NUDGE_DISMISSED_KEY = "rjsSignupNudgeDismissedAtV1";
+const SIGNUP_NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+const SIGNUP_NUDGE_WORK_OPEN_THRESHOLD = 3;
 let analyticsSession = null;
 let analyticsVisibleStartedAt = document.visibilityState === "visible" ? Date.now() : 0;
 let analyticsSearchTimer = 0;
@@ -228,6 +231,11 @@ function initAnalyticsSession() {
       archiveLoadMs: 0,
       readerLoadMsSum: 0,
       readerLoadCount: 0,
+      signupNudgeShown: 0,
+      signupNudgeLoginClicks: 0,
+      signupNudgeSignupClicks: 0,
+      signupNudgeLoginCompleted: 0,
+      signupNudgeSignupCompleted: 0,
     };
   }
 
@@ -258,6 +266,11 @@ function analyticsPayload() {
     archiveLoadMs: Number(analyticsSession.archiveLoadMs || 0),
     readerLoadMsSum: Number(analyticsSession.readerLoadMsSum || 0),
     readerLoadCount: Number(analyticsSession.readerLoadCount || 0),
+    signupNudgeShown: Number(analyticsSession.signupNudgeShown || 0),
+    signupNudgeLoginClicks: Number(analyticsSession.signupNudgeLoginClicks || 0),
+    signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
+    signupNudgeLoginCompleted: Number(analyticsSession.signupNudgeLoginCompleted || 0),
+    signupNudgeSignupCompleted: Number(analyticsSession.signupNudgeSignupCompleted || 0),
   };
 }
 
@@ -294,10 +307,56 @@ async function flushAnalyticsSession(options = {}) {
   }
 }
 
-function recordAnalyticsWorkOpen() {
+function getSignupNudgeDismissedAt() {
+  try { return Number(localStorage.getItem(SIGNUP_NUDGE_DISMISSED_KEY) || 0); } catch { return 0; }
+}
+
+function hideSignupNudge({ remember = false } = {}) {
+  if (els.signupNudge) els.signupNudge.hidden = true;
+  if (remember) {
+    try { localStorage.setItem(SIGNUP_NUDGE_DISMISSED_KEY, String(Date.now())); } catch {}
+  }
+}
+
+function maybeShowSignupNudge() {
+  if (!analyticsSession || state.user || !els.signupNudge) return;
+  if (Number(analyticsSession.workOpens || 0) < SIGNUP_NUDGE_WORK_OPEN_THRESHOLD) return;
+  if (Date.now() - getSignupNudgeDismissedAt() < SIGNUP_NUDGE_COOLDOWN_MS) return;
+  if (!els.signupNudge.hidden) return;
+
+  els.signupNudge.hidden = false;
+  if (!Number(analyticsSession.signupNudgeShown || 0)) {
+    analyticsSession.signupNudgeShown = 1;
+    persistAnalyticsSession();
+    flushAnalyticsSession();
+  }
+}
+
+function recordSignupNudgeAction(kind) {
+  if (!analyticsSession) return;
+  if (kind === "login") analyticsSession.signupNudgeLoginClicks = 1;
+  if (kind === "signup") analyticsSession.signupNudgeSignupClicks = 1;
+  persistAnalyticsSession();
+  flushAnalyticsSession();
+}
+
+function recordSignupNudgeCompletion(kind) {
+  if (!analyticsSession) return;
+  if (kind === "login" && Number(analyticsSession.signupNudgeLoginClicks || 0)) {
+    analyticsSession.signupNudgeLoginCompleted = 1;
+  }
+  if (kind === "signup" && Number(analyticsSession.signupNudgeSignupClicks || 0)) {
+    analyticsSession.signupNudgeSignupCompleted = 1;
+  }
+  hideSignupNudge();
+  persistAnalyticsSession();
+}
+
+function recordAnalyticsWorkOpen(allowNudge = true) {
   if (!analyticsSession) return;
   analyticsSession.workOpens = Number(analyticsSession.workOpens || 0) + 1;
   persistAnalyticsSession();
+  if (allowNudge) maybeShowSignupNudge();
 }
 
 function scheduleAnalyticsSearch(value) {
@@ -614,6 +673,10 @@ const els = {
   signupMessage: document.getElementById("signupMessage"),
   signupGoLoginButton: document.getElementById("signupGoLoginButton"),
   signupCompleteButton: document.getElementById("signupCompleteButton"),
+  signupNudge: document.getElementById("signupNudge"),
+  signupNudgeClose: document.getElementById("signupNudgeClose"),
+  signupNudgeLogin: document.getElementById("signupNudgeLogin"),
+  signupNudgeSignup: document.getElementById("signupNudgeSignup"),
   feedbackModal: document.getElementById("feedbackModal"),
   feedbackForm: document.getElementById("feedbackForm"),
   feedbackCategory: document.getElementById("feedbackCategory"),
@@ -1056,6 +1119,7 @@ function clearUserSession(clearToken = true) {
 
 function updateAccountUi() {
   const loggedIn = Boolean(state.user?.userId);
+  if (loggedIn) hideSignupNudge();
   document.documentElement.classList.remove("auth-session-pending");
 
   if (els.loginButton) {
@@ -6679,6 +6743,22 @@ els.viewerSettingsButton?.addEventListener("click", () => {
   openModal(els.viewerSettingsModal);
 });
 
+els.signupNudgeClose?.addEventListener("click", () => {
+  hideSignupNudge({ remember: true });
+});
+
+els.signupNudgeLogin?.addEventListener("click", () => {
+  recordSignupNudgeAction("login");
+  hideSignupNudge();
+  openAuthModal("login", "로그인하면 읽던 위치와 보관함을 다른 기기에서도 이어서 사용할 수 있어요.");
+});
+
+els.signupNudgeSignup?.addEventListener("click", () => {
+  recordSignupNudgeAction("signup");
+  hideSignupNudge();
+  openSignupModal();
+});
+
 els.loginButton?.addEventListener("click", () => {
   if (state.user) {
     const compactMobile = window.matchMedia("(max-width: 760px)").matches
@@ -6982,6 +7062,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserBootstrap();
+    recordSignupNudgeCompletion("signup");
     flushAnalyticsSession();
 
     els.signupFormView.hidden = true;
@@ -7021,6 +7102,7 @@ els.authForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserBootstrap();
+    recordSignupNudgeCompletion("login");
     flushAnalyticsSession();
 
     els.authPassword.value = "";
@@ -7715,7 +7797,7 @@ function openPostypeQuoteComposer(item) {
 function openContentItem(item) {
   if (!item) return;
 
-  recordAnalyticsWorkOpen();
+  recordAnalyticsWorkOpen(item.source !== "postype");
 
   if (item.source === "postype") {
     if (!item.url) return;

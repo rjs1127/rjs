@@ -97,6 +97,11 @@ export async function onRequestPost(context) {
     const archiveLoadMs = clampInt(body.archiveLoadMs, 0, MAX_LOAD_MS) || null;
     const readerLoadMsSum = clampInt(body.readerLoadMsSum, 0, MAX_LOAD_MS * 500);
     const readerLoadCount = clampInt(body.readerLoadCount, 0, 500);
+    const signupNudgeShown = clampInt(body.signupNudgeShown, 0, 1);
+    const signupNudgeLoginClicks = clampInt(body.signupNudgeLoginClicks, 0, 1);
+    const signupNudgeSignupClicks = clampInt(body.signupNudgeSignupClicks, 0, 1);
+    const signupNudgeLoginCompleted = clampInt(body.signupNudgeLoginCompleted, 0, 1);
+    const signupNudgeSignupCompleted = clampInt(body.signupNudgeSignupCompleted, 0, 1);
     const deviceType = cleanEnum(body.deviceType, ["mobile", "tablet", "desktop"]);
     const browserName = cleanEnum(body.browserName, [
       "safari",
@@ -134,9 +139,14 @@ export async function onRequestPost(context) {
         page_load_ms,
         archive_load_ms,
         reader_load_ms_sum,
-        reader_load_count
+        reader_load_count,
+        signup_nudge_shown,
+        signup_nudge_login_clicks,
+        signup_nudge_signup_clicks,
+        signup_nudge_login_completed,
+        signup_nudge_signup_completed
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_id) DO UPDATE SET
         user_id = COALESCE(excluded.user_id, analytics_sessions.user_id),
         last_seen_at = MAX(analytics_sessions.last_seen_at, excluded.last_seen_at),
@@ -147,7 +157,12 @@ export async function onRequestPost(context) {
         page_load_ms = COALESCE(analytics_sessions.page_load_ms, excluded.page_load_ms),
         archive_load_ms = COALESCE(excluded.archive_load_ms, analytics_sessions.archive_load_ms),
         reader_load_ms_sum = MAX(analytics_sessions.reader_load_ms_sum, excluded.reader_load_ms_sum),
-        reader_load_count = MAX(analytics_sessions.reader_load_count, excluded.reader_load_count)
+        reader_load_count = MAX(analytics_sessions.reader_load_count, excluded.reader_load_count),
+        signup_nudge_shown = MAX(analytics_sessions.signup_nudge_shown, excluded.signup_nudge_shown),
+        signup_nudge_login_clicks = MAX(analytics_sessions.signup_nudge_login_clicks, excluded.signup_nudge_login_clicks),
+        signup_nudge_signup_clicks = MAX(analytics_sessions.signup_nudge_signup_clicks, excluded.signup_nudge_signup_clicks),
+        signup_nudge_login_completed = MAX(analytics_sessions.signup_nudge_login_completed, excluded.signup_nudge_login_completed),
+        signup_nudge_signup_completed = MAX(analytics_sessions.signup_nudge_signup_completed, excluded.signup_nudge_signup_completed)
     `).bind(
       sessionId,
       visitorId,
@@ -166,7 +181,12 @@ export async function onRequestPost(context) {
       pageLoadMs,
       archiveLoadMs,
       readerLoadMsSum,
-      readerLoadCount
+      readerLoadCount,
+      signupNudgeShown,
+      signupNudgeLoginClicks,
+      signupNudgeSignupClicks,
+      signupNudgeLoginCompleted,
+      signupNudgeSignupCompleted
     ).run();
 
     return jsonResponse(
