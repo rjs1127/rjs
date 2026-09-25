@@ -93,15 +93,39 @@ const els = {
   deployCloudflareStatusMeta: document.getElementById("deployCloudflareStatusMeta"),
   dashboardTotalUsers: document.getElementById("dashboardTotalUsers"),
   dashboardTodaySignups: document.getElementById("dashboardTodaySignups"),
-  visitTodayVisits: document.getElementById("visitTodayVisits"),
-  visitTotalVisits: document.getElementById("visitTotalVisits"),
-  visitPeriodUsers: document.getElementById("visitPeriodUsers"),
-  visitReturningUsers: document.getElementById("visitReturningUsers"),
-  visitReturnRate: document.getElementById("visitReturnRate"),
-  visitAverageVisits: document.getElementById("visitAverageVisits"),
-  visitChart: document.getElementById("visitChart"),
-  visitDailyList: document.getElementById("visitDailyList"),
+  visitDataSince: document.getElementById("visitDataSince"),
   visitRefreshButton: document.getElementById("visitRefreshButton"),
+  visitTodaySessions: document.getElementById("visitTodaySessions"),
+  visitTodayVisitorsText: document.getElementById("visitTodayVisitorsText"),
+  visitPeriodVisitors: document.getElementById("visitPeriodVisitors"),
+  visitNewVisitorsText: document.getElementById("visitNewVisitorsText"),
+  visitPeriodSessions: document.getElementById("visitPeriodSessions"),
+  visitSessionPerVisitorText: document.getElementById("visitSessionPerVisitorText"),
+  visitGuestShare: document.getElementById("visitGuestShare"),
+  visitGuestSplitText: document.getElementById("visitGuestSplitText"),
+  visitReturnRateNew: document.getElementById("visitReturnRateNew"),
+  visitReturningText: document.getElementById("visitReturningText"),
+  visitWorkOpensAvg: document.getElementById("visitWorkOpensAvg"),
+  visitEngagedText: document.getElementById("visitEngagedText"),
+  visitActiveTimeAvg: document.getElementById("visitActiveTimeAvg"),
+  visitTodayWorkOpens: document.getElementById("visitTodayWorkOpens"),
+  visitTrendChart: document.getElementById("visitTrendChart"),
+  visitDailyListNew: document.getElementById("visitDailyListNew"),
+  visitActivityLevels: document.getElementById("visitActivityLevels"),
+  visitEngagedRate: document.getElementById("visitEngagedRate"),
+  visitSearchAvg: document.getElementById("visitSearchAvg"),
+  visitTotalWorkOpens: document.getElementById("visitTotalWorkOpens"),
+  visitPageLoad: document.getElementById("visitPageLoad"),
+  visitArchiveLoad: document.getElementById("visitArchiveLoad"),
+  visitReaderLoad: document.getElementById("visitReaderLoad"),
+  visitReaderLoadCount: document.getElementById("visitReaderLoadCount"),
+  visitHourlyChart: document.getElementById("visitHourlyChart"),
+  visitDeviceMix: document.getElementById("visitDeviceMix"),
+  visitBrowserMix: document.getElementById("visitBrowserMix"),
+  visitSourceMix: document.getElementById("visitSourceMix"),
+  visitReferrerList: document.getElementById("visitReferrerList"),
+  visitRecentBody: document.getElementById("visitRecentBody"),
+  visitRecentEmpty: document.getElementById("visitRecentEmpty"),
   userCountBadge: document.getElementById("userCountBadge"),
   userSearchInput: document.getElementById("userSearchInput"),
   userRefreshButton: document.getElementById("userRefreshButton"),
@@ -191,6 +215,18 @@ let userAdminData = {
   summary: {},
   daily: [],
   users: [],
+};
+let analyticsAdminData = {
+  summary: {},
+  today: {},
+  performance: {},
+  daily: [],
+  hourly: [],
+  devices: [],
+  browsers: [],
+  sources: [],
+  referrers: [],
+  recent: [],
 };
 
 let postypeCpOptionsHtml = "";
@@ -579,6 +615,169 @@ function renderDashboard(data = userAdminData) {
     .join("");
 }
 
+
+function formatVisitDuration(seconds) {
+  const value = Math.max(0, Number(seconds || 0));
+  if (value < 60) return `${Math.round(value)}초`;
+  if (value < 3600) return `${(value / 60).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}분`;
+  return `${(value / 3600).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}시간`;
+}
+
+function formatVisitLoad(ms) {
+  if (ms == null || !Number.isFinite(Number(ms)) || Number(ms) <= 0) return "측정 전";
+  const value = Number(ms);
+  if (value < 1000) return `${Math.round(value)}ms`;
+  return `${(value / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}초`;
+}
+
+function visitPercent(value, total) {
+  const denominator = Math.max(0, Number(total || 0));
+  if (!denominator) return 0;
+  return (Number(value || 0) / denominator) * 100;
+}
+
+function renderVisitMix(target, rows, labelMap = {}) {
+  if (!target) return;
+  const list = Array.isArray(rows) ? rows : [];
+  const total = list.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  if (!list.length || !total) {
+    target.innerHTML = '<span class="visit-empty-inline">아직 데이터 없음</span>';
+    return;
+  }
+
+  target.innerHTML = list.slice(0, 6).map((row) => {
+    const percent = visitPercent(row.count, total);
+    const label = labelMap[row.name] || row.name || "기타";
+    return `
+      <div class="visit-mix-row">
+        <div class="visit-mix-label"><span>${escapeHtml(label)}</span><strong>${percent.toFixed(0)}%</strong></div>
+        <div class="visit-mix-track"><i style="width:${Math.max(2, percent)}%"></i></div>
+        <small>${Number(row.count || 0).toLocaleString("ko-KR")}세션</small>
+      </div>
+    `;
+  }).join("");
+}
+
+function renderVisitAnalytics(data = analyticsAdminData) {
+  const summary = data.summary || {};
+  const today = data.today || {};
+  const performanceData = data.performance || {};
+  const daily = Array.isArray(data.daily) ? data.daily : [];
+  const sessions = Number(summary.sessions || 0);
+  const guestSessions = Number(summary.guestSessions || 0);
+
+  if (els.visitDataSince) {
+    els.visitDataSince.textContent = data.dataStartedAt
+      ? `전체 통계 집계 시작 ${formatDate(data.dataStartedAt)}`
+      : "배포 후 첫 방문부터 집계됩니다";
+  }
+  if (els.visitTodaySessions) els.visitTodaySessions.textContent = Number(today.sessions || 0).toLocaleString("ko-KR");
+  if (els.visitTodayVisitorsText) els.visitTodayVisitorsText.textContent = `순방문자 ${Number(today.visitors || 0).toLocaleString("ko-KR")}명`;
+  if (els.visitPeriodVisitors) els.visitPeriodVisitors.textContent = Number(summary.visitors || 0).toLocaleString("ko-KR");
+  if (els.visitNewVisitorsText) els.visitNewVisitorsText.textContent = `신규 ${Number(summary.newVisitors || 0).toLocaleString("ko-KR")}명`;
+  if (els.visitPeriodSessions) els.visitPeriodSessions.textContent = sessions.toLocaleString("ko-KR");
+  if (els.visitSessionPerVisitorText) els.visitSessionPerVisitorText.textContent = `1인당 ${Number(summary.averageSessionsPerVisitor || 0).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}회`;
+  if (els.visitGuestShare) els.visitGuestShare.textContent = `${visitPercent(guestSessions, sessions).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitGuestSplitText) els.visitGuestSplitText.textContent = `로그인 ${Number(summary.loggedSessions || 0).toLocaleString("ko-KR")} / 비로그인 ${guestSessions.toLocaleString("ko-KR")}`;
+  if (els.visitReturnRateNew) els.visitReturnRateNew.textContent = `${Number(summary.returnRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitReturningText) els.visitReturningText.textContent = `재방문 ${Number(summary.returningVisitors || 0).toLocaleString("ko-KR")}명`;
+  if (els.visitWorkOpensAvg) els.visitWorkOpensAvg.textContent = Number(summary.averageWorkOpensPerSession || 0).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (els.visitEngagedText) els.visitEngagedText.textContent = `작품 열기 세션 ${Number(summary.engagedRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitActiveTimeAvg) els.visitActiveTimeAvg.textContent = formatVisitDuration(summary.averageActiveSecondsPerSession || 0);
+  if (els.visitTodayWorkOpens) els.visitTodayWorkOpens.textContent = Number(today.workOpens || 0).toLocaleString("ko-KR");
+
+  if (els.visitTrendChart) {
+    const maxValue = Math.max(1, ...daily.flatMap((row) => [Number(row.sessions || 0), Number(row.visitors || 0)]));
+    els.visitTrendChart.innerHTML = daily.map((row) => {
+      const sessionHeight = Math.max(row.sessions ? 5 : 2, (Number(row.sessions || 0) / maxValue) * 150);
+      const visitorHeight = Math.max(row.visitors ? 5 : 2, (Number(row.visitors || 0) / maxValue) * 150);
+      return `
+        <div class="visit-trend-day" title="${escapeHtml(row.date)} · 세션 ${Number(row.sessions || 0)} · 순방문자 ${Number(row.visitors || 0)}">
+          <div class="visit-trend-values">${Number(row.sessions || 0)}/${Number(row.visitors || 0)}</div>
+          <div class="visit-trend-bars"><i class="sessions" style="height:${sessionHeight}px"></i><i class="visitors" style="height:${visitorHeight}px"></i></div>
+          <span>${escapeHtml(formatDashboardDate(row.date))}</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  if (els.visitDailyListNew) {
+    els.visitDailyListNew.innerHTML = [...daily].reverse().map((row) => `
+      <div class="visit-daily-row-new">
+        <strong>${escapeHtml(row.date)}</strong>
+        <span>세션 <b>${Number(row.sessions || 0).toLocaleString("ko-KR")}</b></span>
+        <span>방문자 <b>${Number(row.visitors || 0).toLocaleString("ko-KR")}</b></span>
+        <span>비로그인 <b>${Number(row.guestSessions || 0).toLocaleString("ko-KR")}</b></span>
+        <span>작품 <b>${Number(row.workOpens || 0).toLocaleString("ko-KR")}</b></span>
+      </div>
+    `).join("");
+  }
+
+  if (els.visitActivityLevels) {
+    const levels = [
+      ["둘러보기", Number(summary.browseSessions || 0), "browse"],
+      ["읽기 시작", Number(summary.readingSessions || 0), "reading"],
+      ["활발", Number(summary.activeSessions || 0), "active"],
+    ];
+    els.visitActivityLevels.innerHTML = levels.map(([label, count, cls]) => {
+      const percent = visitPercent(count, sessions);
+      return `
+        <div class="visit-level-row ${cls}">
+          <div><span>${label}</span><strong>${count.toLocaleString("ko-KR")}세션 · ${percent.toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%</strong></div>
+          <div class="visit-level-track"><i style="width:${Math.max(count ? 3 : 0, percent)}%"></i></div>
+        </div>
+      `;
+    }).join("");
+  }
+
+  if (els.visitEngagedRate) els.visitEngagedRate.textContent = `${Number(summary.engagedRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitSearchAvg) els.visitSearchAvg.textContent = Number(summary.averageSearchesPerSession || 0).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+  if (els.visitTotalWorkOpens) els.visitTotalWorkOpens.textContent = Number(summary.workOpens || 0).toLocaleString("ko-KR");
+
+  if (els.visitPageLoad) els.visitPageLoad.textContent = formatVisitLoad(performanceData.pageLoadMs);
+  if (els.visitArchiveLoad) els.visitArchiveLoad.textContent = formatVisitLoad(performanceData.archiveLoadMs);
+  if (els.visitReaderLoad) els.visitReaderLoad.textContent = formatVisitLoad(performanceData.readerLoadMs);
+  if (els.visitReaderLoadCount) els.visitReaderLoadCount.textContent = `측정 ${Number(performanceData.readerLoadCount || 0).toLocaleString("ko-KR")}회`;
+
+  if (els.visitHourlyChart) {
+    const hourlyMap = new Map((data.hourly || []).map((row) => [Number(row.hour), Number(row.sessions || 0)]));
+    const maxHour = Math.max(1, ...hourlyMap.values());
+    els.visitHourlyChart.innerHTML = Array.from({ length: 24 }, (_, hour) => {
+      const count = Number(hourlyMap.get(hour) || 0);
+      const height = Math.max(count ? 4 : 2, (count / maxHour) * 92);
+      return `<div class="visit-hour" title="${hour}시 · ${count}세션"><i style="height:${height}px"></i><span>${String(hour).padStart(2, "0")}</span></div>`;
+    }).join("");
+  }
+
+  renderVisitMix(els.visitDeviceMix, data.devices, { mobile: "모바일", tablet: "태블릿", desktop: "PC", other: "기타" });
+  renderVisitMix(els.visitBrowserMix, data.browsers, { safari: "Safari", chrome: "Chrome", samsung: "Samsung", firefox: "Firefox", edge: "Edge", other: "기타" });
+  renderVisitMix(els.visitSourceMix, data.sources, { direct: "직접 유입", internal: "내부 이동", search: "검색", social: "SNS", external: "외부 링크" });
+
+  if (els.visitReferrerList) {
+    const referrers = Array.isArray(data.referrers) ? data.referrers : [];
+    els.visitReferrerList.innerHTML = referrers.length
+      ? referrers.map((row) => `<span><b>${escapeHtml(row.name)}</b><em>${Number(row.count || 0).toLocaleString("ko-KR")}</em></span>`).join("")
+      : '<span class="visit-empty-inline">외부 유입 데이터 없음</span>';
+  }
+
+  if (els.visitRecentBody) {
+    const recent = Array.isArray(data.recent) ? data.recent : [];
+    if (els.visitRecentEmpty) els.visitRecentEmpty.hidden = recent.length !== 0;
+    els.visitRecentBody.innerHTML = recent.map((row) => `
+      <tr>
+        <td><strong>${escapeHtml(row.visitorLabel || "익명")}</strong></td>
+        <td>${escapeHtml(formatDate(row.lastSeenAt))}</td>
+        <td><span class="visit-type-badge ${row.loggedIn ? "login" : "guest"}">${row.loggedIn ? "로그인" : "비로그인"}</span></td>
+        <td>${escapeHtml(formatVisitDuration(row.activeSeconds || 0))}</td>
+        <td>${Number(row.workOpens || 0).toLocaleString("ko-KR")}</td>
+        <td>${Number(row.searches || 0).toLocaleString("ko-KR")}</td>
+        <td>${escapeHtml(`${row.deviceType || "other"} · ${row.browserName || "other"}`)}</td>
+        <td>${escapeHtml(row.sourceType || "direct")}</td>
+      </tr>
+    `).join("");
+  }
+}
+
 function getFilteredAdminUsers() {
   const query = String(els.userSearchInput?.value || "")
     .trim()
@@ -618,15 +817,39 @@ function renderAdminUsers() {
 }
 
 async function loadUserAdminData(showMessage = false) {
-  const data = await api("/api/admin/users?days=14");
+  const [data, analytics] = await Promise.all([
+    api("/api/admin/users?days=14"),
+    api("/api/admin/analytics?days=14").catch((error) => {
+      console.warn("전체 방문 통계를 불러오지 못했습니다.", error);
+      return {
+        summary: {}, today: {}, performance: {}, daily: [], hourly: [],
+        devices: [], browsers: [], sources: [], referrers: [], recent: [],
+        dataStartedAt: null,
+      };
+    }),
+  ]);
 
   userAdminData = {
     summary: data.summary || {},
     daily: data.daily || [],
     users: data.users || [],
   };
+  analyticsAdminData = {
+    summary: analytics.summary || {},
+    today: analytics.today || {},
+    performance: analytics.performance || {},
+    daily: analytics.daily || [],
+    hourly: analytics.hourly || [],
+    devices: analytics.devices || [],
+    browsers: analytics.browsers || [],
+    sources: analytics.sources || [],
+    referrers: analytics.referrers || [],
+    recent: analytics.recent || [],
+    dataStartedAt: analytics.dataStartedAt || null,
+  };
 
   renderDashboard(userAdminData);
+  renderVisitAnalytics(analyticsAdminData);
   renderAdminUsers();
 
   if (showMessage && els.userMessage) {

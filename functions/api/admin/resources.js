@@ -222,7 +222,12 @@ async function inspectD1(db) {
     {
       name: "daily_user_metrics",
       label: "일별 방문 집계",
-      purpose: "관리자 대시보드 일별 방문수",
+      purpose: "관리자 대시보드 일별 로그인 방문수",
+    },
+    {
+      name: "analytics_sessions",
+      label: "전체 방문 분석",
+      purpose: "로그인·비로그인 30분 세션 및 활동·성능 통계",
     },
     {
       name: "user_system_meta",

@@ -312,6 +312,40 @@ async function ensureUserSchema(db) {
       )
     `),
     db.prepare(`
+      CREATE TABLE IF NOT EXISTS analytics_sessions (
+        session_id TEXT PRIMARY KEY,
+        visitor_id TEXT NOT NULL,
+        user_id TEXT,
+        metric_date TEXT NOT NULL,
+        started_at INTEGER NOT NULL,
+        last_seen_at INTEGER NOT NULL,
+        page_views INTEGER NOT NULL DEFAULT 1,
+        work_opens INTEGER NOT NULL DEFAULT 0,
+        searches INTEGER NOT NULL DEFAULT 0,
+        active_seconds INTEGER NOT NULL DEFAULT 0,
+        device_type TEXT,
+        browser_name TEXT,
+        source_type TEXT,
+        referrer_host TEXT,
+        page_load_ms INTEGER,
+        archive_load_ms INTEGER,
+        reader_load_ms_sum INTEGER NOT NULL DEFAULT 0,
+        reader_load_count INTEGER NOT NULL DEFAULT 0
+      )
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_analytics_sessions_date
+      ON analytics_sessions(metric_date, started_at)
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_analytics_sessions_visitor
+      ON analytics_sessions(visitor_id, started_at DESC)
+    `),
+    db.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_analytics_sessions_user
+      ON analytics_sessions(user_id, started_at DESC)
+    `),
+    db.prepare(`
       CREATE TABLE IF NOT EXISTS user_system_meta (
         meta_key TEXT PRIMARY KEY,
         meta_value TEXT,

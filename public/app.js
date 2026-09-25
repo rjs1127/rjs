@@ -99,6 +99,241 @@ const LIBRARY_PAGE_SIZE = 10;
 const READER_DISPLAY_MODE_KEY = "rjsReaderDisplayModeV1";
 const READER_PAGE_PROBE_CHARS = 14000;
 
+// v8.71 - 전체 방문 분석
+// 로그인 여부와 무관하게 브라우저 임의 ID + 30분 세션으로 집계한다.
+// IP는 저장하지 않으며, 한 세션의 활동 수치는 묶어서 서버에 갱신한다.
+const ANALYTICS_VISITOR_KEY = "rjsAnalyticsVisitorV1";
+const ANALYTICS_SESSION_KEY = "rjsAnalyticsSessionV1";
+const ANALYTICS_SESSION_WINDOW_MS = 30 * 60 * 1000;
+const ANALYTICS_HEARTBEAT_MS = 15 * 60 * 1000;
+let analyticsSession = null;
+let analyticsVisibleStartedAt = document.visibilityState === "visible" ? Date.now() : 0;
+let analyticsSearchTimer = 0;
+let analyticsLastSearch = "";
+let analyticsFlushInFlight = false;
+
+function createAnalyticsId() {
+  if (crypto?.randomUUID) return crypto.randomUUID().toLowerCase();
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => value.toString(16).padStart(2, "0")).join("");
+}
+
+function getAnalyticsDeviceType() {
+  const width = Math.min(
+    Number(window.screen?.width || window.innerWidth || 0),
+    Number(window.screen?.height || window.innerHeight || 0)
+  );
+  const ua = String(navigator.userAgent || "");
+  if (/iPad|Tablet|SM-T|Tab/i.test(ua) || (width >= 600 && width < 1024)) return "tablet";
+  if (/Mobi|iPhone|Android/i.test(ua) || width < 600) return "mobile";
+  return "desktop";
+}
+
+function getAnalyticsBrowserName() {
+  const ua = String(navigator.userAgent || "");
+  if (/SamsungBrowser/i.test(ua)) return "samsung";
+  if (/Edg|EdgiOS/i.test(ua)) return "edge";
+  if (/FxiOS|Firefox/i.test(ua)) return "firefox";
+  if (/CriOS|Chrome|Chromium/i.test(ua)) return "chrome";
+  if (/Safari/i.test(ua) && /AppleWebKit/i.test(ua)) return "safari";
+  return "other";
+}
+
+function getAnalyticsSource() {
+  const raw = String(document.referrer || "").trim();
+  if (!raw) return { sourceType: "direct", referrerHost: "" };
+
+  try {
+    const ref = new URL(raw);
+    const host = String(ref.hostname || "").toLowerCase();
+    if (!host) return { sourceType: "direct", referrerHost: "" };
+    if (ref.origin === window.location.origin) {
+      return { sourceType: "internal", referrerHost: host };
+    }
+    if (/(google\.|bing\.|naver\.|daum\.|yahoo\.)/i.test(host)) {
+      return { sourceType: "search", referrerHost: host };
+    }
+    if (/(twitter\.|x\.com|instagram\.|facebook\.|threads\.|tiktok\.|youtube\.|youtu\.be)/i.test(host)) {
+      return { sourceType: "social", referrerHost: host };
+    }
+    return { sourceType: "external", referrerHost: host };
+  } catch {
+    return { sourceType: "direct", referrerHost: "" };
+  }
+}
+
+function persistAnalyticsSession() {
+  if (!analyticsSession) return;
+  analyticsSession.lastSeenAt = Date.now();
+  try {
+    localStorage.setItem(ANALYTICS_SESSION_KEY, JSON.stringify(analyticsSession));
+  } catch {}
+}
+
+function accrueAnalyticsVisibleTime(now = Date.now()) {
+  if (!analyticsSession) return;
+  if (analyticsVisibleStartedAt > 0) {
+    const elapsed = Math.max(0, Math.min(30 * 60 * 1000, now - analyticsVisibleStartedAt));
+    analyticsSession.activeSeconds = Math.min(
+      12 * 60 * 60,
+      Number(analyticsSession.activeSeconds || 0) + Math.round(elapsed / 1000)
+    );
+  }
+  analyticsVisibleStartedAt = document.visibilityState === "visible" ? now : 0;
+}
+
+function initAnalyticsSession() {
+  const now = Date.now();
+  let visitorId = "";
+  try {
+    visitorId = String(localStorage.getItem(ANALYTICS_VISITOR_KEY) || "");
+  } catch {}
+  if (!/^[a-z0-9-]{20,80}$/.test(visitorId)) {
+    visitorId = createAnalyticsId();
+    try { localStorage.setItem(ANALYTICS_VISITOR_KEY, visitorId); } catch {}
+  }
+
+  let previous = null;
+  try {
+    previous = JSON.parse(localStorage.getItem(ANALYTICS_SESSION_KEY) || "null");
+  } catch {}
+
+  const reusable =
+    previous &&
+    previous.visitorId === visitorId &&
+    /^[a-z0-9-]{20,80}$/.test(String(previous.sessionId || "")) &&
+    now - Number(previous.lastSeenAt || 0) < ANALYTICS_SESSION_WINDOW_MS;
+
+  if (reusable) {
+    analyticsSession = previous;
+    analyticsSession.pageViews = Math.max(1, Number(analyticsSession.pageViews || 0) + 1);
+  } else {
+    const source = getAnalyticsSource();
+    analyticsSession = {
+      visitorId,
+      sessionId: createAnalyticsId(),
+      startedAt: now,
+      lastSeenAt: now,
+      pageViews: 1,
+      workOpens: 0,
+      searches: 0,
+      activeSeconds: 0,
+      deviceType: getAnalyticsDeviceType(),
+      browserName: getAnalyticsBrowserName(),
+      sourceType: source.sourceType,
+      referrerHost: source.referrerHost,
+      pageLoadMs: 0,
+      archiveLoadMs: 0,
+      readerLoadMsSum: 0,
+      readerLoadCount: 0,
+    };
+  }
+
+  analyticsVisibleStartedAt = document.visibilityState === "visible" ? now : 0;
+  persistAnalyticsSession();
+
+  window.setTimeout(() => flushAnalyticsSession(), 2200);
+  window.setInterval(() => flushAnalyticsSession(), ANALYTICS_HEARTBEAT_MS);
+}
+
+function analyticsPayload() {
+  if (!analyticsSession) return null;
+  accrueAnalyticsVisibleTime();
+  persistAnalyticsSession();
+  return {
+    visitorId: analyticsSession.visitorId,
+    sessionId: analyticsSession.sessionId,
+    startedAt: Number(analyticsSession.startedAt || Date.now()),
+    pageViews: Number(analyticsSession.pageViews || 1),
+    workOpens: Number(analyticsSession.workOpens || 0),
+    searches: Number(analyticsSession.searches || 0),
+    activeSeconds: Number(analyticsSession.activeSeconds || 0),
+    deviceType: analyticsSession.deviceType || "other",
+    browserName: analyticsSession.browserName || "other",
+    sourceType: analyticsSession.sourceType || "direct",
+    referrerHost: analyticsSession.referrerHost || "",
+    pageLoadMs: Number(analyticsSession.pageLoadMs || 0),
+    archiveLoadMs: Number(analyticsSession.archiveLoadMs || 0),
+    readerLoadMsSum: Number(analyticsSession.readerLoadMsSum || 0),
+    readerLoadCount: Number(analyticsSession.readerLoadCount || 0),
+  };
+}
+
+async function flushAnalyticsSession(options = {}) {
+  if (!analyticsSession || analyticsFlushInFlight) return;
+  const payload = analyticsPayload();
+  if (!payload) return;
+
+  if (options.beacon && navigator.sendBeacon) {
+    try {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      navigator.sendBeacon("/api/analytics/session", blob);
+      return;
+    } catch {}
+  }
+
+  analyticsFlushInFlight = true;
+  try {
+    const headers = { "content-type": "application/json" };
+    const token = getAuthToken();
+    if (token) headers.authorization = `Bearer ${token}`;
+    await fetch("/api/analytics/session", {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      cache: "no-store",
+      keepalive: Boolean(options.keepalive),
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    console.warn("방문 분석 저장 실패", error);
+  } finally {
+    analyticsFlushInFlight = false;
+  }
+}
+
+function recordAnalyticsWorkOpen() {
+  if (!analyticsSession) return;
+  analyticsSession.workOpens = Number(analyticsSession.workOpens || 0) + 1;
+  persistAnalyticsSession();
+}
+
+function scheduleAnalyticsSearch(value) {
+  window.clearTimeout(analyticsSearchTimer);
+  const normalized = String(value || "").trim().toLocaleLowerCase("ko-KR");
+  if (normalized.length < 2) return;
+  analyticsSearchTimer = window.setTimeout(() => {
+    if (!analyticsSession || normalized === analyticsLastSearch) return;
+    analyticsLastSearch = normalized;
+    analyticsSession.searches = Number(analyticsSession.searches || 0) + 1;
+    persistAnalyticsSession();
+  }, 900);
+}
+
+function recordAnalyticsArchiveLoad(ms) {
+  if (!analyticsSession || analyticsSession.archiveLoadMs) return;
+  analyticsSession.archiveLoadMs = Math.max(1, Math.round(Number(ms || 0)));
+  persistAnalyticsSession();
+}
+
+function recordAnalyticsReaderLoad(ms) {
+  if (!analyticsSession) return;
+  const value = Math.max(0, Math.round(Number(ms || 0)));
+  if (!value) return;
+  analyticsSession.readerLoadMsSum = Number(analyticsSession.readerLoadMsSum || 0) + value;
+  analyticsSession.readerLoadCount = Number(analyticsSession.readerLoadCount || 0) + 1;
+  persistAnalyticsSession();
+}
+
+function recordAnalyticsPageLoad() {
+  if (!analyticsSession || analyticsSession.pageLoadMs) return;
+  const nav = performance.getEntriesByType?.("navigation")?.[0];
+  const duration = Number(nav?.duration || performance.now() || 0);
+  analyticsSession.pageLoadMs = Math.max(1, Math.round(duration));
+  persistAnalyticsSession();
+}
+
 const READER_USER_AGENT = String(navigator.userAgent || "");
 const IS_SAFARI_READER =
   /Safari/i.test(READER_USER_AGENT) &&
@@ -1813,6 +2048,7 @@ async function restoreAuth() {
     if (data.visitRecorded !== false) {
       state.visitRecordedUserId = state.user?.userId || "";
     }
+    flushAnalyticsSession();
   } catch {
     clearUserSession(Boolean(token));
   }
@@ -2340,6 +2576,7 @@ function applySettings(settings = {}) {
 }
 
 async function loadArchive(force = false) {
+  const analyticsLoadStartedAt = performance.now();
   showStatus("저장된 콘텐츠 목록을 불러오고 있어요.");
   els.resultCount.textContent = "불러오는 중…";
 
@@ -2363,6 +2600,7 @@ async function loadArchive(force = false) {
     hideStatus();
     updateResumeShortcut();
     render();
+    recordAnalyticsArchiveLoad(performance.now() - analyticsLoadStartedAt);
   } catch (error) {
     console.error(error);
     els.heroSection?.classList.remove("hero-settings-pending");
@@ -5486,6 +5724,7 @@ async function openReader(item) {
     });
 
     showResumePrompt(item);
+    recordAnalyticsReaderLoad(performance.now() - state.readerLoadingStartedAt);
 
     window.setTimeout(() => {
       // A scroll event can fire during the initial reader layout. If that
@@ -6514,6 +6753,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserBootstrap();
+    flushAnalyticsSession();
 
     els.signupFormView.hidden = true;
     els.signupCompleteView.hidden = false;
@@ -6552,6 +6792,7 @@ els.authForm?.addEventListener("submit", async (event) => {
     applyUserPreferences();
     updateAccountUi();
     await loadUserBootstrap();
+    flushAnalyticsSession();
 
     els.authPassword.value = "";
     state.pendingAuthReason = "";
@@ -7106,10 +7347,12 @@ function updateCompactHeader() {
 
 els.searchInput.addEventListener("input", (event) => {
   setSearchValue(event.target.value, "main");
+  scheduleAnalyticsSearch(event.target.value);
 });
 
 els.compactSearchInput?.addEventListener("input", (event) => {
   setSearchValue(event.target.value, "compact");
+  scheduleAnalyticsSearch(event.target.value);
 });
 
 els.clearSearch.addEventListener("click", () => {
@@ -7225,6 +7468,8 @@ function openPostypeQuoteComposer(item) {
 
 function openContentItem(item) {
   if (!item) return;
+
+  recordAnalyticsWorkOpen();
 
   if (item.source === "postype") {
     if (!item.url) return;
@@ -9232,6 +9477,16 @@ if (history.state?.rjsReaderOpen) {
   );
 }
 state.readerHistoryActive = false;
+
+initAnalyticsSession();
+window.addEventListener("load", recordAnalyticsPageLoad, { once: true });
+document.addEventListener("visibilitychange", () => {
+  accrueAnalyticsVisibleTime();
+  persistAnalyticsSession();
+});
+window.addEventListener("pagehide", () => {
+  flushAnalyticsSession({ beacon: true, keepalive: true });
+});
 
 initReaderShareSelection();
 applyUserPreferences();
