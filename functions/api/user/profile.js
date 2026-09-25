@@ -19,7 +19,8 @@ export async function onRequestGet(context) {
     const section = new URL(context.request.url).searchParams.get("section") || "";
     if (section === "quotes") {
       const quotes = await auth.db.prepare(`
-        SELECT q.id, q.title, q.author, q.quote_text, q.created_at,
+        SELECT q.id, q.title, q.author, q.quote_text, q.work_id,
+               q.start_offset, q.end_offset, q.source_text, q.created_at,
                CASE WHEN sq.quote_id IS NULL THEN 0 ELSE 1 END AS is_shared,
                sq.shared_at
         FROM user_quotes q
@@ -51,7 +52,8 @@ export async function onRequestGet(context) {
         LIMIT 500
       `).bind(auth.userId).all(),
       auth.db.prepare(`
-        SELECT q.id, q.title, q.author, q.quote_text, q.created_at,
+        SELECT q.id, q.title, q.author, q.quote_text, q.work_id,
+               q.start_offset, q.end_offset, q.source_text, q.created_at,
                CASE WHEN sq.quote_id IS NULL THEN 0 ELSE 1 END AS is_shared,
                sq.shared_at
         FROM user_quotes q
@@ -120,14 +122,31 @@ export async function onRequestPost(context) {
       const quoteText = cleanText(body?.quoteText, 4000);
       if (!quoteText) return jsonResponse({ error: "저장할 문장이 없습니다." }, 400);
 
+      const workId = cleanText(body?.workId, 300);
+      const startOffsetRaw = Number(body?.startOffset);
+      const endOffsetRaw = Number(body?.endOffset);
+      const hasLocation = Boolean(workId) && Number.isFinite(startOffsetRaw) && startOffsetRaw >= 0;
+      const startOffset = hasLocation ? Math.floor(startOffsetRaw) : null;
+      const endOffset = hasLocation && Number.isFinite(endOffsetRaw)
+        ? Math.max(startOffset, Math.floor(endOffsetRaw))
+        : null;
+      const sourceText = hasLocation ? cleanText(body?.sourceText, 1200) : "";
+
       const result = await auth.db.prepare(`
-        INSERT INTO user_quotes(user_id, title, author, quote_text, created_at)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO user_quotes(
+          user_id, title, author, quote_text,
+          work_id, start_offset, end_offset, source_text, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         auth.userId,
         cleanText(body?.title, 300),
         cleanText(body?.author, 200),
         quoteText,
+        workId || null,
+        startOffset,
+        endOffset,
+        sourceText || null,
         now
       ).run();
 
@@ -138,8 +157,50 @@ export async function onRequestPost(context) {
           title: cleanText(body?.title, 300),
           author: cleanText(body?.author, 200),
           quoteText,
+          workId,
+          startOffset,
+          endOffset,
+          sourceText,
           createdAt: now,
         },
+      });
+    }
+
+
+    if (action === "quote_location_update") {
+      const id = Number(body?.id || 0);
+      const workId = cleanText(body?.workId, 300);
+      const startOffsetRaw = Number(body?.startOffset);
+      const endOffsetRaw = Number(body?.endOffset);
+      if (!Number.isInteger(id) || id <= 0 || !workId || !Number.isFinite(startOffsetRaw) || startOffsetRaw < 0) {
+        return jsonResponse({ error: "저장 문장 위치 정보가 올바르지 않습니다." }, 400);
+      }
+      const startOffset = Math.floor(startOffsetRaw);
+      const endOffset = Number.isFinite(endOffsetRaw)
+        ? Math.max(startOffset, Math.floor(endOffsetRaw))
+        : startOffset;
+      const sourceText = cleanText(body?.sourceText, 1200);
+
+      const result = await auth.db.prepare(`
+        UPDATE user_quotes
+        SET work_id = ?, start_offset = ?, end_offset = ?, source_text = ?
+        WHERE user_id = ? AND id = ?
+      `).bind(
+        workId,
+        startOffset,
+        endOffset,
+        sourceText || null,
+        auth.userId,
+        id
+      ).run();
+
+      if (!Number(result?.meta?.changes || 0)) {
+        return jsonResponse({ error: "저장 문장을 찾을 수 없습니다." }, 404);
+      }
+
+      return jsonResponse({
+        ok: true,
+        location: { workId, startOffset, endOffset, sourceText },
       });
     }
 

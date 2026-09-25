@@ -79,6 +79,7 @@ const state = {
   readerResumeSaved: null,
   readerShareText: "",
   readerShareSourceItem: null,
+  readerShareLocation: null,
   readerShareBackground: 0,
   readerShareWeight: "regular",
   visibleItemLimit: 40,
@@ -1261,16 +1262,23 @@ function normalizeProfileLike(row) {
 
 function normalizeSavedQuote(row) {
   const shared = Number(row?.is_shared ?? row?.shared ?? 0) === 1 || row?.shared === true;
+  const rawStartOffset = row?.start_offset ?? row?.startOffset;
+  const rawEndOffset = row?.end_offset ?? row?.endOffset;
   return {
     id: Number(row?.id || 0),
     title: String(row?.title || ""),
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
+    workId: String(row?.work_id ?? row?.workId ?? ""),
+    startOffset: rawStartOffset == null ? null : Number(rawStartOffset),
+    endOffset: rawEndOffset == null ? null : Number(rawEndOffset),
+    sourceText: String(row?.source_text ?? row?.sourceText ?? ""),
     createdAt: Number(row?.created_at ?? row?.createdAt ?? 0),
     shared,
     sharedAt: row?.shared_at == null && row?.sharedAt == null ? null : Number(row?.shared_at ?? row?.sharedAt),
     _persistedShared: shared,
     _shareSaving: false,
+    _locationSaving: false,
   };
 }
 
@@ -1545,6 +1553,7 @@ function renderProfilePage() {
             <p class="profile-entry-quote">${escapeHtml(quote.quoteText)}</p>
           </div>
           <div class="profile-entry-actions">
+            ${getSavedQuoteMoveButton(quote)}
             <button type="button" class="profile-quote-share-toggle" data-profile-quote-share="${quote.id}" role="switch" aria-checked="${quote.shared ? "true" : "false"}" ${quote._shareSaving ? "disabled" : ""}>
               <span class="profile-quote-share-toggle-track" aria-hidden="true"><span></span></span>
               <span class="profile-quote-share-toggle-label">피드 공유</span>
@@ -1997,6 +2006,7 @@ async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceIt
   ).trim();
   if (!quoteText) return false;
   const item = sourceItem || getReaderShareSourceItem();
+  const location = item?.source === "postype" ? null : state.readerShareLocation;
   const data = await userApi("/api/user/profile", {
     method: "POST",
     body: JSON.stringify({
@@ -2004,6 +2014,10 @@ async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceIt
       title: item.title || "",
       author: item.author || "",
       quoteText,
+      workId: location?.workId || "",
+      startOffset: Number.isFinite(location?.startOffset) ? location.startOffset : null,
+      endOffset: Number.isFinite(location?.endOffset) ? location.endOffset : null,
+      sourceText: location?.sourceText || "",
     }),
   });
   const savedQuote = data.quote ? normalizeSavedQuote(data.quote) : null;
@@ -5588,7 +5602,207 @@ function triggerItemDownload(item) {
   link.remove();
 }
 
-async function openReader(item) {
+function normalizeQuoteLocationSearchText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[\u00a0\u3000]/g, " ")
+    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function chooseQuoteMatchOffset(matches, preferredOffset = null) {
+  if (!matches.length) return null;
+  if (matches.length === 1) return matches[0];
+  if (preferredOffset == null || !Number.isFinite(Number(preferredOffset))) return null;
+  const target = Number(preferredOffset);
+  return [...matches].sort((a, b) =>
+    Math.abs(a.startOffset - target) - Math.abs(b.startOffset - target)
+  )[0];
+}
+
+function findQuoteTextOffsetInReader(rawNeedle, preferredOffset = null) {
+  const text = String(state.readerText || "");
+  const needle = String(rawNeedle || "");
+  if (!text || !needle.trim()) return null;
+
+  const directCandidates = [...new Set([needle, needle.replace(/\r\n?/g, "\n")])];
+  for (const candidate of directCandidates) {
+    const matches = [];
+    let from = 0;
+    while (matches.length < 20) {
+      const direct = text.indexOf(candidate, from);
+      if (direct < 0) break;
+      matches.push({
+        startOffset: direct,
+        endOffset: direct + candidate.length,
+        sourceText: text.slice(direct, direct + candidate.length),
+      });
+      from = direct + Math.max(1, candidate.length);
+    }
+    const chosen = chooseQuoteMatchOffset(matches, preferredOffset);
+    if (chosen) return chosen;
+    if (matches.length > 1) return null;
+  }
+
+  const normalizedNeedle = normalizeQuoteLocationSearchText(needle);
+  if (!normalizedNeedle) return null;
+
+  let normalizedText = "";
+  const indexMap = [];
+  let inWhitespace = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    const cleaned = /[\u200B\u200C\u200D\u2060\uFEFF]/.test(char) ? "" : char;
+    if (!cleaned) continue;
+    if (/\s|\u00a0|\u3000/.test(cleaned)) {
+      if (!inWhitespace) {
+        normalizedText += " ";
+        indexMap.push(index);
+        inWhitespace = true;
+      }
+      continue;
+    }
+    normalizedText += cleaned;
+    indexMap.push(index);
+    inWhitespace = false;
+  }
+
+  const normalizedMatches = [];
+  let from = 0;
+  while (normalizedMatches.length < 20) {
+    const matchIndex = normalizedText.indexOf(normalizedNeedle, from);
+    if (matchIndex < 0 || !indexMap.length) break;
+    const startOffset = indexMap[matchIndex] ?? 0;
+    const lastNormalizedIndex = Math.min(
+      indexMap.length - 1,
+      matchIndex + normalizedNeedle.length - 1
+    );
+    const endOffset = Math.min(text.length, (indexMap[lastNormalizedIndex] ?? startOffset) + 1);
+    normalizedMatches.push({
+      startOffset,
+      endOffset,
+      sourceText: text.slice(startOffset, endOffset).slice(0, 1200),
+    });
+    from = matchIndex + Math.max(1, normalizedNeedle.length);
+  }
+
+  return chooseQuoteMatchOffset(normalizedMatches, preferredOffset);
+}
+
+function isSavedQuoteOffsetStillValid(jump) {
+  if (jump?.startOffset == null) return false;
+  const startOffset = Number(jump.startOffset);
+  if (!Number.isFinite(startOffset) || startOffset < 0 || startOffset > getReaderTextLength()) return false;
+  const sourceText = String(jump?.sourceText || "");
+  if (!sourceText) return true;
+  const endOffset = Number.isFinite(Number(jump?.endOffset))
+    ? Math.max(startOffset, Number(jump.endOffset))
+    : startOffset + sourceText.length;
+  const current = String(state.readerText || "").slice(startOffset, endOffset);
+  return normalizeQuoteLocationSearchText(current) === normalizeQuoteLocationSearchText(sourceText);
+}
+
+async function persistSavedQuoteLocation(quote, item, location) {
+  if (!state.user || !quote?.id || !item?.id || !location) return;
+  if (quote._locationSaving) return;
+  quote._locationSaving = true;
+  try {
+    await userApi("/api/user/profile", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "quote_location_update",
+        id: quote.id,
+        workId: item.id,
+        startOffset: location.startOffset,
+        endOffset: location.endOffset,
+        sourceText: location.sourceText || "",
+      }),
+    });
+    quote.workId = String(item.id || "");
+    quote.startOffset = Number(location.startOffset);
+    quote.endOffset = Number(location.endOffset);
+    quote.sourceText = String(location.sourceText || "");
+  } catch (error) {
+    console.warn("저장문장 위치 보정 저장 실패", error);
+  } finally {
+    quote._locationSaving = false;
+  }
+}
+
+async function resolveSavedQuoteJumpLocation(quote, item) {
+  if (!quote || !item || !state.readerText) return null;
+
+  if (
+    String(quote.workId || "") === String(item.id || "") &&
+    isSavedQuoteOffsetStillValid(quote)
+  ) {
+    const startOffset = clampReaderTextOffset(quote.startOffset);
+    const endOffset = Number.isFinite(Number(quote.endOffset))
+      ? clampReaderTextOffset(Math.max(startOffset, Number(quote.endOffset)))
+      : startOffset;
+    return {
+      startOffset,
+      endOffset,
+      sourceText: String(quote.sourceText || ""),
+      repaired: false,
+    };
+  }
+
+  const candidates = [quote.sourceText, quote.quoteText]
+    .map((value) => String(value || "").trim())
+    .filter(Boolean);
+
+  for (const candidate of candidates) {
+    const found = findQuoteTextOffsetInReader(candidate, quote.startOffset);
+    if (!found) continue;
+    const location = { ...found, repaired: true };
+    persistSavedQuoteLocation(quote, item, location);
+    return location;
+  }
+
+  return null;
+}
+
+function findSavedQuoteWorkCandidates(quote) {
+  if (!quote) return [];
+  if (quote.workId) {
+    const direct = state.items.find((item) => String(item.id) === String(quote.workId));
+    if (direct) return [direct];
+  }
+
+  const title = normalizeSearchText(quote.title);
+  const author = normalizeSearchText(quote.author);
+  return state.items.filter((item) =>
+    normalizeSearchText(item.title) === title &&
+    normalizeSearchText(item.author) === author
+  );
+}
+
+function getSavedQuoteMoveButton(quote) {
+  const candidates = findSavedQuoteWorkCandidates(quote).filter((item) => item?.source !== "postype");
+  if (!candidates.length) return "";
+  return `<button type="button" data-profile-quote-open="${quote.id}" ${quote._locationSaving ? "disabled" : ""}>이동</button>`;
+}
+
+async function openSavedQuoteLocation(quote) {
+  const candidates = findSavedQuoteWorkCandidates(quote).filter((item) => item?.source !== "postype");
+  if (!candidates.length) {
+    window.alert("이 저장 문장의 원본 TXT 작품을 찾을 수 없습니다.");
+    return;
+  }
+  if (candidates.length > 1 && !quote.workId) {
+    window.alert("같은 제목과 작성자의 작품이 여러 개라 원문 위치를 안전하게 특정할 수 없습니다.");
+    return;
+  }
+
+  const item = candidates[0];
+  recordAnalyticsWorkOpen();
+  hideProfilePage({ clearHistoryMarker: true });
+  await openReader(item, { quoteJump: quote });
+}
+
+async function openReader(item, options = {}) {
   if (!item) return;
 
   if (!state.readerHistoryActive) {
@@ -5717,13 +5931,28 @@ async function openReader(item) {
         ? "page"
         : "scroll";
 
+    let quoteJumpLocation = null;
+    if (options?.quoteJump) {
+      quoteJumpLocation = await resolveSavedQuoteJumpLocation(options.quoteJump, item);
+    }
+
     await setReaderDisplayMode(preferredMode, {
       persist: false,
-      offset: 0,
+      offset: quoteJumpLocation?.startOffset ?? 0,
       initialLayout: true,
     });
 
-    showResumePrompt(item);
+    if (options?.quoteJump) {
+      state.readerResumeSaved = null;
+      if (els.readerResume) els.readerResume.hidden = true;
+      if (!quoteJumpLocation) {
+        window.setTimeout(() => {
+          window.alert("저장한 문장의 원문 위치를 찾지 못했습니다. 원문이 수정되었거나 저장 문구가 편집된 경우일 수 있습니다.");
+        }, 0);
+      }
+    } else {
+      showResumePrompt(item);
+    }
     recordAnalyticsReaderLoad(performance.now() - state.readerLoadingStartedAt);
 
     window.setTimeout(() => {
@@ -7031,6 +7260,23 @@ els.profileList?.addEventListener("click", async (event) => {
     if (isItemLiked(item)) await toggleItemLike(item);
     return;
   }
+  const quoteOpen = event.target.closest("[data-profile-quote-open]");
+  if (quoteOpen) {
+    const quote = state.savedQuotes.find((entry) => String(entry.id) === String(quoteOpen.dataset.profileQuoteOpen));
+    if (!quote || quote._locationSaving) return;
+    quoteOpen.disabled = true;
+    const originalText = quoteOpen.textContent;
+    quoteOpen.textContent = "이동 중…";
+    try {
+      await openSavedQuoteLocation(quote);
+    } finally {
+      if (quoteOpen.isConnected) {
+        quoteOpen.disabled = false;
+        quoteOpen.textContent = originalText;
+      }
+    }
+    return;
+  }
   const quoteShare = event.target.closest("[data-profile-quote-share]");
   if (quoteShare) {
     const quote = state.savedQuotes.find((entry) => String(entry.id) === String(quoteShare.dataset.profileQuoteShare));
@@ -7039,7 +7285,7 @@ els.profileList?.addEventListener("click", async (event) => {
     quote.shared = !quote.shared;
     renderProfilePage();
 
-    const matchedWork = state.items.find((candidate) =>
+    const matchedWork = state.items.find((candidate) => String(candidate.id) === String(quote.workId || "")) || state.items.find((candidate) =>
       normalizeSearchText(candidate.title) === normalizeSearchText(quote.title) &&
       normalizeSearchText(candidate.author) === normalizeSearchText(quote.author)
     );
@@ -8234,6 +8480,7 @@ function ensureReaderShareUi() {
     lastSavedQuote = null;
     state.readerShareText = "";
     state.readerShareSourceItem = null;
+    state.readerShareLocation = null;
     if (savedPanel) savedPanel.hidden = true;
     if (publicToggle) {
       publicToggle.disabled = false;
@@ -9179,6 +9426,9 @@ function openReaderShareSheet(options = {}) {
   const { allowEmpty = false, presetText = null, sourceItem = null } = options || {};
   if (typeof presetText === "string") state.readerShareText = presetText;
   state.readerShareSourceItem = sourceItem || state.activeReaderItem || state.readerShareSourceItem || null;
+  if (allowEmpty || state.readerShareSourceItem?.source === "postype") {
+    state.readerShareLocation = null;
+  }
   if (!allowEmpty && !state.readerShareText) return;
   // A newly opened editor always starts from the agreed baseline.
   resetReaderShareEditorOptions();
@@ -9245,6 +9495,65 @@ function normalizeReaderShareInitialText(rawText) {
     .trim();
 }
 
+function getTextOffsetWithinContainer(container, node, nodeOffset) {
+  if (!container || !node) return null;
+  try {
+    const range = document.createRange();
+    range.selectNodeContents(container);
+    range.setEnd(node, nodeOffset);
+    const length = range.toString().length;
+    range.detach?.();
+    return length;
+  } catch (_) {
+    return null;
+  }
+}
+
+function getReaderSelectionBoundaryOffset(node, nodeOffset) {
+  if (!node || !state.activeReaderItem) return null;
+
+  const element = node.nodeType === Node.ELEMENT_NODE ? node : node.parentElement;
+  const pageRoot = element?.closest?.("#readerPageText");
+  if (pageRoot) {
+    const local = getTextOffsetWithinContainer(pageRoot, node, nodeOffset);
+    return local == null ? null : clampReaderTextOffset(state.readerPageStart + local);
+  }
+
+  const contentRoot = element?.closest?.("#readerContent");
+  if (!contentRoot) return null;
+
+  const chunk = element?.closest?.(".reader-virtual-chunk[data-reader-chunk-index]");
+  if (chunk && Array.isArray(state.largeReaderChunks)) {
+    const chunkIndex = Math.max(0, Number(chunk.dataset.readerChunkIndex || 0));
+    const local = getTextOffsetWithinContainer(chunk, node, nodeOffset);
+    if (local == null) return null;
+    let base = 0;
+    for (let index = 0; index < chunkIndex; index += 1) {
+      base += String(state.largeReaderChunks[index] || "").length;
+    }
+    return clampReaderTextOffset(base + local);
+  }
+
+  const local = getTextOffsetWithinContainer(contentRoot, node, nodeOffset);
+  return local == null ? null : clampReaderTextOffset(local);
+}
+
+function getReaderSelectionLocation(range) {
+  if (!range || !state.activeReaderItem || state.activeReaderItem.source === "postype") return null;
+  const startOffset = getReaderSelectionBoundaryOffset(range.startContainer, range.startOffset);
+  const endOffset = getReaderSelectionBoundaryOffset(range.endContainer, range.endOffset);
+  if (!Number.isFinite(startOffset) || !Number.isFinite(endOffset)) return null;
+
+  const safeStart = Math.min(startOffset, endOffset);
+  const safeEnd = Math.max(startOffset, endOffset);
+  return {
+    workId: String(state.activeReaderItem.id || ""),
+    startOffset: safeStart,
+    endOffset: safeEnd,
+    sourceText: String(range.toString() || "").slice(0, 1200),
+  };
+}
+
 function getReaderTextSelection() {
   if (els.readerOverlay?.hidden || !state.activeReaderItem) return null;
   const selection = window.getSelection?.();
@@ -9267,6 +9576,7 @@ function getReaderTextSelection() {
   return {
     text,
     rect,
+    location: getReaderSelectionLocation(range),
   };
 }
 
@@ -9280,10 +9590,12 @@ function syncReaderShareSelection() {
     const selected = getReaderTextSelection();
     if (!selected) {
       ui.floatButton.hidden = true;
+      state.readerShareLocation = null;
       return;
     }
 
     state.readerShareText = selected.text;
+    state.readerShareLocation = selected.location;
     scheduleReaderShareBlobPreparation(0);
     const margin = 24;
     const buttonSize = 38;

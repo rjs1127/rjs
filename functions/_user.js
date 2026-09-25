@@ -25,36 +25,58 @@ let bookmarkStatsSchemaReadyPromise = null;
 async function ensurePersonalizationSchema(db) {
   if (personalizationSchemaReadyPromise) return personalizationSchemaReadyPromise;
 
-  personalizationSchemaReadyPromise = db.batch([
-    db.prepare(`
-      CREATE TABLE IF NOT EXISTS user_likes (
-        user_id TEXT NOT NULL,
-        work_id TEXT NOT NULL,
-        title TEXT,
-        author TEXT,
-        liked_at INTEGER NOT NULL,
-        PRIMARY KEY (user_id, work_id)
-      )
-    `),
-    db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_user_likes_user_time
-      ON user_likes(user_id, liked_at DESC)
-    `),
-    db.prepare(`
-      CREATE TABLE IF NOT EXISTS user_quotes (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        user_id TEXT NOT NULL,
-        title TEXT,
-        author TEXT,
-        quote_text TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `),
-    db.prepare(`
-      CREATE INDEX IF NOT EXISTS idx_user_quotes_user_time
-      ON user_quotes(user_id, created_at DESC)
-    `),
-  ]).catch((error) => {
+  personalizationSchemaReadyPromise = (async () => {
+    await db.batch([
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_likes (
+          user_id TEXT NOT NULL,
+          work_id TEXT NOT NULL,
+          title TEXT,
+          author TEXT,
+          liked_at INTEGER NOT NULL,
+          PRIMARY KEY (user_id, work_id)
+        )
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_user_likes_user_time
+        ON user_likes(user_id, liked_at DESC)
+      `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS user_quotes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          title TEXT,
+          author TEXT,
+          quote_text TEXT NOT NULL,
+          work_id TEXT,
+          start_offset INTEGER,
+          end_offset INTEGER,
+          source_text TEXT,
+          created_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_user_quotes_user_time
+        ON user_quotes(user_id, created_at DESC)
+      `),
+    ]);
+
+    // v8.72: 기존 user_quotes를 유지하면서 원문 위치 컬럼만 안전하게 추가한다.
+    const info = await db.prepare("PRAGMA table_info(user_quotes)").all();
+    const columns = new Set((info?.results || []).map((column) => String(column?.name || "")));
+    const migrations = [];
+    if (!columns.has("work_id")) migrations.push("ALTER TABLE user_quotes ADD COLUMN work_id TEXT");
+    if (!columns.has("start_offset")) migrations.push("ALTER TABLE user_quotes ADD COLUMN start_offset INTEGER");
+    if (!columns.has("end_offset")) migrations.push("ALTER TABLE user_quotes ADD COLUMN end_offset INTEGER");
+    if (!columns.has("source_text")) migrations.push("ALTER TABLE user_quotes ADD COLUMN source_text TEXT");
+    for (const sql of migrations) {
+      try {
+        await db.prepare(sql).run();
+      } catch (error) {
+        if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
+      }
+    }
+  })().catch((error) => {
     personalizationSchemaReadyPromise = null;
     throw error;
   });
