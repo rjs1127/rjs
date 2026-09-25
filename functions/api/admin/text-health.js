@@ -11,6 +11,7 @@ import { requireAdminSession } from "../../_admin_session.js";
 
 const TEXT_HEALTH_KEY = "archive:text-health:v1";
 const MAX_BATCH = 12;
+const DETECTOR_VERSION = 2;
 
 function normalizeText(value) {
   return String(value ?? "").replace(/\r\n?/g, "\n");
@@ -39,11 +40,10 @@ function countMatches(text, regex) {
 function findFirstSuspiciousIndex(text) {
   const patterns = [
     /\uFFFD/,
-    /□/,
-    /\?{2,}/,
-    /(?:[가-힣][?□�]|[?□�][가-힣])/,
     /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/,
-    /(?:Ã.|Â.|ì.|ë.|ê.|í.){2,}/,
+    /[\u0080-\u009F]/,
+    /(?:占쏙옙){1,}/,
+    /(?:Ã[\u0080-\u00BF]|Â[\u0080-\u00BF]|ì[\u0080-\u00BF]|ë[\u0080-\u00BF]|ê[\u0080-\u00BF]|í[\u0080-\u00BF]){2,}/,
   ];
   let index = -1;
   for (const pattern of patterns) {
@@ -67,57 +67,45 @@ function makeSample(text, index) {
 
 function analyzeText(textValue) {
   const text = normalizeText(textValue);
-  const length = Math.max(1, text.length);
   const replacementCount = countMatches(text, /\uFFFD/g);
-  const squareCount = countMatches(text, /□/g);
-  const questionRunCount = countMatches(text, /\?{2,}/g);
-  const questionCount = countMatches(text, /\?/g);
   const controlCount = countMatches(text, /[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g);
-  const latinMojibakeCount = countMatches(text, /(?:Ã.|Â.|ì.|ë.|ê.|í.)/g);
-  const koreanCount = countMatches(text, /[가-힣]/g);
-  const hanCount = countMatches(text, /[\u3400-\u4DBF\u4E00-\u9FFF]/g);
+  const c1ControlCount = countMatches(text, /[\u0080-\u009F]/g);
+  const koreanReplacementCount = countMatches(text, /(?:占쏙옙)/g);
+  const mojibakeRunCount = countMatches(
+    text,
+    /(?:Ã[\u0080-\u00BF]|Â[\u0080-\u00BF]|ì[\u0080-\u00BF]|ë[\u0080-\u00BF]|ê[\u0080-\u00BF]|í[\u0080-\u00BF]){2,}/g
+  );
 
   let score = 0;
   const reasons = [];
 
   if (replacementCount > 0) {
-    score += 80 + Math.min(20, replacementCount * 2);
-    reasons.push(`대체문자(�) ${replacementCount}개`);
+    score += 100;
+    reasons.push(`Unicode 대체문자(�) ${replacementCount}개`);
   }
 
   if (controlCount > 0) {
-    score += 70 + Math.min(20, controlCount);
+    score += 100;
     reasons.push(`비정상 제어문자 ${controlCount}개`);
   }
 
-  if (squareCount >= 2) {
-    score += squareCount >= 10 ? 45 : 25;
-    reasons.push(`빈 사각형(□) ${squareCount}개`);
+  if (c1ControlCount > 0) {
+    score += 80;
+    reasons.push(`인코딩 오해석 의심 제어코드 ${c1ControlCount}개`);
   }
 
-  const questionRatio = questionCount / length;
-  if (questionRunCount >= 2 || (questionCount >= 12 && questionRatio >= 0.003)) {
-    score += questionRunCount >= 8 || questionRatio >= 0.01 ? 45 : 25;
-    reasons.push(`물음표 깨짐 패턴 ${questionCount}개`);
+  if (koreanReplacementCount > 0) {
+    score += 100;
+    reasons.push(`한국어 인코딩 깨짐 패턴(占쏙옙) ${koreanReplacementCount}개`);
   }
 
-  if (latinMojibakeCount >= 4) {
-    score += latinMojibakeCount >= 12 ? 55 : 35;
-    reasons.push(`UTF-8 오해석 의심 문자 ${latinMojibakeCount}개`);
-  }
-
-  if (
-    koreanCount >= 20 &&
-    hanCount >= 10 &&
-    (questionRunCount >= 2 || squareCount >= 2 || replacementCount > 0) &&
-    hanCount / Math.max(1, koreanCount + hanCount) >= 0.12
-  ) {
-    score += 20;
-    reasons.push("한글 문맥에 비정상 한자 혼입");
+  if (mojibakeRunCount > 0) {
+    score += 80;
+    reasons.push(`UTF-8 오해석 반복 패턴 ${mojibakeRunCount}개`);
   }
 
   score = Math.min(100, score);
-  const status = score >= 60 ? "severe" : score >= 25 ? "suspect" : "normal";
+  const status = score >= 80 ? "severe" : "normal";
   const firstIndex = findFirstSuspiciousIndex(text);
 
   return {
@@ -128,11 +116,12 @@ function analyzeText(textValue) {
     chars: text.length,
     counts: {
       replacement: replacementCount,
-      square: squareCount,
-      question: questionCount,
-      questionRuns: questionRunCount,
       controls: controlCount,
+      c1Controls: c1ControlCount,
+      koreanReplacement: koreanReplacementCount,
+      mojibakeRuns: mojibakeRunCount,
     },
+    detectorVersion: DETECTOR_VERSION,
   };
 }
 
@@ -142,14 +131,18 @@ function summarize(archive, records) {
   const itemById = new Map(items.map((item) => [String(item.id || ""), item]));
   const activeRecords = Object.values(records || {}).filter((record) => {
     const item = itemById.get(String(record?.id || ""));
-    return item && String(record.modifiedTime || "") === String(item.modifiedTime || "");
+    return item &&
+      Number(record.detectorVersion || 0) === DETECTOR_VERSION &&
+      String(record.modifiedTime || "") === String(item.modifiedTime || "");
   });
   const severe = activeRecords.filter((record) => record.status === "severe").length;
   const suspect = activeRecords.filter((record) => record.status === "suspect").length;
   const normal = activeRecords.filter((record) => record.status === "normal").length;
   const stale = items.filter((item) => {
     const record = records?.[item.id];
-    return !record || String(record.modifiedTime || "") !== String(item.modifiedTime || "");
+    return !record ||
+      Number(record.detectorVersion || 0) !== DETECTOR_VERSION ||
+      String(record.modifiedTime || "") !== String(item.modifiedTime || "");
   }).length;
 
   return {
@@ -169,7 +162,10 @@ function summarize(archive, records) {
 function suspiciousItems(archive, records) {
   const byId = new Map((archive?.items || []).map((item) => [String(item.id || ""), item]));
   return Object.values(records || {})
-    .filter((record) => record && record.status !== "normal" && byId.has(String(record.id || "")))
+    .filter((record) => record &&
+      Number(record.detectorVersion || 0) === DETECTOR_VERSION &&
+      record.status !== "normal" &&
+      byId.has(String(record.id || "")))
     .map((record) => {
       const item = byId.get(String(record.id || "")) || {};
       return {
@@ -222,7 +218,9 @@ export async function onRequestPatch(context) {
 
     const records = { ...(stored?.records || {}) };
     const existing = records[id];
-    if (!existing || String(existing.modifiedTime || "") !== String(item.modifiedTime || "")) {
+    if (!existing ||
+        Number(existing.detectorVersion || 0) !== DETECTOR_VERSION ||
+        String(existing.modifiedTime || "") !== String(item.modifiedTime || "")) {
       return jsonResponse({ error: "파일이 검사 후 변경되었습니다. 다시 검사한 뒤 정상 여부를 확인해 주세요." }, 409);
     }
 
@@ -242,7 +240,7 @@ export async function onRequestPatch(context) {
       confirmedModifiedTime: item.modifiedTime || null,
     };
 
-    await kv.put(TEXT_HEALTH_KEY, JSON.stringify({ version: 1, records, updatedAt: now }));
+    await kv.put(TEXT_HEALTH_KEY, JSON.stringify({ version: 2, records, updatedAt: now }));
     return jsonResponse({
       ok: true,
       summary: summarize(archive, records),
@@ -306,7 +304,9 @@ export async function onRequestPost(context) {
     const queue = items.filter((item) => {
       if (force) return true;
       const record = records[item.id];
-      return !record || String(record.modifiedTime || "") !== String(item.modifiedTime || "");
+      return !record ||
+      Number(record.detectorVersion || 0) !== DETECTOR_VERSION ||
+      String(record.modifiedTime || "") !== String(item.modifiedTime || "");
     });
     const batch = queue.slice(0, limit);
 
@@ -364,11 +364,12 @@ export async function onRequestPost(context) {
           sample: "",
           chars: 0,
           counts: {},
+          detectorVersion: DETECTOR_VERSION,
         };
       }
     }
 
-    await kv.put(TEXT_HEALTH_KEY, JSON.stringify({ version: 1, records, updatedAt: now }));
+    await kv.put(TEXT_HEALTH_KEY, JSON.stringify({ version: 2, records, updatedAt: now }));
     const summary = summarize(archive, records);
     const remaining = force
       ? Math.max(0, queue.length - batch.length)
