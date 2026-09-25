@@ -1,3 +1,12 @@
+# v8.70
+
+- iPhone Safari 자동 로그인 복원 경로를 서버 세션 중심으로 보강했습니다. Safari에서 localStorage/JS 쿠키 토큰이 보이지 않아도 서버 세션 쿠키를 이용해 `/api/user/bootstrap` 복원을 시도합니다.
+- 자동 로그인용 서버 세션 쿠키를 `Secure; HttpOnly; SameSite=Lax`로 변경해 JavaScript 저장소 제한과 분리하고, 인증 요청에는 `credentials: same-origin`을 명시했습니다.
+- 401 인증 실패 시 서버 세션 쿠키를 서버 응답에서 함께 만료시키도록 수정해 잘못된 쿠키가 반복 복원되는 경로를 차단했습니다.
+- 문제 신고 정보에 접속 호스트를 추가하고 HttpOnly 서버 쿠키는 브라우저 JavaScript에서 직접 확인할 수 없음을 명확히 표시합니다.
+- 기존 뷰어, 이어보기, 스크롤/페이지 모드, 컴팩트 헤더, 문장 이미지 공유 로직은 변경하지 않았습니다.
+- 커밋 메시지 요약: `fix: restore Safari auto login from HttpOnly server session`
+
 # v8.69
 
 - 사용자 페이지 하단 버전 표기를 하드코딩 값이 아니라 `public/version.json`에서 직접 읽도록 변경했습니다.

@@ -494,6 +494,14 @@ function getAuthToken() {
     || "";
 }
 
+function shouldProbeServerSession() {
+  const ua = String(navigator.userAgent || "");
+  const appleWebKit = /AppleWebKit/i.test(ua);
+  const safari = /Safari/i.test(ua);
+  const otherIosBrowser = /(CriOS|FxiOS|EdgiOS|OPiOS)/i.test(ua);
+  return appleWebKit && safari && !otherIosBrowser;
+}
+
 function setAuthToken(token, remember = true) {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   sessionStorage.removeItem(AUTH_TOKEN_KEY);
@@ -529,6 +537,7 @@ async function userApi(path, options = {}) {
   const response = await fetch(path, {
     ...options,
     headers,
+    credentials: "same-origin",
     cache: "no-store",
   });
 
@@ -1777,16 +1786,21 @@ async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceIt
 
 async function restoreAuth() {
   const token = getAuthToken();
-  if (!token) {
+  const probeServerSession = !token && shouldProbeServerSession();
+  if (!token && !probeServerSession) {
     applyUserPreferences();
     updateAccountUi();
     return;
   }
 
+  if (probeServerSession) {
+    document.documentElement.classList.add("auth-session-pending");
+  }
+
   try {
     // 로그인 첫 화면에 필요한 개인화 데이터를 한 번의 요청으로 복원한다.
-    // 기존 /auth/me + /user/library + /user/profile + /user/visit 호출을
-    // 합쳐 Functions/D1 세션 조회 중복을 줄인다.
+    // Safari에서는 JS 저장소에 토큰이 보이지 않아도 서버가 발급한 HttpOnly
+    // 세션 쿠키를 브라우저가 요청에 자동 첨부할 수 있으므로 bootstrap을 시도한다.
     const data = await userApi("/api/user/bootstrap", {
       method: "POST",
       body: "{}",
@@ -1800,7 +1814,7 @@ async function restoreAuth() {
       state.visitRecordedUserId = state.user?.userId || "";
     }
   } catch {
-    clearUserSession(true);
+    clearUserSession(Boolean(token));
   }
 }
 
@@ -9144,7 +9158,8 @@ function getIssueReportText() {
     `시간: ${new Date().toLocaleString("ko-KR")}`,
     `온라인: ${navigator.onLine ? "예" : "아니오"}`,
     `로그인: ${state.user ? "예" : "아니오"}`,
-    `인증 저장: local=${localStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / session=${sessionStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / jsCookie=${getAuthCookieToken() ? "있음" : "없음"} / serverCookie=${getCookieValue(AUTH_SERVER_COOKIE_KEY) ? "있음" : "없음"}`,
+    `인증 저장: local=${localStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / session=${sessionStorage.getItem(AUTH_TOKEN_KEY) ? "있음" : "없음"} / jsCookie=${getAuthCookieToken() ? "있음" : "없음"} / serverCookie=HttpOnly(직접확인불가)`,
+    `접속 호스트: ${window.location.host || "-"}`,
     `페이지: ${page}`,
     `화면: viewport ${viewport} / screen ${screenSize} / DPR ${dpr}`,
     `플랫폼: ${platform}`,

@@ -412,6 +412,7 @@ function buildUserSessionCookie(token, maxAgeSeconds = SESSION_TTL_SECONDS) {
     "Path=/",
     "SameSite=Lax",
     "Secure",
+    "HttpOnly",
   ].join("; ");
 }
 
@@ -423,6 +424,7 @@ function buildClearUserSessionCookie() {
     "Path=/",
     "SameSite=Lax",
     "Secure",
+    "HttpOnly",
   ].join("; ");
 }
 
@@ -466,10 +468,15 @@ async function requireUser(context) {
 }
 
 function userErrorResponse(error) {
+  const status = Number(error?.status || 500);
+  const headers = { "cache-control": "no-store" };
+  if (status === 401) {
+    headers["set-cookie"] = buildClearUserSessionCookie();
+  }
   return jsonResponse(
     { error: error?.message || "요청을 처리하지 못했습니다." },
-    error?.status || 500,
-    { "cache-control": "no-store" }
+    status,
+    headers
   );
 }
 
