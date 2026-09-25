@@ -9102,6 +9102,27 @@ els.pageScrollTop?.addEventListener("click", () => {
 });
 
 
+async function loadPublicVersion() {
+  if (!els.publicVersion) return null;
+
+  try {
+    const response = await fetch(`/version.json?ts=${Date.now()}`, {
+      cache: "no-store",
+    });
+    if (!response.ok) throw new Error(`version fetch failed: ${response.status}`);
+
+    const data = await response.json();
+    const version = String(data?.version || "").trim();
+    if (!version) throw new Error("version is empty");
+
+    els.publicVersion.textContent = `v${version}`;
+    return version;
+  } catch (error) {
+    console.warn("사용자 버전 확인 실패", error);
+    return null;
+  }
+}
+
 function getIssueReportText() {
   const activeItem = state.activeReaderItem;
   const activeEntry = activeItem ? getUserLibraryEntry(activeItem.id) : null;
@@ -9199,6 +9220,7 @@ state.readerHistoryActive = false;
 
 initReaderShareSelection();
 applyUserPreferences();
+loadPublicVersion();
 updateNetworkStatus();
 window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
