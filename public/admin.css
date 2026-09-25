@@ -3222,3 +3222,18 @@ body.history-modal-open { overflow:hidden; }
   .visit-mix-columns{grid-template-columns:1fr;}
   .visit-hourly-chart{gap:2px;}
 }
+
+
+/* v8.75 - Drive TXT text health check */
+.text-health-panel{margin:18px 0 20px;padding:18px;border:1px solid var(--line,#ddd8cf);border-radius:18px;background:rgba(255,255,255,.58)}
+.text-health-head{display:flex;justify-content:space-between;gap:18px;align-items:flex-start}
+.text-health-head>div{min-width:0}.text-health-kicker{display:block;margin-bottom:5px;font-size:11px;font-weight:800;letter-spacing:.12em;color:#8a8278}.text-health-head strong{display:block;font-size:18px}.text-health-head p{margin:6px 0 0;color:#777067;font-size:13px;line-height:1.55}
+.text-health-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:16px}.text-health-summary>div{padding:12px 14px;border:1px solid #e2ddd5;border-radius:14px;background:#fff}.text-health-summary span{display:block;color:#817a72;font-size:12px;font-weight:700}.text-health-summary strong{display:block;margin-top:5px;font-size:21px}.text-health-summary .is-danger strong{color:#a13d3d}
+.text-health-progress{margin-top:12px;padding:10px 12px;border-radius:12px;background:#f5f2ed;color:#746d64;font-size:12px;line-height:1.5}.text-health-list{display:grid;gap:10px;margin-top:12px}.text-health-item{padding:14px;border:1px solid #ddd8cf;border-radius:14px;background:#fff}.text-health-item.is-severe{border-color:#ddb8b8;background:#fffafa}.text-health-item-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.text-health-item-head>div{min-width:0}.text-health-item-head strong{display:block;font-size:14px;overflow-wrap:anywhere}.text-health-item-head span:not(.text-health-badge){display:block;margin-top:4px;color:#837b72;font-size:11px}.text-health-badge{flex:0 0 auto;padding:5px 8px;border-radius:999px;background:#f3eee7;font-size:11px;font-weight:800}.is-severe .text-health-badge{background:#f8e4e4;color:#963838}.text-health-meta{margin-top:9px;color:#8a8279;font-size:11px;overflow-wrap:anywhere}.text-health-reasons{display:flex;flex-wrap:wrap;gap:5px;margin-top:8px}.text-health-reasons span{padding:4px 7px;border-radius:999px;background:#f5f2ed;color:#655e56;font-size:11px}.text-health-sample{margin:10px 0 0;padding:10px 11px;white-space:pre-wrap;overflow-wrap:anywhere;border-radius:10px;background:#f7f5f1;color:#39342e;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace}
+@media (max-width:720px){.text-health-head{display:block}.text-health-head button{width:100%;margin-top:12px}.text-health-summary{grid-template-columns:repeat(2,minmax(0,1fr))}.text-health-item-head{display:block}.text-health-badge{display:inline-block;margin-top:8px}}
+
+/* v8.75 - text health manual normal confirmation */
+.text-health-actions{display:flex;justify-content:flex-end;margin-top:11px;padding-top:10px;border-top:1px solid #eee9e2}
+.text-health-normal-button{appearance:none;border:1px solid #cfc8bd;border-radius:10px;background:#fff;color:#4f4942;padding:7px 11px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
+.text-health-normal-button:hover{background:#f6f3ee}.text-health-normal-button:disabled{opacity:.55;cursor:default}
+@media (max-width:720px){.text-health-normal-button{width:100%;padding:9px 11px}}

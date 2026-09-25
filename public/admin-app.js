@@ -60,6 +60,14 @@ const els = {
   driveListEmpty: document.getElementById("driveListEmpty"),
   driveListMessage: document.getElementById("driveListMessage"),
   driveLastSyncStatus: document.getElementById("driveLastSyncStatus"),
+  textHealthScanButton: document.getElementById("textHealthScanButton"),
+  textHealthChecked: document.getElementById("textHealthChecked"),
+  textHealthNormal: document.getElementById("textHealthNormal"),
+  textHealthSuspect: document.getElementById("textHealthSuspect"),
+  textHealthSevere: document.getElementById("textHealthSevere"),
+  textHealthProgress: document.getElementById("textHealthProgress"),
+  textHealthList: document.getElementById("textHealthList"),
+  textHealthEmpty: document.getElementById("textHealthEmpty"),
   driveSummaryFilters: document.getElementById("driveSummaryFilters"),
   settingsForm: document.getElementById("settingsForm"),
   faviconUrlInput: document.getElementById("faviconUrlInput"),
@@ -244,6 +252,7 @@ let postypeAdminPage = 1;
 let postypeAdminFilter = "all";
 let driveAdminItems = [];
 let driveAdminLoaded = false;
+let textHealthLoaded = false;
 const DRIVE_ADMIN_PAGE_SIZE = 30;
 let driveAdminPage = 1;
 let driveAdminFilter = "all";
@@ -362,6 +371,13 @@ function setActiveTab(name) {
         els.driveListMessage.hidden = false;
         els.driveListMessage.textContent = error.message || "Drive 목록을 불러오지 못했습니다.";
       }
+    });
+  }
+
+  if (name === "drive-library" && !textHealthLoaded) {
+    loadTextHealth().catch((error) => {
+      console.error(error);
+      if (els.textHealthProgress) els.textHealthProgress.textContent = error.message || "텍스트 건강검사 결과를 불러오지 못했습니다.";
     });
   }
 
@@ -2061,6 +2077,126 @@ function renderDriveAdminList() {
   syncDriveSummaryFilterButtons();
 }
 
+
+function textHealthStatusLabel(status) {
+  if (status === "severe") return "심각";
+  if (status === "suspect") return "확인 필요";
+  return "정상";
+}
+
+function renderTextHealth(data = {}) {
+  const summary = data.summary || {};
+  const items = Array.isArray(data.items) ? data.items : [];
+  const total = Number(summary.total || 0);
+  const checked = Number(summary.checked || 0);
+  const pending = Number(summary.pending || 0);
+
+  if (els.textHealthChecked) els.textHealthChecked.textContent = `${checked.toLocaleString("ko-KR")} / ${total.toLocaleString("ko-KR")}`;
+  if (els.textHealthNormal) els.textHealthNormal.textContent = Number(summary.normal || 0).toLocaleString("ko-KR");
+  if (els.textHealthSuspect) els.textHealthSuspect.textContent = Number(summary.suspect || 0).toLocaleString("ko-KR");
+  if (els.textHealthSevere) els.textHealthSevere.textContent = Number(summary.severe || 0).toLocaleString("ko-KR");
+
+  if (els.textHealthEmpty) {
+    els.textHealthEmpty.hidden = items.length !== 0 || checked === 0;
+    if (checked > 0 && pending === 0 && items.length === 0) {
+      els.textHealthEmpty.textContent = "검사한 TXT에서 깨짐 의심 패턴을 찾지 못했습니다.";
+    }
+  }
+
+  if (els.textHealthList) {
+    els.textHealthList.innerHTML = items.map((item) => `
+      <article class="text-health-item is-${escapeHtml(item.status || "suspect")}">
+        <div class="text-health-item-head">
+          <div>
+            <strong>${escapeHtml(item.title || item.fileName || "제목 없음")}</strong>
+            <span>${escapeHtml(item.author || "-")} · ${escapeHtml(item.combination || "-")} · ${escapeHtml(item.lengthType || "-")}</span>
+          </div>
+          <span class="text-health-badge">${escapeHtml(textHealthStatusLabel(item.status))} · ${Number(item.score || 0)}점</span>
+        </div>
+        <div class="text-health-meta">${escapeHtml(item.fileName || "")} · ${escapeHtml(item.encoding || "인코딩 미확인")}</div>
+        <div class="text-health-reasons">${(item.reasons || []).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")}</div>
+        ${item.sample ? `<pre class="text-health-sample">${escapeHtml(item.sample)}</pre>` : ""}
+        <div class="text-health-actions">
+          <button type="button" class="text-health-normal-button" data-text-health-normal="${escapeHtml(item.id || "")}" data-text-health-modified="${escapeHtml(item.modifiedTime || "")}">정상으로 확인</button>
+        </div>
+      </article>`).join("");
+  }
+
+  if (els.textHealthProgress && !els.textHealthScanButton?.disabled) {
+    if (!checked) {
+      els.textHealthProgress.textContent = "아직 검사하지 않았습니다. ‘전체 검사’를 누르면 TXT를 소량 배치로 나눠 확인합니다.";
+    } else if (pending > 0) {
+      els.textHealthProgress.textContent = `검사 완료 ${checked.toLocaleString("ko-KR")}개 · 변경/미검사 ${pending.toLocaleString("ko-KR")}개 남음`;
+    } else {
+      const when = summary.lastCheckedAt ? formatAdminDateTime(summary.lastCheckedAt) : "-";
+      els.textHealthProgress.textContent = `전체 검사 완료 · 마지막 검사 ${when}`;
+    }
+  }
+}
+
+async function loadTextHealth() {
+  if (!els.textHealthList) return;
+  const data = await api("/api/admin/text-health", { method: "GET" });
+  renderTextHealth(data);
+  textHealthLoaded = true;
+  return data;
+}
+
+async function runTextHealthScan() {
+  if (!els.textHealthScanButton) return;
+  els.textHealthScanButton.disabled = true;
+  els.textHealthScanButton.textContent = "검사 중…";
+  let totalProcessed = 0;
+
+  try {
+    while (true) {
+      const data = await api("/api/admin/text-health", {
+        method: "POST",
+        body: JSON.stringify({ limit: 12 }),
+      });
+      totalProcessed += Number(data.processed || 0);
+      renderTextHealth(data);
+      if (els.textHealthProgress) {
+        const summary = data.summary || {};
+        els.textHealthProgress.textContent = data.done
+          ? `검사 완료 · 이번 실행 ${totalProcessed.toLocaleString("ko-KR")}개 확인`
+          : `검사 중… ${Number(summary.checked || 0).toLocaleString("ko-KR")} / ${Number(summary.total || 0).toLocaleString("ko-KR")} · 남은 파일 ${Number(data.remaining || 0).toLocaleString("ko-KR")}개`;
+      }
+      if (data.done || Number(data.processed || 0) <= 0) break;
+    }
+    textHealthLoaded = true;
+  } finally {
+    els.textHealthScanButton.disabled = false;
+    els.textHealthScanButton.textContent = "전체 검사";
+    const latest = await loadTextHealth().catch(() => null);
+    if (latest) renderTextHealth(latest);
+  }
+}
+
+async function confirmTextHealthNormal(id, modifiedTime, button) {
+  if (!id) return;
+  if (button) {
+    button.disabled = true;
+    button.textContent = "저장 중…";
+  }
+  try {
+    const data = await api("/api/admin/text-health", {
+      method: "PATCH",
+      body: JSON.stringify({ id, modifiedTime }),
+    });
+    renderTextHealth(data);
+    if (els.textHealthProgress) {
+      els.textHealthProgress.textContent = "정상 파일로 확인했습니다. 파일이 수정되면 자동으로 다시 검사합니다.";
+    }
+  } catch (error) {
+    if (button) {
+      button.disabled = false;
+      button.textContent = "정상으로 확인";
+    }
+    throw error;
+  }
+}
+
 function formatAdminDateTime(value) {
   if (!value) return "기록 없음";
   const date = new Date(value);
@@ -3218,6 +3354,32 @@ els.driveListPagination?.addEventListener("click", (event) => {
   }
 });
 
+els.textHealthScanButton?.addEventListener("click", async () => {
+  try {
+    await runTextHealthScan();
+  } catch (error) {
+    if (els.textHealthProgress) els.textHealthProgress.textContent = error.message || "텍스트 건강검사에 실패했습니다.";
+    if (els.textHealthScanButton) {
+      els.textHealthScanButton.disabled = false;
+      els.textHealthScanButton.textContent = "전체 검사";
+    }
+  }
+});
+
+els.textHealthList?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-text-health-normal]");
+  if (!button) return;
+  try {
+    await confirmTextHealthNormal(
+      button.dataset.textHealthNormal || "",
+      button.dataset.textHealthModified || "",
+      button
+    );
+  } catch (error) {
+    if (els.textHealthProgress) els.textHealthProgress.textContent = error.message || "정상 확인 상태를 저장하지 못했습니다.";
+  }
+});
+
 els.driveListRefreshButton?.addEventListener("click", async () => {
   try {
     await loadDriveAdminList();
@@ -3249,6 +3411,8 @@ els.driveRescanButton?.addEventListener("click", async () => {
     });
     els.driveListMessage.textContent =
       `Drive 재동기화 완료 · 추가 ${added} / 수정 ${updated} / 삭제 ${removed}`;
+    textHealthLoaded = false;
+    await loadTextHealth().catch(() => {});
   } catch (error) {
     els.driveListMessage.textContent =
       error.message || "Drive 다시 읽기에 실패했습니다.";
