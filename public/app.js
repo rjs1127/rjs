@@ -115,6 +115,7 @@ let analyticsVisibleStartedAt = document.visibilityState === "visible" ? Date.no
 let analyticsSearchTimer = 0;
 let analyticsLastSearch = "";
 let analyticsFlushInFlight = false;
+let analyticsFlushPending = false;
 
 function createAnalyticsId() {
   if (crypto?.randomUUID) return crypto.randomUUID().toLowerCase();
@@ -278,7 +279,11 @@ function analyticsPayload() {
 }
 
 async function flushAnalyticsSession(options = {}) {
-  if (!analyticsSession || analyticsFlushInFlight) return;
+  if (!analyticsSession) return;
+  if (analyticsFlushInFlight) {
+    if (options.afterCurrent) analyticsFlushPending = true;
+    return;
+  }
   const payload = analyticsPayload();
   if (!payload) return;
 
@@ -307,6 +312,10 @@ async function flushAnalyticsSession(options = {}) {
     console.warn("방문 분석 저장 실패", error);
   } finally {
     analyticsFlushInFlight = false;
+    if (analyticsFlushPending) {
+      analyticsFlushPending = false;
+      window.setTimeout(() => flushAnalyticsSession(), 0);
+    }
   }
 }
 
@@ -474,6 +483,12 @@ function recordAnalyticsReaderLoad(ms, details = {}) {
   else perf.histogram.over8 += 1;
 
   persistAnalyticsSession();
+
+  // KV MISS 서버 내부 진단값은 드문 이벤트라 즉시 저장한다.
+  // 기존 15분 heartbeat와 겹치면 현재 저장이 끝난 직후 한 번 더 flush한다.
+  if (cached === "miss") {
+    flushAnalyticsSession({ afterCurrent: true });
+  }
 }
 
 function recordAnalyticsPageLoad() {
