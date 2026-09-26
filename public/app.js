@@ -5898,6 +5898,7 @@ async function openReader(item, options = {}) {
 
   document.body.classList.add("reader-open");
   mainHeaderCompactActive = false;
+  mainHeaderCompactEnterScrollY = null;
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
@@ -7643,7 +7644,8 @@ function setSearchValue(value, source = "main") {
 }
 
 let mainHeaderCompactActive = false;
-
+let mainHeaderCompactEnterScrollY = null;
+const MAIN_HEADER_COMPACT_RELEASE_GAP = 64;
 
 
 function updateCompactHeader() {
@@ -7651,24 +7653,36 @@ function updateCompactHeader() {
 
   if (document.body.classList.contains("reader-open")) {
     mainHeaderCompactActive = false;
+    mainHeaderCompactEnterScrollY = null;
     els.siteHeader.classList.remove("compact-mode");
     return;
   }
 
-  const searchRect = els.heroSearchBox.getBoundingClientRect();
-  const enterThreshold = Math.max(54, Math.min(88, Math.round((els.siteHeader.offsetHeight || 64) + 6)));
-  const leaveThreshold = enterThreshold + 36;
+  // Compact mode changes the header height/layout. If the decision keeps using
+  // getBoundingClientRect() after that change, the layout movement itself can
+  // immediately satisfy the opposite condition and cause a flicker loop.
+  // Calculate the entry point only while the normal header is active, then keep
+  // that scroll position fixed until the user actually scrolls far enough up.
+  if (!mainHeaderCompactActive) {
+    const searchRect = els.heroSearchBox.getBoundingClientRect();
+    const enterThreshold = Math.max(54, Math.min(88, Math.round((els.siteHeader.offsetHeight || 64) + 6)));
 
-  // Search box 상단이 헤더 근처로 올라오면 먼저 compact로 전환한다.
-  if (!mainHeaderCompactActive && searchRect.top <= enterThreshold) {
-    mainHeaderCompactActive = true;
-    els.siteHeader.classList.add("compact-mode");
+    if (searchRect.top <= enterThreshold) {
+      mainHeaderCompactEnterScrollY = Math.max(0, window.scrollY);
+      mainHeaderCompactActive = true;
+      els.siteHeader.classList.add("compact-mode");
+    }
     return;
   }
 
-  // 다시 위로 올렸을 때는 search box의 하단이 충분히 내려와 보이면 일반 모드로 복귀한다.
-  if (mainHeaderCompactActive && searchRect.bottom >= leaveThreshold) {
+  const enterScrollY = Number.isFinite(mainHeaderCompactEnterScrollY)
+    ? mainHeaderCompactEnterScrollY
+    : window.scrollY;
+  const releaseScrollY = Math.max(0, enterScrollY - MAIN_HEADER_COMPACT_RELEASE_GAP);
+
+  if (window.scrollY <= releaseScrollY) {
     mainHeaderCompactActive = false;
+    mainHeaderCompactEnterScrollY = null;
     els.siteHeader.classList.remove("compact-mode");
   }
 }
