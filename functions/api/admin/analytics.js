@@ -46,6 +46,11 @@ function aggregateReaderPerf(performanceRows) {
     cache: { hit: emptyPerfBucket(), miss: emptyPerfBucket(), unknown: emptyPerfBucket() },
     size: { small: emptyPerfBucket(), medium: emptyPerfBucket(), large: emptyPerfBucket() },
     mode: { scroll: emptyPerfBucket(), page: emptyPerfBucket() },
+    missServer: {
+      kvRead: emptyPerfBucket(), token: emptyPerfBucket(), verify: emptyPerfBucket(),
+      driveRequest: emptyPerfBucket(), driveDownload: emptyPerfBucket(), decode: emptyPerfBucket(),
+      kvWrite: emptyPerfBucket(), total: emptyPerfBucket(),
+    },
     histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
     devices: new Map(),
     browsers: new Map(),
@@ -58,7 +63,7 @@ function aggregateReaderPerf(performanceRows) {
     for (const key of ["total", "response", "download", "render", "layout"]) {
       mergePerfBucket(totals[key], perf[key]);
     }
-    for (const groupName of ["cache", "size", "mode"]) {
+    for (const groupName of ["cache", "size", "mode", "missServer"]) {
       for (const key of Object.keys(totals[groupName])) {
         mergePerfBucket(totals[groupName][key], perf?.[groupName]?.[key]);
       }
@@ -120,6 +125,7 @@ function aggregateReaderPerf(performanceRows) {
     cache: bucketObject(totals.cache),
     size: bucketObject(totals.size),
     mode: bucketObject(totals.mode),
+    missServer: bucketObject(totals.missServer),
     histogram: totals.histogram,
     devices: mapRows(totals.devices),
     browsers: mapRows(totals.browsers),

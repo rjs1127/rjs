@@ -391,6 +391,16 @@ function createEmptyReaderPerf() {
     cache: { hit: bucket(), miss: bucket(), unknown: bucket() },
     size: { small: bucket(), medium: bucket(), large: bucket() },
     mode: { scroll: bucket(), page: bucket() },
+    missServer: {
+      kvRead: bucket(),
+      token: bucket(),
+      verify: bucket(),
+      driveRequest: bucket(),
+      driveDownload: bucket(),
+      decode: bucket(),
+      kvWrite: bucket(),
+      total: bucket(),
+    },
     histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
   };
 }
@@ -402,7 +412,7 @@ function ensureReaderPerfShape(value) {
     base[key].sum = Number(source?.[key]?.sum || 0);
     base[key].count = Number(source?.[key]?.count || 0);
   }
-  for (const groupName of ["cache", "size", "mode"]) {
+  for (const groupName of ["cache", "size", "mode", "missServer"]) {
     for (const key of Object.keys(base[groupName])) {
       base[groupName][key].sum = Number(source?.[groupName]?.[key]?.sum || 0);
       base[groupName][key].count = Number(source?.[groupName]?.[key]?.count || 0);
@@ -450,6 +460,12 @@ function recordAnalyticsReaderLoad(ms, details = {}) {
 
   const mode = details.mode === "page" ? "page" : "scroll";
   addReaderPerfBucket(perf.mode[mode], value);
+
+  if (cached === "miss") {
+    for (const key of Object.keys(perf.missServer)) {
+      addReaderPerfBucket(perf.missServer[key], details?.missServer?.[key]);
+    }
+  }
 
   if (value < 1000) perf.histogram.under1 += 1;
   else if (value < 2000) perf.histogram.oneTo2 += 1;
@@ -6052,6 +6068,17 @@ async function openReader(item, options = {}) {
     );
     const cacheHeader = response.headers.get("x-content-cached");
     const cacheStatus = cacheHeader === "1" ? "hit" : cacheHeader === "0" ? "miss" : "unknown";
+    const readServerTimingHeader = (name) => Math.max(0, Number(response.headers.get(name)) || 0);
+    const missServer = cacheStatus === "miss" ? {
+      kvRead: readServerTimingHeader("x-content-server-kv-read-ms"),
+      token: readServerTimingHeader("x-content-server-token-ms"),
+      verify: readServerTimingHeader("x-content-server-verify-ms"),
+      driveRequest: readServerTimingHeader("x-content-server-drive-request-ms"),
+      driveDownload: readServerTimingHeader("x-content-server-drive-download-ms"),
+      decode: readServerTimingHeader("x-content-server-decode-ms"),
+      kvWrite: readServerTimingHeader("x-content-server-kv-write-ms"),
+      total: readServerTimingHeader("x-content-server-total-ms"),
+    } : null;
 
     window.clearInterval(waitTimer);
 
@@ -6118,6 +6145,7 @@ async function openReader(item, options = {}) {
       cacheStatus,
       bytes: contentBytes,
       mode: preferredMode,
+      missServer,
     });
 
     window.setTimeout(() => {

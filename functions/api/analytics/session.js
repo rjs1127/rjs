@@ -61,6 +61,10 @@ function cleanReaderPerf(value) {
     cache: cleanGroup("cache", ["hit", "miss", "unknown"]),
     size: cleanGroup("size", ["small", "medium", "large"]),
     mode: cleanGroup("mode", ["scroll", "page"]),
+    missServer: cleanGroup("missServer", [
+      "kvRead", "token", "verify", "driveRequest",
+      "driveDownload", "decode", "kvWrite", "total",
+    ]),
     histogram: {
       under1: clampInt(source?.histogram?.under1, 0, 500),
       oneTo2: clampInt(source?.histogram?.oneTo2, 0, 500),

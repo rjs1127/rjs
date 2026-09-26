@@ -136,6 +136,8 @@ const els = {
   visitReaderLoadCount: document.getElementById("visitReaderLoadCount"),
   visitReaderPercentiles: document.getElementById("visitReaderPercentiles"),
   visitReaderPhaseGrid: document.getElementById("visitReaderPhaseGrid"),
+  visitReaderMissServerMeta: document.getElementById("visitReaderMissServerMeta"),
+  visitReaderMissServerGrid: document.getElementById("visitReaderMissServerGrid"),
   visitReaderCacheBreakdown: document.getElementById("visitReaderCacheBreakdown"),
   visitReaderSizeBreakdown: document.getElementById("visitReaderSizeBreakdown"),
   visitReaderModeBreakdown: document.getElementById("visitReaderModeBreakdown"),
@@ -662,7 +664,7 @@ function renderReaderPerfBreakdown(target, group, labels = {}) {
   if (!target) return;
   const entries = Object.entries(group || {}).filter(([, row]) => Number(row?.count || 0) > 0);
   if (!entries.length) {
-    target.innerHTML = '<span class="visit-empty-inline">v8.78 이후 측정 대기</span>';
+    target.innerHTML = '<span class="visit-empty-inline">v8.79 이후 측정 대기</span>';
     return;
   }
   target.innerHTML = entries.map(([key, row]) => `
@@ -796,7 +798,7 @@ function renderVisitAnalytics(data = analyticsAdminData) {
     const detailCount = Number(readerBreakdown.count || 0);
     els.visitReaderPercentiles.textContent = detailCount
       ? `세부 ${detailCount.toLocaleString("ko-KR")}회 · 중앙구간 ≤ ${formatVisitLoad(readerBreakdown.p50ApproxMs)} · P95 구간 ≤ ${formatVisitLoad(readerBreakdown.p95ApproxMs)}`
-      : "v8.78 이후 데이터 집계";
+      : "v8.79 이후 데이터 집계";
   }
   if (els.visitReaderPhaseGrid) {
     const phases = readerBreakdown.phases || {};
@@ -810,7 +812,29 @@ function renderVisitAnalytics(data = analyticsAdminData) {
       ? phaseRows.map(([label, value]) => `<div><span>${label}</span><strong>${formatVisitLoad(value)}</strong></div>`).join("")
       : '<span class="visit-empty-inline">세부 계측 데이터가 쌓이면 단계별 시간이 표시됩니다.</span>';
   }
-  renderReaderPerfBreakdown(els.visitReaderCacheBreakdown, readerBreakdown.cache, { hit: "KV HIT", miss: "KV MISS", unknown: "알 수 없음" });
+  if (els.visitReaderMissServerGrid) {
+    const missServer = readerBreakdown.missServer || {};
+    const missCount = Number(missServer.total?.count || 0);
+    const rows = [
+      ["KV 조회", missServer.kvRead?.averageMs],
+      ["Google 인증", missServer.token?.averageMs],
+      ["Drive 경로 검증", missServer.verify?.averageMs],
+      ["Drive 원본 요청", missServer.driveRequest?.averageMs],
+      ["원본 다운로드", missServer.driveDownload?.averageMs],
+      ["디코딩", missServer.decode?.averageMs],
+      ["KV 저장", missServer.kvWrite?.averageMs],
+      ["서버 전체", missServer.total?.averageMs],
+    ];
+    els.visitReaderMissServerGrid.innerHTML = missCount
+      ? rows.map(([label, value]) => `<div><span>${label}</span><strong>${formatVisitLoad(value)}</strong></div>`).join("")
+      : '<span class="visit-empty-inline">KV MISS 세부 계측 데이터가 쌓이면 서버 내부 시간이 표시됩니다.</span>';
+    if (els.visitReaderMissServerMeta) {
+      els.visitReaderMissServerMeta.textContent = missCount
+        ? `MISS 세부 ${missCount.toLocaleString("ko-KR")}회`
+        : "v8.79 이후 측정 대기";
+    }
+  }
+    renderReaderPerfBreakdown(els.visitReaderCacheBreakdown, readerBreakdown.cache, { hit: "KV HIT", miss: "KV MISS", unknown: "알 수 없음" });
   renderReaderPerfBreakdown(els.visitReaderSizeBreakdown, readerBreakdown.size, { small: "1MB 미만", medium: "1~5MB", large: "5MB 이상" });
   renderReaderPerfBreakdown(els.visitReaderModeBreakdown, readerBreakdown.mode, { scroll: "스크롤", page: "페이지" });
 

@@ -54,9 +54,13 @@ export async function onRequestGet(context) {
   scheduleAuthenticatedRecentView(context, fileId);
 
   try {
+    const serverStartedAt = Date.now();
     const kv = requireKv(context.env);
     const bodyCacheKey = `body:${fileId}:${modified}`;
+
+    const kvReadStartedAt = Date.now();
     const cached = await kv.get(bodyCacheKey);
+    const kvReadMs = Date.now() - kvReadStartedAt;
 
     if (cached !== null) {
       if (raw) {
@@ -68,6 +72,8 @@ export async function onRequestGet(context) {
             "cache-control": "private, max-age=300",
             "x-content-bytes": String(byteLength),
             "x-content-cached": "1",
+            "x-content-server-kv-read-ms": String(kvReadMs),
+            "x-content-server-total-ms": String(Date.now() - serverStartedAt),
           },
         });
       }
@@ -75,22 +81,51 @@ export async function onRequestGet(context) {
       return jsonResponse(
         { id: fileId, content: cached, cached: true },
         200,
-        { "cache-control": "private, max-age=300" }
+        {
+          "cache-control": "private, max-age=300",
+          "x-content-server-kv-read-ms": String(kvReadMs),
+          "x-content-server-total-ms": String(Date.now() - serverStartedAt),
+        }
       );
     }
 
+    const tokenStartedAt = Date.now();
     const accessToken = await getAccessToken(context.env);
-    const verified = await verifyFileInsideArchive(accessToken, fileId);
+    const tokenMs = Date.now() - tokenStartedAt;
 
+    const verifyStartedAt = Date.now();
+    const verified = await verifyFileInsideArchive(accessToken, fileId);
+    const verifyMs = Date.now() - verifyStartedAt;
+
+    const driveRequestStartedAt = Date.now();
     const response = await driveFetch(
       accessToken,
       `/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`
     );
+    const driveRequestMs = Date.now() - driveRequestStartedAt;
 
+    const driveDownloadStartedAt = Date.now();
     const buffer = await response.arrayBuffer();
-    const content = decodeTextSmart(buffer);
+    const driveDownloadMs = Date.now() - driveDownloadStartedAt;
 
+    const decodeStartedAt = Date.now();
+    const content = decodeTextSmart(buffer);
+    const decodeMs = Date.now() - decodeStartedAt;
+
+    const kvWriteStartedAt = Date.now();
     await kv.put(bodyCacheKey, content);
+    const kvWriteMs = Date.now() - kvWriteStartedAt;
+
+    const buildServerTimingHeaders = () => ({
+      "x-content-server-kv-read-ms": String(kvReadMs),
+      "x-content-server-token-ms": String(tokenMs),
+      "x-content-server-verify-ms": String(verifyMs),
+      "x-content-server-drive-request-ms": String(driveRequestMs),
+      "x-content-server-drive-download-ms": String(driveDownloadMs),
+      "x-content-server-decode-ms": String(decodeMs),
+      "x-content-server-kv-write-ms": String(kvWriteMs),
+      "x-content-server-total-ms": String(Date.now() - serverStartedAt),
+    });
 
     if (raw) {
       const byteLength = new TextEncoder().encode(content).byteLength;
@@ -101,6 +136,7 @@ export async function onRequestGet(context) {
           "cache-control": "private, max-age=300",
           "x-content-bytes": String(byteLength),
           "x-content-cached": "0",
+          ...buildServerTimingHeaders(),
         },
       });
     }
@@ -115,7 +151,10 @@ export async function onRequestGet(context) {
         cached: false,
       },
       200,
-      { "cache-control": "private, max-age=300" }
+      {
+        "cache-control": "private, max-age=300",
+        ...buildServerTimingHeaders(),
+      }
     );
   } catch (error) {
     console.error(error);

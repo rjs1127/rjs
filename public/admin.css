@@ -3264,3 +3264,10 @@ body.history-modal-open { overflow:hidden; }
   .visit-reader-phase-grid{grid-template-columns:1fr 1fr;}
   .visit-reader-breakdown-columns{grid-template-columns:1fr;}
 }
+
+/* v8.79 - KV MISS 서버 내부 진단 */
+.visit-reader-miss-server{margin-top:14px;padding-top:12px;border-top:1px solid var(--line,#e7e1d9)}
+.visit-reader-miss-server-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.visit-reader-miss-server-head h3{margin:0;font-size:12px}
+.visit-reader-miss-server-head small{color:var(--muted,#777069);font-size:10px}
+@media(max-width:640px){.visit-reader-miss-server-head{align-items:flex-start;flex-direction:column;gap:4px}}
