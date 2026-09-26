@@ -40,6 +40,37 @@ function cleanHost(value) {
     .slice(0, 160);
 }
 
+function cleanPerfBucket(value) {
+  return {
+    sum: clampInt(value?.sum, 0, MAX_LOAD_MS * 500),
+    count: clampInt(value?.count, 0, 500),
+  };
+}
+
+function cleanReaderPerf(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const cleanGroup = (name, keys) => Object.fromEntries(
+    keys.map((key) => [key, cleanPerfBucket(source?.[name]?.[key])])
+  );
+  return {
+    total: cleanPerfBucket(source.total),
+    response: cleanPerfBucket(source.response),
+    download: cleanPerfBucket(source.download),
+    render: cleanPerfBucket(source.render),
+    layout: cleanPerfBucket(source.layout),
+    cache: cleanGroup("cache", ["hit", "miss", "unknown"]),
+    size: cleanGroup("size", ["small", "medium", "large"]),
+    mode: cleanGroup("mode", ["scroll", "page"]),
+    histogram: {
+      under1: clampInt(source?.histogram?.under1, 0, 500),
+      oneTo2: clampInt(source?.histogram?.oneTo2, 0, 500),
+      twoTo4: clampInt(source?.histogram?.twoTo4, 0, 500),
+      fourTo8: clampInt(source?.histogram?.fourTo8, 0, 500),
+      over8: clampInt(source?.histogram?.over8, 0, 500),
+    },
+  };
+}
+
 function isSameOriginPost(request) {
   const origin = request.headers.get("origin");
   if (!origin) return true;
@@ -97,6 +128,7 @@ export async function onRequestPost(context) {
     const archiveLoadMs = clampInt(body.archiveLoadMs, 0, MAX_LOAD_MS) || null;
     const readerLoadMsSum = clampInt(body.readerLoadMsSum, 0, MAX_LOAD_MS * 500);
     const readerLoadCount = clampInt(body.readerLoadCount, 0, 500);
+    const readerPerfJson = JSON.stringify(cleanReaderPerf(body.readerPerf));
     const signupNudgeShown = clampInt(body.signupNudgeShown, 0, 1);
     const signupNudgeLoginClicks = clampInt(body.signupNudgeLoginClicks, 0, 1);
     const signupNudgeSignupClicks = clampInt(body.signupNudgeSignupClicks, 0, 1);
@@ -140,13 +172,14 @@ export async function onRequestPost(context) {
         archive_load_ms,
         reader_load_ms_sum,
         reader_load_count,
+        reader_perf_json,
         signup_nudge_shown,
         signup_nudge_login_clicks,
         signup_nudge_signup_clicks,
         signup_nudge_login_completed,
         signup_nudge_signup_completed
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_id) DO UPDATE SET
         user_id = COALESCE(excluded.user_id, analytics_sessions.user_id),
         last_seen_at = MAX(analytics_sessions.last_seen_at, excluded.last_seen_at),
@@ -158,6 +191,7 @@ export async function onRequestPost(context) {
         archive_load_ms = COALESCE(excluded.archive_load_ms, analytics_sessions.archive_load_ms),
         reader_load_ms_sum = MAX(analytics_sessions.reader_load_ms_sum, excluded.reader_load_ms_sum),
         reader_load_count = MAX(analytics_sessions.reader_load_count, excluded.reader_load_count),
+        reader_perf_json = excluded.reader_perf_json,
         signup_nudge_shown = MAX(analytics_sessions.signup_nudge_shown, excluded.signup_nudge_shown),
         signup_nudge_login_clicks = MAX(analytics_sessions.signup_nudge_login_clicks, excluded.signup_nudge_login_clicks),
         signup_nudge_signup_clicks = MAX(analytics_sessions.signup_nudge_signup_clicks, excluded.signup_nudge_signup_clicks),
@@ -182,6 +216,7 @@ export async function onRequestPost(context) {
       archiveLoadMs,
       readerLoadMsSum,
       readerLoadCount,
+      readerPerfJson,
       signupNudgeShown,
       signupNudgeLoginClicks,
       signupNudgeSignupClicks,

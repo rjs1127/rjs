@@ -211,6 +211,7 @@ function initAnalyticsSession() {
 
   if (reusable) {
     analyticsSession = previous;
+    analyticsSession.readerPerf = ensureReaderPerfShape(analyticsSession.readerPerf);
     analyticsSession.pageViews = Math.max(1, Number(analyticsSession.pageViews || 0) + 1);
   } else {
     const source = getAnalyticsSource();
@@ -231,6 +232,7 @@ function initAnalyticsSession() {
       archiveLoadMs: 0,
       readerLoadMsSum: 0,
       readerLoadCount: 0,
+      readerPerf: createEmptyReaderPerf(),
       signupNudgeShown: 0,
       signupNudgeLoginClicks: 0,
       signupNudgeSignupClicks: 0,
@@ -266,6 +268,7 @@ function analyticsPayload() {
     archiveLoadMs: Number(analyticsSession.archiveLoadMs || 0),
     readerLoadMsSum: Number(analyticsSession.readerLoadMsSum || 0),
     readerLoadCount: Number(analyticsSession.readerLoadCount || 0),
+    readerPerf: ensureReaderPerfShape(analyticsSession.readerPerf),
     signupNudgeShown: Number(analyticsSession.signupNudgeShown || 0),
     signupNudgeLoginClicks: Number(analyticsSession.signupNudgeLoginClicks || 0),
     signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
@@ -377,12 +380,83 @@ function recordAnalyticsArchiveLoad(ms) {
   persistAnalyticsSession();
 }
 
-function recordAnalyticsReaderLoad(ms) {
+function createEmptyReaderPerf() {
+  const bucket = () => ({ sum: 0, count: 0 });
+  return {
+    total: bucket(),
+    response: bucket(),
+    download: bucket(),
+    render: bucket(),
+    layout: bucket(),
+    cache: { hit: bucket(), miss: bucket(), unknown: bucket() },
+    size: { small: bucket(), medium: bucket(), large: bucket() },
+    mode: { scroll: bucket(), page: bucket() },
+    histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
+  };
+}
+
+function ensureReaderPerfShape(value) {
+  const base = createEmptyReaderPerf();
+  const source = value && typeof value === "object" ? value : {};
+  for (const key of ["total", "response", "download", "render", "layout"]) {
+    base[key].sum = Number(source?.[key]?.sum || 0);
+    base[key].count = Number(source?.[key]?.count || 0);
+  }
+  for (const groupName of ["cache", "size", "mode"]) {
+    for (const key of Object.keys(base[groupName])) {
+      base[groupName][key].sum = Number(source?.[groupName]?.[key]?.sum || 0);
+      base[groupName][key].count = Number(source?.[groupName]?.[key]?.count || 0);
+    }
+  }
+  for (const key of Object.keys(base.histogram)) {
+    base.histogram[key] = Number(source?.histogram?.[key] || 0);
+  }
+  return base;
+}
+
+function addReaderPerfBucket(bucket, ms) {
+  if (!bucket) return;
+  const value = Math.max(0, Math.round(Number(ms || 0)));
+  bucket.sum = Number(bucket.sum || 0) + value;
+  bucket.count = Number(bucket.count || 0) + 1;
+}
+
+function recordAnalyticsReaderLoad(ms, details = {}) {
   if (!analyticsSession) return;
   const value = Math.max(0, Math.round(Number(ms || 0)));
   if (!value) return;
+
   analyticsSession.readerLoadMsSum = Number(analyticsSession.readerLoadMsSum || 0) + value;
   analyticsSession.readerLoadCount = Number(analyticsSession.readerLoadCount || 0) + 1;
+  analyticsSession.readerPerf = ensureReaderPerfShape(analyticsSession.readerPerf);
+
+  const perf = analyticsSession.readerPerf;
+  addReaderPerfBucket(perf.total, value);
+  addReaderPerfBucket(perf.response, details.responseMs);
+  addReaderPerfBucket(perf.download, details.downloadMs);
+  addReaderPerfBucket(perf.render, details.renderMs);
+  addReaderPerfBucket(perf.layout, details.layoutMs);
+
+  const cached = String(details.cacheStatus || "unknown");
+  addReaderPerfBucket(perf.cache[cached] || perf.cache.unknown, value);
+
+  const bytes = Math.max(0, Number(details.bytes || 0));
+  const sizeBucket = bytes >= 5 * 1024 * 1024
+    ? "large"
+    : bytes >= 1024 * 1024
+      ? "medium"
+      : "small";
+  addReaderPerfBucket(perf.size[sizeBucket], value);
+
+  const mode = details.mode === "page" ? "page" : "scroll";
+  addReaderPerfBucket(perf.mode[mode], value);
+
+  if (value < 1000) perf.histogram.under1 += 1;
+  else if (value < 2000) perf.histogram.oneTo2 += 1;
+  else if (value < 4000) perf.histogram.twoTo4 += 1;
+  else if (value < 8000) perf.histogram.fourTo8 += 1;
+  else perf.histogram.over8 += 1;
+
   persistAnalyticsSession();
 }
 
@@ -5573,14 +5647,19 @@ async function renderLongText(text, renderToken) {
 }
 
 async function streamTextIntoReader(response, renderToken) {
+  const downloadStartedAt = performance.now();
   const text = await collectResponseText(response, renderToken);
+  const downloadMs = performance.now() - downloadStartedAt;
 
   if (text === null || renderToken !== state.readerRenderToken) {
-    return false;
+    return { rendered: false, downloadMs, renderMs: 0 };
   }
 
   state.readerText = text;
-  return renderLongText(text, renderToken);
+  const renderStartedAt = performance.now();
+  const rendered = await renderLongText(text, renderToken);
+  const renderMs = performance.now() - renderStartedAt;
+  return { rendered, downloadMs, renderMs };
 }
 
 function showResumePrompt(item) {
@@ -5959,9 +6038,20 @@ async function openReader(item, options = {}) {
       contentHeaders.set("authorization", `Bearer ${contentAuthToken}`);
     }
 
+    const fetchStartedAt = performance.now();
     const response = await fetch(`/api/content?${params.toString()}`, {
       headers: contentHeaders,
     });
+    const responseMs = performance.now() - fetchStartedAt;
+    const contentBytes = Math.max(
+      0,
+      Number(response.headers.get("x-content-bytes")) ||
+      Number(response.headers.get("content-length")) ||
+      Number(item?.size || 0) ||
+      0
+    );
+    const cacheHeader = response.headers.get("x-content-cached");
+    const cacheStatus = cacheHeader === "1" ? "hit" : cacheHeader === "0" ? "miss" : "unknown";
 
     window.clearInterval(waitTimer);
 
@@ -5986,9 +6076,9 @@ async function openReader(item, options = {}) {
     );
 
     await nextFrame();
-    const rendered = await streamTextIntoReader(response, renderToken);
+    const streamStats = await streamTextIntoReader(response, renderToken);
 
-    if (!rendered || renderToken !== state.readerRenderToken) return;
+    if (!streamStats?.rendered || renderToken !== state.readerRenderToken) return;
 
     const preferredMode =
       isReaderPageModeEligible(item) &&
@@ -6001,11 +6091,13 @@ async function openReader(item, options = {}) {
       quoteJumpLocation = await resolveSavedQuoteJumpLocation(options.quoteJump, item);
     }
 
+    const layoutStartedAt = performance.now();
     await setReaderDisplayMode(preferredMode, {
       persist: false,
       offset: quoteJumpLocation?.startOffset ?? 0,
       initialLayout: true,
     });
+    const layoutMs = performance.now() - layoutStartedAt;
 
     if (options?.quoteJump) {
       state.readerResumeSaved = null;
@@ -6018,7 +6110,15 @@ async function openReader(item, options = {}) {
     } else {
       showResumePrompt(item);
     }
-    recordAnalyticsReaderLoad(performance.now() - state.readerLoadingStartedAt);
+    recordAnalyticsReaderLoad(performance.now() - state.readerLoadingStartedAt, {
+      responseMs,
+      downloadMs: streamStats.downloadMs,
+      renderMs: streamStats.renderMs,
+      layoutMs,
+      cacheStatus,
+      bytes: contentBytes,
+      mode: preferredMode,
+    });
 
     window.setTimeout(() => {
       // A scroll event can fire during the initial reader layout. If that

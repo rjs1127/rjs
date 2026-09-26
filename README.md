@@ -1,3 +1,12 @@
+# v8.78
+
+- 작품 뷰어 평균 로딩시간을 서버 응답 / 본문 수신 / 화면 렌더링 / 초기 레이아웃 단계로 세분화
+- `/api/content`의 기존 `x-content-cached`, `x-content-bytes` 응답을 재사용해 KV HIT/MISS, 1MB 미만 / 1~5MB / 5MB 이상, 스크롤 / 페이지 모드별 평균 집계
+- 고정 구간 히스토그램으로 중앙 구간(P50 근사)과 P95 구간 표시
+- 별도 이벤트 테이블이나 추가 요청 없이 기존 `analytics_sessions` 행의 JSON 집계값만 갱신해 서버 부하 증가 최소화
+- 기존 v8.77 이전 평균 로딩 데이터는 유지하며 세부 원인 분해 데이터는 v8.78 배포 이후부터 누적
+- 커밋 메시지 요약: `feat: measure reader loading phases and performance breakdown`
+
 # v8.77
 
 - 관리자 `드라이브` 탭의 `텍스트 건강검사` 영역을 작품 목록/페이지네이션/상태 메시지 아래의 맨 마지막 영역으로 이동
@@ -215,6 +224,7 @@
 - 자동 입력 방지를 위해 기존 허니팟 + 브라우저 30초 제출 쿨다운에 Cloudflare Turnstile 서버 검증을 추가함. Turnstile은 의견 모달을 실제로 열 때만 지연 로드되어 일반 페이지 방문에는 추가 요청을 만들지 않음.
 - Cloudflare Pages 환경 변수 `TURNSTILE_SITE_KEY`와 Secret `TURNSTILE_SECRET_KEY`가 모두 있어야 제출할 수 있으며 Secret은 브라우저에 노출하지 않음.
 - 커밋 메시지 요약: `feat: add help-integrated anonymous feedback with Turnstile`
+
 
 ## v8.51 - 콘텐츠 수 글자 크기·문장피드 좋아요 위치 조정
 - 콘텐츠 목록 상단 우측의 `콘텐츠 n개` 결과 수 글자 크기를 좌측 최근 POSTYPE 안내문구와 동일하게 맞춤(PC 9px / 모바일 8.5px)

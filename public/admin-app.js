@@ -134,6 +134,11 @@ const els = {
   visitArchiveLoad: document.getElementById("visitArchiveLoad"),
   visitReaderLoad: document.getElementById("visitReaderLoad"),
   visitReaderLoadCount: document.getElementById("visitReaderLoadCount"),
+  visitReaderPercentiles: document.getElementById("visitReaderPercentiles"),
+  visitReaderPhaseGrid: document.getElementById("visitReaderPhaseGrid"),
+  visitReaderCacheBreakdown: document.getElementById("visitReaderCacheBreakdown"),
+  visitReaderSizeBreakdown: document.getElementById("visitReaderSizeBreakdown"),
+  visitReaderModeBreakdown: document.getElementById("visitReaderModeBreakdown"),
   visitHourlyChart: document.getElementById("visitHourlyChart"),
   visitDeviceMix: document.getElementById("visitDeviceMix"),
   visitBrowserMix: document.getElementById("visitBrowserMix"),
@@ -653,6 +658,22 @@ function formatVisitLoad(ms) {
   return `${(value / 1000).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}초`;
 }
 
+function renderReaderPerfBreakdown(target, group, labels = {}) {
+  if (!target) return;
+  const entries = Object.entries(group || {}).filter(([, row]) => Number(row?.count || 0) > 0);
+  if (!entries.length) {
+    target.innerHTML = '<span class="visit-empty-inline">v8.78 이후 측정 대기</span>';
+    return;
+  }
+  target.innerHTML = entries.map(([key, row]) => `
+    <div class="visit-reader-breakdown-row">
+      <span>${escapeHtml(labels[key] || key)}</span>
+      <strong>${formatVisitLoad(row.averageMs)}</strong>
+      <small>${Number(row.count || 0).toLocaleString("ko-KR")}회</small>
+    </div>
+  `).join("");
+}
+
 function visitPercent(value, total) {
   const denominator = Math.max(0, Number(total || 0));
   if (!denominator) return 0;
@@ -769,6 +790,29 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitArchiveLoad) els.visitArchiveLoad.textContent = formatVisitLoad(performanceData.archiveLoadMs);
   if (els.visitReaderLoad) els.visitReaderLoad.textContent = formatVisitLoad(performanceData.readerLoadMs);
   if (els.visitReaderLoadCount) els.visitReaderLoadCount.textContent = `측정 ${Number(performanceData.readerLoadCount || 0).toLocaleString("ko-KR")}회`;
+
+  const readerBreakdown = performanceData.readerBreakdown || {};
+  if (els.visitReaderPercentiles) {
+    const detailCount = Number(readerBreakdown.count || 0);
+    els.visitReaderPercentiles.textContent = detailCount
+      ? `세부 ${detailCount.toLocaleString("ko-KR")}회 · 중앙구간 ≤ ${formatVisitLoad(readerBreakdown.p50ApproxMs)} · P95 구간 ≤ ${formatVisitLoad(readerBreakdown.p95ApproxMs)}`
+      : "v8.78 이후 데이터 집계";
+  }
+  if (els.visitReaderPhaseGrid) {
+    const phases = readerBreakdown.phases || {};
+    const phaseRows = [
+      ["서버 응답", phases.responseMs],
+      ["본문 수신", phases.downloadMs],
+      ["화면 렌더링", phases.renderMs],
+      ["초기 레이아웃", phases.layoutMs],
+    ];
+    els.visitReaderPhaseGrid.innerHTML = Number(readerBreakdown.count || 0)
+      ? phaseRows.map(([label, value]) => `<div><span>${label}</span><strong>${formatVisitLoad(value)}</strong></div>`).join("")
+      : '<span class="visit-empty-inline">세부 계측 데이터가 쌓이면 단계별 시간이 표시됩니다.</span>';
+  }
+  renderReaderPerfBreakdown(els.visitReaderCacheBreakdown, readerBreakdown.cache, { hit: "KV HIT", miss: "KV MISS", unknown: "알 수 없음" });
+  renderReaderPerfBreakdown(els.visitReaderSizeBreakdown, readerBreakdown.size, { small: "1MB 미만", medium: "1~5MB", large: "5MB 이상" });
+  renderReaderPerfBreakdown(els.visitReaderModeBreakdown, readerBreakdown.mode, { scroll: "스크롤", page: "페이지" });
 
   if (els.visitHourlyChart) {
     const hourlyMap = new Map((data.hourly || []).map((row) => [Number(row.hour), Number(row.sessions || 0)]));

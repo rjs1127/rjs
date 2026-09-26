@@ -3237,3 +3237,30 @@ body.history-modal-open { overflow:hidden; }
 .text-health-normal-button{appearance:none;border:1px solid #cfc8bd;border-radius:10px;background:#fff;color:#4f4942;padding:7px 11px;font:inherit;font-size:12px;font-weight:800;cursor:pointer}
 .text-health-normal-button:hover{background:#f6f3ee}.text-health-normal-button:disabled{opacity:.55;cursor:default}
 @media (max-width:720px){.text-health-normal-button{width:100%;padding:9px 11px}}
+
+
+/* v8.78 - 뷰어 로딩 원인 분해 */
+.visit-performance-card{grid-column:span 2;}
+.visit-reader-breakdown{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:10px;}
+.visit-reader-breakdown-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;}
+.visit-reader-breakdown-head strong{font-size:13px;}
+.visit-reader-breakdown-head small,.visit-reader-breakdown-note{font-size:9px;color:var(--muted);line-height:1.55;}
+.visit-reader-phase-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;}
+.visit-reader-phase-grid>div{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fbfaf9;display:grid;gap:4px;}
+.visit-reader-phase-grid span{font-size:9px;color:var(--muted);font-weight:800;}
+.visit-reader-phase-grid strong{font-size:16px;letter-spacing:-.03em;}
+.visit-reader-breakdown-columns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;}
+.visit-reader-breakdown-columns>div{border:1px solid var(--line);border-radius:12px;padding:10px 11px;background:#fff;}
+.visit-reader-breakdown-columns h3{margin:0 0 7px;font-size:10px;}
+.visit-reader-breakdown-list{display:grid;gap:6px;}
+.visit-reader-breakdown-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 8px;align-items:center;}
+.visit-reader-breakdown-row span{font-size:9px;color:var(--muted);}
+.visit-reader-breakdown-row strong{font-size:12px;}
+.visit-reader-breakdown-row small{grid-column:1/-1;font-size:8px;color:#9a9088;}
+.visit-reader-breakdown-note{margin:0;}
+@media(max-width:760px){
+  .visit-performance-card{grid-column:auto;}
+  .visit-reader-breakdown-head{align-items:flex-start;flex-direction:column;gap:4px;}
+  .visit-reader-phase-grid{grid-template-columns:1fr 1fr;}
+  .visit-reader-breakdown-columns{grid-template-columns:1fr;}
+}

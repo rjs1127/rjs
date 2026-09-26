@@ -25,6 +25,107 @@ function rows(result) {
   return Array.isArray(result?.results) ? result.results : [];
 }
 
+function emptyPerfBucket() {
+  return { sum: 0, count: 0 };
+}
+
+function mergePerfBucket(target, source) {
+  if (!target || !source) return;
+  target.sum += Number(source.sum || 0);
+  target.count += Number(source.count || 0);
+}
+
+function averagePerfBucket(bucket) {
+  return bucket?.count ? bucket.sum / bucket.count : null;
+}
+
+function aggregateReaderPerf(performanceRows) {
+  const totals = {
+    total: emptyPerfBucket(), response: emptyPerfBucket(), download: emptyPerfBucket(),
+    render: emptyPerfBucket(), layout: emptyPerfBucket(),
+    cache: { hit: emptyPerfBucket(), miss: emptyPerfBucket(), unknown: emptyPerfBucket() },
+    size: { small: emptyPerfBucket(), medium: emptyPerfBucket(), large: emptyPerfBucket() },
+    mode: { scroll: emptyPerfBucket(), page: emptyPerfBucket() },
+    histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
+    devices: new Map(),
+    browsers: new Map(),
+  };
+
+  for (const row of performanceRows) {
+    let perf = null;
+    try { perf = JSON.parse(row.reader_perf_json || "{}"); } catch {}
+    if (!perf || typeof perf !== "object") continue;
+    for (const key of ["total", "response", "download", "render", "layout"]) {
+      mergePerfBucket(totals[key], perf[key]);
+    }
+    for (const groupName of ["cache", "size", "mode"]) {
+      for (const key of Object.keys(totals[groupName])) {
+        mergePerfBucket(totals[groupName][key], perf?.[groupName]?.[key]);
+      }
+    }
+    for (const key of Object.keys(totals.histogram)) {
+      totals.histogram[key] += Number(perf?.histogram?.[key] || 0);
+    }
+
+    const totalSum = Number(perf?.total?.sum || 0);
+    const totalCount = Number(perf?.total?.count || 0);
+    if (totalCount > 0) {
+      const addDimension = (map, name) => {
+        const key = String(name || "other");
+        const current = map.get(key) || { name: key, sum: 0, count: 0 };
+        current.sum += totalSum;
+        current.count += totalCount;
+        map.set(key, current);
+      };
+      addDimension(totals.devices, row.device_type);
+      addDimension(totals.browsers, row.browser_name);
+    }
+  }
+
+  const histogramOrder = [
+    ["under1", 1000], ["oneTo2", 2000], ["twoTo4", 4000],
+    ["fourTo8", 8000], ["over8", 12000],
+  ];
+  const histogramTotal = histogramOrder.reduce((sum, [key]) => sum + totals.histogram[key], 0);
+  const percentileApprox = (ratio) => {
+    if (!histogramTotal) return null;
+    const target = histogramTotal * ratio;
+    let running = 0;
+    for (const [key, upper] of histogramOrder) {
+      running += totals.histogram[key];
+      if (running >= target) return upper;
+    }
+    return histogramOrder.at(-1)[1];
+  };
+
+  const mapRows = (map) => [...map.values()]
+    .map((item) => ({ name: item.name, count: item.count, averageMs: item.count ? item.sum / item.count : null }))
+    .sort((a, b) => b.count - a.count);
+
+  const bucketObject = (group) => Object.fromEntries(Object.entries(group).map(([key, bucket]) => [key, {
+    count: bucket.count, averageMs: averagePerfBucket(bucket),
+  }]));
+
+  return {
+    count: totals.total.count,
+    averageMs: averagePerfBucket(totals.total),
+    p50ApproxMs: percentileApprox(.5),
+    p95ApproxMs: percentileApprox(.95),
+    phases: {
+      responseMs: averagePerfBucket(totals.response),
+      downloadMs: averagePerfBucket(totals.download),
+      renderMs: averagePerfBucket(totals.render),
+      layoutMs: averagePerfBucket(totals.layout),
+    },
+    cache: bucketObject(totals.cache),
+    size: bucketObject(totals.size),
+    mode: bucketObject(totals.mode),
+    histogram: totals.histogram,
+    devices: mapRows(totals.devices),
+    browsers: mapRows(totals.browsers),
+  };
+}
+
 export async function onRequestGet(context) {
   try {
     await requireAdminSession(context);
@@ -49,6 +150,7 @@ export async function onRequestGet(context) {
       sourceRows,
       referrerRows,
       performanceRow,
+      performanceDetailRows,
       recentRows,
       firstDataRow,
     ] = await Promise.all([
@@ -185,6 +287,13 @@ export async function onRequestGet(context) {
       `).bind(from).first(),
 
       db.prepare(`
+        SELECT reader_perf_json, device_type, browser_name
+        FROM analytics_sessions
+        WHERE started_at >= ?
+          AND reader_load_count > 0
+      `).bind(from).all(),
+
+      db.prepare(`
         SELECT
           session_id,
           visitor_id,
@@ -237,6 +346,7 @@ export async function onRequestGet(context) {
     const returningVisitors = Number(visitorRow?.returning_visitors || 0);
     const engagedSessions = Number(summaryRow?.engaged_sessions || 0);
     const activeSessions = Number(summaryRow?.active_sessions || 0);
+    const readerBreakdown = aggregateReaderPerf(rows(performanceDetailRows));
 
     return jsonResponse({
       ok: true,
@@ -293,6 +403,7 @@ export async function onRequestGet(context) {
         archiveLoadMs: performanceRow?.archive_load_ms == null ? null : Number(performanceRow.archive_load_ms),
         readerLoadMs: performanceRow?.reader_load_ms == null ? null : Number(performanceRow.reader_load_ms),
         readerLoadCount: Number(performanceRow?.reader_load_count || 0),
+        readerBreakdown,
       },
       daily: [...dailyMap.values()],
       hourly: rows(hourlyRows).map((row) => ({
