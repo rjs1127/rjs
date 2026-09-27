@@ -10,7 +10,7 @@
 }
 
 :root {
-  --bg: #f8f3e8;
+  --bg: #ffffff;
   --surface: #fffdf9;
   --surface-strong: #ffffff;
   --ink: #191816;
@@ -36,9 +36,7 @@ html {
 body {
   margin: 0;
   min-width: 320px;
-  background:
-    radial-gradient(circle at top right, rgba(255,255,255,.9), transparent 34%),
-    var(--bg);
+  background: #ffffff;
   color: var(--ink);
   font-family:
     Pretendard, "Pretendard Variable", -apple-system, BlinkMacSystemFont,

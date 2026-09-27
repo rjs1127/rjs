@@ -1,3 +1,13 @@
+# v8.83
+
+- 일반모드 메인 배경을 단색 흰색 `#FFFFFF`로 변경
+- 기존 `body`의 radial-gradient + `var(--bg)` 조합을 제거해 `:root --bg` 변경이 화면에서 거의 보이지 않던 원인 해소
+- 라이트모드 `--bg`도 `#FFFFFF`로 맞춤
+- 다크모드의 `html.theme-dark body` 배경 및 카드·버튼·테두리·텍스트·레이아웃은 변경하지 않음
+- 스타일 캐시 버스터를 v8.83으로 갱신
+
+커밋 메시지 요약: `style: make light main background pure white`
+
 # v8.82
 
 - 일반모드 메인 배경색만 기존보다 식별 가능한 크림 아이보리 `#F8F3E8`로 조정
