@@ -4946,6 +4946,62 @@ function nextTask() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
 
+async function dismissReaderLoadingOverlay(renderToken) {
+  const overlay = els.readerLoadingOverlay;
+  if (!overlay) return;
+
+  // The text is already ready at this point. Do not hold the completed
+  // loading card for an extra 100~180ms before beginning the fade.
+  // Keep the existing CSS fade itself so the visual transition stays smooth.
+  await nextFrame();
+
+  if (
+    renderToken !== state.readerRenderToken ||
+    overlay !== els.readerLoadingOverlay ||
+    !overlay.isConnected
+  ) {
+    return;
+  }
+
+  const wasVisible = overlay.classList.contains("is-visible");
+  overlay.classList.add("done");
+
+  // Fast responses can finish before the delayed pending overlay ever becomes
+  // visible. In that case there is no fade to wait for.
+  if (!wasVisible) {
+    overlay.remove();
+    if (overlay === els.readerLoadingOverlay) {
+      els.readerLoadingOverlay = null;
+    }
+    return;
+  }
+
+  await new Promise((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      overlay.removeEventListener("transitionend", onTransitionEnd);
+      resolve();
+    };
+    const onTransitionEnd = (event) => {
+      if (event.target === overlay && event.propertyName === "opacity") {
+        finish();
+      }
+    };
+
+    overlay.addEventListener("transitionend", onTransitionEnd);
+    // CSS transition is currently 160ms. Keep a small fallback in case a
+    // browser suppresses transitionend while the tab is changing state.
+    window.setTimeout(finish, 220);
+  });
+
+  if (overlay.isConnected) overlay.remove();
+  if (overlay === els.readerLoadingOverlay) {
+    els.readerLoadingOverlay = null;
+  }
+}
+
 async function collectResponseText(response, renderToken) {
   const totalBytes =
     Number(response.headers.get("x-content-bytes")) ||
@@ -5667,14 +5723,7 @@ async function renderLongText(text, renderToken) {
 
     if (!openingInPageMode) {
       const overlayStartedAt = performance.now();
-      await new Promise((resolve) => setTimeout(resolve, 180));
-      els.readerLoadingOverlay?.classList.add("done");
-      await new Promise((resolve) => setTimeout(resolve, 180));
-
-      if (els.readerLoadingOverlay) {
-        els.readerLoadingOverlay.remove();
-        els.readerLoadingOverlay = null;
-      }
+      await dismissReaderLoadingOverlay(renderToken);
       breakdown.overlay = performance.now() - overlayStartedAt;
     }
 
@@ -5721,14 +5770,7 @@ async function renderLongText(text, renderToken) {
 
   if (!openingInPageMode) {
     const overlayStartedAt = performance.now();
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    els.readerLoadingOverlay?.classList.add("done");
-    await new Promise((resolve) => setTimeout(resolve, 150));
-
-    if (els.readerLoadingOverlay) {
-      els.readerLoadingOverlay.remove();
-      els.readerLoadingOverlay = null;
-    }
+    await dismissReaderLoadingOverlay(renderToken);
     breakdown.overlay = performance.now() - overlayStartedAt;
   }
 
