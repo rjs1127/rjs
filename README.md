@@ -1,3 +1,12 @@
+# v8.84
+
+- 일반모드 최종 배경을 실제 우선 적용되는 `theme.css`의 `html.theme-light body`에서 `#FFFFFF`로 변경
+- v8.81~v8.83에서 잘못 수정했던 `style.css` 배경 관련 값은 기존 기준으로 복원
+- 다크모드 및 카드/버튼/테두리/레이아웃은 변경하지 않음
+- CSS 캐시 버스터를 v8.84로 갱신
+
+커밋 메시지: `fix: apply white background to actual light theme selector`
+
 # v8.83
 
 - 일반모드 메인 배경을 단색 흰색 `#FFFFFF`로 변경
