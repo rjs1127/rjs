@@ -410,6 +410,15 @@ function createEmptyReaderPerf() {
       kvWrite: bucket(),
       total: bucket(),
     },
+    renderDetail: {
+      domSetup: bucket(),
+      textInsert: bucket(),
+      settle: bucket(),
+      overlay: bucket(),
+      modeSetup: bucket(),
+      paintWait: bucket(),
+      offsetRestore: bucket(),
+    },
     histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
   };
 }
@@ -421,7 +430,7 @@ function ensureReaderPerfShape(value) {
     base[key].sum = Number(source?.[key]?.sum || 0);
     base[key].count = Number(source?.[key]?.count || 0);
   }
-  for (const groupName of ["cache", "size", "mode", "missServer"]) {
+  for (const groupName of ["cache", "size", "mode", "missServer", "renderDetail"]) {
     for (const key of Object.keys(base[groupName])) {
       base[groupName][key].sum = Number(source?.[groupName]?.[key]?.sum || 0);
       base[groupName][key].count = Number(source?.[groupName]?.[key]?.count || 0);
@@ -473,6 +482,12 @@ function recordAnalyticsReaderLoad(ms, details = {}) {
   if (cached === "miss") {
     for (const key of Object.keys(perf.missServer)) {
       addReaderPerfBucket(perf.missServer[key], details?.missServer?.[key]);
+    }
+  }
+
+  if (mode === "scroll") {
+    for (const key of Object.keys(perf.renderDetail)) {
+      addReaderPerfBucket(perf.renderDetail[key], details?.renderDetail?.[key]);
     }
   }
 
@@ -4671,6 +4686,11 @@ async function setReaderDisplayMode(mode, options = {}) {
 
   if (!els.readerPanel) return;
 
+  const perfBreakdown = options.perfBreakdown && typeof options.perfBreakdown === "object"
+    ? options.perfBreakdown
+    : null;
+  const modeSetupStartedAt = perfBreakdown ? performance.now() : 0;
+
   const pageActive = nextMode === "page";
   els.readerPanel.classList.toggle(
     "reader-page-mode",
@@ -4702,6 +4722,10 @@ async function setReaderDisplayMode(mode, options = {}) {
   if (els.readerPageViewport) {
     els.readerPageViewport.hidden = !pageActive;
     els.readerPageViewport.style.display = pageActive ? "grid" : "none";
+  }
+
+  if (perfBreakdown) {
+    perfBreakdown.modeSetup = performance.now() - modeSetupStartedAt;
   }
 
   if (pageActive) {
@@ -4741,9 +4765,14 @@ async function setReaderDisplayMode(mode, options = {}) {
     els.readerContent.hidden = false;
   }
 
+  const paintWaitStartedAt = perfBreakdown ? performance.now() : 0;
   await nextFrame();
+  if (perfBreakdown) {
+    perfBreakdown.paintWait = performance.now() - paintWaitStartedAt;
+  }
 
   if (previousMode === "page" || Number.isFinite(options.offset)) {
+    const offsetRestoreStartedAt = perfBreakdown ? performance.now() : 0;
     if (options.initialLayout === true) {
       // openReader already keeps saving suspended while the initial content
       // layout is prepared. Do not schedule a delayed 0% save here.
@@ -4753,6 +4782,9 @@ async function setReaderDisplayMode(mode, options = {}) {
     } else {
       temporarilySuspendProgressSave(700);
       await syncScrollReaderToOffset(positionOffset);
+    }
+    if (perfBreakdown) {
+      perfBreakdown.offsetRestore = performance.now() - offsetRestoreStartedAt;
     }
   }
 }
@@ -5562,8 +5594,19 @@ async function waitForReaderScrollReady(renderToken, options = {}) {
 }
 
 async function renderLongText(text, renderToken) {
-  if (!els.readerContent) return false;
+  if (!els.readerContent) {
+    return { rendered: false, breakdown: {} };
+  }
 
+  const breakdown = {
+    domSetup: 0,
+    textInsert: 0,
+    settle: 0,
+    overlay: 0,
+  };
+  const result = (rendered) => ({ rendered, breakdown });
+
+  const setupStartedAt = performance.now();
   els.readerContent.textContent = "";
   resetLargeReaderState();
 
@@ -5575,7 +5618,10 @@ async function renderLongText(text, renderToken) {
 
   if (isLarge) {
     state.largeReaderChunks = splitLargeReaderText(text);
+  }
+  breakdown.domSetup = performance.now() - setupStartedAt;
 
+  if (isLarge) {
     setReaderLoadingProgress(
       76,
       "첫 화면을 준비하는 중…",
@@ -5587,9 +5633,11 @@ async function renderLongText(text, renderToken) {
       IS_SAFARI_READER ? 2 : 1
     );
 
+    const insertStartedAt = performance.now();
     await renderLargeReaderThrough(initialLastIndex, renderToken);
+    breakdown.textInsert = performance.now() - insertStartedAt;
 
-    if (renderToken !== state.readerRenderToken) return false;
+    if (renderToken !== state.readerRenderToken) return result(false);
 
     setReaderLoadingProgress(
       94,
@@ -5597,6 +5645,7 @@ async function renderLongText(text, renderToken) {
       "첫 읽기 화면의 스크롤 영역을 준비하고 있습니다."
     );
 
+    const settleStartedAt = performance.now();
     await nextFrame();
     void els.readerPanel.scrollHeight;
     await nextFrame();
@@ -5606,8 +5655,9 @@ async function renderLongText(text, renderToken) {
     // 잠금을 푼 상태에서 실제 scrollbar가 먼저 나타나도록 기다린다.
     await nextFrame();
     await nextFrame();
+    breakdown.settle = performance.now() - settleStartedAt;
 
-    if (renderToken !== state.readerRenderToken) return false;
+    if (renderToken !== state.readerRenderToken) return result(false);
 
     setReaderLoadingProgress(
       100,
@@ -5616,6 +5666,7 @@ async function renderLongText(text, renderToken) {
     );
 
     if (!openingInPageMode) {
+      const overlayStartedAt = performance.now();
       await new Promise((resolve) => setTimeout(resolve, 180));
       els.readerLoadingOverlay?.classList.add("done");
       await new Promise((resolve) => setTimeout(resolve, 180));
@@ -5624,17 +5675,19 @@ async function renderLongText(text, renderToken) {
         els.readerLoadingOverlay.remove();
         els.readerLoadingOverlay = null;
       }
+      breakdown.overlay = performance.now() - overlayStartedAt;
     }
 
-    return true;
+    return result(true);
   }
 
   const totalChars = Math.max(1, text.length);
   const chunkSize = 60000;
   let offset = 0;
+  const insertStartedAt = performance.now();
 
   while (offset < text.length) {
-    if (renderToken !== state.readerRenderToken) return false;
+    if (renderToken !== state.readerRenderToken) return result(false);
 
     const end = Math.min(text.length, offset + chunkSize);
     els.readerContent.appendChild(
@@ -5651,11 +5704,14 @@ async function renderLongText(text, renderToken) {
 
     await nextFrame();
   }
+  breakdown.textInsert = performance.now() - insertStartedAt;
 
-  if (renderToken !== state.readerRenderToken) return false;
+  if (renderToken !== state.readerRenderToken) return result(false);
 
+  const settleStartedAt = performance.now();
   unlockReaderScroll();
   await nextFrame();
+  breakdown.settle = performance.now() - settleStartedAt;
 
   setReaderLoadingProgress(
     100,
@@ -5664,6 +5720,7 @@ async function renderLongText(text, renderToken) {
   );
 
   if (!openingInPageMode) {
+    const overlayStartedAt = performance.now();
     await new Promise((resolve) => setTimeout(resolve, 100));
     els.readerLoadingOverlay?.classList.add("done");
     await new Promise((resolve) => setTimeout(resolve, 150));
@@ -5672,9 +5729,10 @@ async function renderLongText(text, renderToken) {
       els.readerLoadingOverlay.remove();
       els.readerLoadingOverlay = null;
     }
+    breakdown.overlay = performance.now() - overlayStartedAt;
   }
 
-  return true;
+  return result(true);
 }
 
 async function streamTextIntoReader(response, renderToken) {
@@ -5688,9 +5746,14 @@ async function streamTextIntoReader(response, renderToken) {
 
   state.readerText = text;
   const renderStartedAt = performance.now();
-  const rendered = await renderLongText(text, renderToken);
+  const renderResult = await renderLongText(text, renderToken);
   const renderMs = performance.now() - renderStartedAt;
-  return { rendered, downloadMs, renderMs };
+  return {
+    rendered: Boolean(renderResult?.rendered),
+    downloadMs,
+    renderMs,
+    renderBreakdown: renderResult?.breakdown || {},
+  };
 }
 
 function showResumePrompt(item) {
@@ -6133,11 +6196,13 @@ async function openReader(item, options = {}) {
       quoteJumpLocation = await resolveSavedQuoteJumpLocation(options.quoteJump, item);
     }
 
+    const layoutDetail = {};
     const layoutStartedAt = performance.now();
     await setReaderDisplayMode(preferredMode, {
       persist: false,
       offset: quoteJumpLocation?.startOffset ?? 0,
       initialLayout: true,
+      perfBreakdown: layoutDetail,
     });
     const layoutMs = performance.now() - layoutStartedAt;
 
@@ -6161,6 +6226,10 @@ async function openReader(item, options = {}) {
       bytes: contentBytes,
       mode: preferredMode,
       missServer,
+      renderDetail: {
+        ...(streamStats.renderBreakdown || {}),
+        ...layoutDetail,
+      },
     });
 
     window.setTimeout(() => {

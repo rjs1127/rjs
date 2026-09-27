@@ -136,6 +136,8 @@ const els = {
   visitReaderLoadCount: document.getElementById("visitReaderLoadCount"),
   visitReaderPercentiles: document.getElementById("visitReaderPercentiles"),
   visitReaderPhaseGrid: document.getElementById("visitReaderPhaseGrid"),
+  visitReaderRenderDetailMeta: document.getElementById("visitReaderRenderDetailMeta"),
+  visitReaderRenderDetailGrid: document.getElementById("visitReaderRenderDetailGrid"),
   visitReaderMissServerMeta: document.getElementById("visitReaderMissServerMeta"),
   visitReaderMissServerGrid: document.getElementById("visitReaderMissServerGrid"),
   visitReaderCacheBreakdown: document.getElementById("visitReaderCacheBreakdown"),
@@ -812,6 +814,29 @@ function renderVisitAnalytics(data = analyticsAdminData) {
       ? phaseRows.map(([label, value]) => `<div><span>${label}</span><strong>${formatVisitLoad(value)}</strong></div>`).join("")
       : '<span class="visit-empty-inline">세부 계측 데이터가 쌓이면 단계별 시간이 표시됩니다.</span>';
   }
+
+  if (els.visitReaderRenderDetailGrid) {
+    const detail = readerBreakdown.renderDetail || {};
+    const detailCount = Number(detail.textInsert?.count || 0);
+    const rows = [
+      ["DOM 준비", detail.domSetup?.averageMs],
+      ["본문 삽입", detail.textInsert?.averageMs],
+      ["렌더 안정화", detail.settle?.averageMs],
+      ["로딩 커버 정리", detail.overlay?.averageMs],
+      ["모드 적용", detail.modeSetup?.averageMs],
+      ["첫 화면 반영", detail.paintWait?.averageMs],
+      ["위치 초기화·복원", detail.offsetRestore?.averageMs],
+    ];
+    els.visitReaderRenderDetailGrid.innerHTML = detailCount
+      ? rows.map(([label, value]) => `<div><span>${label}</span><strong>${formatVisitLoad(value)}</strong></div>`).join("")
+      : '<span class="visit-empty-inline">v8.85 이후 스크롤 렌더링 세부 데이터가 쌓이면 표시됩니다.</span>';
+    if (els.visitReaderRenderDetailMeta) {
+      els.visitReaderRenderDetailMeta.textContent = detailCount
+        ? `스크롤 세부 ${detailCount.toLocaleString("ko-KR")}회`
+        : "v8.85 이후 측정";
+    }
+  }
+
   if (els.visitReaderMissServerGrid) {
     const missServer = readerBreakdown.missServer || {};
     const missCount = Number(missServer.total?.count || 0);

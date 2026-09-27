@@ -65,6 +65,10 @@ function cleanReaderPerf(value) {
       "kvRead", "token", "verify", "driveRequest",
       "driveDownload", "decode", "kvWrite", "total",
     ]),
+    renderDetail: cleanGroup("renderDetail", [
+      "domSetup", "textInsert", "settle", "overlay",
+      "modeSetup", "paintWait", "offsetRestore",
+    ]),
     histogram: {
       under1: clampInt(source?.histogram?.under1, 0, 500),
       oneTo2: clampInt(source?.histogram?.oneTo2, 0, 500),
