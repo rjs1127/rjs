@@ -5689,9 +5689,6 @@ async function renderLongText(text, renderToken) {
 
   const item = state.activeReaderItem;
   const isLarge = isLargeReaderFile(item);
-  const openingInPageMode =
-    isReaderPageModeEligible(item) &&
-    getPreferredReaderDisplayMode() === "page";
 
   if (isLarge) {
     state.largeReaderChunks = splitLargeReaderText(text);
@@ -5742,15 +5739,11 @@ async function renderLongText(text, renderToken) {
       "이제 바로 읽을 수 있습니다. 아래로 읽으면 다음 내용이 자동으로 이어집니다."
     );
 
-    if (!openingInPageMode) {
-      const overlayStartedAt = performance.now();
-      const overlayDetail = await dismissReaderLoadingOverlay(renderToken);
-      breakdown.overlay = performance.now() - overlayStartedAt;
-      breakdown.overlayFrameWait = Number(overlayDetail?.frameWait || 0);
-      breakdown.overlayTransition = Number(overlayDetail?.transition || 0);
-      breakdown.overlayRemove = Number(overlayDetail?.remove || 0);
-    }
-
+    // v8.88: keep the loading cover in place until the initial reader mode
+    // and resume position are fully laid out. Dismissing it before that work
+    // made the cover fade and the initial layout run serially, while also
+    // exposing layout movement underneath. openReader dismisses the cover
+    // after setReaderDisplayMode() completes.
     return result(true);
   }
 
@@ -5792,15 +5785,9 @@ async function renderLongText(text, renderToken) {
     "이제 바로 읽을 수 있습니다."
   );
 
-  if (!openingInPageMode) {
-    const overlayStartedAt = performance.now();
-    const overlayDetail = await dismissReaderLoadingOverlay(renderToken);
-    breakdown.overlay = performance.now() - overlayStartedAt;
-    breakdown.overlayFrameWait = Number(overlayDetail?.frameWait || 0);
-    breakdown.overlayTransition = Number(overlayDetail?.transition || 0);
-    breakdown.overlayRemove = Number(overlayDetail?.remove || 0);
-  }
-
+  // v8.88: the scroll loading cover is dismissed after the initial
+  // mode/position layout so the fade runs only once the heavy first layout
+  // work has settled. Page mode keeps its existing same-frame removal path.
   return result(true);
 }
 
@@ -6274,6 +6261,28 @@ async function openReader(item, options = {}) {
       perfBreakdown: layoutDetail,
     });
     const layoutMs = performance.now() - layoutStartedAt;
+
+    // v8.88 - scroll reader loading cover 2nd optimization.
+    // Keep the cover visible while the initial mode and resume position are
+    // calculated, then fade it after layout has settled. Previously the cover
+    // fade completed first and the layout ran afterwards, making the two waits
+    // fully serial. This preserves the existing position/continue-reading
+    // logic while avoiding that serial wait.
+    if (preferredMode === "scroll" && els.readerLoadingOverlay) {
+      const overlayStartedAt = performance.now();
+      const overlayDetail = await dismissReaderLoadingOverlay(renderToken);
+      const overlayMs = performance.now() - overlayStartedAt;
+
+      // Keep the existing analytics decomposition compatible: overlay cleanup
+      // remains part of the rendering bucket even though it now runs after the
+      // initial layout.
+      streamStats.renderMs += overlayMs;
+      streamStats.renderBreakdown = streamStats.renderBreakdown || {};
+      streamStats.renderBreakdown.overlay = overlayMs;
+      streamStats.renderBreakdown.overlayFrameWait = Number(overlayDetail?.frameWait || 0);
+      streamStats.renderBreakdown.overlayTransition = Number(overlayDetail?.transition || 0);
+      streamStats.renderBreakdown.overlayRemove = Number(overlayDetail?.remove || 0);
+    }
 
     if (options?.quoteJump) {
       state.readerResumeSaved = null;
