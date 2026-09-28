@@ -40,6 +40,11 @@ function cleanHost(value) {
     .slice(0, 160);
 }
 
+function cleanVersion(value) {
+  const text = String(value || "").trim();
+  return /^\d+\.\d+(?:\.\d+)?$/.test(text) ? text.slice(0, 24) : "";
+}
+
 function cleanPerfBucket(value) {
   return {
     sum: clampInt(value?.sum, 0, MAX_LOAD_MS * 500),
@@ -67,6 +72,7 @@ function cleanReaderPerf(value) {
     ]),
     renderDetail: cleanGroup("renderDetail", [
       "domSetup", "textInsert", "settle", "overlay",
+      "overlayFrameWait", "overlayTransition", "overlayRemove",
       "modeSetup", "paintWait", "offsetRestore",
     ]),
     histogram: {
@@ -137,6 +143,7 @@ export async function onRequestPost(context) {
     const readerLoadMsSum = clampInt(body.readerLoadMsSum, 0, MAX_LOAD_MS * 500);
     const readerLoadCount = clampInt(body.readerLoadCount, 0, 500);
     const readerPerfJson = JSON.stringify(cleanReaderPerf(body.readerPerf));
+    const appVersion = cleanVersion(body.appVersion);
     const signupNudgeShown = clampInt(body.signupNudgeShown, 0, 1);
     const signupNudgeLoginClicks = clampInt(body.signupNudgeLoginClicks, 0, 1);
     const signupNudgeSignupClicks = clampInt(body.signupNudgeSignupClicks, 0, 1);
@@ -181,13 +188,14 @@ export async function onRequestPost(context) {
         reader_load_ms_sum,
         reader_load_count,
         reader_perf_json,
+        app_version,
         signup_nudge_shown,
         signup_nudge_login_clicks,
         signup_nudge_signup_clicks,
         signup_nudge_login_completed,
         signup_nudge_signup_completed
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_id) DO UPDATE SET
         user_id = COALESCE(excluded.user_id, analytics_sessions.user_id),
         last_seen_at = MAX(analytics_sessions.last_seen_at, excluded.last_seen_at),
@@ -195,11 +203,28 @@ export async function onRequestPost(context) {
         work_opens = MAX(analytics_sessions.work_opens, excluded.work_opens),
         searches = MAX(analytics_sessions.searches, excluded.searches),
         active_seconds = MAX(analytics_sessions.active_seconds, excluded.active_seconds),
-        page_load_ms = COALESCE(analytics_sessions.page_load_ms, excluded.page_load_ms),
-        archive_load_ms = COALESCE(excluded.archive_load_ms, analytics_sessions.archive_load_ms),
-        reader_load_ms_sum = MAX(analytics_sessions.reader_load_ms_sum, excluded.reader_load_ms_sum),
-        reader_load_count = MAX(analytics_sessions.reader_load_count, excluded.reader_load_count),
+        page_load_ms = CASE
+          WHEN COALESCE(excluded.app_version, '') <> COALESCE(analytics_sessions.app_version, '')
+          THEN excluded.page_load_ms
+          ELSE COALESCE(analytics_sessions.page_load_ms, excluded.page_load_ms)
+        END,
+        archive_load_ms = CASE
+          WHEN COALESCE(excluded.app_version, '') <> COALESCE(analytics_sessions.app_version, '')
+          THEN excluded.archive_load_ms
+          ELSE COALESCE(excluded.archive_load_ms, analytics_sessions.archive_load_ms)
+        END,
+        reader_load_ms_sum = CASE
+          WHEN COALESCE(excluded.app_version, '') <> COALESCE(analytics_sessions.app_version, '')
+          THEN excluded.reader_load_ms_sum
+          ELSE MAX(analytics_sessions.reader_load_ms_sum, excluded.reader_load_ms_sum)
+        END,
+        reader_load_count = CASE
+          WHEN COALESCE(excluded.app_version, '') <> COALESCE(analytics_sessions.app_version, '')
+          THEN excluded.reader_load_count
+          ELSE MAX(analytics_sessions.reader_load_count, excluded.reader_load_count)
+        END,
         reader_perf_json = excluded.reader_perf_json,
+        app_version = COALESCE(NULLIF(excluded.app_version, ''), analytics_sessions.app_version),
         signup_nudge_shown = MAX(analytics_sessions.signup_nudge_shown, excluded.signup_nudge_shown),
         signup_nudge_login_clicks = MAX(analytics_sessions.signup_nudge_login_clicks, excluded.signup_nudge_login_clicks),
         signup_nudge_signup_clicks = MAX(analytics_sessions.signup_nudge_signup_clicks, excluded.signup_nudge_signup_clicks),
@@ -225,6 +250,7 @@ export async function onRequestPost(context) {
       readerLoadMsSum,
       readerLoadCount,
       readerPerfJson,
+      appVersion || null,
       signupNudgeShown,
       signupNudgeLoginClicks,
       signupNudgeSignupClicks,

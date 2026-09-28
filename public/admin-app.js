@@ -134,6 +134,8 @@ const els = {
   visitArchiveLoad: document.getElementById("visitArchiveLoad"),
   visitReaderLoad: document.getElementById("visitReaderLoad"),
   visitReaderLoadCount: document.getElementById("visitReaderLoadCount"),
+  visitPerfScope: document.getElementById("visitPerfScope"),
+  visitPerfScopeMeta: document.getElementById("visitPerfScopeMeta"),
   visitReaderPercentiles: document.getElementById("visitReaderPercentiles"),
   visitReaderPhaseGrid: document.getElementById("visitReaderPhaseGrid"),
   visitReaderRenderDetailMeta: document.getElementById("visitReaderRenderDetailMeta"),
@@ -240,6 +242,7 @@ let userAdminData = {
   daily: [],
   users: [],
 };
+let visitPerformanceScope = "current";
 let analyticsAdminData = {
   summary: {},
   today: {},
@@ -709,7 +712,12 @@ function renderVisitMix(target, rows, labelMap = {}) {
 function renderVisitAnalytics(data = analyticsAdminData) {
   const summary = data.summary || {};
   const today = data.today || {};
-  const performanceData = data.performance || {};
+  const performanceRoot = data.performance || {};
+  const currentPerformance = performanceRoot.current && typeof performanceRoot.current === "object"
+    ? performanceRoot.current
+    : null;
+  const useCurrentPerformance = visitPerformanceScope === "current" && currentPerformance;
+  const performanceData = useCurrentPerformance ? currentPerformance : performanceRoot;
   const acquisition = data.acquisition || {};
   const daily = Array.isArray(data.daily) ? data.daily : [];
   const sessions = Number(summary.sessions || 0);
@@ -790,6 +798,20 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitSearchAvg) els.visitSearchAvg.textContent = Number(summary.averageSearchesPerSession || 0).toLocaleString("ko-KR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
   if (els.visitTotalWorkOpens) els.visitTotalWorkOpens.textContent = Number(summary.workOpens || 0).toLocaleString("ko-KR");
 
+  if (els.visitPerfScope) {
+    els.visitPerfScope.querySelectorAll("[data-perf-scope]").forEach((button) => {
+      const scope = button.getAttribute("data-perf-scope");
+      button.classList.toggle("is-active", scope === (useCurrentPerformance ? "current" : "overall"));
+      if (scope === "current") button.disabled = !currentPerformance;
+    });
+  }
+  if (els.visitPerfScopeMeta) {
+    const version = String(performanceRoot.currentVersion || "").trim();
+    els.visitPerfScopeMeta.textContent = useCurrentPerformance
+      ? `현재 버전 v${version || "-"} · 이 버전에서 새로 측정된 값`
+      : "전체 누적 · 이전 버전 성능 포함";
+  }
+
   if (els.visitPageLoad) els.visitPageLoad.textContent = formatVisitLoad(performanceData.pageLoadMs);
   if (els.visitArchiveLoad) els.visitArchiveLoad.textContent = formatVisitLoad(performanceData.archiveLoadMs);
   if (els.visitReaderLoad) els.visitReaderLoad.textContent = formatVisitLoad(performanceData.readerLoadMs);
@@ -823,6 +845,9 @@ function renderVisitAnalytics(data = analyticsAdminData) {
       ["본문 삽입", detail.textInsert?.averageMs],
       ["렌더 안정화", detail.settle?.averageMs],
       ["로딩 커버 정리", detail.overlay?.averageMs],
+      ["fade 전 프레임", detail.overlayFrameWait?.averageMs],
+      ["fade·transition", detail.overlayTransition?.averageMs],
+      ["커버 DOM 제거", detail.overlayRemove?.averageMs],
       ["모드 적용", detail.modeSetup?.averageMs],
       ["첫 화면 반영", detail.paintWait?.averageMs],
       ["위치 초기화·복원", detail.offsetRestore?.averageMs],
@@ -3233,6 +3258,15 @@ els.resourcePreciseButton?.addEventListener("click", async () => {
     els.resourceMessage.textContent =
       error.message || "KV 정밀 측정에 실패했습니다.";
   }
+});
+
+els.visitPerfScope?.addEventListener("click", (event) => {
+  const button = event.target instanceof Element ? event.target.closest("[data-perf-scope]") : null;
+  if (!button || button.disabled) return;
+  const scope = button.getAttribute("data-perf-scope");
+  if (!["current", "overall"].includes(scope)) return;
+  visitPerformanceScope = scope;
+  renderVisitAnalytics(analyticsAdminData);
 });
 
 els.visitRefreshButton?.addEventListener("click", async () => {

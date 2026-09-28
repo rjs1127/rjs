@@ -53,8 +53,9 @@ function aggregateReaderPerf(performanceRows) {
     },
     renderDetail: {
       domSetup: emptyPerfBucket(), textInsert: emptyPerfBucket(), settle: emptyPerfBucket(),
-      overlay: emptyPerfBucket(), modeSetup: emptyPerfBucket(), paintWait: emptyPerfBucket(),
-      offsetRestore: emptyPerfBucket(),
+      overlay: emptyPerfBucket(), overlayFrameWait: emptyPerfBucket(),
+      overlayTransition: emptyPerfBucket(), overlayRemove: emptyPerfBucket(),
+      modeSetup: emptyPerfBucket(), paintWait: emptyPerfBucket(), offsetRestore: emptyPerfBucket(),
     },
     histogram: { under1: 0, oneTo2: 0, twoTo4: 0, fourTo8: 0, over8: 0 },
     devices: new Map(),
@@ -328,6 +329,53 @@ export async function onRequestGet(context) {
       db.prepare(`SELECT MIN(started_at) AS started_at FROM analytics_sessions`).first(),
     ]);
 
+    const versionRows = await db.prepare(`
+      SELECT DISTINCT app_version
+      FROM analytics_sessions
+      WHERE app_version IS NOT NULL AND app_version <> ''
+    `).all();
+    const compareVersions = (left, right) => {
+      const a = String(left || "").split(".").map((part) => Number(part || 0));
+      const b = String(right || "").split(".").map((part) => Number(part || 0));
+      const length = Math.max(a.length, b.length);
+      for (let index = 0; index < length; index += 1) {
+        const diff = Number(a[index] || 0) - Number(b[index] || 0);
+        if (diff) return diff;
+      }
+      return 0;
+    };
+    const currentVersion = rows(versionRows)
+      .map((row) => String(row.app_version || "").trim())
+      .filter(Boolean)
+      .sort(compareVersions)
+      .at(-1) || "";
+    let currentPerformanceRow = null;
+    let currentPerformanceDetailRows = { results: [] };
+    if (currentVersion) {
+      [currentPerformanceRow, currentPerformanceDetailRows] = await Promise.all([
+        db.prepare(`
+          SELECT
+            AVG(CASE WHEN page_load_ms > 0 THEN page_load_ms END) AS page_load_ms,
+            AVG(CASE WHEN archive_load_ms > 0 THEN archive_load_ms END) AS archive_load_ms,
+            CASE
+              WHEN SUM(reader_load_count) > 0
+              THEN CAST(SUM(reader_load_ms_sum) AS REAL) / SUM(reader_load_count)
+              ELSE NULL
+            END AS reader_load_ms,
+            SUM(reader_load_count) AS reader_load_count
+          FROM analytics_sessions
+          WHERE started_at >= ? AND app_version = ?
+        `).bind(from, currentVersion).first(),
+        db.prepare(`
+          SELECT reader_perf_json, device_type, browser_name
+          FROM analytics_sessions
+          WHERE started_at >= ?
+            AND app_version = ?
+            AND reader_load_count > 0
+        `).bind(from, currentVersion).all(),
+      ]);
+    }
+
     const dailyMap = new Map(dateKeys.map(({ key }) => [key, {
       date: key,
       sessions: 0,
@@ -359,6 +407,7 @@ export async function onRequestGet(context) {
     const engagedSessions = Number(summaryRow?.engaged_sessions || 0);
     const activeSessions = Number(summaryRow?.active_sessions || 0);
     const readerBreakdown = aggregateReaderPerf(rows(performanceDetailRows));
+    const currentReaderBreakdown = aggregateReaderPerf(rows(currentPerformanceDetailRows));
 
     return jsonResponse({
       ok: true,
@@ -416,6 +465,14 @@ export async function onRequestGet(context) {
         readerLoadMs: performanceRow?.reader_load_ms == null ? null : Number(performanceRow.reader_load_ms),
         readerLoadCount: Number(performanceRow?.reader_load_count || 0),
         readerBreakdown,
+        currentVersion: currentVersion || null,
+        current: currentVersion ? {
+          pageLoadMs: currentPerformanceRow?.page_load_ms == null ? null : Number(currentPerformanceRow.page_load_ms),
+          archiveLoadMs: currentPerformanceRow?.archive_load_ms == null ? null : Number(currentPerformanceRow.archive_load_ms),
+          readerLoadMs: currentPerformanceRow?.reader_load_ms == null ? null : Number(currentPerformanceRow.reader_load_ms),
+          readerLoadCount: Number(currentPerformanceRow?.reader_load_count || 0),
+          readerBreakdown: currentReaderBreakdown,
+        } : null,
       },
       daily: [...dailyMap.values()],
       hourly: rows(hourlyRows).map((row) => ({

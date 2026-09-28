@@ -107,6 +107,7 @@ const ANALYTICS_VISITOR_KEY = "rjsAnalyticsVisitorV1";
 const ANALYTICS_SESSION_KEY = "rjsAnalyticsSessionV1";
 const ANALYTICS_SESSION_WINDOW_MS = 30 * 60 * 1000;
 const ANALYTICS_HEARTBEAT_MS = 15 * 60 * 1000;
+const ANALYTICS_APP_VERSION = String(document.getElementById("publicVersion")?.textContent || "").replace(/^v/i, "").trim();
 const SIGNUP_NUDGE_DISMISSED_KEY = "rjsSignupNudgeDismissedAtV1";
 const SIGNUP_NUDGE_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
 const SIGNUP_NUDGE_WORK_OPEN_THRESHOLD = 3;
@@ -212,7 +213,18 @@ function initAnalyticsSession() {
 
   if (reusable) {
     analyticsSession = previous;
-    analyticsSession.readerPerf = ensureReaderPerfShape(analyticsSession.readerPerf);
+    const previousVersion = String(analyticsSession.appVersion || "").trim();
+    if (previousVersion !== ANALYTICS_APP_VERSION) {
+      // 같은 30분 방문 세션이 배포를 가로질러도 성능값은 버전별로 섞지 않는다.
+      analyticsSession.pageLoadMs = 0;
+      analyticsSession.archiveLoadMs = 0;
+      analyticsSession.readerLoadMsSum = 0;
+      analyticsSession.readerLoadCount = 0;
+      analyticsSession.readerPerf = createEmptyReaderPerf();
+    } else {
+      analyticsSession.readerPerf = ensureReaderPerfShape(analyticsSession.readerPerf);
+    }
+    analyticsSession.appVersion = ANALYTICS_APP_VERSION;
     analyticsSession.pageViews = Math.max(1, Number(analyticsSession.pageViews || 0) + 1);
   } else {
     const source = getAnalyticsSource();
@@ -234,6 +246,7 @@ function initAnalyticsSession() {
       readerLoadMsSum: 0,
       readerLoadCount: 0,
       readerPerf: createEmptyReaderPerf(),
+      appVersion: ANALYTICS_APP_VERSION,
       signupNudgeShown: 0,
       signupNudgeLoginClicks: 0,
       signupNudgeSignupClicks: 0,
@@ -270,6 +283,7 @@ function analyticsPayload() {
     readerLoadMsSum: Number(analyticsSession.readerLoadMsSum || 0),
     readerLoadCount: Number(analyticsSession.readerLoadCount || 0),
     readerPerf: ensureReaderPerfShape(analyticsSession.readerPerf),
+    appVersion: ANALYTICS_APP_VERSION,
     signupNudgeShown: Number(analyticsSession.signupNudgeShown || 0),
     signupNudgeLoginClicks: Number(analyticsSession.signupNudgeLoginClicks || 0),
     signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
@@ -415,6 +429,9 @@ function createEmptyReaderPerf() {
       textInsert: bucket(),
       settle: bucket(),
       overlay: bucket(),
+      overlayFrameWait: bucket(),
+      overlayTransition: bucket(),
+      overlayRemove: bucket(),
       modeSetup: bucket(),
       paintWait: bucket(),
       offsetRestore: bucket(),
@@ -4948,34 +4965,36 @@ function nextTask() {
 
 async function dismissReaderLoadingOverlay(renderToken) {
   const overlay = els.readerLoadingOverlay;
-  if (!overlay) return;
+  const detail = { frameWait: 0, transition: 0, remove: 0 };
+  if (!overlay) return detail;
 
-  // The text is already ready at this point. Do not hold the completed
-  // loading card for an extra 100~180ms before beginning the fade.
-  // Keep the existing CSS fade itself so the visual transition stays smooth.
+  // v8.86에서 제거한 고정 hold 대신 실제 남아 있는 대기만 분리 측정한다.
+  const frameStartedAt = performance.now();
   await nextFrame();
+  detail.frameWait = performance.now() - frameStartedAt;
 
   if (
     renderToken !== state.readerRenderToken ||
     overlay !== els.readerLoadingOverlay ||
     !overlay.isConnected
   ) {
-    return;
+    return detail;
   }
 
   const wasVisible = overlay.classList.contains("is-visible");
   overlay.classList.add("done");
 
-  // Fast responses can finish before the delayed pending overlay ever becomes
-  // visible. In that case there is no fade to wait for.
   if (!wasVisible) {
+    const removeStartedAt = performance.now();
     overlay.remove();
     if (overlay === els.readerLoadingOverlay) {
       els.readerLoadingOverlay = null;
     }
-    return;
+    detail.remove = performance.now() - removeStartedAt;
+    return detail;
   }
 
+  const transitionStartedAt = performance.now();
   await new Promise((resolve) => {
     let settled = false;
     const finish = () => {
@@ -4991,15 +5010,17 @@ async function dismissReaderLoadingOverlay(renderToken) {
     };
 
     overlay.addEventListener("transitionend", onTransitionEnd);
-    // CSS transition is currently 160ms. Keep a small fallback in case a
-    // browser suppresses transitionend while the tab is changing state.
     window.setTimeout(finish, 220);
   });
+  detail.transition = performance.now() - transitionStartedAt;
 
+  const removeStartedAt = performance.now();
   if (overlay.isConnected) overlay.remove();
   if (overlay === els.readerLoadingOverlay) {
     els.readerLoadingOverlay = null;
   }
+  detail.remove = performance.now() - removeStartedAt;
+  return detail;
 }
 
 async function collectResponseText(response, renderToken) {
@@ -5723,8 +5744,11 @@ async function renderLongText(text, renderToken) {
 
     if (!openingInPageMode) {
       const overlayStartedAt = performance.now();
-      await dismissReaderLoadingOverlay(renderToken);
+      const overlayDetail = await dismissReaderLoadingOverlay(renderToken);
       breakdown.overlay = performance.now() - overlayStartedAt;
+      breakdown.overlayFrameWait = Number(overlayDetail?.frameWait || 0);
+      breakdown.overlayTransition = Number(overlayDetail?.transition || 0);
+      breakdown.overlayRemove = Number(overlayDetail?.remove || 0);
     }
 
     return result(true);
@@ -5770,8 +5794,11 @@ async function renderLongText(text, renderToken) {
 
   if (!openingInPageMode) {
     const overlayStartedAt = performance.now();
-    await dismissReaderLoadingOverlay(renderToken);
+    const overlayDetail = await dismissReaderLoadingOverlay(renderToken);
     breakdown.overlay = performance.now() - overlayStartedAt;
+    breakdown.overlayFrameWait = Number(overlayDetail?.frameWait || 0);
+    breakdown.overlayTransition = Number(overlayDetail?.transition || 0);
+    breakdown.overlayRemove = Number(overlayDetail?.remove || 0);
   }
 
   return result(true);
