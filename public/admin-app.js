@@ -65,6 +65,9 @@ const els = {
   postypeAutoSyncSetupButton: document.getElementById("postypeAutoSyncSetupButton"),
   postypeAutoSyncLast: document.getElementById("postypeAutoSyncLast"),
   postypeAutoSyncResult: document.getElementById("postypeAutoSyncResult"),
+  postypeAutoSyncFailures: document.getElementById("postypeAutoSyncFailures"),
+  postypeAutoSyncFailureCount: document.getElementById("postypeAutoSyncFailureCount"),
+  postypeAutoSyncFailureList: document.getElementById("postypeAutoSyncFailureList"),
   driveAutoSyncState: document.getElementById("driveAutoSyncState"),
   driveAutoSyncRunButton: document.getElementById("driveAutoSyncRunButton"),
   driveAutoSyncSetupButton: document.getElementById("driveAutoSyncSetupButton"),
@@ -2376,6 +2379,47 @@ function formatAutoSyncResult(source, status) {
     : "변경 없음";
 }
 
+function renderPostypeAutoSyncFailures(status) {
+  const details = Array.isArray(status?.failureDetails) ? status.failureDetails : [];
+  const failedCount = Number(status?.failedSeries || 0);
+  const visible = failedCount > 0;
+
+  if (els.postypeAutoSyncFailures) {
+    els.postypeAutoSyncFailures.hidden = !visible;
+    if (!visible) els.postypeAutoSyncFailures.open = false;
+  }
+  if (els.postypeAutoSyncFailureCount) {
+    els.postypeAutoSyncFailureCount.textContent = `${failedCount.toLocaleString("ko-KR")}개`;
+  }
+  if (!els.postypeAutoSyncFailureList) return;
+
+  if (!visible) {
+    els.postypeAutoSyncFailureList.innerHTML = "";
+    return;
+  }
+  if (!details.length) {
+    els.postypeAutoSyncFailureList.innerHTML = '<p class="auto-sync-failure-legacy">상세 사유는 v8.90 이후 실행부터 기록됩니다. 「지금 실행」 후 다시 확인해주세요.</p>';
+    return;
+  }
+
+  els.postypeAutoSyncFailureList.innerHTML = details.map((item) => {
+    const title = escapeHtml(item?.title || item?.id || "시리즈");
+    const id = escapeHtml(item?.id || "");
+    const reason = escapeHtml(item?.reason || "최근 발행일을 확인하지 못했습니다.");
+    const url = String(item?.url || "").trim();
+    const safeUrl = /^https:\/\/(?:www\.)?postype\.com\//i.test(url) ? escapeHtml(url) : "";
+    return `
+      <article class="auto-sync-failure-item">
+        <div class="auto-sync-failure-copy">
+          <strong>${title}</strong>
+          ${id && id !== title ? `<small>${id}</small>` : ""}
+          <p>${reason}</p>
+        </div>
+        ${safeUrl ? `<a href="${safeUrl}" target="_blank" rel="noopener noreferrer">시리즈 열기 ↗</a>` : ""}
+      </article>`;
+  }).join("");
+}
+
 function renderAutoSyncStatus(data, setup = autoSyncSetupState) {
   const tokenConfigured = Boolean(data?.tokenConfigured);
   const installed = Boolean(setup?.installed);
@@ -2415,6 +2459,7 @@ function renderAutoSyncStatus(data, setup = autoSyncSetupState) {
     els.postypeAutoSyncState, els.postypeAutoSyncLast,
     els.postypeAutoSyncResult, els.postypeAutoSyncSetupButton
   );
+  renderPostypeAutoSyncFailures(data?.postype);
   renderOne(
     "drive", data?.drive,
     els.driveAutoSyncState, els.driveAutoSyncLast,

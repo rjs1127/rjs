@@ -180,6 +180,7 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
       processedSeries: 0,
       updatedLatestDates: 0,
       failedSeries: 0,
+      failureDetails: [],
       error: "",
     });
   }
@@ -221,18 +222,35 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
     const updates = [];
     let failedSeries = 0;
     const failures = [];
+    const failureDetails = [];
 
-    for (const entry of settled) {
+    for (let settledIndex = 0; settledIndex < settled.length; settledIndex += 1) {
+      const entry = settled[settledIndex];
+      const batchItem = batch[settledIndex] || {};
       if (entry.status !== "fulfilled") {
         failedSeries += 1;
-        failures.push(entry.reason?.message || "POSTYPE API 오류");
+        const reason = entry.reason?.message || "POSTYPE API 오류";
+        failures.push(reason);
+        failureDetails.push({
+          id: batchItem.id || "",
+          title: batchItem.title || "",
+          url: batchItem.url || "",
+          reason,
+        });
         continue;
       }
       const { item, result } = entry.value;
       const latest = normalize(result?.latestPublishedDate);
       if (!result?.ok || !latest) {
         failedSeries += 1;
-        failures.push(`${item.id || item.title || item.rowNumber}: 최근 발행일 확인 실패`);
+        const reason = result?.error || result?.message || "최근 발행일 확인 실패";
+        failures.push(`${item.id || item.title || item.rowNumber}: ${reason}`);
+        failureDetails.push({
+          id: item.id || "",
+          title: item.title || "",
+          url: item.url || "",
+          reason,
+        });
         continue;
       }
       if (latest !== item.currentDate) {
@@ -249,6 +267,15 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
     await updatePostypeDates(accessToken, updates);
 
     const previousStatus = await getJson(kv, AUTO_SYNC_STATUS_KEYS.postype, {});
+    const previousFailureDetails = Array.isArray(previousStatus?.failureDetails)
+      ? previousStatus.failureDetails
+      : [];
+    const combinedFailureDetails = [...previousFailureDetails, ...failureDetails]
+      .filter((item, index, list) => {
+        const key = `${item?.id || ""}|${item?.url || ""}|${item?.reason || ""}`;
+        return list.findIndex((candidate) => `${candidate?.id || ""}|${candidate?.url || ""}|${candidate?.reason || ""}` === key) === index;
+      })
+      .slice(0, 50);
     const processedSeries = Number(previousStatus?.processedSeries || 0) + batch.length;
     const updatedLatestDates = Number(previousStatus?.updatedLatestDates || 0) + updates.length;
     const totalFailed = Number(previousStatus?.failedSeries || 0) + failedSeries;
@@ -264,7 +291,8 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
         failedSeries: totalFailed,
         totalSeries: seriesRows.length,
         checkedAt: new Date().toISOString(),
-        lastFailures: failures.slice(0, 5),
+        lastFailures: combinedFailureDetails.map((item) => `${item.id || item.title || "시리즈"}: ${item.reason}`).slice(0, 5),
+        failureDetails: combinedFailureDetails,
       });
       return {
         ok: true,
@@ -294,7 +322,8 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
       count: Number(syncResult.count || 0),
       disabledCount: Number(syncResult.disabledCount || 0),
       kvWritten: Boolean(syncResult.kvWritten),
-      lastFailures: failures.slice(0, 5),
+      lastFailures: combinedFailureDetails.map((item) => `${item.id || item.title || "시리즈"}: ${item.reason}`).slice(0, 5),
+      failureDetails: combinedFailureDetails,
       ...(trigger === "schedule" ? {
         lastScheduledAt: syncResult.checkedAt || finishedAt,
         lastScheduledChanged: changed,
