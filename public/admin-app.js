@@ -60,6 +60,16 @@ const els = {
   driveListEmpty: document.getElementById("driveListEmpty"),
   driveListMessage: document.getElementById("driveListMessage"),
   driveLastSyncStatus: document.getElementById("driveLastSyncStatus"),
+  postypeAutoSyncState: document.getElementById("postypeAutoSyncState"),
+  postypeAutoSyncRunButton: document.getElementById("postypeAutoSyncRunButton"),
+  postypeAutoSyncSetupButton: document.getElementById("postypeAutoSyncSetupButton"),
+  postypeAutoSyncLast: document.getElementById("postypeAutoSyncLast"),
+  postypeAutoSyncResult: document.getElementById("postypeAutoSyncResult"),
+  driveAutoSyncState: document.getElementById("driveAutoSyncState"),
+  driveAutoSyncRunButton: document.getElementById("driveAutoSyncRunButton"),
+  driveAutoSyncSetupButton: document.getElementById("driveAutoSyncSetupButton"),
+  driveAutoSyncLast: document.getElementById("driveAutoSyncLast"),
+  driveAutoSyncResult: document.getElementById("driveAutoSyncResult"),
   textHealthScanButton: document.getElementById("textHealthScanButton"),
   textHealthChecked: document.getElementById("textHealthChecked"),
   textHealthNormal: document.getElementById("textHealthNormal"),
@@ -277,6 +287,8 @@ let resourcePagesVisibleLimit = 10;
 let historyLoaded = false;
 let historyDays = [];
 let historyActivityMode = "hour";
+let autoSyncStatusLoaded = false;
+let autoSyncSetupState = null;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -374,6 +386,14 @@ function setActiveTab(name) {
 
   if (name === "deploy" && activeDeployCommitSha) {
     refreshDeployStatus({ keepPolling: false });
+  }
+
+  if (name === "drive-library" || name === "postype") {
+    loadAutoSyncStatus().catch((error) => {
+      console.error(error);
+      if (els.postypeAutoSyncState) els.postypeAutoSyncState.textContent = "상태 확인 실패";
+      if (els.driveAutoSyncState) els.driveAutoSyncState.textContent = "상태 확인 실패";
+    });
   }
 
   if (name === "drive-library" && !driveAdminLoaded) {
@@ -2326,6 +2346,151 @@ function formatAdminDateTime(value) {
   });
 }
 
+function formatAutoSyncResult(source, status) {
+  if (!status) return "아직 실행 없음";
+  if (status.state === "running") {
+    if (source === "postype") {
+      return `확인 중 · 시리즈 ${Number(status.processedSeries || 0).toLocaleString("ko-KR")}개 처리`;
+    }
+    return "Drive 변경사항 확인 중";
+  }
+  if (status.state === "error") return `실패 · ${status.error || "오류 확인 필요"}`;
+
+  if (source === "postype") {
+    const updated = Number(status.updatedLatestDates || 0);
+    const checked = Number(status.processedSeries || status.totalSeries || 0);
+    const failed = Number(status.failedSeries || 0);
+    if (status.state === "partial" || failed > 0) {
+      return `발행일 ${updated}개 갱신 · 확인 필요 ${failed}개 · 시리즈 ${checked}개 확인`;
+    }
+    return updated > 0 || status.changed
+      ? `발행일 ${updated}개 갱신 · 목록 반영 완료`
+      : `변경 없음 · 시리즈 ${checked}개 확인`;
+  }
+
+  const added = Number(status.addedCount || 0);
+  const updated = Number(status.updatedCount || 0);
+  const removed = Number(status.removedCount || 0);
+  return added || updated || removed
+    ? `추가 ${added} · 수정 ${updated} · 삭제 ${removed}`
+    : "변경 없음";
+}
+
+function renderAutoSyncStatus(data, setup = autoSyncSetupState) {
+  const tokenConfigured = Boolean(data?.tokenConfigured);
+  const installed = Boolean(setup?.installed);
+  const scheduleReady = tokenConfigured && installed;
+
+  const renderOne = (source, status, stateEl, lastEl, resultEl, setupButton) => {
+    if (stateEl) {
+      stateEl.classList.remove("is-ready", "is-warning", "is-running", "is-error");
+      if (status?.state === "running") {
+        stateEl.textContent = "동기화 중";
+        stateEl.classList.add("is-running");
+      } else if (status?.state === "error") {
+        stateEl.textContent = "최근 실행 오류";
+        stateEl.classList.add("is-error");
+      } else if (scheduleReady) {
+        stateEl.textContent = "예약 연결됨";
+        stateEl.classList.add("is-ready");
+      } else {
+        stateEl.textContent = tokenConfigured ? "예약 파일 설정 필요" : "자동 실행 토큰 설정 필요";
+        stateEl.classList.add("is-warning");
+      }
+    }
+    if (lastEl) lastEl.textContent = status?.lastScheduledAt
+      ? formatAdminDateTime(status.lastScheduledAt)
+      : "아직 없음";
+    if (resultEl) resultEl.textContent = formatAutoSyncResult(source, status);
+    if (setupButton) {
+      setupButton.textContent = installed ? "예약 갱신" : "예약 설정";
+      setupButton.title = tokenConfigured
+        ? "GitHub Actions 예약 파일을 설치하거나 갱신합니다."
+        : "Cloudflare Secret AUTO_SYNC_TOKEN 설정 후 GitHub 예약 파일을 설치하세요.";
+    }
+  };
+
+  renderOne(
+    "postype", data?.postype,
+    els.postypeAutoSyncState, els.postypeAutoSyncLast,
+    els.postypeAutoSyncResult, els.postypeAutoSyncSetupButton
+  );
+  renderOne(
+    "drive", data?.drive,
+    els.driveAutoSyncState, els.driveAutoSyncLast,
+    els.driveAutoSyncResult, els.driveAutoSyncSetupButton
+  );
+}
+
+async function loadAutoSyncStatus() {
+  const [status, setup] = await Promise.all([
+    api("/api/admin/auto-sync", { method: "GET" }),
+    api("/api/admin/auto-sync-setup", { method: "GET" }).catch(() => null),
+  ]);
+  autoSyncSetupState = setup;
+  autoSyncStatusLoaded = true;
+  renderAutoSyncStatus(status, setup);
+  return status;
+}
+
+async function runAutoSyncNow(source, button) {
+  if (!button) return;
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "확인 중…";
+  try {
+    if (source === "postype") {
+      let cursor = 0;
+      for (let step = 0; step < 40; step += 1) {
+        const data = await api("/api/admin/auto-sync", {
+          method: "POST",
+          body: JSON.stringify({ source: "postype", cursor }),
+        });
+        button.textContent = data.done
+          ? "반영 중…"
+          : `확인 ${Number(data.nextCursor || 0).toLocaleString("ko-KR")}…`;
+        if (data.done) break;
+        if (!Number.isFinite(Number(data.nextCursor))) throw new Error("다음 자동동기화 위치를 확인할 수 없습니다.");
+        cursor = Number(data.nextCursor);
+        if (step === 39) throw new Error("POSTYPE 자동동기화 배치 안전 한도를 초과했습니다.");
+      }
+      await loadPostypeAdminList(false);
+    } else {
+      await api("/api/admin/auto-sync", {
+        method: "POST",
+        body: JSON.stringify({ source: "drive" }),
+      });
+      await loadDriveAdminList();
+    }
+    await loadAutoSyncStatus();
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
+async function installAutoSyncSchedule(button) {
+  if (!button) return;
+  button.disabled = true;
+  const original = button.textContent;
+  button.textContent = "설정 중…";
+  try {
+    const data = await api("/api/admin/auto-sync-setup", {
+      method: "POST",
+      body: "{}",
+    });
+    autoSyncSetupState = { ...autoSyncSetupState, installed: true };
+    await loadAutoSyncStatus();
+    const secretGuide = data.tokenConfigured
+      ? "GitHub 저장소의 Actions Secret ARCHIVE_AUTO_SYNC_TOKEN에 Cloudflare의 AUTO_SYNC_TOKEN과 같은 값을 등록하면 예약 실행이 시작됩니다."
+      : "Cloudflare Pages Secret AUTO_SYNC_TOKEN과 GitHub Actions Secret ARCHIVE_AUTO_SYNC_TOKEN을 같은 값으로 각각 1회 설정해야 예약 실행이 시작됩니다.";
+    window.alert(`자동동기화 예약 파일을 설치했습니다.\n\n${secretGuide}\n\n포스타입 23:00 · 드라이브 23:10 (KST)`);
+  } finally {
+    button.disabled = false;
+    button.textContent = original;
+  }
+}
+
 function renderDriveLastSyncStatus(lastSync) {
   if (!els.driveLastSyncStatus) return;
   if (!lastSync) {
@@ -3963,6 +4128,38 @@ els.postypeSyncButton?.addEventListener("click", async () => {
   } finally {
     els.postypeSyncButton.disabled = false;
     els.postypeAssignIdsButton.disabled = false;
+  }
+});
+
+els.postypeAutoSyncRunButton?.addEventListener("click", async () => {
+  try {
+    await runAutoSyncNow("postype", els.postypeAutoSyncRunButton);
+  } catch (error) {
+    if (els.postypeAutoSyncResult) els.postypeAutoSyncResult.textContent = error.message || "자동동기화 실행 실패";
+  }
+});
+
+els.driveAutoSyncRunButton?.addEventListener("click", async () => {
+  try {
+    await runAutoSyncNow("drive", els.driveAutoSyncRunButton);
+  } catch (error) {
+    if (els.driveAutoSyncResult) els.driveAutoSyncResult.textContent = error.message || "자동동기화 실행 실패";
+  }
+});
+
+els.postypeAutoSyncSetupButton?.addEventListener("click", async () => {
+  try {
+    await installAutoSyncSchedule(els.postypeAutoSyncSetupButton);
+  } catch (error) {
+    window.alert(error.message || "자동동기화 예약 설정에 실패했습니다.");
+  }
+});
+
+els.driveAutoSyncSetupButton?.addEventListener("click", async () => {
+  try {
+    await installAutoSyncSchedule(els.driveAutoSyncSetupButton);
+  } catch (error) {
+    window.alert(error.message || "자동동기화 예약 설정에 실패했습니다.");
   }
 });
 

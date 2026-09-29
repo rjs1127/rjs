@@ -672,7 +672,7 @@ function formatPostypeUnixDate(value) {
   return kst.toISOString().slice(0, 10);
 }
 
-async function fetchSeriesPostsApi(seriesUrl) {
+export async function fetchSeriesPostsApi(seriesUrl) {
   const info = parseSeriesInfo(seriesUrl);
   if (!info) {
     return {

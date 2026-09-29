@@ -13,75 +13,77 @@ import { requireAdminSession } from "../../_admin_session.js";
 
 const LAST_DRIVE_SYNC_KEY = "archive:last-drive-sync:v1";
 
+export async function runDriveSync(env) {
+  const kv = requireKv(env);
+
+  const [scannedArchive, previousArchive, existingOverrides] = await Promise.all([
+    buildArchiveFromDrive(env),
+    getJson(kv, ARCHIVE_CACHE_KEY, null),
+    getJson(kv, OVERRIDES_KEY, {}),
+  ]);
+
+  // Drive 전체 구조는 확인하되 캐시에는 실제 변경된 파일/구조만 반영한다.
+  const delta = mergeDriveArchiveDelta(previousArchive, scannedArchive);
+  const archive = delta.archive;
+  const reconciliation = reconcileOverridesWithArchive(
+    archive,
+    existingOverrides,
+    previousArchive
+  );
+
+  const overridesChanged =
+    JSON.stringify(existingOverrides || {}) !==
+    JSON.stringify(reconciliation.overrides || {});
+
+  if (delta.changed) {
+    await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
+  }
+  if (overridesChanged) {
+    await kv.put(OVERRIDES_KEY, JSON.stringify(reconciliation.overrides));
+  }
+
+  if (delta.changed || overridesChanged) {
+    await refreshPublicArchiveIndex(kv, { archive, overrides: reconciliation.overrides });
+  }
+
+  const lastSync = {
+    checkedAt: delta.checkedAt || new Date().toISOString(),
+    syncedAt: archive.syncedAt || null,
+    changed: Boolean(delta.changed || overridesChanged),
+    addedCount: delta.added.length,
+    updatedCount: delta.updated.length,
+    removedCount: delta.removed.length,
+    unchangedCount: delta.unchangedCount,
+    count: archive.count,
+  };
+  await kv.put(LAST_DRIVE_SYNC_KEY, JSON.stringify(lastSync));
+
+  return {
+    ok: true,
+    changed: delta.changed || overridesChanged,
+    kvWritten: delta.changed || overridesChanged,
+    count: archive.count,
+    syncedAt: archive.syncedAt,
+    checkedAt: delta.checkedAt,
+    addedCount: delta.added.length,
+    updatedCount: delta.updated.length,
+    removedCount: delta.removed.length,
+    unchangedCount: delta.unchangedCount,
+    lastSync,
+    added: delta.added,
+    updated: delta.updated,
+    removed: delta.removed,
+    diagnostics: archive.diagnostics || [],
+    reconciledCount: reconciliation.reconciled.length,
+    reconciled: reconciliation.reconciled,
+  };
+}
+
 export async function onRequestPost(context) {
   try {
     await requireAdminSession(context);
-    const kv = requireKv(context.env);
-
-    const [scannedArchive, previousArchive, existingOverrides] = await Promise.all([
-      buildArchiveFromDrive(context.env),
-      getJson(kv, ARCHIVE_CACHE_KEY, null),
-      getJson(kv, OVERRIDES_KEY, {}),
-    ]);
-
-    // Drive 전체 구조는 확인하되 캐시에는 실제 변경된 파일/구조만 반영한다.
-    // 변경이 없으면 기존 JSON을 그대로 유지해 불필요한 KV 쓰기를 피한다.
-    const delta = mergeDriveArchiveDelta(previousArchive, scannedArchive);
-    const archive = delta.archive;
-    const reconciliation = reconcileOverridesWithArchive(
-      archive,
-      existingOverrides,
-      previousArchive
-    );
-
-    const overridesChanged =
-      JSON.stringify(existingOverrides || {}) !==
-      JSON.stringify(reconciliation.overrides || {});
-
-    if (delta.changed) {
-      await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
-    }
-    if (overridesChanged) {
-      await kv.put(OVERRIDES_KEY, JSON.stringify(reconciliation.overrides));
-    }
-
-    // 사용자 화면용 단일 JSON 인덱스는 원본 캐시가 실제 바뀐 경우에만 갱신한다.
-    if (delta.changed || overridesChanged) {
-      await refreshPublicArchiveIndex(kv, { archive, overrides: reconciliation.overrides });
-    }
-
-    // 관리자 화면에서 마지막 동기화 결과를 상시 확인할 수 있도록 매번 기록한다.
-    const lastSync = {
-      checkedAt: delta.checkedAt || new Date().toISOString(),
-      syncedAt: archive.syncedAt || null,
-      changed: Boolean(delta.changed || overridesChanged),
-      addedCount: delta.added.length,
-      updatedCount: delta.updated.length,
-      removedCount: delta.removed.length,
-      unchangedCount: delta.unchangedCount,
-      count: archive.count,
-    };
-    await kv.put(LAST_DRIVE_SYNC_KEY, JSON.stringify(lastSync));
-
-    return jsonResponse({
-      ok: true,
-      changed: delta.changed || overridesChanged,
-      kvWritten: delta.changed || overridesChanged,
-      count: archive.count,
-      syncedAt: archive.syncedAt,
-      checkedAt: delta.checkedAt,
-      addedCount: delta.added.length,
-      updatedCount: delta.updated.length,
-      removedCount: delta.removed.length,
-      unchangedCount: delta.unchangedCount,
-      lastSync,
-      added: delta.added,
-      updated: delta.updated,
-      removed: delta.removed,
-      diagnostics: archive.diagnostics || [],
-      reconciledCount: reconciliation.reconciled.length,
-      reconciled: reconciliation.reconciled,
-    });
+    const data = await runDriveSync(context.env);
+    return jsonResponse(data);
   } catch (error) {
     console.error(error);
     return jsonResponse(

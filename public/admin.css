@@ -3280,3 +3280,27 @@ body.history-modal-open { overflow:hidden; }
 .visit-performance-scope-buttons button:disabled{opacity:.45;cursor:not-allowed}
 .visit-performance-scope>small{font-size:9px;color:var(--muted);line-height:1.45;text-align:right}
 @media(max-width:640px){.visit-performance-scope{align-items:flex-start;flex-direction:column}.visit-performance-scope>small{text-align:left}}
+
+/* v8.89 - scheduled source sync cards */
+.auto-sync-card{margin:12px 0 14px;padding:14px;border:1px solid var(--line);border-radius:16px;background:#fbfaf8;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px 18px;align-items:start}
+.auto-sync-copy{display:grid;gap:4px}
+.auto-sync-kicker{font-size:9px;font-weight:900;letter-spacing:.16em;color:#8b8178}
+.auto-sync-copy>strong{font-size:14px;letter-spacing:-.02em}
+.auto-sync-copy p{margin:0;color:var(--muted);font-size:10px;line-height:1.6}
+.auto-sync-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px;flex-wrap:wrap}
+.auto-sync-state{display:inline-flex;align-items:center;min-height:30px;padding:0 10px;border:1px solid var(--line);border-radius:999px;background:#fff;color:var(--muted);font-size:9px;font-weight:800}
+.auto-sync-state.is-ready{background:#f2f7f0;color:#4e6847;border-color:#d6e4d1}
+.auto-sync-state.is-warning{background:#fff8e9;color:#876d35;border-color:#eadcba}
+.auto-sync-state.is-running{background:#f3f0f8;color:#65517a;border-color:#ddd4e7}
+.auto-sync-state.is-error{background:#fff0ef;color:#99534d;border-color:#ebcbc7}
+.auto-sync-setup-button{border:1px solid var(--line);background:#fff;color:var(--text);border-radius:10px;padding:8px 10px;font:inherit;font-size:9px;font-weight:800;cursor:pointer}
+.auto-sync-setup-button:disabled{opacity:.5;cursor:not-allowed}
+.auto-sync-meta{grid-column:1/-1;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;padding-top:10px;border-top:1px solid var(--line)}
+.auto-sync-meta span{display:grid;gap:3px;padding:9px 10px;border-radius:11px;background:#fff;border:1px solid #ece6df}
+.auto-sync-meta em{font-style:normal;font-size:8px;color:var(--muted);font-weight:800}
+.auto-sync-meta strong{font-size:10px;line-height:1.45;word-break:keep-all}
+@media(max-width:760px){
+  .auto-sync-card{grid-template-columns:1fr}
+  .auto-sync-actions{justify-content:flex-start}
+  .auto-sync-meta{grid-template-columns:1fr}
+}
