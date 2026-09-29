@@ -23,6 +23,18 @@ const els = {
   postypeTopOngoing: document.getElementById("postypeTopOngoing"),
   postypeTopComplete: document.getElementById("postypeTopComplete"),
   postypeTopMissingDate: document.getElementById("postypeTopMissingDate"),
+  opsAutomationRunButton: document.getElementById("opsAutomationRunButton"),
+  opsAutomationOverall: document.getElementById("opsAutomationOverall"),
+  opsAutomationState: document.getElementById("opsAutomationState"),
+  opsAutomationCheckedAt: document.getElementById("opsAutomationCheckedAt"),
+  opsAutomationSyncState: document.getElementById("opsAutomationSyncState"),
+  opsAutomationSyncMeta: document.getElementById("opsAutomationSyncMeta"),
+  opsAutomationPerfState: document.getElementById("opsAutomationPerfState"),
+  opsAutomationPerfMeta: document.getElementById("opsAutomationPerfMeta"),
+  opsAutomationRestoreState: document.getElementById("opsAutomationRestoreState"),
+  opsAutomationRestoreMeta: document.getElementById("opsAutomationRestoreMeta"),
+  opsAutomationWarnings: document.getElementById("opsAutomationWarnings"),
+  opsAutomationMessage: document.getElementById("opsAutomationMessage"),
   syncButton: document.getElementById("syncButton"),
   syncMessage: document.getElementById("syncMessage"),
   postypeBulkGenreInput: document.getElementById("postypeBulkGenreInput"),
@@ -292,6 +304,7 @@ let historyDays = [];
 let historyActivityMode = "hour";
 let autoSyncStatusLoaded = false;
 let autoSyncSetupState = null;
+let opsAutomationLoaded = false;
 
 function escapeHtml(value = "") {
   return String(value)
@@ -374,8 +387,85 @@ function formatSummaryDate(value) {
   }
 }
 
+function formatOpsMs(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "-";
+  return number >= 1000 ? `${(number / 1000).toFixed(number >= 10000 ? 1 : 2)}초` : `${Math.round(number)}ms`;
+}
+
+function renderOpsAutomation(data = {}) {
+  const status = data.status || null;
+  const syncHealth = data.syncHealth || status?.syncHealth || {};
+  const perf = status?.performance || {};
+  const warnings = Array.isArray(status?.warnings) ? status.warnings : [];
+  const restorePoints = Array.isArray(data.restorePoints) ? data.restorePoints : [];
+  const normal = status?.state === "normal" && !(syncHealth?.delayed || []).length;
+
+  if (els.opsAutomationOverall) {
+    els.opsAutomationOverall.classList.toggle("is-warning", !normal && Boolean(status));
+    els.opsAutomationOverall.classList.toggle("is-normal", normal);
+  }
+  if (els.opsAutomationState) els.opsAutomationState.textContent = status ? (normal ? "정상" : "확인 필요") : "점검 전";
+  if (els.opsAutomationCheckedAt) els.opsAutomationCheckedAt.textContent = status?.checkedAt ? `마지막 점검 ${formatSummaryDate(status.checkedAt)}` : "매일 00:30 자동 점검";
+
+  const delayed = Array.isArray(syncHealth?.delayed) ? syncHealth.delayed : [];
+  if (els.opsAutomationSyncState) els.opsAutomationSyncState.textContent = delayed.length ? `지연 ${delayed.length}건` : "정상";
+  if (els.opsAutomationSyncMeta) {
+    const rows = Array.isArray(syncHealth?.rows) ? syncHealth.rows : [];
+    els.opsAutomationSyncMeta.textContent = rows.length
+      ? rows.map((row) => `${row.label} ${row.onTime ? "✓" : "확인"}`).join(" · ")
+      : "POSTYPE · Drive";
+  }
+
+  const perfWarnings = Array.isArray(status?.performanceWarnings) ? status.performanceWarnings : [];
+  if (els.opsAutomationPerfState) els.opsAutomationPerfState.textContent = status ? (perfWarnings.length ? `주의 ${perfWarnings.length}건` : "정상") : "점검 전";
+  if (els.opsAutomationPerfMeta) {
+    const reader = perf?.readerCount ? `뷰어 ${formatOpsMs(perf.readerAverageMs)} · ${Number(perf.readerCount).toLocaleString("ko-KR")}회` : "최근 24시간 데이터 대기";
+    els.opsAutomationPerfMeta.textContent = reader;
+  }
+
+  const latest = restorePoints[0] || status?.latestRestorePoint || null;
+  if (els.opsAutomationRestoreState) els.opsAutomationRestoreState.textContent = latest ? `${latest.source === "postype" ? "POSTYPE" : "Drive"} 생성됨` : "변경 대기";
+  if (els.opsAutomationRestoreMeta) els.opsAutomationRestoreMeta.textContent = latest?.createdAt ? `${formatSummaryDate(latest.createdAt)} · 최근 ${restorePoints.length || status?.restorePointCount || 0}개` : "실제 변경이 있는 날만 1회 생성";
+
+  if (els.opsAutomationWarnings) {
+    if (!warnings.length) {
+      els.opsAutomationWarnings.hidden = true;
+      els.opsAutomationWarnings.innerHTML = "";
+    } else {
+      els.opsAutomationWarnings.hidden = false;
+      els.opsAutomationWarnings.innerHTML = warnings.map((item) => `<span>${escapeHtml(item.text || "확인 필요")}</span>`).join("");
+    }
+  }
+}
+
+async function loadOpsAutomation(force = false) {
+  if (opsAutomationLoaded && !force) return;
+  const data = await api("/api/admin/ops-automation", { method: "GET" });
+  renderOpsAutomation(data);
+  opsAutomationLoaded = true;
+}
+
 function setActiveTab(name) {
-  els.tabs.forEach((tab) => {
+  els.opsAutomationRunButton?.addEventListener("click", async () => {
+  els.opsAutomationRunButton.disabled = true;
+  if (els.opsAutomationMessage) {
+    els.opsAutomationMessage.hidden = false;
+    els.opsAutomationMessage.textContent = "운영 상태를 점검하는 중…";
+  }
+  try {
+    const data = await api("/api/admin/ops-automation", { method: "POST", body: "{}" });
+    opsAutomationLoaded = false;
+    await loadOpsAutomation(true);
+    if (els.opsAutomationMessage) els.opsAutomationMessage.textContent = data?.status?.state === "warning" ? "점검 완료 · 확인 필요한 항목이 있습니다." : "점검 완료 · 현재 운영 상태는 정상입니다.";
+  } catch (error) {
+    if (els.opsAutomationMessage) els.opsAutomationMessage.textContent = error.message || "운영 자동 점검에 실패했습니다.";
+  } finally {
+    els.opsAutomationRunButton.disabled = false;
+  }
+});
+
+els.tabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.tabTarget === name);
   });
 
@@ -386,6 +476,16 @@ function setActiveTab(name) {
   });
 
   sessionStorage.setItem("archiveAdminTab", name);
+
+  if (name === "overview") {
+    loadOpsAutomation().catch((error) => {
+      console.error(error);
+      if (els.opsAutomationMessage) {
+        els.opsAutomationMessage.hidden = false;
+        els.opsAutomationMessage.textContent = error.message || "운영 자동화 상태를 불러오지 못했습니다.";
+      }
+    });
+  }
 
   if (name === "deploy" && activeDeployCommitSha) {
     refreshDeployStatus({ keepPolling: false });

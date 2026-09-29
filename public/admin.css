@@ -3320,3 +3320,18 @@ body.history-modal-open { overflow:hidden; }
 @media (max-width:680px){.auto-sync-failure-item{align-items:flex-start;flex-direction:column}.auto-sync-failure-item>a{width:100%;text-align:center}}
 
 .auto-sync-failure-legacy{margin:0;padding:10px 11px;border:1px dashed #e4d8c4;border-radius:11px;background:#fff;color:var(--muted);font-size:9px;line-height:1.55}
+
+/* v8.91: operations automation */
+.ops-automation-panel{overflow:hidden}
+.ops-automation-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:12px}
+.ops-automation-card{display:grid;gap:5px;padding:13px 14px;border:1px solid var(--line);border-radius:14px;background:#fbfaf8}
+.ops-automation-card>span{font-size:9px;color:var(--muted);font-weight:800}
+.ops-automation-card>strong{font-size:18px;letter-spacing:-.03em}
+.ops-automation-card>small{font-size:9px;color:#8d847d;line-height:1.45}
+.ops-automation-card.is-normal{background:#f5f8f2;border-color:#dbe6d6}
+.ops-automation-card.is-warning{background:#fff8ec;border-color:#eadab9}
+.ops-automation-warnings{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.ops-automation-warnings[hidden]{display:none!important}
+.ops-automation-warnings span{display:inline-flex;align-items:center;min-height:28px;padding:0 9px;border:1px solid #ead4cb;border-radius:999px;background:#fff3ef;color:#8f574c;font-size:9px;font-weight:800}
+@media(max-width:900px){.ops-automation-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){.ops-automation-grid{grid-template-columns:1fr}}

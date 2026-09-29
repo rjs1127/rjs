@@ -6,6 +6,7 @@ import {
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
+import { createDailyRestorePoint } from "../../_ops_automation.js";
 
 const POSTYPE_SPREADSHEET_ID = "1A6SL397yG59Yfs95x4SAlgqz5oVe26YMOw18gDw2fIw";
 const POSTYPE_SHEET_NAME = "POSTYPE";
@@ -351,6 +352,12 @@ export async function runPostypeSync(env) {
   let effectiveSyncedAt = existingArchive?.syncedAt || syncedAt;
 
   if (changed) {
+    await createDailyRestorePoint(kv, "postype", {
+      archive: existingArchive,
+    }, {
+      previousCount: Number(existingArchive?.count || 0),
+      nextCount: Number(archive.count || 0),
+    });
     await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
     await refreshPublicArchiveIndex(kv, { postypeArchive: archive });
     effectiveSyncedAt = syncedAt;

@@ -10,6 +10,7 @@ import {
   refreshPublicArchiveIndex,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
+import { createDailyRestorePoint } from "../../_ops_automation.js";
 
 const LAST_DRIVE_SYNC_KEY = "archive:last-drive-sync:v1";
 
@@ -34,6 +35,18 @@ export async function runDriveSync(env) {
   const overridesChanged =
     JSON.stringify(existingOverrides || {}) !==
     JSON.stringify(reconciliation.overrides || {});
+
+  if (delta.changed || overridesChanged) {
+    await createDailyRestorePoint(kv, "drive", {
+      archive: previousArchive,
+      overrides: existingOverrides || {},
+    }, {
+      addedCount: delta.added.length,
+      updatedCount: delta.updated.length,
+      removedCount: delta.removed.length,
+      overridesChanged,
+    });
+  }
 
   if (delta.changed) {
     await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));

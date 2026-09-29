@@ -50,9 +50,10 @@ function buildWorkflow(baseUrl) {
 
 on:
   schedule:
-    # GitHub cron is UTC. 14:00/14:10 UTC = 23:00/23:10 KST.
+    # GitHub cron is UTC. 14:00/14:10 UTC = 23:00/23:10 KST, 15:30 UTC = 00:30 KST.
     - cron: "0 14 * * *"
     - cron: "10 14 * * *"
+    - cron: "30 15 * * *"
   workflow_dispatch:
     inputs:
       source:
@@ -63,6 +64,7 @@ on:
         options:
           - postype
           - drive
+          - ops
 
 permissions:
   contents: read
@@ -80,8 +82,10 @@ jobs:
             source="\${{ github.event.inputs.source }}"
           elif [ "\${{ github.event.schedule }}" = "0 14 * * *" ]; then
             source="postype"
-          else
+          elif [ "\${{ github.event.schedule }}" = "10 14 * * *" ]; then
             source="drive"
+          else
+            source="ops"
           fi
           echo "source=$source" >> "$GITHUB_OUTPUT"
 
@@ -104,6 +108,15 @@ jobs:
               -H "content-type: application/json" \\
               -H "x-auto-sync-token: $AUTO_SYNC_TOKEN" \\
               --data '{"source":"drive"}'
+            exit 0
+          fi
+
+          if [ "$SOURCE" = "ops" ]; then
+            curl --fail-with-body --silent --show-error \\
+              -X POST "$BASE_URL/api/automation/ops" \\
+              -H "content-type: application/json" \\
+              -H "x-auto-sync-token: $AUTO_SYNC_TOKEN" \\
+              --data '{}'
             exit 0
           fi
 
@@ -182,7 +195,7 @@ export async function onRequestPost(context) {
     const existing = await getWorkflowFile(token);
     const workflow = buildWorkflow(new URL(context.request.url).origin);
     const payload = {
-      message: "v8.89: install archive auto sync schedule",
+      message: "v8.91: add operations automation schedule",
       content: toBase64Utf8(workflow),
       branch: GITHUB_BRANCH,
     };
