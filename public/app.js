@@ -2946,14 +2946,24 @@ function getRegisteredTimestamp(item) {
 }
 
 function getPublishedTimestamp(item) {
-  return Date.parse(
+  const value =
     item?.latestPublishedDate ||
     item?.publishedDate ||
     item?.publishedAt ||
     item?.updatedAt ||
     item?.createdAt ||
-    ""
-  ) || 0;
+    "";
+
+  const text = String(value || "").trim();
+  const dateOnlyMatch = text.match(/^(\d{4})[-./](\d{1,2})[-./](\d{1,2})$/);
+  if (dateOnlyMatch) {
+    const [, year, month, day] = dateOnlyMatch;
+    return Date.parse(
+      `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}T00:00:00+09:00`
+    ) || 0;
+  }
+
+  return Date.parse(text) || 0;
 }
 
 const RECENT_POSTYPE_BOOST_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;

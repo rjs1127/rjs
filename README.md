@@ -1,3 +1,9 @@
+# v8.92
+
+- POSTYPE `latestPublishedDate`의 날짜 전용 값(`YYYY-MM-DD`, `YYYY.MM.DD`, `YYYY/MM/DD`)을 KST 자정 기준으로 해석하도록 수정했습니다.
+- 오늘 발행된 POSTYPE 시리즈가 오전 9시(KST) 전까지 미래 날짜로 오인되어 초기 메인 최근발행 부스트에서 제외되던 문제를 수정했습니다.
+- 커밋 메시지 요약: `fix: parse postype publish dates in KST for initial recent boost`
+
 # v8.91
 
 - 운영 탭에 `운영 자동화` 대시보드를 추가해 자동동기화 지연, 최근 24시간 성능 이상, 자동 복원포인트 상태를 한눈에 확인할 수 있게 했습니다.
