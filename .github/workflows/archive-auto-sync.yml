@@ -1,0 +1,84 @@
+name: Archive auto sync
+
+on:
+  schedule:
+    # GitHub cron is UTC. 14:00/14:10 UTC = 23:00/23:10 KST.
+    - cron: "0 14 * * *"
+    - cron: "10 14 * * *"
+  workflow_dispatch:
+    inputs:
+      source:
+        description: "Sync source"
+        required: true
+        default: "postype"
+        type: choice
+        options:
+          - postype
+          - drive
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Select source
+        id: source
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            source="${{ github.event.inputs.source }}"
+          elif [ "${{ github.event.schedule }}" = "0 14 * * *" ]; then
+            source="postype"
+          else
+            source="drive"
+          fi
+          echo "source=$source" >> "$GITHUB_OUTPUT"
+
+      - name: Run automatic sync
+        shell: bash
+        env:
+          BASE_URL: "https://rjs-cj6.pages.dev"
+          AUTO_SYNC_TOKEN: "${{ secrets.ARCHIVE_AUTO_SYNC_TOKEN }}"
+          SOURCE: "${{ steps.source.outputs.source }}"
+        run: |
+          set -euo pipefail
+          if [ -z "$AUTO_SYNC_TOKEN" ]; then
+            echo "ARCHIVE_AUTO_SYNC_TOKEN secret is not configured."
+            exit 1
+          fi
+
+          if [ "$SOURCE" = "drive" ]; then
+            curl --fail-with-body --silent --show-error \
+              -X POST "$BASE_URL/api/automation/sync" \
+              -H "content-type: application/json" \
+              -H "x-auto-sync-token: $AUTO_SYNC_TOKEN" \
+              --data '{"source":"drive"}'
+            exit 0
+          fi
+
+          cursor=0
+          for attempt in $(seq 1 40); do
+            response=$(curl --fail-with-body --silent --show-error \
+              -X POST "$BASE_URL/api/automation/sync" \
+              -H "content-type: application/json" \
+              -H "x-auto-sync-token: $AUTO_SYNC_TOKEN" \
+              --data "{\"source\":\"postype\",\"cursor\":$cursor}")
+            echo "$response"
+            done_flag=$(printf '%s' "$response" | jq -r '.done // false')
+            if [ "$done_flag" = "true" ]; then
+              exit 0
+            fi
+            next_cursor=$(printf '%s' "$response" | jq -r '.nextCursor // empty')
+            if [ -z "$next_cursor" ]; then
+              echo "POSTYPE sync did not return nextCursor."
+              exit 1
+            fi
+            cursor="$next_cursor"
+            sleep 1
+          done
+
+          echo "POSTYPE auto sync exceeded batch safety limit."
+          exit 1
