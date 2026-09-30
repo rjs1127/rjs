@@ -248,12 +248,11 @@ function initAnalyticsSession() {
       readerPerf: createEmptyReaderPerf(),
       appVersion: ANALYTICS_APP_VERSION,
       signupNudgeShown: 0,
+      signupNudgeClose: 0,
       signupNudgeLoginClicks: 0,
       signupNudgeSignupClicks: 0,
       signupNudgeLoginCompleted: 0,
       signupNudgeSignupCompleted: 0,
-      signupNudgeClose: 0,
-      signupNudgeTrigger: "",
     };
   }
 
@@ -287,12 +286,11 @@ function analyticsPayload() {
     readerPerf: ensureReaderPerfShape(analyticsSession.readerPerf),
     appVersion: ANALYTICS_APP_VERSION,
     signupNudgeShown: Number(analyticsSession.signupNudgeShown || 0),
+    signupNudgeClose: Number(analyticsSession.signupNudgeClose || 0),
     signupNudgeLoginClicks: Number(analyticsSession.signupNudgeLoginClicks || 0),
     signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
     signupNudgeLoginCompleted: Number(analyticsSession.signupNudgeLoginCompleted || 0),
     signupNudgeSignupCompleted: Number(analyticsSession.signupNudgeSignupCompleted || 0),
-    signupNudgeClose: Number(analyticsSession.signupNudgeClose || 0),
-    signupNudgeTrigger: analyticsSession.signupNudgeTrigger || "",
   };
 }
 
@@ -341,6 +339,13 @@ function getSignupNudgeDismissedAt() {
   try { return Number(localStorage.getItem(SIGNUP_NUDGE_DISMISSED_KEY) || 0); } catch { return 0; }
 }
 
+function recordSignupNudgeClose() {
+  if (!analyticsSession) return;
+  analyticsSession.signupNudgeClose = 1;
+  persistAnalyticsSession();
+  flushAnalyticsSession();
+}
+
 function hideSignupNudge({ remember = false } = {}) {
   if (els.signupNudge) els.signupNudge.hidden = true;
   if (remember) {
@@ -357,7 +362,6 @@ function maybeShowSignupNudge() {
   els.signupNudge.hidden = false;
   if (!Number(analyticsSession.signupNudgeShown || 0)) {
     analyticsSession.signupNudgeShown = 1;
-    analyticsSession.signupNudgeTrigger = "reader_3_open";
     persistAnalyticsSession();
     flushAnalyticsSession();
   }
@@ -367,7 +371,6 @@ function recordSignupNudgeAction(kind) {
   if (!analyticsSession) return;
   if (kind === "login") analyticsSession.signupNudgeLoginClicks = 1;
   if (kind === "signup") analyticsSession.signupNudgeSignupClicks = 1;
-  if (kind === "close") analyticsSession.signupNudgeClose = 1;
   persistAnalyticsSession();
   flushAnalyticsSession();
 }
@@ -7051,7 +7054,7 @@ els.viewerSettingsButton?.addEventListener("click", () => {
 });
 
 els.signupNudgeClose?.addEventListener("click", () => {
-  recordSignupNudgeAction("close");
+  recordSignupNudgeClose();
   hideSignupNudge({ remember: true });
 });
 

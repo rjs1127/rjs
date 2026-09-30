@@ -357,12 +357,11 @@ async function ensureUserSchema(db) {
         reader_perf_json TEXT NOT NULL DEFAULT '{}',
         app_version TEXT,
         signup_nudge_shown INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
         signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_trigger TEXT NOT NULL DEFAULT ''
+        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0
       )
     `),
     db.prepare(`
@@ -393,12 +392,11 @@ async function ensureUserSchema(db) {
       ["reader_perf_json", "ALTER TABLE analytics_sessions ADD COLUMN reader_perf_json TEXT NOT NULL DEFAULT '{}'"],
       ["app_version", "ALTER TABLE analytics_sessions ADD COLUMN app_version TEXT"],
       ["signup_nudge_shown", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_shown INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_close", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_close INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_login_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_signup_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_login_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0"],
-      ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_trigger TEXT NOT NULL DEFAULT ''"],
+      ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0"],
     ];
     for (const [column, sql] of analyticsMigrations) {
       if (analyticsColumns.has(column)) continue;
