@@ -145,11 +145,11 @@ export async function onRequestPost(context) {
     const readerPerfJson = JSON.stringify(cleanReaderPerf(body.readerPerf));
     const appVersion = cleanVersion(body.appVersion);
     const signupNudgeShown = clampInt(body.signupNudgeShown, 0, 1);
-    const signupNudgeClose = clampInt(body.signupNudgeClose, 0, 1);
     const signupNudgeLoginClicks = clampInt(body.signupNudgeLoginClicks, 0, 1);
     const signupNudgeSignupClicks = clampInt(body.signupNudgeSignupClicks, 0, 1);
     const signupNudgeLoginCompleted = clampInt(body.signupNudgeLoginCompleted, 0, 1);
     const signupNudgeSignupCompleted = clampInt(body.signupNudgeSignupCompleted, 0, 1);
+    const signupNudgeClose = clampInt(body.signupNudgeClose, 0, 1);
     const deviceType = cleanEnum(body.deviceType, ["mobile", "tablet", "desktop"]);
     const browserName = cleanEnum(body.browserName, [
       "safari",
@@ -191,13 +191,13 @@ export async function onRequestPost(context) {
         reader_perf_json,
         app_version,
         signup_nudge_shown,
-        signup_nudge_close,
         signup_nudge_login_clicks,
         signup_nudge_signup_clicks,
         signup_nudge_login_completed,
-        signup_nudge_signup_completed
+        signup_nudge_signup_completed,
+        signup_nudge_close
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_id) DO UPDATE SET
         user_id = COALESCE(excluded.user_id, analytics_sessions.user_id),
         last_seen_at = MAX(analytics_sessions.last_seen_at, excluded.last_seen_at),
@@ -228,11 +228,11 @@ export async function onRequestPost(context) {
         reader_perf_json = excluded.reader_perf_json,
         app_version = COALESCE(NULLIF(excluded.app_version, ''), analytics_sessions.app_version),
         signup_nudge_shown = MAX(analytics_sessions.signup_nudge_shown, excluded.signup_nudge_shown),
-        signup_nudge_close = MAX(analytics_sessions.signup_nudge_close, excluded.signup_nudge_close),
         signup_nudge_login_clicks = MAX(analytics_sessions.signup_nudge_login_clicks, excluded.signup_nudge_login_clicks),
         signup_nudge_signup_clicks = MAX(analytics_sessions.signup_nudge_signup_clicks, excluded.signup_nudge_signup_clicks),
         signup_nudge_login_completed = MAX(analytics_sessions.signup_nudge_login_completed, excluded.signup_nudge_login_completed),
-        signup_nudge_signup_completed = MAX(analytics_sessions.signup_nudge_signup_completed, excluded.signup_nudge_signup_completed)
+        signup_nudge_signup_completed = MAX(analytics_sessions.signup_nudge_signup_completed, excluded.signup_nudge_signup_completed),
+        signup_nudge_close = MAX(analytics_sessions.signup_nudge_close, excluded.signup_nudge_close)
     `).bind(
       sessionId,
       visitorId,
@@ -255,11 +255,11 @@ export async function onRequestPost(context) {
       readerPerfJson,
       appVersion || null,
       signupNudgeShown,
-      signupNudgeClose,
       signupNudgeLoginClicks,
       signupNudgeSignupClicks,
       signupNudgeLoginCompleted,
-      signupNudgeSignupCompleted
+      signupNudgeSignupCompleted,
+      signupNudgeClose
     ).run();
 
     return jsonResponse(

@@ -248,11 +248,11 @@ function initAnalyticsSession() {
       readerPerf: createEmptyReaderPerf(),
       appVersion: ANALYTICS_APP_VERSION,
       signupNudgeShown: 0,
-      signupNudgeClose: 0,
       signupNudgeLoginClicks: 0,
       signupNudgeSignupClicks: 0,
       signupNudgeLoginCompleted: 0,
       signupNudgeSignupCompleted: 0,
+      signupNudgeClose: 0,
     };
   }
 
@@ -286,11 +286,11 @@ function analyticsPayload() {
     readerPerf: ensureReaderPerfShape(analyticsSession.readerPerf),
     appVersion: ANALYTICS_APP_VERSION,
     signupNudgeShown: Number(analyticsSession.signupNudgeShown || 0),
-    signupNudgeClose: Number(analyticsSession.signupNudgeClose || 0),
     signupNudgeLoginClicks: Number(analyticsSession.signupNudgeLoginClicks || 0),
     signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
     signupNudgeLoginCompleted: Number(analyticsSession.signupNudgeLoginCompleted || 0),
     signupNudgeSignupCompleted: Number(analyticsSession.signupNudgeSignupCompleted || 0),
+    signupNudgeClose: Number(analyticsSession.signupNudgeClose || 0),
   };
 }
 
@@ -339,17 +339,17 @@ function getSignupNudgeDismissedAt() {
   try { return Number(localStorage.getItem(SIGNUP_NUDGE_DISMISSED_KEY) || 0); } catch { return 0; }
 }
 
-function recordSignupNudgeClose() {
-  if (!analyticsSession) return;
-  analyticsSession.signupNudgeClose = 1;
-  persistAnalyticsSession();
-  flushAnalyticsSession();
-}
-
-function hideSignupNudge({ remember = false } = {}) {
+function hideSignupNudge({ remember = false, trackClose = false } = {}) {
+  if (trackClose && analyticsSession) {
+    analyticsSession.signupNudgeClose = 1;
+  }
   if (els.signupNudge) els.signupNudge.hidden = true;
   if (remember) {
     try { localStorage.setItem(SIGNUP_NUDGE_DISMISSED_KEY, String(Date.now())); } catch {}
+  }
+  if (trackClose) {
+    persistAnalyticsSession();
+    flushAnalyticsSession();
   }
 }
 
@@ -7054,8 +7054,7 @@ els.viewerSettingsButton?.addEventListener("click", () => {
 });
 
 els.signupNudgeClose?.addEventListener("click", () => {
-  recordSignupNudgeClose();
-  hideSignupNudge({ remember: true });
+  hideSignupNudge({ remember: true, trackClose: true });
 });
 
 els.signupNudgeLogin?.addEventListener("click", () => {

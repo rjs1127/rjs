@@ -1,3 +1,10 @@
+# v8.93
+
+- 가입 유도 퍼널 분석 확장을 위해 비로그인 가입 유도 팝업 닫기 이벤트(`signup_nudge_close`) 기록을 추가했습니다.
+- 기존 로그인/회원가입 이동 및 완료 이벤트는 유지하며, 가입 유도 이탈 구간 분석 기반을 마련했습니다.
+
+**커밋 메시지 요약:** `feat: track signup nudge close events`
+
 # v8.92
 
 - POSTYPE `latestPublishedDate`의 날짜 전용 값(`YYYY-MM-DD`, `YYYY.MM.DD`, `YYYY/MM/DD`)을 KST 자정 기준으로 해석하도록 수정했습니다.
