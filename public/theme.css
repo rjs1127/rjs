@@ -2984,6 +2984,40 @@ html[data-reader-spacing="wide"] .reader-page-measure {
   }
 }
 
+.reader-position-status {
+  position:fixed;
+  left:50%;
+  bottom:24px;
+  z-index:119;
+  transform:translateX(-50%);
+  min-width:68px;
+  padding:7px 12px;
+  border:1px solid var(--theme-line);
+  border-radius:999px;
+  background:var(--theme-surface);
+  background:color-mix(in srgb, var(--theme-surface) 92%, transparent);
+  box-shadow:0 6px 20px var(--theme-shadow);
+  color:var(--theme-muted);
+  font-size:10px;
+  font-weight:850;
+  font-variant-numeric:tabular-nums;
+  line-height:1;
+  text-align:center;
+  white-space:nowrap;
+  pointer-events:none;
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+
+@media (max-width:640px) {
+  .reader-position-status {
+    bottom:16px;
+    min-width:62px;
+    padding:6px 10px;
+    font-size:9px;
+  }
+}
+
 /* =========================
    v7.31 viewer settings center
    ========================= */
