@@ -185,7 +185,8 @@ export async function onRequestGet(context) {
           COALESCE(SUM(signup_nudge_login_clicks), 0) AS signup_nudge_login_clicks,
           COALESCE(SUM(signup_nudge_signup_clicks), 0) AS signup_nudge_signup_clicks,
           COALESCE(SUM(signup_nudge_login_completed), 0) AS signup_nudge_login_completed,
-          COALESCE(SUM(signup_nudge_signup_completed), 0) AS signup_nudge_signup_completed
+          COALESCE(SUM(signup_nudge_signup_completed), 0) AS signup_nudge_signup_completed,
+          COALESCE(SUM(signup_nudge_close), 0) AS signup_nudge_close
         FROM analytics_sessions
         WHERE started_at >= ?
       `).bind(from).first(),
@@ -449,11 +450,15 @@ export async function onRequestGet(context) {
         signupClicks: Number(summaryRow?.signup_nudge_signup_clicks || 0),
         loginCompleted: Number(summaryRow?.signup_nudge_login_completed || 0),
         signupCompleted: Number(summaryRow?.signup_nudge_signup_completed || 0),
+        close: Number(summaryRow?.signup_nudge_close || 0),
         signupClickRate: Number(summaryRow?.signup_nudge_shown || 0)
           ? (Number(summaryRow?.signup_nudge_signup_clicks || 0) / Number(summaryRow.signup_nudge_shown)) * 100
           : 0,
         signupCompletionRate: Number(summaryRow?.signup_nudge_shown || 0)
           ? (Number(summaryRow?.signup_nudge_signup_completed || 0) / Number(summaryRow.signup_nudge_shown)) * 100
+          : 0,
+        signupCloseRate: Number(summaryRow?.signup_nudge_shown || 0)
+          ? (Number(summaryRow?.signup_nudge_close || 0) / Number(summaryRow.signup_nudge_shown)) * 100
           : 0,
         signupClickToCompleteRate: Number(summaryRow?.signup_nudge_signup_clicks || 0)
           ? (Number(summaryRow?.signup_nudge_signup_completed || 0) / Number(summaryRow.signup_nudge_signup_clicks)) * 100

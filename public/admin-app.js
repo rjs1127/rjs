@@ -143,6 +143,8 @@ const els = {
   visitActiveTimeAvg: document.getElementById("visitActiveTimeAvg"),
   visitTodayWorkOpens: document.getElementById("visitTodayWorkOpens"),
   visitSignupShown: document.getElementById("visitSignupShown"),
+  visitSignupClose: document.getElementById("visitSignupClose"),
+  visitSignupCloseRate: document.getElementById("visitSignupCloseRate"),
   visitSignupLoginClicks: document.getElementById("visitSignupLoginClicks"),
   visitSignupLoginCompleted: document.getElementById("visitSignupLoginCompleted"),
   visitSignupClicks: document.getElementById("visitSignupClicks"),
@@ -866,6 +868,8 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitActiveTimeAvg) els.visitActiveTimeAvg.textContent = formatVisitDuration(summary.averageActiveSecondsPerSession || 0);
   if (els.visitTodayWorkOpens) els.visitTodayWorkOpens.textContent = Number(today.workOpens || 0).toLocaleString("ko-KR");
   if (els.visitSignupShown) els.visitSignupShown.textContent = Number(acquisition.shown || 0).toLocaleString("ko-KR");
+  if (els.visitSignupClose) els.visitSignupClose.textContent = Number(acquisition.close || 0).toLocaleString("ko-KR");
+  if (els.visitSignupCloseRate) els.visitSignupCloseRate.textContent = `노출 대비 ${Number(acquisition.closeRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
   if (els.visitSignupLoginClicks) els.visitSignupLoginClicks.textContent = Number(acquisition.loginClicks || 0).toLocaleString("ko-KR");
   if (els.visitSignupLoginCompleted) els.visitSignupLoginCompleted.textContent = `완료 ${Number(acquisition.loginCompleted || 0).toLocaleString("ko-KR")}`;
   if (els.visitSignupClicks) els.visitSignupClicks.textContent = Number(acquisition.signupClicks || 0).toLocaleString("ko-KR");
