@@ -360,7 +360,9 @@ async function ensureUserSchema(db) {
         signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0
+        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_trigger TEXT NOT NULL DEFAULT ''
       )
     `),
     db.prepare(`
@@ -394,7 +396,9 @@ async function ensureUserSchema(db) {
       ["signup_nudge_login_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_signup_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_login_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0"],
-      ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_trigger TEXT NOT NULL DEFAULT ''"],
     ];
     for (const [column, sql] of analyticsMigrations) {
       if (analyticsColumns.has(column)) continue;

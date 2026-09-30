@@ -252,6 +252,8 @@ function initAnalyticsSession() {
       signupNudgeSignupClicks: 0,
       signupNudgeLoginCompleted: 0,
       signupNudgeSignupCompleted: 0,
+      signupNudgeClose: 0,
+      signupNudgeTrigger: "",
     };
   }
 
@@ -289,6 +291,8 @@ function analyticsPayload() {
     signupNudgeSignupClicks: Number(analyticsSession.signupNudgeSignupClicks || 0),
     signupNudgeLoginCompleted: Number(analyticsSession.signupNudgeLoginCompleted || 0),
     signupNudgeSignupCompleted: Number(analyticsSession.signupNudgeSignupCompleted || 0),
+    signupNudgeClose: Number(analyticsSession.signupNudgeClose || 0),
+    signupNudgeTrigger: analyticsSession.signupNudgeTrigger || "",
   };
 }
 
@@ -353,6 +357,7 @@ function maybeShowSignupNudge() {
   els.signupNudge.hidden = false;
   if (!Number(analyticsSession.signupNudgeShown || 0)) {
     analyticsSession.signupNudgeShown = 1;
+    analyticsSession.signupNudgeTrigger = "reader_3_open";
     persistAnalyticsSession();
     flushAnalyticsSession();
   }
@@ -362,6 +367,7 @@ function recordSignupNudgeAction(kind) {
   if (!analyticsSession) return;
   if (kind === "login") analyticsSession.signupNudgeLoginClicks = 1;
   if (kind === "signup") analyticsSession.signupNudgeSignupClicks = 1;
+  if (kind === "close") analyticsSession.signupNudgeClose = 1;
   persistAnalyticsSession();
   flushAnalyticsSession();
 }
@@ -7045,6 +7051,7 @@ els.viewerSettingsButton?.addEventListener("click", () => {
 });
 
 els.signupNudgeClose?.addEventListener("click", () => {
+  recordSignupNudgeAction("close");
   hideSignupNudge({ remember: true });
 });
 

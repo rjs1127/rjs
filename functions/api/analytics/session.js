@@ -193,9 +193,11 @@ export async function onRequestPost(context) {
         signup_nudge_login_clicks,
         signup_nudge_signup_clicks,
         signup_nudge_login_completed,
-        signup_nudge_signup_completed
+        signup_nudge_signup_completed,
+        signup_nudge_close,
+        signup_nudge_trigger
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(session_id) DO UPDATE SET
         user_id = COALESCE(excluded.user_id, analytics_sessions.user_id),
         last_seen_at = MAX(analytics_sessions.last_seen_at, excluded.last_seen_at),
@@ -229,7 +231,9 @@ export async function onRequestPost(context) {
         signup_nudge_login_clicks = MAX(analytics_sessions.signup_nudge_login_clicks, excluded.signup_nudge_login_clicks),
         signup_nudge_signup_clicks = MAX(analytics_sessions.signup_nudge_signup_clicks, excluded.signup_nudge_signup_clicks),
         signup_nudge_login_completed = MAX(analytics_sessions.signup_nudge_login_completed, excluded.signup_nudge_login_completed),
-        signup_nudge_signup_completed = MAX(analytics_sessions.signup_nudge_signup_completed, excluded.signup_nudge_signup_completed)
+        signup_nudge_signup_completed = MAX(analytics_sessions.signup_nudge_signup_completed, excluded.signup_nudge_signup_completed),
+        signup_nudge_close = MAX(analytics_sessions.signup_nudge_close, excluded.signup_nudge_close),
+        signup_nudge_trigger = COALESCE(NULLIF(excluded.signup_nudge_trigger, ''), analytics_sessions.signup_nudge_trigger)
     `).bind(
       sessionId,
       visitorId,
