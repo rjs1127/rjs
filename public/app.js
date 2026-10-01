@@ -10807,8 +10807,14 @@ function getIssueReportText() {
 
 async function copyTextToClipboard(text) {
   if (navigator.clipboard?.writeText && window.isSecureContext) {
-    await navigator.clipboard.writeText(text);
-    return;
+    try {
+      await navigator.clipboard.writeText(text);
+      return;
+    } catch (error) {
+      // Clipboard API can be blocked by browser/profile permissions even on HTTPS.
+      // Fall through to the legacy copy path instead of reporting an immediate failure.
+      console.warn("Clipboard API 복사 실패, fallback 사용", error);
+    }
   }
 
   const textarea = document.createElement("textarea");
