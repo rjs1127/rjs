@@ -38,6 +38,7 @@ const state = {
   readerSearchIndex: -1,
   readerSearchQuery: "",
   readerSearchNavigationOnly: false,
+  readerSearchResumeSnapshot: null,
   readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
@@ -4999,11 +5000,14 @@ function unlockReaderScroll() {
   els.readerPanel?.classList.remove("reader-loading-locked");
 }
 
-function resetReaderSearchUi({ close = true } = {}) {
+function resetReaderSearchUi({ close = true, resetNavigation = true } = {}) {
   state.readerSearchMatches = [];
   state.readerSearchIndex = -1;
   state.readerSearchQuery = "";
-  state.readerSearchNavigationOnly = false;
+  if (resetNavigation) {
+    state.readerSearchNavigationOnly = false;
+    state.readerSearchResumeSnapshot = null;
+  }
   if (els.readerSearchInput) els.readerSearchInput.value = "";
   if (els.readerSearchResult) els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
   if (els.readerSearchPrev) els.readerSearchPrev.disabled = true;
@@ -5036,8 +5040,13 @@ async function moveReaderSearchResult(index) {
 
   const normalized = ((Number(index) || 0) % total + total) % total;
   const offset = state.readerSearchMatches[normalized];
-  // Search-result jumps are navigation only. Keep the pre-search resume point
-  // until the user performs an actual reading/navigation gesture.
+  // Search-result jumps are navigation only. Freeze the pre-search resume point
+  // once, before the first jump, so temporary search navigation can never
+  // replace or erase the user's real resume record.
+  if (!state.readerSearchNavigationOnly) {
+    const item = state.activeReaderItem;
+    state.readerSearchResumeSnapshot = item ? getReaderProgress(item.id) : null;
+  }
   state.readerSearchNavigationOnly = true;
   const wasSuspended = state.suspendReaderProgressSave;
   const moved = await scrollReaderToTextOffset(offset, { releaseProgressSave: false });
@@ -6581,6 +6590,9 @@ function finalizeReaderClose() {
   state.suspendReaderProgressSave = preserveExistingResume;
 
   const closingItem = state.activeReaderItem;
+  const searchResumeSnapshot = state.readerSearchNavigationOnly
+    ? state.readerSearchResumeSnapshot
+    : null;
   const savedProgress = preserveExistingResume
     ? null
     : saveReaderProgress();
@@ -6590,10 +6602,30 @@ function finalizeReaderClose() {
 
   if (refreshArchiveAfterClose) {
     persistProgress(closingItem, savedProgress);
+  } else if (closingItem && searchResumeSnapshot && state.user) {
+    // Search-only navigation must leave the pre-search resume point exactly
+    // as it was. Refresh both local recovery and the in-memory library entry
+    // so reopening in this session cannot fall back to the searched position
+    // or to page 1. The server record was never changed by the search jump.
+    writeLocalReaderProgress(closingItem, searchResumeSnapshot, { force: true });
+    updateUserLibraryEntry(closingItem.id, {
+      progressPercent: searchResumeSnapshot.percent,
+      scrollTop: searchResumeSnapshot.mode === "scroll"
+        ? Number(searchResumeSnapshot.scrollTop || 0)
+        : null,
+      chunkIndex: searchResumeSnapshot.mode === "chunk"
+        ? Number(searchResumeSnapshot.chunkIndex || 0)
+        : null,
+      chunkRatio: searchResumeSnapshot.mode === "chunk"
+        ? Number(searchResumeSnapshot.chunkRatio || 0)
+        : null,
+      updatedAt: Date.now(),
+    });
   }
 
   state.readerResumeSaved = null;
   state.readerSearchNavigationOnly = false;
+  state.readerSearchResumeSnapshot = null;
   state.suspendReaderProgressSave = false;
 
   state.readerRenderToken += 1;
@@ -8497,7 +8529,7 @@ els.readerSearchToggle?.addEventListener("click", () => {
     window.setTimeout(() => els.readerSearchInput?.focus(), 0);
   }
 });
-els.readerSearchClose?.addEventListener("click", () => resetReaderSearchUi({ close: true }));
+els.readerSearchClose?.addEventListener("click", () => resetReaderSearchUi({ close: true, resetNavigation: false }));
 els.readerSearchPrev?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex - 1));
 els.readerSearchNext?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex + 1));
 els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
@@ -8681,6 +8713,7 @@ els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
 function markReaderSearchNavigationAsReading() {
   if (!state.readerSearchNavigationOnly) return;
   state.readerSearchNavigationOnly = false;
+  state.readerSearchResumeSnapshot = null;
 }
 
 // A search jump itself must not replace the saved resume point. Once the
