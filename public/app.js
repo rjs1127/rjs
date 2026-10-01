@@ -6243,7 +6243,7 @@ async function streamTextIntoReader(response, renderToken) {
   };
 }
 
-function showResumePrompt(item) {
+function showResumePrompt(item, { actionsReady = true } = {}) {
   if (!els.readerResume) return;
 
   const saved = getReaderProgress(item?.id);
@@ -6264,8 +6264,8 @@ function showResumePrompt(item) {
   els.readerResume.hidden = false;
   els.readerResume.dataset.itemId = item.id;
 
-  if (els.readerResumeButton) els.readerResumeButton.disabled = false;
-  if (els.readerRestartButton) els.readerRestartButton.disabled = false;
+  if (els.readerResumeButton) els.readerResumeButton.disabled = !actionsReady;
+  if (els.readerRestartButton) els.readerRestartButton.disabled = !actionsReady;
 
   if (els.readerResumeText) {
     els.readerResumeText.textContent =
@@ -6594,6 +6594,15 @@ async function openReader(item, options = {}) {
   recordRecentView(item);
   showReaderLoading(item);
 
+  // Show the saved resume notice as soon as the reader opens, before the
+  // body fetch/render can unlock scrolling. The saved point is frozen here
+  // while progress writes are still suspended, so an early user scroll can
+  // never replace the existing resume target before the notice appears.
+  // Keep the actions disabled until the text/layout is actually ready.
+  if (!options?.quoteJump) {
+    showResumePrompt(item, { actionsReady: false });
+  }
+
   let waitingProgress = 5;
   const waitTimer = window.setInterval(() => {
     waitingProgress = Math.min(38, waitingProgress + Math.max(1, (40 - waitingProgress) * .08));
@@ -6724,7 +6733,7 @@ async function openReader(item, options = {}) {
         }, 0);
       }
     } else {
-      showResumePrompt(item);
+      showResumePrompt(item, { actionsReady: true });
     }
     recordAnalyticsReaderLoad(performance.now() - state.readerLoadingStartedAt, {
       responseMs,
