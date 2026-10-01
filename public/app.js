@@ -37,6 +37,7 @@ const state = {
   readerSearchMatches: [],
   readerSearchIndex: -1,
   readerSearchQuery: "",
+  readerSearchNavigationOnly: false,
   readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
@@ -4995,6 +4996,7 @@ function resetReaderSearchUi({ close = true } = {}) {
   state.readerSearchMatches = [];
   state.readerSearchIndex = -1;
   state.readerSearchQuery = "";
+  state.readerSearchNavigationOnly = false;
   if (els.readerSearchInput) els.readerSearchInput.value = "";
   if (els.readerSearchResult) els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
   if (els.readerSearchPrev) els.readerSearchPrev.disabled = true;
@@ -5027,6 +5029,9 @@ async function moveReaderSearchResult(index) {
 
   const normalized = ((Number(index) || 0) % total + total) % total;
   const offset = state.readerSearchMatches[normalized];
+  // Search-result jumps are navigation only. Keep the pre-search resume point
+  // until the user performs an actual reading/navigation gesture.
+  state.readerSearchNavigationOnly = true;
   const wasSuspended = state.suspendReaderProgressSave;
   const moved = await scrollReaderToTextOffset(offset, { releaseProgressSave: false });
 
@@ -6560,8 +6565,9 @@ function finalizeReaderClose() {
     !state.readerPageHasNavigated &&
     Math.max(0, Number(state.readerPageStart || 0)) === 0;
   const preserveExistingResume =
-    hasPendingResume &&
-    (untouchedScrollResume || untouchedPageResume);
+    (hasPendingResume &&
+      (untouchedScrollResume || untouchedPageResume)) ||
+    state.readerSearchNavigationOnly;
 
   window.clearTimeout(readerProgressSaveTimer);
   readerProgressSaveTimer = 0;
@@ -6580,6 +6586,7 @@ function finalizeReaderClose() {
   }
 
   state.readerResumeSaved = null;
+  state.readerSearchNavigationOnly = false;
   state.suspendReaderProgressSave = false;
 
   state.readerRenderToken += 1;
@@ -8498,6 +8505,14 @@ els.readerOverlay.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
+  if (
+    !els.readerOverlay?.hidden &&
+    !["INPUT", "TEXTAREA", "SELECT"].includes(String(event.target?.tagName || "").toUpperCase()) &&
+    ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)
+  ) {
+    markReaderSearchNavigationAsReading();
+  }
+
   if (event.key !== "Escape") return;
 
   const openSimpleModal = getOpenSimpleModal();
@@ -8655,6 +8670,18 @@ function updateReaderScrollUi() {
 els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
   passive: true,
 });
+
+function markReaderSearchNavigationAsReading() {
+  if (!state.readerSearchNavigationOnly) return;
+  state.readerSearchNavigationOnly = false;
+}
+
+// A search jump itself must not replace the saved resume point. Once the
+// reader receives a real user navigation gesture, normal progress saving
+// resumes without changing the existing save/progress calculation.
+els.readerPanel?.addEventListener("wheel", markReaderSearchNavigationAsReading, { passive: true });
+els.readerPanel?.addEventListener("touchstart", markReaderSearchNavigationAsReading, { passive: true });
+els.readerPanel?.addEventListener("pointerdown", markReaderSearchNavigationAsReading, { passive: true });
 
 if (IS_SAFARI_READER) {
   els.readerPanel?.addEventListener("touchend", () => {
