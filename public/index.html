@@ -60,9 +60,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=902" />
+  <link rel="stylesheet" href="/style.css?v=903" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=902" />
+  <link rel="stylesheet" href="/theme.css?v=903" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -441,7 +441,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.02</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.03</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -466,6 +466,12 @@
           <span id="readerLength" class="reader-tag subtle"></span>
         </div>
         <div class="reader-header-actions">
+          <button id="readerSearchOpenButton" class="reader-search-open-button" type="button" aria-label="작품 내 검색" title="작품 내 검색">
+            <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="10.8" cy="10.8" r="5.8"></circle>
+              <path d="m15.2 15.2 4.3 4.3"></path>
+            </svg>
+          </button>
           <button id="readerDownloadButton" class="reader-download-button" type="button" aria-label="TXT 다운로드" title="TXT 다운로드">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3.5v11"></path>
@@ -506,15 +512,6 @@
           <button id="readerResumeButton" type="button">이어보기</button>
           <button id="readerRestartButton" type="button">처음부터</button>
         </div>
-      </div>
-
-      <div id="readerSearchBar" class="reader-search-bar" hidden>
-        <label class="reader-search-field" for="readerSearchInput">
-          <span class="sr-only">현재 작품에서 검색</span>
-          <input id="readerSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="검색어를 입력하세요" />
-        </label>
-        <button id="readerSearchButton" class="reader-search-button" type="button">검색</button>
-        <span id="readerSearchResult" class="reader-search-result" role="status" aria-live="polite">검색어를 입력해 주세요.</span>
       </div>
 
       <section id="readerPageViewport" class="reader-page-viewport" hidden aria-label="페이지 읽기">
@@ -567,6 +564,36 @@
       <button id="signupNudgeSignup" class="primary" type="button">회원가입</button>
     </div>
   </aside>
+
+  <div id="readerSearchModal" class="simple-modal-overlay reader-search-modal-overlay" hidden>
+    <section class="simple-modal reader-search-modal" role="dialog" aria-modal="true" aria-labelledby="readerSearchModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="readerSearchModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">READER SEARCH</p>
+      <h2 id="readerSearchModalTitle">작품 내 검색</h2>
+      <p class="simple-modal-description">현재 열려 있는 작품의 본문에서 검색합니다.</p>
+      <div class="reader-search-form">
+        <label class="reader-search-field" for="readerSearchInput">
+          <span class="sr-only">검색어</span>
+          <input id="readerSearchInput" type="search" inputmode="search" autocomplete="off" placeholder="검색어를 입력하세요" />
+        </label>
+        <button id="readerSearchButton" class="reader-search-button" type="button">검색</button>
+      </div>
+      <div class="reader-search-summary">
+        <span id="readerSearchResult" role="status" aria-live="polite">검색어를 입력해 주세요.</span>
+      </div>
+      <div id="readerSearchResults" class="reader-search-results" hidden>
+        <div class="reader-search-table-head" aria-hidden="true">
+          <span>위치</span><span>검색 내용</span>
+        </div>
+        <div id="readerSearchRows" class="reader-search-rows"></div>
+        <div id="readerSearchPager" class="reader-search-pager" hidden>
+          <button id="readerSearchPrevPage" type="button">‹ 이전</button>
+          <span id="readerSearchPageStatus"></span>
+          <button id="readerSearchNextPage" type="button">다음 ›</button>
+        </div>
+      </div>
+    </section>
+  </div>
 
   <div id="authModal" class="simple-modal-overlay" hidden>
     <section class="simple-modal auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
@@ -937,6 +964,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=902" defer></script>
+  <script src="/app.js?v=903" defer></script>
 </body>
 </html>

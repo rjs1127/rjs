@@ -799,10 +799,17 @@ const els = {
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
-  readerSearchBar: document.getElementById("readerSearchBar"),
+  readerSearchOpenButton: document.getElementById("readerSearchOpenButton"),
+  readerSearchModal: document.getElementById("readerSearchModal"),
   readerSearchInput: document.getElementById("readerSearchInput"),
   readerSearchButton: document.getElementById("readerSearchButton"),
   readerSearchResult: document.getElementById("readerSearchResult"),
+  readerSearchResults: document.getElementById("readerSearchResults"),
+  readerSearchRows: document.getElementById("readerSearchRows"),
+  readerSearchPager: document.getElementById("readerSearchPager"),
+  readerSearchPrevPage: document.getElementById("readerSearchPrevPage"),
+  readerSearchNextPage: document.getElementById("readerSearchNextPage"),
+  readerSearchPageStatus: document.getElementById("readerSearchPageStatus"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
@@ -4985,11 +4992,78 @@ function unlockReaderScroll() {
 }
 
 function resetReaderSearchUi({ close = true } = {}) {
+  state.readerSearchMatches = [];
+  state.readerSearchPage = 0;
+  state.readerSearchQuery = "";
   if (els.readerSearchInput) els.readerSearchInput.value = "";
-  if (els.readerSearchResult) {
-    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+  if (els.readerSearchResult) els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+  if (els.readerSearchRows) els.readerSearchRows.replaceChildren();
+  if (els.readerSearchResults) els.readerSearchResults.hidden = true;
+  if (els.readerSearchPager) els.readerSearchPager.hidden = true;
+  if (close && els.readerSearchModal && !els.readerSearchModal.hidden) {
+    closeModal(els.readerSearchModal);
   }
-  if (close && els.readerSearchBar) els.readerSearchBar.hidden = true;
+}
+
+const READER_SEARCH_PAGE_SIZE = 50;
+const READER_SEARCH_CONTEXT_CHARS = 30;
+
+function renderReaderSearchResults() {
+  if (!els.readerSearchRows || !els.readerSearchResults) return;
+
+  const matches = Array.isArray(state.readerSearchMatches) ? state.readerSearchMatches : [];
+  const text = String(state.readerText || "");
+  const query = String(state.readerSearchQuery || "");
+  els.readerSearchRows.replaceChildren();
+
+  if (!matches.length || !query) {
+    els.readerSearchResults.hidden = true;
+    return;
+  }
+
+  const totalPages = Math.max(1, Math.ceil(matches.length / READER_SEARCH_PAGE_SIZE));
+  state.readerSearchPage = Math.max(0, Math.min(totalPages - 1, Number(state.readerSearchPage) || 0));
+  const from = state.readerSearchPage * READER_SEARCH_PAGE_SIZE;
+  const pageMatches = matches.slice(from, from + READER_SEARCH_PAGE_SIZE);
+  const textLength = Math.max(1, text.length);
+
+  pageMatches.forEach((offset, localIndex) => {
+    const beforeStart = Math.max(0, offset - READER_SEARCH_CONTEXT_CHARS);
+    const afterEnd = Math.min(text.length, offset + query.length + READER_SEARCH_CONTEXT_CHARS);
+    const before = text.slice(beforeStart, offset).replace(/\s+/g, " ");
+    const hit = text.slice(offset, offset + query.length).replace(/\s+/g, " ");
+    const after = text.slice(offset + query.length, afterEnd).replace(/\s+/g, " ");
+    const percent = Math.max(0, Math.min(100, (offset / textLength) * 100));
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "reader-search-row";
+    button.dataset.readerSearchOffset = String(offset);
+    button.setAttribute("aria-label", `${from + localIndex + 1}번째 검색 결과, ${percent.toFixed(1)}% 위치로 이동`);
+
+    const position = document.createElement("span");
+    position.className = "reader-search-row-position";
+    position.textContent = `${percent.toFixed(1)}%`;
+
+    const context = document.createElement("span");
+    context.className = "reader-search-row-context";
+    const beforeNode = document.createTextNode(`${beforeStart > 0 ? "…" : ""}${before}`);
+    const mark = document.createElement("mark");
+    mark.textContent = hit;
+    const afterNode = document.createTextNode(`${after}${afterEnd < text.length ? "…" : ""}`);
+    context.append(beforeNode, mark, afterNode);
+
+    button.append(position, context);
+    els.readerSearchRows.append(button);
+  });
+
+  els.readerSearchResults.hidden = false;
+  if (els.readerSearchPager) els.readerSearchPager.hidden = totalPages <= 1;
+  if (els.readerSearchPageStatus) {
+    els.readerSearchPageStatus.textContent = `${state.readerSearchPage + 1} / ${totalPages}`;
+  }
+  if (els.readerSearchPrevPage) els.readerSearchPrevPage.disabled = state.readerSearchPage <= 0;
+  if (els.readerSearchNextPage) els.readerSearchNextPage.disabled = state.readerSearchPage >= totalPages - 1;
 }
 
 function runReaderSearchCount() {
@@ -4998,27 +5072,52 @@ function runReaderSearchCount() {
   const query = String(els.readerSearchInput.value || "").trim();
   if (!query) {
     els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+    state.readerSearchMatches = [];
+    renderReaderSearchResults();
     return;
   }
 
   const text = String(state.readerText || "");
   if (!text) {
     els.readerSearchResult.textContent = "검색할 본문이 없습니다.";
+    state.readerSearchMatches = [];
+    renderReaderSearchResults();
     return;
   }
 
-  let count = 0;
+  const matches = [];
   let fromIndex = 0;
   while (fromIndex <= text.length - query.length) {
     const found = text.indexOf(query, fromIndex);
     if (found < 0) break;
-    count += 1;
+    matches.push(found);
     fromIndex = found + Math.max(1, query.length);
   }
 
-  els.readerSearchResult.textContent = count > 0
-    ? `총 ${count.toLocaleString("ko-KR")}건`
+  state.readerSearchQuery = query;
+  state.readerSearchMatches = matches;
+  state.readerSearchPage = 0;
+  els.readerSearchResult.textContent = matches.length > 0
+    ? `총 ${matches.length.toLocaleString("ko-KR")}건 · 결과를 누르면 해당 위치로 이동합니다.`
     : "검색 결과가 없습니다.";
+  renderReaderSearchResults();
+}
+
+async function moveReaderToSearchOffset(offset) {
+  const safeOffset = clampReaderTextOffset(offset);
+  closeModal(els.readerSearchModal);
+
+  if (state.readerDisplayMode === "page") {
+    renderReaderPageAt(safeOffset, { navigated: true });
+    const saved = saveReaderProgress();
+    const item = state.activeReaderItem;
+    if (saved && item && state.user && shouldSyncProgressNow(item.id, saved)) {
+      persistProgress(item, saved);
+    }
+    return;
+  }
+
+  await scrollReaderToTextOffset(safeOffset);
 }
 
 function showReaderLoading(item) {
@@ -5940,7 +6039,6 @@ async function streamTextIntoReader(response, renderToken) {
   }
 
   state.readerText = text;
-  if (els.readerSearchBar) els.readerSearchBar.hidden = false;
   const renderStartedAt = performance.now();
   const renderResult = await renderLongText(text, renderToken);
   const renderMs = performance.now() - renderStartedAt;
@@ -8415,11 +8513,34 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
+els.readerSearchOpenButton?.addEventListener("click", () => {
+  if (!state.readerText) return;
+  openModal(els.readerSearchModal);
+});
 els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
 els.readerSearchInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
   event.preventDefault();
   runReaderSearchCount();
+});
+els.readerSearchRows?.addEventListener("click", (event) => {
+  const row = event.target.closest("[data-reader-search-offset]");
+  if (!row) return;
+  const offset = Number(row.dataset.readerSearchOffset);
+  if (!Number.isFinite(offset)) return;
+  moveReaderToSearchOffset(offset);
+});
+els.readerSearchPrevPage?.addEventListener("click", () => {
+  if ((state.readerSearchPage || 0) <= 0) return;
+  state.readerSearchPage -= 1;
+  renderReaderSearchResults();
+});
+els.readerSearchNextPage?.addEventListener("click", () => {
+  const total = Array.isArray(state.readerSearchMatches) ? state.readerSearchMatches.length : 0;
+  const totalPages = Math.max(1, Math.ceil(total / READER_SEARCH_PAGE_SIZE));
+  if ((state.readerSearchPage || 0) >= totalPages - 1) return;
+  state.readerSearchPage += 1;
+  renderReaderSearchResults();
 });
 
 els.readerOverlay.addEventListener("click", (event) => {
