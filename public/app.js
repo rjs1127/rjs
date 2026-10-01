@@ -5108,7 +5108,14 @@ async function moveReaderToSearchOffset(offset) {
   closeModal(els.readerSearchModal);
 
   if (state.readerDisplayMode === "page") {
-    renderReaderPageAt(safeOffset, { navigated: true });
+    // 검색 결과는 페이지 맨 위가 아니라 현재 페이지의 중앙 부근에 보이도록
+    // 검색 지점부터 한 페이지에 들어가는 문자량을 기준으로 시작점을 앞당긴다.
+    const forwardEnd = findReaderPageEnd(safeOffset);
+    const forwardChars = Math.max(1, forwardEnd - safeOffset);
+    const centeredStart = clampReaderTextOffset(
+      safeOffset - Math.floor(forwardChars / 2)
+    );
+    renderReaderPageAt(centeredStart, { navigated: true });
     const saved = saveReaderProgress();
     const item = state.activeReaderItem;
     if (saved && item && state.user && shouldSyncProgressNow(item.id, saved)) {
@@ -5117,7 +5124,7 @@ async function moveReaderToSearchOffset(offset) {
     return;
   }
 
-  await scrollReaderToTextOffset(safeOffset);
+  await scrollReaderToTextOffset(safeOffset, { viewportRatio: 0.5 });
 }
 
 function showReaderLoading(item) {
@@ -5598,7 +5605,10 @@ async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) 
       const panelRect = panel.getBoundingClientRect();
       const targetRect = range.getBoundingClientRect();
       const margin = getReaderResumeTopOffset(panel);
-      const desiredViewportY = panelRect.top + margin;
+      const viewportRatio = Number(options.viewportRatio);
+      const desiredViewportY = Number.isFinite(viewportRatio)
+        ? panelRect.top + (panel.clientHeight * Math.max(0.12, Math.min(0.88, viewportRatio)))
+        : panelRect.top + margin;
       const delta = targetRect.top - desiredViewportY;
       const tolerance = Math.max(18, panel.clientHeight * 0.018);
 
@@ -5642,10 +5652,12 @@ async function scrollReaderTextNodeIntoView(textNode, charOffset, options = {}) 
       const panelRect = panel.getBoundingClientRect();
       const targetRect = range.getBoundingClientRect();
       const margin = getReaderResumeTopOffset(panel);
+      const viewportRatio = Number(options.viewportRatio);
+      const desiredViewportY = Number.isFinite(viewportRatio)
+        ? panelRect.top + (panel.clientHeight * Math.max(0.12, Math.min(0.88, viewportRatio)))
+        : panelRect.top + margin;
       const tolerance = Math.max(26, panel.clientHeight * 0.03);
-      reached = Math.abs(
-        targetRect.top - (panelRect.top + margin)
-      ) <= tolerance;
+      reached = Math.abs(targetRect.top - desiredViewportY) <= tolerance;
     }
 
     updateReaderScrollUi();
