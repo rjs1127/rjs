@@ -34,11 +34,6 @@ const state = {
   readerPageLastSwipeAt: 0,
   readerPageAnimationTimer: 0,
   readerEstimatedTotalPages: 1,
-  readerSearchMatches: [],
-  readerSearchIndex: -1,
-  readerSearchQuery: "",
-  readerSearchNavigationOnly: false,
-  readerSearchResumeSnapshot: null,
   readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
@@ -804,14 +799,10 @@ const els = {
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
-  readerSearchToggle: document.getElementById("readerSearchToggle"),
   readerSearchBar: document.getElementById("readerSearchBar"),
   readerSearchInput: document.getElementById("readerSearchInput"),
   readerSearchButton: document.getElementById("readerSearchButton"),
   readerSearchResult: document.getElementById("readerSearchResult"),
-  readerSearchPrev: document.getElementById("readerSearchPrev"),
-  readerSearchNext: document.getElementById("readerSearchNext"),
-  readerSearchClose: document.getElementById("readerSearchClose"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
@@ -4087,14 +4078,7 @@ async function jumpReaderPanelTo(targetTop, options = {}) {
 }
 
 function saveReaderProgress() {
-  // A search-result jump is temporary navigation, not reading progress.
-  // Keep every save path (periodic, close, layout) blocked until the user
-  // performs a real reading gesture. This does not change progress math.
-  if (
-    state.suspendReaderProgressSave ||
-    state.readerSearchNavigationOnly ||
-    !state.user
-  ) return null;
+  if (state.suspendReaderProgressSave || !state.user) return null;
 
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return null;
@@ -5000,94 +4984,20 @@ function unlockReaderScroll() {
   els.readerPanel?.classList.remove("reader-loading-locked");
 }
 
-function resetReaderSearchUi({ close = true, resetNavigation = true } = {}) {
-  state.readerSearchMatches = [];
-  state.readerSearchIndex = -1;
-  state.readerSearchQuery = "";
-  if (resetNavigation) {
-    state.readerSearchNavigationOnly = false;
-    state.readerSearchResumeSnapshot = null;
-  }
+function resetReaderSearchUi({ close = true } = {}) {
   if (els.readerSearchInput) els.readerSearchInput.value = "";
-  if (els.readerSearchResult) els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
-  if (els.readerSearchPrev) els.readerSearchPrev.disabled = true;
-  if (els.readerSearchNext) els.readerSearchNext.disabled = true;
+  if (els.readerSearchResult) {
+    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+  }
   if (close && els.readerSearchBar) els.readerSearchBar.hidden = true;
 }
 
-function syncReaderSearchResultUi() {
-  const total = state.readerSearchMatches.length;
-  const active = state.readerSearchIndex >= 0 && state.readerSearchIndex < total;
-  if (els.readerSearchResult) {
-    els.readerSearchResult.textContent = total > 0 && active
-      ? `${(state.readerSearchIndex + 1).toLocaleString("ko-KR")} / ${total.toLocaleString("ko-KR")}`
-      : total > 0
-        ? `총 ${total.toLocaleString("ko-KR")}건`
-        : "검색 결과가 없습니다.";
-  }
-  if (els.readerSearchPrev) els.readerSearchPrev.disabled = total <= 0;
-  if (els.readerSearchNext) els.readerSearchNext.disabled = total <= 0;
-}
-
-async function moveReaderSearchResult(index) {
-  const total = state.readerSearchMatches.length;
-  if (!total) return false;
-
-  if (state.readerDisplayMode === "page") {
-    if (els.readerSearchResult) els.readerSearchResult.textContent = "페이지 모드 이동은 다음 단계에서 지원합니다.";
-    return false;
-  }
-
-  const normalized = ((Number(index) || 0) % total + total) % total;
-  const offset = state.readerSearchMatches[normalized];
-  // Search-result jumps are navigation only. Immediately checkpoint the
-  // CURRENT real reading position before the first search jump, then freeze
-  // every progress-save path until the user actually resumes reading.
-  // This is safer than reconstructing/restoring a snapshot on close: the
-  // pre-search position remains the normal local/in-memory progress record.
-  if (!state.readerSearchNavigationOnly) {
-    const item = state.activeReaderItem;
-    const checkpoint = saveReaderProgress();
-    state.readerSearchResumeSnapshot = checkpoint ? { ...checkpoint } : null;
-
-    if (
-      checkpoint &&
-      item &&
-      state.user &&
-      shouldSyncProgressNow(item.id, checkpoint)
-    ) {
-      persistProgress(item, checkpoint);
-    }
-  }
-  state.readerSearchNavigationOnly = true;
-  const wasSuspended = state.suspendReaderProgressSave;
-  const moved = await scrollReaderToTextOffset(offset, { releaseProgressSave: false });
-
-  // 검색 결과 이동은 탐색 동작이다. 프로그램이 만든 스크롤 이벤트가
-  // 기존 이어보기 위치를 덮어쓰지 않도록 예약 저장만 제거하고,
-  // 이후 사용자의 실제 스크롤부터 기존 저장 로직을 그대로 사용한다.
-  window.clearTimeout(readerProgressSaveTimer);
-  readerProgressSaveTimer = 0;
-  if (!wasSuspended) {
-    window.setTimeout(() => {
-      window.clearTimeout(readerProgressSaveTimer);
-      readerProgressSaveTimer = 0;
-      state.suspendReaderProgressSave = false;
-    }, 520);
-  }
-
-  if (!moved) return false;
-  state.readerSearchIndex = normalized;
-  syncReaderSearchResultUi();
-  return true;
-}
-
-async function runReaderSearchCount() {
+function runReaderSearchCount() {
   if (!els.readerSearchInput || !els.readerSearchResult) return;
 
   const query = String(els.readerSearchInput.value || "").trim();
   if (!query) {
-    resetReaderSearchUi({ close: false });
+    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
     return;
   }
 
@@ -5097,23 +5007,18 @@ async function runReaderSearchCount() {
     return;
   }
 
-  const matches = [];
+  let count = 0;
   let fromIndex = 0;
   while (fromIndex <= text.length - query.length) {
     const found = text.indexOf(query, fromIndex);
     if (found < 0) break;
-    matches.push(found);
+    count += 1;
     fromIndex = found + Math.max(1, query.length);
   }
 
-  state.readerSearchQuery = query;
-  state.readerSearchMatches = matches;
-  state.readerSearchIndex = matches.length ? 0 : -1;
-  syncReaderSearchResultUi();
-
-  if (matches.length) {
-    await moveReaderSearchResult(0);
-  }
+  els.readerSearchResult.textContent = count > 0
+    ? `총 ${count.toLocaleString("ko-KR")}건`
+    : "검색 결과가 없습니다.";
 }
 
 function showReaderLoading(item) {
@@ -6035,6 +5940,7 @@ async function streamTextIntoReader(response, renderToken) {
   }
 
   state.readerText = text;
+  if (els.readerSearchBar) els.readerSearchBar.hidden = false;
   const renderStartedAt = performance.now();
   const renderResult = await renderLongText(text, renderToken);
   const renderMs = performance.now() - renderStartedAt;
@@ -6593,9 +6499,8 @@ function finalizeReaderClose() {
     !state.readerPageHasNavigated &&
     Math.max(0, Number(state.readerPageStart || 0)) === 0;
   const preserveExistingResume =
-    (hasPendingResume &&
-      (untouchedScrollResume || untouchedPageResume)) ||
-    state.readerSearchNavigationOnly;
+    hasPendingResume &&
+    (untouchedScrollResume || untouchedPageResume);
 
   window.clearTimeout(readerProgressSaveTimer);
   readerProgressSaveTimer = 0;
@@ -6612,13 +6517,8 @@ function finalizeReaderClose() {
   if (refreshArchiveAfterClose) {
     persistProgress(closingItem, savedProgress);
   }
-  // Search-only close intentionally writes nothing. The real position was
-  // checkpointed immediately before the first search jump, and all saves
-  // have remained frozen since then.
 
   state.readerResumeSaved = null;
-  state.readerSearchNavigationOnly = false;
-  state.readerSearchResumeSnapshot = null;
   state.suspendReaderProgressSave = false;
 
   state.readerRenderToken += 1;
@@ -8515,16 +8415,6 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
-els.readerSearchToggle?.addEventListener("click", () => {
-  if (!els.readerSearchBar || !state.readerText) return;
-  els.readerSearchBar.hidden = !els.readerSearchBar.hidden;
-  if (!els.readerSearchBar.hidden) {
-    window.setTimeout(() => els.readerSearchInput?.focus(), 0);
-  }
-});
-els.readerSearchClose?.addEventListener("click", () => resetReaderSearchUi({ close: true, resetNavigation: false }));
-els.readerSearchPrev?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex - 1));
-els.readerSearchNext?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex + 1));
 els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
 els.readerSearchInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
@@ -8537,14 +8427,6 @@ els.readerOverlay.addEventListener("click", (event) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if (
-    !els.readerOverlay?.hidden &&
-    !["INPUT", "TEXTAREA", "SELECT"].includes(String(event.target?.tagName || "").toUpperCase()) &&
-    ["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)
-  ) {
-    markReaderSearchNavigationAsReading();
-  }
-
   if (event.key !== "Escape") return;
 
   const openSimpleModal = getOpenSimpleModal();
@@ -8702,21 +8584,6 @@ function updateReaderScrollUi() {
 els.readerPanel?.addEventListener("scroll", updateReaderScrollUi, {
   passive: true,
 });
-
-function markReaderSearchNavigationAsReading() {
-  if (!state.readerSearchNavigationOnly) return;
-  state.readerSearchNavigationOnly = false;
-  state.readerSearchResumeSnapshot = null;
-}
-
-// A search jump itself must not replace the saved resume point. Once the
-// reader receives a real user navigation gesture, normal progress saving
-// resumes without changing the existing save/progress calculation.
-els.readerPanel?.addEventListener("wheel", markReaderSearchNavigationAsReading, { passive: true });
-// touchstart/pointerdown can also be generated by tapping viewer controls
-// (including close/search buttons). Only an actual drag means the user has
-// resumed reading from the searched position.
-els.readerPanel?.addEventListener("touchmove", markReaderSearchNavigationAsReading, { passive: true });
 
 if (IS_SAFARI_READER) {
   els.readerPanel?.addEventListener("touchend", () => {
