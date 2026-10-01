@@ -10774,9 +10774,15 @@ function getIssueReportText() {
   const progress = activeEntry?.progressPercent == null
     ? "-"
     : `${Number(activeEntry.progressPercent).toFixed(1)}%`;
+  const connection = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+  const connectionInfo = connection
+    ? `${connection.effectiveType || "-"} / downlink=${Number.isFinite(connection.downlink) ? `${connection.downlink}Mbps` : "-"} / saveData=${connection.saveData ? "예" : "아니오"}`
+    : "확인 불가";
+  const readerMode = isReaderPageMode() ? "페이지" : "스크롤";
+  const readerSettings = `테마=${getSavedTheme()}, 글씨=${getSavedReaderFontSize()}, 줄간격=${getSavedReaderSpacing()}, 폰트=${getSavedReaderFontFamily()}`;
 
   return [
-    `[셩냥책 베타 문제 신고 정보]`,
+    `[셩냥책 문제 신고 정보]`,
     `버전: ${version}`,
     `시간: ${new Date().toLocaleString("ko-KR")}`,
     `온라인: ${navigator.onLine ? "예" : "아니오"}`,
@@ -10787,6 +10793,9 @@ function getIssueReportText() {
     `화면: viewport ${viewport} / screen ${screenSize} / DPR ${dpr}`,
     `플랫폼: ${platform}`,
     `브라우저 UA: ${navigator.userAgent}`,
+    `문서 상태: visibility=${document.visibilityState} / focus=${document.hasFocus() ? "있음" : "없음"}`,
+    `네트워크 정보: ${connectionInfo}`,
+    `뷰어 설정: 모드=${readerMode} / ${readerSettings}`,
     `보기: ${state.view} / 정렬: ${state.sort}`,
     `필터: CP=${state.combination}, 형태=${state.contentType}, 상태=${state.statusFilter}, 출처=${state.source}`,
     `검색어: ${state.search || "-"}`,
