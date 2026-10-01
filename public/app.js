@@ -6778,6 +6778,9 @@ async function openReader(item, options = {}) {
 
 function finalizeReaderClose() {
   closeReaderShareUi();
+  closeReaderSeekFloat();
+  window.clearTimeout(readerSeekMoveTimer);
+  readerSeekMoveTimer = 0;
   unlockReaderScroll();
 
   // If the reader was opened on a saved resume point and the user closes it
