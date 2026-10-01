@@ -4351,6 +4351,32 @@ function getReaderTextLength() {
   return Math.max(0, String(state.readerText || "").length);
 }
 
+// v9.23: visually indent every source line without changing readerText or DOM textContent.
+// The pseudo element supplies the 1em indent, so saved/search offsets remain based on
+// the original text exactly as before.
+function renderReaderIndentedText(container, text) {
+  if (!container) return;
+
+  const value = String(text ?? "");
+  container.textContent = "";
+
+  const fragment = document.createDocumentFragment();
+  const lines = value.split("\n");
+
+  lines.forEach((line, index) => {
+    const span = document.createElement("span");
+    span.className = "reader-indent-line";
+    span.appendChild(document.createTextNode(line));
+    fragment.appendChild(span);
+
+    if (index < lines.length - 1) {
+      fragment.appendChild(document.createTextNode("\n"));
+    }
+  });
+
+  container.appendChild(fragment);
+}
+
 function clampReaderTextOffset(offset) {
   return Math.max(
     0,
@@ -4636,7 +4662,7 @@ function pageSegmentFits(start, end) {
   if (!els.readerPageMeasure) return true;
 
   const text = String(state.readerText || "").slice(start, end);
-  els.readerPageMeasure.textContent = text || " ";
+  renderReaderIndentedText(els.readerPageMeasure, text || " ");
 
   return (
     els.readerPageMeasure.scrollHeight <=
@@ -4892,8 +4918,10 @@ function renderReaderPageAt(start, options = {}) {
   state.readerPageStart = safeStart;
   state.readerPageEnd = end;
 
-  els.readerPageText.textContent =
-    String(state.readerText).slice(safeStart, end);
+  renderReaderIndentedText(
+    els.readerPageText,
+    String(state.readerText).slice(safeStart, end)
+  );
 
   updateReaderPageControls();
 
@@ -5576,7 +5604,7 @@ function appendLargeReaderChunk(index) {
   const section = document.createElement("section");
   section.className = "reader-virtual-chunk";
   section.dataset.readerChunkIndex = String(index);
-  section.appendChild(document.createTextNode(text));
+  renderReaderIndentedText(section, text);
   els.readerContent.appendChild(section);
 
   if (IS_SAFARI_READER) {
@@ -5704,22 +5732,57 @@ async function maybeRenderMoreLargeReader() {
   await renderLargeReaderThrough(target, state.readerRenderToken);
 }
 
-function getReaderChunkTextNode(section) {
-  if (!section) return null;
+function getReaderChunkTextNodes(section) {
+  if (!section) return [];
+  const walker = document.createTreeWalker(section, NodeFilter.SHOW_TEXT);
+  const nodes = [];
+  let node = walker.nextNode();
+  while (node) {
+    nodes.push(node);
+    node = walker.nextNode();
+  }
+  return nodes;
+}
 
-  for (const node of section.childNodes) {
-    if (node.nodeType === Node.TEXT_NODE) return node;
+function getReaderChunkTextLength(section) {
+  return getReaderChunkTextNodes(section).reduce(
+    (total, node) => total + (node.data?.length || 0),
+    0
+  );
+}
+
+function getReaderChunkTextPosition(section, charOffset) {
+  const nodes = getReaderChunkTextNodes(section);
+  if (!nodes.length) return null;
+
+  const totalLength = nodes.reduce(
+    (total, node) => total + (node.data?.length || 0),
+    0
+  );
+  let remaining = Math.max(
+    0,
+    Math.min(totalLength, Math.floor(Number(charOffset) || 0))
+  );
+
+  for (const node of nodes) {
+    const length = node.data?.length || 0;
+    if (remaining <= length) {
+      return { node, offset: remaining, totalLength };
+    }
+    remaining -= length;
   }
 
-  return null;
+  const node = nodes[nodes.length - 1];
+  return { node, offset: node.data?.length || 0, totalLength };
 }
 
 function getReaderChunkTextY(section, charOffset) {
-  const textNode = getReaderChunkTextNode(section);
-  if (!textNode) return null;
+  const position = getReaderChunkTextPosition(section, charOffset);
+  if (!position?.node) return null;
 
-  const length = textNode.data.length;
-  const safeOffset = Math.max(0, Math.min(length, Math.floor(Number(charOffset) || 0)));
+  const textNode = position.node;
+  const length = textNode.data?.length || 0;
+  const safeOffset = Math.max(0, Math.min(length, position.offset));
   const range = document.createRange();
 
   try {
@@ -5728,9 +5791,6 @@ function getReaderChunkTextY(section, charOffset) {
       return rect.top;
     }
 
-    // A one-character range gives a stable line box in Chromium/WebKit.
-    // At EOF use the final character because a collapsed range can report
-    // an empty rect on some mobile Safari builds.
     const start = Math.min(safeOffset, length - 1);
     const end = Math.min(length, start + 1);
     range.setStart(textNode, start);
@@ -5895,14 +5955,14 @@ async function scrollReaderToTextOffset(offset, options = {}) {
     const section = els.readerContent.querySelector(
       `.reader-virtual-chunk[data-reader-chunk-index="${position.index}"]`
     );
-    const textNode = getReaderChunkTextNode(section);
-    if (!textNode) return false;
-
+    const chunkLength = getReaderChunkTextLength(section);
     const charOffset = Math.round(
-      (textNode.data?.length || 0) * Math.max(0, Math.min(1, Number(position.ratio) || 0))
+      chunkLength * Math.max(0, Math.min(1, Number(position.ratio) || 0))
     );
+    const target = getReaderChunkTextPosition(section, charOffset);
+    if (!target?.node) return false;
 
-    return scrollReaderTextNodeIntoView(textNode, charOffset, options);
+    return scrollReaderTextNodeIntoView(target.node, target.offset, options);
   }
 
   const walker = document.createTreeWalker(
@@ -5935,10 +5995,9 @@ async function scrollReaderToTextOffset(offset, options = {}) {
 }
 
 function getReaderChunkCharOffsetAtY(section, targetY) {
-  const textNode = getReaderChunkTextNode(section);
-  if (!textNode) return 0;
+  const length = getReaderChunkTextLength(section);
+  if (!length) return 0;
 
-  const length = textNode.data.length;
   if (length <= 1) return 0;
 
   let low = 0;
@@ -5969,8 +6028,7 @@ function getLargeReaderTargetScrollTop(section, chunkRatio = 0) {
   if (!section || !els.readerPanel) return 0;
 
   const panelRect = els.readerPanel.getBoundingClientRect();
-  const textNode = getReaderChunkTextNode(section);
-  const length = textNode?.data?.length || 0;
+  const length = getReaderChunkTextLength(section);
   const ratio = Math.max(0, Math.min(1, Number(chunkRatio) || 0));
   const charOffset = Math.round(length * ratio);
   const targetY = getReaderChunkTextY(section, charOffset);
@@ -6026,8 +6084,7 @@ function getLargeReaderPosition() {
   }
 
   const index = Number(current.dataset.readerChunkIndex || 0);
-  const textNode = getReaderChunkTextNode(current);
-  const chunkLength = textNode?.data?.length || 0;
+  const chunkLength = getReaderChunkTextLength(current);
   const charOffset = getReaderChunkCharOffsetAtY(current, targetY);
   const ratio = chunkLength > 0
     ? Math.max(0, Math.min(1, charOffset / chunkLength))
@@ -6187,9 +6244,10 @@ async function renderLongText(text, renderToken) {
     if (renderToken !== state.readerRenderToken) return result(false);
 
     const end = Math.min(text.length, offset + chunkSize);
-    els.readerContent.appendChild(
-      document.createTextNode(text.slice(offset, end))
-    );
+    const segment = document.createElement("span");
+    segment.className = "reader-text-segment";
+    renderReaderIndentedText(segment, text.slice(offset, end));
+    els.readerContent.appendChild(segment);
 
     offset = end;
 

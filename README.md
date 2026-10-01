@@ -1,3 +1,9 @@
+## v9.23
+- TXT 본문을 원문/offset 변경 없이 화면에서만 문단 첫 줄 약 1em 들여쓰기해 표시하도록 적용했습니다.
+- 스크롤 모드와 페이지 모드 모두 같은 들여쓰기 표현을 사용하며, 페이지 측정 영역에도 동일한 표시 규칙을 적용했습니다.
+- HELP_GUIDE와 사이트 상세 도움말에 문단 들여쓰기 안내를 반영했습니다.
+- commit: `feat: add visual first-line indent to reader paragraphs`
+
 ## v9.22
 - 빠른 위치 이동 슬라이더가 열린 상태에서 뷰어를 닫으면 플로팅 창도 함께 닫히도록 수정했습니다.
 - commit: `fix: close reader seek float with viewer`

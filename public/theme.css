@@ -4739,3 +4739,10 @@ html.theme-dark .content-section .section-head-actions .quote-feed-entry-button:
     width:224px !important; min-width:224px !important; max-width:224px !important;
   }
 }
+
+/* v9.23 - visual paragraph/line first-line indent without changing source text offsets */
+.reader-indent-line::before {
+  content: "";
+  display: inline-block;
+  width: 1em;
+}
