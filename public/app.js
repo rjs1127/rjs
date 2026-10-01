@@ -799,6 +799,10 @@ const els = {
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
+  readerSearchBar: document.getElementById("readerSearchBar"),
+  readerSearchInput: document.getElementById("readerSearchInput"),
+  readerSearchButton: document.getElementById("readerSearchButton"),
+  readerSearchResult: document.getElementById("readerSearchResult"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
@@ -4980,11 +4984,49 @@ function unlockReaderScroll() {
   els.readerPanel?.classList.remove("reader-loading-locked");
 }
 
+function resetReaderSearchUi({ close = true } = {}) {
+  if (els.readerSearchInput) els.readerSearchInput.value = "";
+  if (els.readerSearchResult) {
+    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+  }
+  if (close && els.readerSearchBar) els.readerSearchBar.hidden = true;
+}
+
+function runReaderSearchCount() {
+  if (!els.readerSearchInput || !els.readerSearchResult) return;
+
+  const query = String(els.readerSearchInput.value || "").trim();
+  if (!query) {
+    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+    return;
+  }
+
+  const text = String(state.readerText || "");
+  if (!text) {
+    els.readerSearchResult.textContent = "검색할 본문이 없습니다.";
+    return;
+  }
+
+  let count = 0;
+  let fromIndex = 0;
+  while (fromIndex <= text.length - query.length) {
+    const found = text.indexOf(query, fromIndex);
+    if (found < 0) break;
+    count += 1;
+    fromIndex = found + Math.max(1, query.length);
+  }
+
+  els.readerSearchResult.textContent = count > 0
+    ? `총 ${count.toLocaleString("ko-KR")}건`
+    : "검색 결과가 없습니다.";
+}
+
 function showReaderLoading(item) {
   const isLarge = isLargeReaderFile(item);
   resetLargeReaderState();
   resetReaderPageState();
   state.readerText = "";
+  resetReaderSearchUi();
   if (els.readerPositionStatus) {
     els.readerPositionStatus.hidden = true;
     els.readerPositionStatus.textContent = "1 / 1";
@@ -5898,6 +5940,7 @@ async function streamTextIntoReader(response, renderToken) {
   }
 
   state.readerText = text;
+  if (els.readerSearchBar) els.readerSearchBar.hidden = false;
   const renderStartedAt = performance.now();
   const renderResult = await renderLongText(text, renderToken);
   const renderMs = performance.now() - renderStartedAt;
@@ -8372,6 +8415,12 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
+els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
+els.readerSearchInput?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  runReaderSearchCount();
+});
 
 els.readerOverlay.addEventListener("click", (event) => {
   if (event.target === els.readerOverlay) closeReader();
