@@ -48,6 +48,7 @@ const state = {
   myLibraryLoading: false,
   myLibraryDetailWorkId: "",
   myLibraryDetailTab: "all",
+  readerReturnToMyLibrary: false,
   quoteFeedItems: [],
   quoteFeedNextCursor: null,
   quoteFeedLoading: false,
@@ -6848,6 +6849,15 @@ function finalizeReaderClose() {
   }
 
   state.readerHistoryActive = false;
+
+  if (state.readerReturnToMyLibrary) {
+    state.readerReturnToMyLibrary = false;
+    window.setTimeout(() => {
+      if (!state.profileOpen || !state.myLibraryDetailWorkId || !els.myLibraryModal) return;
+      renderMyLibraryModal();
+      openModal(els.myLibraryModal);
+    }, 0);
+  }
 }
 
 function closeReader(options = {}) {
@@ -8144,9 +8154,18 @@ els.myLibraryModalList?.addEventListener("click", async (event) => {
   const kind=open.dataset.libraryOpenLocation, id=Number(open.dataset.libraryEntryId||0);
   const entry=kind==="quote"?state.savedQuotes.find(x=>x.id===id):state.readerNotes.find(x=>x.id===id); if(!entry) return;
   const item=state.items.find(x=>String(x.id)===String(entry.workId)); if(!item) return;
-  closeModal(els.myLibraryModal); if(state.profileOpen) hideProfilePage({clearHistoryMarker:true});
-  openContentItem(item);
-  const offset=Number(entry.startOffset); if(Number.isFinite(offset)) setTimeout(()=>scrollReaderToTextOffset(offset,{centerTarget:true}),420);
+  // Keep My Library as the return context. The reader temporarily covers it,
+  // and closing the reader restores the same work-detail modal instead of
+  // dropping the user back to the library work list.
+  state.readerReturnToMyLibrary = Boolean(state.profileOpen && state.myLibraryDetailWorkId);
+  closeModal(els.myLibraryModal);
+  const offset=Number(entry.startOffset);
+  await openReader(item);
+  // Source jumps are for locating a saved sentence/note, so place the target
+  // around the middle of the reading viewport rather than at its top edge.
+  if(Number.isFinite(offset)) {
+    window.requestAnimationFrame(()=>scrollReaderToTextOffset(offset,{centerTarget:true}));
+  }
 });
 
 els.profileMoreButton?.addEventListener("click", () => {
