@@ -96,7 +96,7 @@
       #controlsGrid .chip { min-width:0 !important; padding:6px 8px !important; font-size:11px !important; white-space:nowrap !important; flex:0 1 auto; }
       #sourceFilters .chip { padding-left:7px !important; padding-right:7px !important; }
     }
-    .reader-position-status { position:relative; z-index:6; pointer-events:auto; cursor:pointer; user-select:none; }
+    .reader-position-status { position:fixed; left:50%; bottom:max(16px,calc(env(safe-area-inset-bottom) + 12px)); transform:translateX(-50%); z-index:118; display:inline-flex; align-items:center; justify-content:center; min-width:78px; min-height:34px; padding:7px 15px; box-sizing:border-box; border:1px solid var(--theme-line,#ddd7ce); border-radius:999px; background:color-mix(in srgb,var(--theme-surface-strong,#fff) 96%,transparent); box-shadow:0 7px 20px rgba(30,26,20,.12); color:var(--theme-text,#191816); font-size:12px; font-weight:700; line-height:1; pointer-events:auto; cursor:pointer; user-select:none; backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px); }
     .reader-position-status:hover { opacity:.78; }
     .reader-panel.reader-page-mode ~ .reader-position-status { display:none !important; }
     .reader-page-progress { cursor:pointer; user-select:none; }
@@ -452,7 +452,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.08</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.10</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -982,6 +982,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=909" defer></script>
+  <script src="/app.js?v=910" defer></script>
 </body>
 </html>
