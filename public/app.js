@@ -785,6 +785,11 @@ const els = {
   readerPageProgressFill: document.getElementById("readerPageProgressFill"),
   readerPageMeasure: document.getElementById("readerPageMeasure"),
   readerPositionStatus: document.getElementById("readerPositionStatus"),
+  readerSeekModal: document.getElementById("readerSeekModal"),
+  readerSeekRange: document.getElementById("readerSeekRange"),
+  readerSeekPercent: document.getElementById("readerSeekPercent"),
+  readerSeekPage: document.getElementById("readerSeekPage"),
+  readerSeekGo: document.getElementById("readerSeekGo"),
   readerLoadingTitle: document.getElementById("readerLoadingTitle"),
   readerLoadingText: document.getElementById("readerLoadingText"),
   readerProgressBar: document.getElementById("readerProgressBar"),
@@ -4666,6 +4671,51 @@ function updateReaderPositionStatus() {
   );
 }
 
+function getReaderCurrentOffset() {
+  if (!state.readerText) return 0;
+  return state.readerDisplayMode === "page"
+    ? clampReaderTextOffset(state.readerPageStart)
+    : clampReaderTextOffset(currentScrollToReaderOffset());
+}
+
+function updateReaderSeekPreview() {
+  if (!els.readerSeekRange || !state.readerText) return;
+  const ratio = Math.max(0, Math.min(1, Number(els.readerSeekRange.value || 0) / 1000));
+  const totalPages = Math.max(1, Number(state.readerEstimatedTotalPages) ||
+    (state.readerDisplayMode === "scroll" ? getReaderEstimatedTotalPagesFromScroll() : 1));
+  const currentPage = Math.max(1, Math.min(totalPages, Math.floor(ratio * Math.max(1, totalPages - 1)) + 1));
+  if (els.readerSeekPercent) els.readerSeekPercent.textContent = `${Math.round(ratio * 100)}%`;
+  if (els.readerSeekPage) els.readerSeekPage.textContent = `${currentPage.toLocaleString("ko-KR")} / ${totalPages.toLocaleString("ko-KR")} 페이지`;
+}
+
+function openReaderSeekModal() {
+  if (!state.readerText || !els.readerSeekModal || !els.readerSeekRange) return;
+  const length = Math.max(1, getReaderTextLength());
+  const ratio = Math.max(0, Math.min(1, getReaderCurrentOffset() / length));
+  els.readerSeekRange.value = String(Math.round(ratio * 1000));
+  updateReaderSeekPreview();
+  openModal(els.readerSeekModal);
+}
+
+async function moveReaderToSeekPosition() {
+  if (!state.readerText || !els.readerSeekRange) return;
+  const ratio = Math.max(0, Math.min(1, Number(els.readerSeekRange.value || 0) / 1000));
+  const offset = clampReaderTextOffset(Math.round(getReaderTextLength() * ratio));
+  closeModal(els.readerSeekModal);
+
+  if (state.readerDisplayMode === "page") {
+    renderReaderPageAt(offset, { navigated: true });
+    const saved = saveReaderProgress();
+    const item = state.activeReaderItem;
+    if (saved && item && state.user && shouldSyncProgressNow(item.id, saved)) {
+      persistProgress(item, saved);
+    }
+    return;
+  }
+
+  await scrollReaderToTextOffset(offset, { viewportRatio: 0.18 });
+}
+
 function updateReaderPageControls() {
   const length = getReaderTextLength();
   const start = clampReaderTextOffset(state.readerPageStart);
@@ -8103,7 +8153,7 @@ function dismissSimpleModal(modal) {
   // 작품 내 검색은 뷰어 위에 겹쳐 뜨는 보조 모달이다.
   // history.back()을 사용하면 같은 popstate에서 뷰어까지 닫힐 수 있으므로
   // 검색 모달만 직접 닫고 현재 뷰어 history는 유지한다.
-  if (modal === els.readerSearchModal) {
+  if (modal === els.readerSearchModal || modal === els.readerSeekModal) {
     closeModal(modal);
     return;
   }
@@ -8534,6 +8584,14 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
+els.readerPositionStatus?.addEventListener("click", openReaderSeekModal);
+els.readerPositionStatus?.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  event.preventDefault();
+  openReaderSeekModal();
+});
+els.readerSeekRange?.addEventListener("input", updateReaderSeekPreview);
+els.readerSeekGo?.addEventListener("click", moveReaderToSeekPosition);
 els.readerSearchOpenButton?.addEventListener("click", () => {
   if (!state.readerText) return;
   openModal(els.readerSearchModal);

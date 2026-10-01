@@ -96,6 +96,17 @@
       #controlsGrid .chip { min-width:0 !important; padding:6px 8px !important; font-size:11px !important; white-space:nowrap !important; flex:0 1 auto; }
       #sourceFilters .chip { padding-left:7px !important; padding-right:7px !important; }
     }
+    .reader-position-status { cursor:pointer; user-select:none; }
+    .reader-position-status:hover { opacity:.78; }
+    .reader-seek-modal { width:min(92vw,480px) !important; }
+    .reader-seek-card { margin-top:18px; padding:18px 16px 16px; border:1px solid var(--theme-line,#ddd7ce); border-radius:16px; background:var(--theme-surface-soft,#f8f6f2); }
+    .reader-seek-meta { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:16px; }
+    .reader-seek-percent { font-size:30px; line-height:1; font-weight:800; letter-spacing:-1px; color:var(--theme-text,#191816); }
+    .reader-seek-page { font-size:12px; color:var(--theme-muted,#77736d); white-space:nowrap; }
+    .reader-seek-range { width:100%; height:28px; margin:0; accent-color:var(--theme-text,#191816); cursor:pointer; }
+    .reader-seek-scale { display:flex; justify-content:space-between; margin-top:2px; font-size:10px; color:var(--theme-muted,#8b877f); }
+    .reader-seek-actions { display:flex; justify-content:flex-end; margin-top:16px; }
+    .reader-seek-go { min-width:92px; min-height:38px; padding:8px 18px; border:0; border-radius:11px; background:var(--theme-text,#191816); color:var(--theme-surface-strong,#fff); font-weight:700; cursor:pointer; }
     @media (max-width: 520px) {
       .viewer-settings-modal { padding-top:18px !important; padding-bottom:18px !important; }
       .viewer-settings-modal .simple-modal-kicker { margin-bottom:2px !important; }
@@ -441,7 +452,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.06</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.07</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -544,7 +555,7 @@
 
     </article>
 
-    <div id="readerPositionStatus" class="reader-position-status" role="status" aria-live="off" hidden>1 / 1</div>
+    <div id="readerPositionStatus" class="reader-position-status" role="button" tabindex="0" aria-label="현재 읽기 위치. 눌러서 위치 이동" hidden>1 / 1</div>
 
     <button id="readerScrollTop" class="reader-scroll-top" type="button" aria-label="본문 맨 위로 이동" title="맨 위로">
       ↑
@@ -564,6 +575,24 @@
       <button id="signupNudgeSignup" class="primary" type="button">회원가입</button>
     </div>
   </aside>
+
+  <div id="readerSeekModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal reader-seek-modal" role="dialog" aria-modal="true" aria-labelledby="readerSeekModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="readerSeekModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">QUICK NAVIGATION</p>
+      <h2 id="readerSeekModalTitle">위치 이동</h2>
+      <p class="simple-modal-description">슬라이더를 움직여 작품의 원하는 위치로 바로 이동할 수 있어요.</p>
+      <div class="reader-seek-card">
+        <div class="reader-seek-meta">
+          <strong id="readerSeekPercent" class="reader-seek-percent">0%</strong>
+          <span id="readerSeekPage" class="reader-seek-page">1 / 1 페이지</span>
+        </div>
+        <input id="readerSeekRange" class="reader-seek-range" type="range" min="0" max="1000" value="0" step="1" aria-label="작품 위치" />
+        <div class="reader-seek-scale" aria-hidden="true"><span>처음</span><span>끝</span></div>
+        <div class="reader-seek-actions"><button id="readerSeekGo" class="reader-seek-go" type="button">이동</button></div>
+      </div>
+    </section>
+  </div>
 
   <div id="readerSearchModal" class="simple-modal-overlay reader-search-modal-overlay" hidden>
     <section class="simple-modal reader-search-modal" role="dialog" aria-modal="true" aria-labelledby="readerSearchModalTitle">
@@ -963,6 +992,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=906" defer></script>
+  <script src="/app.js?v=907" defer></script>
 </body>
 </html>
