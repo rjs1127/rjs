@@ -8584,7 +8584,17 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
-els.readerPositionStatus?.addEventListener("click", openReaderSeekModal);
+// The position badge sits outside the reader article. Some reader layouts can
+// overlap that area, so handle activation from the reader overlay as well as
+// from the badge itself. This keeps the quick-navigation trigger reliable
+// across scroll/page mode and responsive layouts.
+els.readerOverlay?.addEventListener("click", (event) => {
+  const trigger = event.target.closest?.("#readerPositionStatus");
+  if (!trigger) return;
+  event.preventDefault();
+  event.stopPropagation();
+  openReaderSeekModal();
+});
 els.readerPositionStatus?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter" && event.key !== " ") return;
   event.preventDefault();

@@ -96,7 +96,7 @@
       #controlsGrid .chip { min-width:0 !important; padding:6px 8px !important; font-size:11px !important; white-space:nowrap !important; flex:0 1 auto; }
       #sourceFilters .chip { padding-left:7px !important; padding-right:7px !important; }
     }
-    .reader-position-status { cursor:pointer; user-select:none; }
+    .reader-position-status { position:relative; z-index:6; pointer-events:auto; cursor:pointer; user-select:none; }
     .reader-position-status:hover { opacity:.78; }
     .reader-seek-modal { width:min(92vw,480px) !important; }
     .reader-seek-card { margin-top:18px; padding:18px 16px 16px; border:1px solid var(--theme-line,#ddd7ce); border-radius:16px; background:var(--theme-surface-soft,#f8f6f2); }
@@ -452,7 +452,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.07</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.08</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -992,6 +992,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=907" defer></script>
+  <script src="/app.js?v=908" defer></script>
 </body>
 </html>
