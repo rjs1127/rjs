@@ -34,6 +34,9 @@ const state = {
   readerPageLastSwipeAt: 0,
   readerPageAnimationTimer: 0,
   readerEstimatedTotalPages: 1,
+  readerSearchMatches: [],
+  readerSearchIndex: -1,
+  readerSearchQuery: "",
   readerHistoryActive: false,
   user: null,
   userLibrary: new Map(),
@@ -799,10 +802,14 @@ const els = {
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
+  readerSearchToggle: document.getElementById("readerSearchToggle"),
   readerSearchBar: document.getElementById("readerSearchBar"),
   readerSearchInput: document.getElementById("readerSearchInput"),
   readerSearchButton: document.getElementById("readerSearchButton"),
   readerSearchResult: document.getElementById("readerSearchResult"),
+  readerSearchPrev: document.getElementById("readerSearchPrev"),
+  readerSearchNext: document.getElementById("readerSearchNext"),
+  readerSearchClose: document.getElementById("readerSearchClose"),
   authModal: document.getElementById("authModal"),
   authModalTitle: document.getElementById("authModalTitle"),
   authModalDescription: document.getElementById("authModalDescription"),
@@ -4985,19 +4992,69 @@ function unlockReaderScroll() {
 }
 
 function resetReaderSearchUi({ close = true } = {}) {
+  state.readerSearchMatches = [];
+  state.readerSearchIndex = -1;
+  state.readerSearchQuery = "";
   if (els.readerSearchInput) els.readerSearchInput.value = "";
-  if (els.readerSearchResult) {
-    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
-  }
+  if (els.readerSearchResult) els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+  if (els.readerSearchPrev) els.readerSearchPrev.disabled = true;
+  if (els.readerSearchNext) els.readerSearchNext.disabled = true;
   if (close && els.readerSearchBar) els.readerSearchBar.hidden = true;
 }
 
-function runReaderSearchCount() {
+function syncReaderSearchResultUi() {
+  const total = state.readerSearchMatches.length;
+  const active = state.readerSearchIndex >= 0 && state.readerSearchIndex < total;
+  if (els.readerSearchResult) {
+    els.readerSearchResult.textContent = total > 0 && active
+      ? `${(state.readerSearchIndex + 1).toLocaleString("ko-KR")} / ${total.toLocaleString("ko-KR")}`
+      : total > 0
+        ? `총 ${total.toLocaleString("ko-KR")}건`
+        : "검색 결과가 없습니다.";
+  }
+  if (els.readerSearchPrev) els.readerSearchPrev.disabled = total <= 0;
+  if (els.readerSearchNext) els.readerSearchNext.disabled = total <= 0;
+}
+
+async function moveReaderSearchResult(index) {
+  const total = state.readerSearchMatches.length;
+  if (!total) return false;
+
+  if (state.readerDisplayMode === "page") {
+    if (els.readerSearchResult) els.readerSearchResult.textContent = "페이지 모드 이동은 다음 단계에서 지원합니다.";
+    return false;
+  }
+
+  const normalized = ((Number(index) || 0) % total + total) % total;
+  const offset = state.readerSearchMatches[normalized];
+  const wasSuspended = state.suspendReaderProgressSave;
+  const moved = await scrollReaderToTextOffset(offset, { releaseProgressSave: false });
+
+  // 검색 결과 이동은 탐색 동작이다. 프로그램이 만든 스크롤 이벤트가
+  // 기존 이어보기 위치를 덮어쓰지 않도록 예약 저장만 제거하고,
+  // 이후 사용자의 실제 스크롤부터 기존 저장 로직을 그대로 사용한다.
+  window.clearTimeout(readerProgressSaveTimer);
+  readerProgressSaveTimer = 0;
+  if (!wasSuspended) {
+    window.setTimeout(() => {
+      window.clearTimeout(readerProgressSaveTimer);
+      readerProgressSaveTimer = 0;
+      state.suspendReaderProgressSave = false;
+    }, 520);
+  }
+
+  if (!moved) return false;
+  state.readerSearchIndex = normalized;
+  syncReaderSearchResultUi();
+  return true;
+}
+
+async function runReaderSearchCount() {
   if (!els.readerSearchInput || !els.readerSearchResult) return;
 
   const query = String(els.readerSearchInput.value || "").trim();
   if (!query) {
-    els.readerSearchResult.textContent = "검색어를 입력해 주세요.";
+    resetReaderSearchUi({ close: false });
     return;
   }
 
@@ -5007,18 +5064,23 @@ function runReaderSearchCount() {
     return;
   }
 
-  let count = 0;
+  const matches = [];
   let fromIndex = 0;
   while (fromIndex <= text.length - query.length) {
     const found = text.indexOf(query, fromIndex);
     if (found < 0) break;
-    count += 1;
+    matches.push(found);
     fromIndex = found + Math.max(1, query.length);
   }
 
-  els.readerSearchResult.textContent = count > 0
-    ? `총 ${count.toLocaleString("ko-KR")}건`
-    : "검색 결과가 없습니다.";
+  state.readerSearchQuery = query;
+  state.readerSearchMatches = matches;
+  state.readerSearchIndex = matches.length ? 0 : -1;
+  syncReaderSearchResultUi();
+
+  if (matches.length) {
+    await moveReaderSearchResult(0);
+  }
 }
 
 function showReaderLoading(item) {
@@ -5940,7 +6002,6 @@ async function streamTextIntoReader(response, renderToken) {
   }
 
   state.readerText = text;
-  if (els.readerSearchBar) els.readerSearchBar.hidden = false;
   const renderStartedAt = performance.now();
   const renderResult = await renderLongText(text, renderToken);
   const renderMs = performance.now() - renderStartedAt;
@@ -8415,6 +8476,16 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
+els.readerSearchToggle?.addEventListener("click", () => {
+  if (!els.readerSearchBar || !state.readerText) return;
+  els.readerSearchBar.hidden = !els.readerSearchBar.hidden;
+  if (!els.readerSearchBar.hidden) {
+    window.setTimeout(() => els.readerSearchInput?.focus(), 0);
+  }
+});
+els.readerSearchClose?.addEventListener("click", () => resetReaderSearchUi({ close: true }));
+els.readerSearchPrev?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex - 1));
+els.readerSearchNext?.addEventListener("click", () => moveReaderSearchResult(state.readerSearchIndex + 1));
 els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
 els.readerSearchInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;

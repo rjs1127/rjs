@@ -3532,6 +3532,7 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
 }
 
 /* v8.04 - all reader header actions share one geometry on PC/mobile and light/dark. */
+.reader-header-actions > .reader-search-toggle,
 .reader-header-actions > .reader-download-button,
 .reader-header-actions > .reader-bookmark-button,
 .reader-header-actions > .reader-like-button,
@@ -3554,6 +3555,7 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
   color:var(--theme-secondary-text) !important;
   box-shadow:none !important;
 }
+.reader-header-actions > .reader-search-toggle .reader-action-icon,
 .reader-header-actions > .reader-download-button svg,
 .reader-header-actions > .reader-bookmark-button .reader-action-icon,
 .reader-header-actions > .reader-like-button .reader-action-icon,
@@ -3650,6 +3652,7 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
   gap:4px;
 }
 
+.reader-header-actions > .reader-search-toggle,
 .reader-header-actions > .reader-download-button,
 .reader-header-actions > .reader-bookmark-button,
 .reader-header-actions > .reader-like-button,
@@ -3679,6 +3682,7 @@ html.theme-dark .reader-like-button { background:var(--theme-secondary-bg); colo
   vertical-align:middle !important;
 }
 
+.reader-header-actions > .reader-search-toggle .reader-action-icon,
 .reader-header-actions > .reader-download-button svg,
 .reader-header-actions > .reader-bookmark-button .reader-action-icon,
 .reader-header-actions > .reader-like-button .reader-action-icon,
@@ -4672,31 +4676,43 @@ html.theme-dark .content-section .section-head-actions .quote-feed-entry-button:
 
 
 /* =========================
-   v8.96 reader text search - step 1
+   v8.97 reader text search - compact UI + scroll result navigation
    ========================= */
+.reader-search-toggle { cursor:pointer; }
 .reader-search-bar {
-  display:flex; align-items:center; gap:8px; margin:0 18px 12px; padding:10px 12px;
-  border:1px solid var(--theme-line); border-radius:14px; background:var(--theme-surface);
+  display:flex; align-items:center; gap:7px; margin:0 18px 10px; padding:7px 8px;
+  border:1px solid var(--theme-line); border-radius:12px; background:var(--theme-surface);
+  box-shadow:0 2px 10px rgba(0,0,0,.025);
 }
 .reader-search-bar[hidden] { display:none !important; }
-.reader-search-field { flex:1 1 auto; min-width:0; }
+.reader-search-field { flex:1 1 auto; min-width:120px; }
 .reader-search-field input {
-  width:100%; min-width:0; height:34px; padding:0 11px;
-  border:1px solid var(--theme-line); border-radius:10px;
+  width:100%; min-width:0; height:32px; padding:0 10px;
+  border:1px solid var(--theme-line); border-radius:9px;
   background:var(--theme-bg); color:var(--theme-text); font:inherit; font-size:12px; outline:none;
 }
 .reader-search-field input:focus { border-color:var(--theme-muted); }
-.reader-search-button {
-  flex:0 0 auto; height:34px; padding:0 13px; border:1px solid var(--theme-line); border-radius:10px;
-  background:var(--theme-secondary-bg); color:var(--theme-secondary-text); font-size:11px; font-weight:800;
+.reader-search-button,
+.reader-search-nav-button,
+.reader-search-close {
+  flex:0 0 auto; height:32px; border:1px solid var(--theme-line); border-radius:9px;
+  background:var(--theme-secondary-bg); color:var(--theme-secondary-text); font-weight:800;
 }
+.reader-search-button { padding:0 12px; font-size:11px; }
+.reader-search-navigation { display:flex; align-items:center; gap:5px; flex:0 0 auto; }
 .reader-search-result {
-  flex:0 0 auto; min-width:92px; color:var(--theme-muted); font-size:10px; font-weight:700;
-  text-align:right; white-space:nowrap;
+  min-width:64px; color:var(--theme-muted); font-size:10px; font-weight:700;
+  text-align:center; white-space:nowrap;
 }
+.reader-search-nav-button,
+.reader-search-close { width:32px; padding:0; font-size:17px; line-height:1; }
+.reader-search-nav-button:disabled { opacity:.35; cursor:default; }
+.reader-search-close { font-size:18px; font-weight:500; }
 @media (max-width:640px) {
-  .reader-search-bar { flex-wrap:wrap; margin:0 12px 10px; padding:8px; gap:6px; }
-  .reader-search-field { flex:1 1 calc(100% - 62px); }
-  .reader-search-button { padding:0 11px; }
-  .reader-search-result { flex:1 0 100%; min-width:0; text-align:left; padding-left:2px; }
+  .reader-search-bar { margin:0 12px 8px; padding:7px; gap:5px; flex-wrap:wrap; }
+  .reader-search-field { flex:1 1 calc(100% - 58px); min-width:0; }
+  .reader-search-button { padding:0 10px; }
+  .reader-search-navigation { flex:1 0 100%; justify-content:flex-end; }
+  .reader-search-result { margin-right:auto; text-align:left; padding-left:2px; }
 }
+
