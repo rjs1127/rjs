@@ -5040,12 +5040,24 @@ async function moveReaderSearchResult(index) {
 
   const normalized = ((Number(index) || 0) % total + total) % total;
   const offset = state.readerSearchMatches[normalized];
-  // Search-result jumps are navigation only. Freeze the pre-search resume point
-  // once, before the first jump, so temporary search navigation can never
-  // replace or erase the user's real resume record.
+  // Search-result jumps are navigation only. Immediately checkpoint the
+  // CURRENT real reading position before the first search jump, then freeze
+  // every progress-save path until the user actually resumes reading.
+  // This is safer than reconstructing/restoring a snapshot on close: the
+  // pre-search position remains the normal local/in-memory progress record.
   if (!state.readerSearchNavigationOnly) {
     const item = state.activeReaderItem;
-    state.readerSearchResumeSnapshot = item ? getReaderProgress(item.id) : null;
+    const checkpoint = saveReaderProgress();
+    state.readerSearchResumeSnapshot = checkpoint ? { ...checkpoint } : null;
+
+    if (
+      checkpoint &&
+      item &&
+      state.user &&
+      shouldSyncProgressNow(item.id, checkpoint)
+    ) {
+      persistProgress(item, checkpoint);
+    }
   }
   state.readerSearchNavigationOnly = true;
   const wasSuspended = state.suspendReaderProgressSave;
@@ -6590,9 +6602,6 @@ function finalizeReaderClose() {
   state.suspendReaderProgressSave = preserveExistingResume;
 
   const closingItem = state.activeReaderItem;
-  const searchResumeSnapshot = state.readerSearchNavigationOnly
-    ? state.readerSearchResumeSnapshot
-    : null;
   const savedProgress = preserveExistingResume
     ? null
     : saveReaderProgress();
@@ -6602,26 +6611,10 @@ function finalizeReaderClose() {
 
   if (refreshArchiveAfterClose) {
     persistProgress(closingItem, savedProgress);
-  } else if (closingItem && searchResumeSnapshot && state.user) {
-    // Search-only navigation must leave the pre-search resume point exactly
-    // as it was. Refresh both local recovery and the in-memory library entry
-    // so reopening in this session cannot fall back to the searched position
-    // or to page 1. The server record was never changed by the search jump.
-    writeLocalReaderProgress(closingItem, searchResumeSnapshot, { force: true });
-    updateUserLibraryEntry(closingItem.id, {
-      progressPercent: searchResumeSnapshot.percent,
-      scrollTop: searchResumeSnapshot.mode === "scroll"
-        ? Number(searchResumeSnapshot.scrollTop || 0)
-        : null,
-      chunkIndex: searchResumeSnapshot.mode === "chunk"
-        ? Number(searchResumeSnapshot.chunkIndex || 0)
-        : null,
-      chunkRatio: searchResumeSnapshot.mode === "chunk"
-        ? Number(searchResumeSnapshot.chunkRatio || 0)
-        : null,
-      updatedAt: Date.now(),
-    });
   }
+  // Search-only close intentionally writes nothing. The real position was
+  // checkpointed immediately before the first search jump, and all saves
+  // have remained frozen since then.
 
   state.readerResumeSaved = null;
   state.readerSearchNavigationOnly = false;
