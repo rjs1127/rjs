@@ -43,6 +43,11 @@ const state = {
   savedQuotesLoaded: false,
   savedQuotesLoading: false,
   savedQuotesError: false,
+  readerNotes: [],
+  myLibraryLoaded: false,
+  myLibraryLoading: false,
+  myLibraryDetailWorkId: "",
+  myLibraryDetailTab: "all",
   quoteFeedItems: [],
   quoteFeedNextCursor: null,
   quoteFeedLoading: false,
@@ -713,6 +718,11 @@ const els = {
   quoteFeedModalTitle: document.getElementById("quoteFeedModalTitle"),
   quoteFeedModalAuthor: document.getElementById("quoteFeedModalAuthor"),
   quoteFeedModalDate: document.getElementById("quoteFeedModalDate"),
+  myLibraryModal: document.getElementById("myLibraryModal"),
+  myLibraryModalTitle: document.getElementById("myLibraryModalTitle"),
+  myLibraryModalMeta: document.getElementById("myLibraryModalMeta"),
+  myLibraryModalTabs: document.getElementById("myLibraryModalTabs"),
+  myLibraryModalList: document.getElementById("myLibraryModalList"),
   quoteFeedOpenWorkButton: document.getElementById("quoteFeedOpenWorkButton"),
   loadMoreWrap: document.getElementById("loadMoreWrap"),
   loadMoreButton: document.getElementById("loadMoreButton"),
@@ -1254,6 +1264,9 @@ function clearUserSession(clearToken = true) {
   state.savedQuotesLoaded = false;
   state.savedQuotesLoading = false;
   state.savedQuotesError = false;
+  state.readerNotes = [];
+  state.myLibraryLoaded = false;
+  state.myLibraryLoading = false;
   state.profileUserCreatedAt = null;
   state.profileOpen = false;
   state.remoteProgressState = new Map();
@@ -1537,6 +1550,8 @@ async function loadUserProfileData() {
   if (!state.user) {
     state.userLikes = new Map();
     state.savedQuotes = [];
+    state.readerNotes = [];
+    state.myLibraryLoaded = false;
     state.profileUserCreatedAt = null;
     return;
   }
@@ -1696,6 +1711,71 @@ function getProfileWorkEntry(item, entry, kind) {
     </div>`;
 }
 
+
+function normalizeReaderNote(row) {
+  const rawStart = row?.start_offset ?? row?.startOffset;
+  const rawEnd = row?.end_offset ?? row?.endOffset;
+  return {
+    id: Number(row?.id || 0), workId: String(row?.work_id ?? row?.workId ?? ""),
+    title: String(row?.title || ""), author: String(row?.author || ""),
+    noteText: String(row?.note_text ?? row?.noteText ?? ""), quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
+    startOffset: rawStart == null ? null : Number(rawStart),
+    endOffset: rawEnd == null ? null : Number(rawEnd),
+    createdAt: Number(row?.created_at ?? row?.createdAt ?? 0), updatedAt: Number(row?.updated_at ?? row?.updatedAt ?? 0),
+  };
+}
+
+async function loadMyLibrary(force = false) {
+  if (!state.user || state.myLibraryLoading || (state.myLibraryLoaded && !force)) return;
+  state.myLibraryLoading = true;
+  try {
+    const data = await userApi("/api/user/profile?section=library");
+    state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
+    state.savedQuoteCount = state.savedQuotes.length;
+    state.savedQuotesLoaded = true;
+    state.readerNotes = (data.notes || []).map(normalizeReaderNote);
+    state.myLibraryLoaded = true;
+  } finally {
+    state.myLibraryLoading = false;
+    if (state.profileOpen) renderProfilePage();
+  }
+}
+
+function getMyLibraryWorks() {
+  const map = new Map();
+  const touch = (workId,title,author) => {
+    const key=String(workId||""); if(!key) return null;
+    if(!map.has(key)) map.set(key,{workId:key,title:title||"제목 미상",author:author||"",quotes:[],notes:[]});
+    return map.get(key);
+  };
+  state.savedQuotes.forEach(q=>{
+    let workId=q.workId;
+    if(!workId){ const item=state.items.find(candidate=>normalizeSearchText(candidate.title)===normalizeSearchText(q.title)&&normalizeSearchText(candidate.author)===normalizeSearchText(q.author)); workId=item?.id||""; if(workId) q.workId=String(workId); }
+    const row=touch(workId,q.title,q.author); if(row) row.quotes.push(q);
+  });
+  state.readerNotes.forEach(n=>{ const row=touch(n.workId,n.title,n.author); if(row) row.notes.push(n); });
+  return [...map.values()].sort((a,b)=>Math.max(...b.quotes.map(x=>x.createdAt),...b.notes.map(x=>x.createdAt),0)-Math.max(...a.quotes.map(x=>x.createdAt),...a.notes.map(x=>x.createdAt),0));
+}
+
+function openMyLibraryWork(workId) {
+  const row=getMyLibraryWorks().find(x=>x.workId===String(workId)); if(!row || !els.myLibraryModal) return;
+  state.myLibraryDetailWorkId=row.workId; state.myLibraryDetailTab="all";
+  renderMyLibraryModal(); openModal(els.myLibraryModal);
+}
+
+function renderMyLibraryModal() {
+  const row=getMyLibraryWorks().find(x=>x.workId===state.myLibraryDetailWorkId); if(!row) return;
+  els.myLibraryModalTitle.textContent=row.title||"내 서재";
+  els.myLibraryModalMeta.textContent=`문장 ${row.quotes.length} · 메모 ${row.notes.length}`;
+  els.myLibraryModalTabs?.querySelectorAll("[data-library-detail-tab]").forEach(b=>b.classList.toggle("active",b.dataset.libraryDetailTab===state.myLibraryDetailTab));
+  const all=[...row.quotes.map(x=>({kind:"quote",at:x.createdAt,data:x})),...row.notes.map(x=>({kind:"note",at:x.createdAt,data:x}))].sort((a,b)=>b.at-a.at);
+  const visible=all.filter(x=>state.myLibraryDetailTab==="all" || (state.myLibraryDetailTab==="quotes"&&x.kind==="quote") || (state.myLibraryDetailTab==="notes"&&x.kind==="note"));
+  els.myLibraryModalList.innerHTML=visible.length?visible.map(x=>{
+    const d=x.data; const loc=Number.isFinite(d.startOffset)?"원문 위치 저장됨":"";
+    return `<article class="my-library-detail-card"><div class="my-library-detail-kind"><span>${x.kind==="quote"?"문장":"메모"}</span><span>${loc}</span></div>${x.kind==="quote"?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:`${d.quoteText?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:""}<p class="my-library-detail-note">${escapeHtml(d.noteText)}</p>`}<div class="my-library-detail-actions">${Number.isFinite(d.startOffset)?`<button type="button" data-library-open-location="${x.kind}" data-library-entry-id="${d.id}">원문 보기</button>`:""}${x.kind==="quote"?`<button type="button" data-library-quote-share="${d.id}">${d.shared?"피드 비공개":"피드 공유"}</button><button type="button" data-library-quote-copy="${d.id}">복사</button><button type="button" data-library-quote-delete="${d.id}">삭제</button>`:`<button type="button" data-library-note-delete="${d.id}">삭제</button>`}</div></article>`;
+  }).join(""):'<div class="profile-empty">아직 남긴 기록이 없습니다.</div>';
+}
+
 function renderProfilePage() {
   if (!els.profilePage || !state.user) return;
   const q = normalizeSearchText(state.profileSearch);
@@ -1714,8 +1794,8 @@ function renderProfilePage() {
   if (els.profileRecentCount) els.profileRecentCount.textContent = String(recent.length);
   if (els.profileLikeCount) els.profileLikeCount.textContent = String(likes.length);
   if (els.profileQuoteCount) {
-    const quoteCount = state.savedQuotesLoaded
-      ? quotes.length
+    const quoteCount = state.myLibraryLoaded
+      ? getMyLibraryWorks().length
       : Number.isFinite(state.savedQuoteCount)
         ? Math.max(0, Number(state.savedQuoteCount))
         : null;
@@ -1761,6 +1841,20 @@ function renderProfilePage() {
           </div>
         </div>`;
     }).join("") : '<div class="profile-empty">좋아요한 작품이 없습니다.</div>';
+  } else if (state.profileTab === "library") {
+    if (!state.myLibraryLoaded) {
+      rows = [];
+      html = state.myLibraryLoading ? '<div class="profile-empty">내 서재를 불러오는 중입니다.</div>' : '<div class="profile-empty">내 서재를 불러오는 중입니다.</div>';
+    } else {
+      const works = getMyLibraryWorks().filter((row) => !q || normalizeSearchText(`${row.title} ${row.author}`).includes(q));
+      rows = works;
+      html = works.length ? works.map((row) => `
+        <div class="profile-entry my-library-work" data-library-work="${escapeHtml(row.workId)}">
+          <div class="profile-entry-main"><span class="profile-entry-title">${escapeHtml(row.title)}</span><span class="profile-entry-meta">${escapeHtml(row.author||"")}</span>
+          <div class="my-library-counts"><span>문장 ${row.quotes.length}</span><span>메모 ${row.notes.length}</span></div></div>
+          <div class="profile-entry-actions"><button type="button" data-library-work="${escapeHtml(row.workId)}">보기</button></div>
+        </div>`).join("") : '<div class="profile-empty">내 서재에 저장된 작품이 없습니다.</div>';
+    }
   } else {
     if (!state.savedQuotesLoaded) {
       rows = [];
@@ -2184,7 +2278,7 @@ function showProfilePage(tab = "bookmarks") {
     history.pushState({ ...(history.state || {}), rjsProfilePage: true }, "", location.href);
   }
   state.profileOpen = true;
-  state.profileTab = ["bookmarks","recent","likes","quotes"].includes(tab) ? tab : "bookmarks";
+  state.profileTab = ["bookmarks","recent","likes","library"].includes(tab) ? tab : "bookmarks";
   state.profileSearch = "";
   state.profileVisibleLimit = 15;
   setMobileFiltersOpen(false);
@@ -2194,8 +2288,8 @@ function showProfilePage(tab = "bookmarks") {
   }
   els.profilePage.hidden = false;
   renderProfilePage();
-  if (state.profileTab === "quotes" && !state.savedQuotesLoaded) {
-    loadSavedQuotes();
+  if (state.profileTab === "library" && !state.myLibraryLoaded) {
+    loadMyLibrary();
   }
   window.scrollTo({ top: 0, behavior: "smooth" });
 }
@@ -7922,8 +8016,8 @@ document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach
     state.profileVisibleLimit = 15;
     if (els.profileSearchInput) els.profileSearchInput.value = "";
     renderProfilePage();
-    if (state.profileTab === "quotes" && !state.savedQuotesLoaded) {
-      loadSavedQuotes();
+    if (state.profileTab === "library" && !state.myLibraryLoaded) {
+      loadMyLibrary();
     }
   });
 });
@@ -7935,6 +8029,8 @@ els.profileSearchInput?.addEventListener("input", (event) => {
 });
 
 els.profileList?.addEventListener("click", async (event) => {
+  const libraryWork = event.target.closest("[data-library-work]");
+  if (libraryWork) { openMyLibraryWork(libraryWork.dataset.libraryWork); return; }
   const open = event.target.closest("[data-profile-open]");
   if (open) {
     const item = state.items.find((candidate) => candidate.id === open.dataset.profileOpen);
@@ -8029,6 +8125,29 @@ els.profileList?.addEventListener("click", async (event) => {
   }
 });
 
+
+
+els.myLibraryModalTabs?.addEventListener("click", (event) => {
+  const b=event.target.closest("[data-library-detail-tab]"); if(!b) return;
+  state.myLibraryDetailTab=b.dataset.libraryDetailTab||"all"; renderMyLibraryModal();
+});
+els.myLibraryModalList?.addEventListener("click", async (event) => {
+  const quoteCopy=event.target.closest("[data-library-quote-copy]");
+  if(quoteCopy){ const q=state.savedQuotes.find(x=>x.id===Number(quoteCopy.dataset.libraryQuoteCopy)); if(q){ try{await navigator.clipboard.writeText(q.quoteText); quoteCopy.textContent="복사됨"; setTimeout(()=>{if(quoteCopy.isConnected)quoteCopy.textContent="복사"},800);}catch{alert("문장을 복사하지 못했습니다.");} } return; }
+  const quoteDelete=event.target.closest("[data-library-quote-delete]");
+  if(quoteDelete){ const id=Number(quoteDelete.dataset.libraryQuoteDelete||0); if(id&&confirm("저장한 문장을 삭제할까요?")){ await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"quote_delete",id})}); state.savedQuotes=state.savedQuotes.filter(q=>q.id!==id); state.savedQuoteCount=state.savedQuotes.length; renderMyLibraryModal(); renderProfilePage(); } return; }
+  const quoteShare=event.target.closest("[data-library-quote-share]");
+  if(quoteShare){ const q=state.savedQuotes.find(x=>x.id===Number(quoteShare.dataset.libraryQuoteShare||0)); if(q&&!q._shareSaving){ q.shared=!q.shared; renderMyLibraryModal(); const item=state.items.find(x=>String(x.id)===String(q.workId)); try{ queueSavedQuoteShare(q,item?.id||q.workId||""); }catch(error){q.shared=!q.shared; renderMyLibraryModal(); alert(error.message||"공개 상태를 변경하지 못했습니다.");} } return; }
+  const del=event.target.closest("[data-library-note-delete]");
+  if(del){ const id=Number(del.dataset.libraryNoteDelete||0); if(id && confirm("메모를 삭제할까요?")){ await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_delete",id})}); state.readerNotes=state.readerNotes.filter(n=>n.id!==id); renderMyLibraryModal(); renderProfilePage(); } return; }
+  const open=event.target.closest("[data-library-open-location]"); if(!open) return;
+  const kind=open.dataset.libraryOpenLocation, id=Number(open.dataset.libraryEntryId||0);
+  const entry=kind==="quote"?state.savedQuotes.find(x=>x.id===id):state.readerNotes.find(x=>x.id===id); if(!entry) return;
+  const item=state.items.find(x=>String(x.id)===String(entry.workId)); if(!item) return;
+  closeModal(els.myLibraryModal); if(state.profileOpen) hideProfilePage({clearHistoryMarker:true});
+  openContentItem(item);
+  const offset=Number(entry.startOffset); if(Number.isFinite(offset)) setTimeout(()=>scrollReaderToTextOffset(offset,{centerTarget:true}),420);
+});
 
 els.profileMoreButton?.addEventListener("click", () => {
   state.profileVisibleLimit += 15;
@@ -9121,7 +9240,7 @@ function ensureReaderShareUi() {
 
   const floatButton = document.createElement("button");
   floatButton.type = "button";
-  floatButton.className = "reader-share-float";
+  floatButton.className = "reader-share-float reader-selection-action";
   floatButton.hidden = true;
   floatButton.setAttribute("aria-label", "선택한 문구 공유 카드 만들기");
   floatButton.innerHTML = `
@@ -9131,7 +9250,15 @@ function ensureReaderShareUi() {
       <circle cx="18" cy="19" r="2.5"></circle>
       <path d="m8.2 10.8 7.6-4.5M8.2 13.2l7.6 4.5"></path>
     </svg>`;
-  document.body.appendChild(floatButton);
+  const selectionActions = document.createElement("div");
+  selectionActions.className = "reader-selection-actions";
+  selectionActions.hidden = true;
+  selectionActions.appendChild(floatButton);
+  const memoButton = document.createElement("button");
+  memoButton.type = "button"; memoButton.className = "reader-selection-action"; memoButton.setAttribute("aria-label", "선택한 문장에 메모");
+  memoButton.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4l11-11-4-4L4 16v4Z"></path><path d="m13.5 6.5 4 4"></path></svg>`;
+  selectionActions.appendChild(memoButton);
+  document.body.appendChild(selectionActions);
 
   const backdrop = document.createElement("div");
   backdrop.className = "reader-share-backdrop";
@@ -9572,7 +9699,21 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  readerShareUi = { style, floatButton, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
+  
+  memoButton.addEventListener("click", () => {
+    if (!state.user) { openAuthModal("login", "메모를 저장하려면 로그인해 주세요."); return; }
+    const selected=getReaderTextSelection();
+    const text=selected?.text || state.readerShareText; const location=selected?.location || state.readerShareLocation;
+    if(!text || !location) return;
+    selectionActions.hidden=true;
+    const bd=document.createElement("div"); bd.className="reader-memo-backdrop";
+    bd.innerHTML=`<section class="reader-memo-dialog" role="dialog" aria-modal="true"><h3>메모 남기기</h3><p class="reader-memo-quote">${escapeHtml(text)}</p><textarea class="reader-memo-input" maxlength="4000" placeholder="이 문장에 남길 메모를 입력하세요."></textarea><div class="reader-memo-actions"><button type="button" data-memo-cancel>취소</button><button type="button" class="primary" data-memo-save>저장</button></div></section>`;
+    document.body.appendChild(bd); const input=bd.querySelector("textarea"); setTimeout(()=>input?.focus(),0);
+    const closeMemo=()=>bd.remove(); bd.querySelector("[data-memo-cancel]")?.addEventListener("click",closeMemo); bd.addEventListener("pointerdown",e=>{if(e.target===bd)closeMemo();});
+    bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); state.myLibraryLoaded=true; closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
+  });
+
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -10229,6 +10370,7 @@ function openReaderShareSheet(options = {}) {
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
   ui.floatButton.hidden = true;
+  if (ui.selectionActions) ui.selectionActions.hidden = true;
   try {
     const selection = window.getSelection?.();
     selection && selection.removeAllRanges && selection.removeAllRanges();
@@ -10384,6 +10526,7 @@ function syncReaderShareSelection() {
     const selected = getReaderTextSelection();
     if (!selected) {
       ui.floatButton.hidden = true;
+      if (ui.selectionActions) ui.selectionActions.hidden = true;
       state.readerShareLocation = null;
       return;
     }
@@ -10422,8 +10565,7 @@ function syncReaderShareSelection() {
       y = hasRoomBelow ? belowY : Math.max(54, aboveY);
     }
 
-    ui.floatButton.style.left = `${x}px`;
-    ui.floatButton.style.top = `${y}px`;
+    if (ui.selectionActions) { ui.selectionActions.style.left = `${x}px`; ui.selectionActions.style.top = `${y}px`; ui.selectionActions.hidden = false; }
     ui.floatButton.hidden = false;
   }, isTouchLike ? 220 : 55);
 }
@@ -10437,7 +10579,7 @@ function initReaderShareSelection() {
   els.readerPanel?.addEventListener("pointerup", syncReaderShareSelection);
   els.readerPanel?.addEventListener("touchend", syncReaderShareSelection, { passive: true });
   els.readerPanel?.addEventListener("scroll", () => {
-    readerShareUi && (readerShareUi.floatButton.hidden = true);
+    if (readerShareUi) { readerShareUi.floatButton.hidden = true; if (readerShareUi.selectionActions) readerShareUi.selectionActions.hidden = true; }
   }, { passive: true });
 }
 

@@ -17,6 +17,28 @@ export async function onRequestGet(context) {
     await ensureQuoteFeedSchema(auth.db);
 
     const section = new URL(context.request.url).searchParams.get("section") || "";
+    if (section === "library") {
+      const [quotes, notes] = await Promise.all([
+        auth.db.prepare(`
+          SELECT q.id, q.title, q.author, q.quote_text, q.work_id,
+                 q.start_offset, q.end_offset, q.source_text, q.created_at,
+                 CASE WHEN sq.quote_id IS NULL THEN 0 ELSE 1 END AS is_shared,
+                 sq.shared_at
+          FROM user_quotes q
+          LEFT JOIN shared_quotes sq ON sq.quote_id = q.id AND sq.user_id = q.user_id
+          WHERE q.user_id = ?
+          ORDER BY q.created_at DESC, q.id DESC LIMIT 500
+        `).bind(auth.userId).all(),
+        auth.db.prepare(`
+          SELECT id, work_id, title, author, note_text, quote_text,
+                 start_offset, end_offset, created_at, updated_at
+          FROM reader_notes
+          WHERE user_id = ?
+          ORDER BY created_at DESC, id DESC LIMIT 500
+        `).bind(auth.userId).all(),
+      ]);
+      return jsonResponse({ ok:true, quotes:quotes?.results||[], notes:notes?.results||[] }, 200, { "cache-control":"no-store" });
+    }
     if (section === "quotes") {
       const quotes = await auth.db.prepare(`
         SELECT q.id, q.title, q.author, q.quote_text, q.work_id,
@@ -269,6 +291,29 @@ export async function onRequestPost(context) {
         WHERE quote_id = ? AND user_id = ?
       `).bind(id, auth.userId).run();
       return jsonResponse({ ok: true, shared: false, sharedAt: null });
+    }
+
+    if (action === "note_save") {
+      const workId = cleanText(body?.workId, 300);
+      const noteText = cleanText(body?.noteText, 4000);
+      if (!workId || !noteText) return jsonResponse({ error: "작품과 메모 내용을 확인해 주세요." }, 400);
+      const startRaw = Number(body?.startOffset);
+      const endRaw = Number(body?.endOffset);
+      const startOffset = Number.isFinite(startRaw) && startRaw >= 0 ? Math.floor(startRaw) : null;
+      const endOffset = startOffset != null && Number.isFinite(endRaw) ? Math.max(startOffset, Math.floor(endRaw)) : startOffset;
+      const quoteText = cleanText(body?.quoteText, 1200);
+      const result = await auth.db.prepare(`
+        INSERT INTO reader_notes(user_id, work_id, title, author, note_text, quote_text, start_offset, end_offset, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(auth.userId, workId, cleanText(body?.title,300), cleanText(body?.author,200), noteText, quoteText||null, startOffset, endOffset, now, now).run();
+      return jsonResponse({ ok:true, note:{ id:Number(result?.meta?.last_row_id||0), workId, title:cleanText(body?.title,300), author:cleanText(body?.author,200), noteText, quoteText, startOffset, endOffset, createdAt:now, updatedAt:now } });
+    }
+
+    if (action === "note_delete") {
+      const id = Number(body?.id||0);
+      if (!Number.isInteger(id) || id <= 0) return jsonResponse({ error:"메모 ID가 올바르지 않습니다." },400);
+      await auth.db.prepare(`DELETE FROM reader_notes WHERE user_id = ? AND id = ?`).bind(auth.userId,id).run();
+      return jsonResponse({ok:true});
     }
 
     if (action === "quote_delete") {

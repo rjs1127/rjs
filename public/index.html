@@ -60,9 +60,9 @@
   <link id="siteShortcutIcon" rel="shortcut icon" href="/favicon.ico?v=632" />
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css" />
-  <link rel="stylesheet" href="/style.css?v=904" />
+  <link rel="stylesheet" href="/style.css?v=914" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=904" />
+  <link rel="stylesheet" href="/theme.css?v=914" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -422,7 +422,7 @@
           <button type="button" data-profile-tab-jump="bookmarks"><span>북마크</span><strong id="profileBookmarkCount">0</strong></button>
           <button type="button" data-profile-tab-jump="recent"><span>최근 본 작품</span><strong id="profileRecentCount">0</strong></button>
           <button type="button" data-profile-tab-jump="likes"><span>좋아요</span><strong id="profileLikeCount">0</strong></button>
-          <button type="button" data-profile-tab-jump="quotes"><span>저장한 문장</span><strong id="profileQuoteCount">0</strong></button>
+          <button type="button" data-profile-tab-jump="library"><span>내 서재</span><strong id="profileQuoteCount">0</strong></button>
         </div>
 
         <div class="profile-toolbar">
@@ -430,7 +430,7 @@
             <button class="active" type="button" data-profile-tab="bookmarks">북마크</button>
             <button type="button" data-profile-tab="recent">최근 본 작품</button>
             <button type="button" data-profile-tab="likes">좋아요</button>
-            <button type="button" data-profile-tab="quotes">저장한 문장</button>
+            <button type="button" data-profile-tab="library">내 서재</button>
           </div>
           <div class="profile-toolbar-actions">
             <label class="profile-search">
@@ -452,7 +452,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.13</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.14</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -737,6 +737,23 @@
     </section>
   </div>
 
+  <div id="myLibraryModal" class="simple-modal-overlay my-library-modal-overlay" hidden>
+    <section class="simple-modal my-library-modal" role="dialog" aria-modal="true" aria-labelledby="myLibraryModalTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="myLibraryModal" aria-label="닫기">×</button>
+      <div class="my-library-modal-head">
+        <p class="section-kicker">MY LIBRARY</p>
+        <h2 id="myLibraryModalTitle">내 서재</h2>
+        <p id="myLibraryModalMeta" class="my-library-modal-meta"></p>
+      </div>
+      <div id="myLibraryModalTabs" class="my-library-modal-tabs" role="tablist">
+        <button type="button" data-library-detail-tab="all" class="active">전체</button>
+        <button type="button" data-library-detail-tab="quotes">문장</button>
+        <button type="button" data-library-detail-tab="notes">메모</button>
+      </div>
+      <div id="myLibraryModalList" class="my-library-modal-list"></div>
+    </section>
+  </div>
+
   <div id="quoteFeedModal" class="simple-modal-overlay quote-feed-modal-overlay" hidden>
     <section class="simple-modal quote-feed-detail-modal" role="dialog" aria-modal="true" aria-labelledby="quoteFeedModalTitle">
       <button class="simple-modal-close" type="button" data-close-modal="quoteFeedModal" aria-label="닫기">×</button>
@@ -982,6 +999,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=913" defer></script>
+  <script src="/app.js?v=914" defer></script>
 </body>
 </html>

@@ -59,6 +59,25 @@ async function ensurePersonalizationSchema(db) {
         CREATE INDEX IF NOT EXISTS idx_user_quotes_user_time
         ON user_quotes(user_id, created_at DESC)
       `),
+      db.prepare(`
+        CREATE TABLE IF NOT EXISTS reader_notes (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          user_id TEXT NOT NULL,
+          work_id TEXT NOT NULL,
+          title TEXT,
+          author TEXT,
+          note_text TEXT NOT NULL,
+          quote_text TEXT,
+          start_offset INTEGER,
+          end_offset INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        )
+      `),
+      db.prepare(`
+        CREATE INDEX IF NOT EXISTS idx_reader_notes_user_work
+        ON reader_notes(user_id, work_id, created_at DESC)
+      `),
     ]);
 
     // v8.72: 기존 user_quotes를 유지하면서 원문 위치 컬럼만 안전하게 추가한다.
@@ -357,11 +376,11 @@ async function ensureUserSchema(db) {
         reader_perf_json TEXT NOT NULL DEFAULT '{}',
         app_version TEXT,
         signup_nudge_shown INTEGER NOT NULL DEFAULT 0,
+        signup_nudge_close INTEGER NOT NULL DEFAULT 0,
         signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0,
         signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0,
-        signup_nudge_close INTEGER NOT NULL DEFAULT 0
+        signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0
       )
     `),
     db.prepare(`
@@ -392,11 +411,11 @@ async function ensureUserSchema(db) {
       ["reader_perf_json", "ALTER TABLE analytics_sessions ADD COLUMN reader_perf_json TEXT NOT NULL DEFAULT '{}'"],
       ["app_version", "ALTER TABLE analytics_sessions ADD COLUMN app_version TEXT"],
       ["signup_nudge_shown", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_shown INTEGER NOT NULL DEFAULT 0"],
+      ["signup_nudge_close", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_close INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_login_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_signup_clicks", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_clicks INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_login_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_login_completed INTEGER NOT NULL DEFAULT 0"],
       ["signup_nudge_signup_completed", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_signup_completed INTEGER NOT NULL DEFAULT 0"],
-      ["signup_nudge_close", "ALTER TABLE analytics_sessions ADD COLUMN signup_nudge_close INTEGER NOT NULL DEFAULT 0"],
     ];
     for (const [column, sql] of analyticsMigrations) {
       if (analyticsColumns.has(column)) continue;
