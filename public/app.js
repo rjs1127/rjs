@@ -8161,10 +8161,24 @@ els.myLibraryModalList?.addEventListener("click", async (event) => {
   closeModal(els.myLibraryModal);
   const offset=Number(entry.startOffset);
   await openReader(item);
-  // Source jumps are for locating a saved sentence/note, so place the target
-  // around the middle of the reading viewport rather than at its top edge.
+  // Source jumps are temporary navigation to a saved sentence/note.
+  // Scroll mode: place the target line at the vertical center of the viewport.
+  // Page mode: the scroll body is hidden, so render the page itself around the
+  // saved text offset instead of trying to scroll the hidden scroll-mode DOM.
   if(Number.isFinite(offset)) {
-    window.requestAnimationFrame(()=>scrollReaderToTextOffset(offset,{centerTarget:true}));
+    window.requestAnimationFrame(async () => {
+      const safeOffset = clampReaderTextOffset(offset);
+      if (state.readerDisplayMode === "page") {
+        const forwardEnd = findReaderPageEnd(safeOffset);
+        const forwardChars = Math.max(1, forwardEnd - safeOffset);
+        const centeredStart = clampReaderTextOffset(
+          safeOffset - Math.floor(forwardChars / 2)
+        );
+        renderReaderPageAt(centeredStart, { navigated: true });
+        return;
+      }
+      await scrollReaderToTextOffset(safeOffset, { viewportRatio: 0.5 });
+    });
   }
 });
 
