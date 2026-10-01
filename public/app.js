@@ -762,6 +762,7 @@ const els = {
   mobileFilterResetButton: document.getElementById("mobileFilterResetButton"),
   mobileFilterCloseButton: document.getElementById("mobileFilterCloseButton"),
   sortSelect: document.getElementById("sortSelect"),
+  mobileSortSelect: document.getElementById("mobileSortSelect"),
   bookmarkOnlyButton: document.getElementById("bookmarkOnlyButton"),
   readingOnlyButton: document.getElementById("readingOnlyButton"),
   resumeShortcutButton: document.getElementById("resumeShortcutButton"),
@@ -6962,6 +6963,9 @@ if (els.sortSelect) {
   `;
   els.sortSelect.value = state.sort;
 }
+if (els.mobileSortSelect) {
+  els.mobileSortSelect.value = state.sort;
+}
 
 applySourceForSort();
 
@@ -6974,25 +6978,35 @@ els.sortSelect?.addEventListener("pointerdown", () => {
   render();
 });
 
-els.sortSelect.addEventListener("change", async (event) => {
+async function applySortSelection(value, sourceSelect) {
   disableInitialRecentPostypeBoost();
-  state.sort = normalizeSortValue(event.target.value);
+  state.sort = normalizeSortValue(value);
   applySourceForSort();
   localStorage.setItem("archiveSort", state.sort);
+  if (els.sortSelect) els.sortSelect.value = state.sort;
+  if (els.mobileSortSelect) els.mobileSortSelect.value = state.sort;
 
   if (state.sort === "bookmarks") {
-    els.sortSelect.disabled = true;
+    if (sourceSelect) sourceSelect.disabled = true;
     try {
       await loadBookmarkCounts();
     } catch (error) {
       console.warn("북마크 순위 로드 실패", error);
       window.alert(error?.message || "북마크 순위를 불러오지 못했습니다.");
     } finally {
-      els.sortSelect.disabled = false;
+      if (sourceSelect) sourceSelect.disabled = false;
     }
   }
 
   render();
+}
+
+els.sortSelect?.addEventListener("change", async (event) => {
+  await applySortSelection(event.target.value, event.target);
+});
+
+els.mobileSortSelect?.addEventListener("change", async (event) => {
+  await applySortSelection(event.target.value, event.target);
 });
 
 els.filterToggleButton?.addEventListener("click", () => {

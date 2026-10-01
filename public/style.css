@@ -1590,6 +1590,23 @@ body.reader-open .page-scroll-top {
   display: none;
 }
 
+.mobile-sort-card {
+  display: none;
+}
+
+.mobile-sort-options select {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(255,255,255,.72);
+  color: var(--ink);
+  padding: 9px 32px 9px 11px;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 750;
+  outline: none;
+}
+
 .sort-control {
   display: grid;
   gap: 6px;
@@ -1733,7 +1750,7 @@ body.reader-open .page-scroll-top {
 @media (max-width: 640px) {
   .controls-toolbar {
     display: grid;
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 1fr;
     align-items: stretch;
     gap: 7px;
     margin-bottom: 8px;
@@ -1774,8 +1791,16 @@ body.reader-open .page-scroll-top {
   }
 
   .sort-control {
-    min-width: 112px;
-    gap: 0;
+    display: none;
+  }
+
+  .mobile-sort-card {
+    display: grid;
+  }
+
+  .mobile-sort-options select {
+    min-height: 38px;
+    background: var(--theme-surface-strong, #fff);
   }
 
   .sort-control > span {
