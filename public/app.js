@@ -3286,6 +3286,10 @@ function resetFilterState({ includeSearch = false } = {}) {
   state.source = "전체";
   state.bookmarkOnly = false;
   state.readingOnly = false;
+  state.sort = "title";
+  localStorage.setItem("archiveSort", state.sort);
+  if (els.sortSelect) els.sortSelect.value = state.sort;
+  if (els.mobileSortSelect) els.mobileSortSelect.value = state.sort;
 
   els.combinationFilters?.querySelectorAll(".chip").forEach((chip) => {
     chip.classList.toggle("active", chip.dataset.combination === "전체");
@@ -3319,7 +3323,20 @@ function updateFilterSummary() {
   }
   if (state.bookmarkOnly) parts.push("북마크");
   if (state.readingOnly) parts.push("읽는 중");
-  if (state.view === "card") parts.push("카드형");
+
+  if (window.matchMedia("(max-width: 640px)").matches) {
+    const sortLabels = {
+      title: "제목순",
+      author: "작가순",
+      registered: "최근등록일",
+      published: "최근발행일",
+      bookmarks: "북마크순",
+    };
+    parts.push(sortLabels[state.sort] || "제목순");
+    parts.push(state.view === "card" ? "카드형" : "리스트형");
+  } else if (state.view === "card") {
+    parts.push("카드형");
+  }
 
   els.filterSummary.textContent = parts.length ? parts.join(" · ") : "전체";
 
