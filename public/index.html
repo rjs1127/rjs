@@ -98,15 +98,15 @@
     }
     .reader-position-status { position:relative; z-index:6; pointer-events:auto; cursor:pointer; user-select:none; }
     .reader-position-status:hover { opacity:.78; }
-    .reader-seek-modal { width:min(92vw,480px) !important; }
-    .reader-seek-card { margin-top:18px; padding:18px 16px 16px; border:1px solid var(--theme-line,#ddd7ce); border-radius:16px; background:var(--theme-surface-soft,#f8f6f2); }
-    .reader-seek-meta { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; margin-bottom:16px; }
-    .reader-seek-percent { font-size:30px; line-height:1; font-weight:800; letter-spacing:-1px; color:var(--theme-text,#191816); }
-    .reader-seek-page { font-size:12px; color:var(--theme-muted,#77736d); white-space:nowrap; }
-    .reader-seek-range { width:100%; height:28px; margin:0; accent-color:var(--theme-text,#191816); cursor:pointer; }
-    .reader-seek-scale { display:flex; justify-content:space-between; margin-top:2px; font-size:10px; color:var(--theme-muted,#8b877f); }
-    .reader-seek-actions { display:flex; justify-content:flex-end; margin-top:16px; }
-    .reader-seek-go { min-width:92px; min-height:38px; padding:8px 18px; border:0; border-radius:11px; background:var(--theme-text,#191816); color:var(--theme-surface-strong,#fff); font-weight:700; cursor:pointer; }
+    .reader-panel.reader-page-mode ~ .reader-position-status { display:none !important; }
+    .reader-page-progress { cursor:pointer; user-select:none; }
+    .reader-page-progress:focus-visible { outline:2px solid currentColor; outline-offset:5px; border-radius:10px; }
+    .reader-seek-float { position:fixed; left:50%; bottom:max(82px,calc(env(safe-area-inset-bottom) + 68px)); transform:translateX(-50%); z-index:120; width:min(calc(100vw - 32px),520px); padding:12px 14px 11px; border:1px solid var(--theme-line,#ddd7ce); border-radius:16px; background:color-mix(in srgb,var(--theme-surface-strong,#fff) 94%,transparent); box-shadow:0 12px 34px rgba(30,26,20,.16); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+    .reader-seek-float[hidden] { display:none !important; }
+    .reader-seek-float-meta { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:5px; font-size:11px; color:var(--theme-muted,#77736d); }
+    .reader-seek-float-meta strong { color:var(--theme-text,#191816); font-size:12px; }
+    .reader-seek-range { display:block; width:100%; height:26px; margin:0; accent-color:var(--theme-text,#191816); cursor:pointer; }
+    @media (max-width:520px) { .reader-seek-float { width:calc(100vw - 24px); bottom:max(74px,calc(env(safe-area-inset-bottom) + 62px)); padding:10px 12px 9px; border-radius:14px; } }
     @media (max-width: 520px) {
       .viewer-settings-modal { padding-top:18px !important; padding-bottom:18px !important; }
       .viewer-settings-modal .simple-modal-kicker { margin-bottom:2px !important; }
@@ -529,7 +529,7 @@
         <div id="readerPageText" class="reader-page-text"></div>
         <div class="reader-page-footer">
           <button id="readerPagePrev" type="button" aria-label="이전 페이지">‹ 이전</button>
-          <div class="reader-page-progress" aria-label="읽기 진도">
+          <div class="reader-page-progress" role="button" tabindex="0" aria-label="현재 읽기 위치. 눌러서 빠르게 이동">
             <div class="reader-page-progress-track" aria-hidden="true">
               <div id="readerPageProgressFill" class="reader-page-progress-fill"></div>
             </div>
@@ -576,22 +576,12 @@
     </div>
   </aside>
 
-  <div id="readerSeekModal" class="simple-modal-overlay" hidden>
-    <section class="simple-modal reader-seek-modal" role="dialog" aria-modal="true" aria-labelledby="readerSeekModalTitle">
-      <button class="simple-modal-close" type="button" data-close-modal="readerSeekModal" aria-label="닫기">×</button>
-      <p class="simple-modal-kicker">QUICK NAVIGATION</p>
-      <h2 id="readerSeekModalTitle">위치 이동</h2>
-      <p class="simple-modal-description">슬라이더를 움직여 작품의 원하는 위치로 바로 이동할 수 있어요.</p>
-      <div class="reader-seek-card">
-        <div class="reader-seek-meta">
-          <strong id="readerSeekPercent" class="reader-seek-percent">0%</strong>
-          <span id="readerSeekPage" class="reader-seek-page">1 / 1 페이지</span>
-        </div>
-        <input id="readerSeekRange" class="reader-seek-range" type="range" min="0" max="1000" value="0" step="1" aria-label="작품 위치" />
-        <div class="reader-seek-scale" aria-hidden="true"><span>처음</span><span>끝</span></div>
-        <div class="reader-seek-actions"><button id="readerSeekGo" class="reader-seek-go" type="button">이동</button></div>
-      </div>
-    </section>
+  <div id="readerSeekFloat" class="reader-seek-float" hidden aria-label="빠른 위치 이동">
+    <div class="reader-seek-float-meta">
+      <strong id="readerSeekPage">1 / 1 · 0%</strong>
+      <span>슬라이드해서 이동</span>
+    </div>
+    <input id="readerSeekRange" class="reader-seek-range" type="range" min="0" max="1000" value="0" step="1" aria-label="작품 위치" />
   </div>
 
   <div id="readerSearchModal" class="simple-modal-overlay reader-search-modal-overlay" hidden>
@@ -992,6 +982,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=908" defer></script>
+  <script src="/app.js?v=909" defer></script>
 </body>
 </html>
