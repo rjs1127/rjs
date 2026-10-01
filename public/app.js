@@ -8099,6 +8099,15 @@ els.libraryModalList?.addEventListener("click", async (event) => {
 
 function dismissSimpleModal(modal) {
   if (!modal) return;
+
+  // 작품 내 검색은 뷰어 위에 겹쳐 뜨는 보조 모달이다.
+  // history.back()을 사용하면 같은 popstate에서 뷰어까지 닫힐 수 있으므로
+  // 검색 모달만 직접 닫고 현재 뷰어 history는 유지한다.
+  if (modal === els.readerSearchModal) {
+    closeModal(modal);
+    return;
+  }
+
   if (history.state?.rjsSimpleModal) {
     history.back();
     return;
