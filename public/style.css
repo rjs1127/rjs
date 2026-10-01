@@ -4293,3 +4293,11 @@ html.theme-dark .feedback-form select, html.theme-dark .feedback-form textarea {
 html.theme-dark .my-library-detail-card { background:rgba(255,255,255,.035); }
 
 .reader-selection-actions .reader-share-float { position:static !important; z-index:auto !important; transform:none !important; }
+
+.my-library-feed-toggle { display:inline-flex; align-items:center; gap:7px; min-height:30px; padding:0 3px; font-size:11px; font-weight:750; color:inherit; white-space:nowrap; }
+.my-library-detail-actions .my-library-feed-switch { position:relative; width:36px; height:21px; min-width:36px; padding:0; border:0; border-radius:999px; background:rgba(91,75,99,.18); cursor:pointer; transition:background .18s ease; }
+.my-library-detail-actions .my-library-feed-switch.active { background:currentColor; }
+.my-library-feed-switch-knob { position:absolute; top:3px; left:3px; width:15px; height:15px; border-radius:50%; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.18); transition:transform .18s ease; }
+.my-library-feed-switch.active .my-library-feed-switch-knob { transform:translateX(15px); }
+html.theme-dark .my-library-detail-actions .my-library-feed-switch { background:rgba(255,255,255,.22); }
+html.theme-dark .my-library-detail-actions .my-library-feed-switch.active { background:currentColor; }
