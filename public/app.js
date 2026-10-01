@@ -8045,7 +8045,9 @@ els.profileList?.addEventListener("click", async (event) => {
   if (open) {
     const item = state.items.find((candidate) => candidate.id === open.dataset.profileOpen);
     if (item) {
-      hideProfilePage({ clearHistoryMarker: true });
+      // Keep the current My Info page as the reader return context.
+      // The reader overlay covers the page temporarily, so closing it naturally
+      // reveals the same tab/search/list/scroll state without rebuilding the page.
       openContentItem(item);
     }
     return;
