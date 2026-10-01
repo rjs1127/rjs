@@ -4769,7 +4769,7 @@ function updateReaderPageControls() {
   if (els.readerPageStatus) {
     const snapshot = getReaderPositionSnapshot();
     const percentLabel = end >= length ? 100 : getReaderProgressDisplayPercent(percent);
-    els.readerPageStatus.textContent = `${snapshot.currentPage} / ${snapshot.totalPages} · ${percentLabel}%`;
+    els.readerPageStatus.textContent = `${percentLabel}%`;
   }
 
   updateReaderPositionStatus();
