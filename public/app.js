@@ -4629,6 +4629,13 @@ function getReaderEstimatedTotalPagesFromScroll() {
 function updateReaderPositionStatus() {
   if (!els.readerPositionStatus || !state.activeReaderItem || !state.readerText) return;
 
+  // The floating page chip belongs to scroll mode only. Page mode already
+  // shows current/total page + percent inside its existing footer progress area.
+  if (state.readerDisplayMode === "page") {
+    els.readerPositionStatus.hidden = true;
+    return;
+  }
+
   els.readerPositionStatus.hidden = false;
 
   const length = Math.max(1, getReaderTextLength());
@@ -4891,6 +4898,9 @@ async function setReaderDisplayMode(mode, options = {}) {
     "reader-page-mode",
     pageActive
   );
+  if (els.readerPositionStatus) {
+    els.readerPositionStatus.hidden = pageActive;
+  }
 
   const deferPageBodyHide = Boolean(
     pageActive &&
