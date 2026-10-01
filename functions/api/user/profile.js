@@ -309,6 +309,21 @@ export async function onRequestPost(context) {
       return jsonResponse({ ok:true, note:{ id:Number(result?.meta?.last_row_id||0), workId, title:cleanText(body?.title,300), author:cleanText(body?.author,200), noteText, quoteText, startOffset, endOffset, createdAt:now, updatedAt:now } });
     }
 
+    if (action === "note_update") {
+      const id = Number(body?.id || 0);
+      const noteText = cleanText(body?.noteText, 4000);
+      if (!Number.isInteger(id) || id <= 0) return jsonResponse({ error:"메모 ID가 올바르지 않습니다." },400);
+      if (!noteText) return jsonResponse({ error:"메모 내용을 입력해 주세요." },400);
+      const existing = await auth.db.prepare(`
+        SELECT id, work_id, title, author, note_text, quote_text, start_offset, end_offset, created_at, updated_at
+        FROM reader_notes WHERE user_id = ? AND id = ? LIMIT 1
+      `).bind(auth.userId,id).first();
+      if (!existing) return jsonResponse({ error:"메모를 찾을 수 없습니다." },404);
+      await auth.db.prepare(`UPDATE reader_notes SET note_text = ?, updated_at = ? WHERE user_id = ? AND id = ?`)
+        .bind(noteText,now,auth.userId,id).run();
+      return jsonResponse({ok:true,note:{...existing,note_text:noteText,updated_at:now}});
+    }
+
     if (action === "note_delete") {
       const id = Number(body?.id||0);
       if (!Number.isInteger(id) || id <= 0) return jsonResponse({ error:"메모 ID가 올바르지 않습니다." },400);

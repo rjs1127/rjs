@@ -1773,7 +1773,7 @@ function renderMyLibraryModal() {
   const visible=all.filter(x=>state.myLibraryDetailTab==="all" || (state.myLibraryDetailTab==="quotes"&&x.kind==="quote") || (state.myLibraryDetailTab==="notes"&&x.kind==="note"));
   els.myLibraryModalList.innerHTML=visible.length?visible.map(x=>{
     const d=x.data; const loc=Number.isFinite(d.startOffset)?"원문 위치 저장됨":"";
-    return `<article class="my-library-detail-card"><div class="my-library-detail-kind"><span>${x.kind==="quote"?"문장":"메모"}</span><span>${loc}</span></div>${x.kind==="quote"?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:`${d.quoteText?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:""}<p class="my-library-detail-note">${escapeHtml(d.noteText)}</p>`}<div class="my-library-detail-actions">${Number.isFinite(d.startOffset)?`<button type="button" data-library-open-location="${x.kind}" data-library-entry-id="${d.id}">원문 보기</button>`:""}${x.kind==="quote"?`<label class="my-library-feed-toggle"><span>피드 공유</span><button class="my-library-feed-switch${d.shared?" active":""}" type="button" role="switch" aria-checked="${d.shared?"true":"false"}" aria-label="문장 피드 공유" data-library-quote-share="${d.id}"><span class="my-library-feed-switch-knob" aria-hidden="true"></span></button></label><button type="button" data-library-quote-copy="${d.id}">복사</button><button type="button" data-library-quote-delete="${d.id}">삭제</button>`:`<button type="button" data-library-note-delete="${d.id}">삭제</button>`}</div></article>`;
+    return `<article class="my-library-detail-card"><div class="my-library-detail-kind"><span>${x.kind==="quote"?"문장":"메모"}</span><span>${loc}</span></div>${x.kind==="quote"?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:`${d.quoteText?`<p class="my-library-detail-quote">${escapeHtml(d.quoteText)}</p>`:""}<p class="my-library-detail-note">${escapeHtml(d.noteText)}</p>`}<div class="my-library-detail-actions">${Number.isFinite(d.startOffset)?`<button type="button" data-library-open-location="${x.kind}" data-library-entry-id="${d.id}">원문 보기</button>`:""}${x.kind==="quote"?`<label class="my-library-feed-toggle"><span>피드 공유</span><button class="my-library-feed-switch${d.shared?" active":""}" type="button" role="switch" aria-checked="${d.shared?"true":"false"}" aria-label="문장 피드 공유" data-library-quote-share="${d.id}"><span class="my-library-feed-switch-knob" aria-hidden="true"></span></button></label><button type="button" data-library-quote-copy="${d.id}">복사</button><button type="button" data-library-quote-delete="${d.id}">삭제</button>`:`<button type="button" data-library-note-edit="${d.id}">수정</button><button type="button" data-library-note-delete="${d.id}">삭제</button>`}</div></article>`;
   }).join(""):'<div class="profile-empty">아직 남긴 기록이 없습니다.</div>';
 }
 
@@ -8220,6 +8220,31 @@ els.myLibraryModalList?.addEventListener("click", async (event) => {
   if(quoteDelete){ const id=Number(quoteDelete.dataset.libraryQuoteDelete||0); if(id&&confirm("저장한 문장을 삭제할까요?")){ await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"quote_delete",id})}); state.savedQuotes=state.savedQuotes.filter(q=>q.id!==id); state.savedQuoteCount=state.savedQuotes.length; renderMyLibraryModal(); renderProfilePage(); } return; }
   const quoteShare=event.target.closest("[data-library-quote-share]");
   if(quoteShare){ const q=state.savedQuotes.find(x=>x.id===Number(quoteShare.dataset.libraryQuoteShare||0)); if(q&&!q._shareSaving){ q.shared=!q.shared; renderMyLibraryModal(); const item=state.items.find(x=>String(x.id)===String(q.workId)); try{ queueSavedQuoteShare(q,item?.id||q.workId||""); }catch(error){q.shared=!q.shared; renderMyLibraryModal(); alert(error.message||"공개 상태를 변경하지 못했습니다.");} } return; }
+  const edit=event.target.closest("[data-library-note-edit]");
+  if(edit){
+    const id=Number(edit.dataset.libraryNoteEdit||0);
+    const note=state.readerNotes.find(n=>n.id===id);
+    if(!note) return;
+    const bd=document.createElement("div");
+    bd.className="reader-memo-backdrop";
+    bd.innerHTML=`<section class="reader-memo-dialog" role="dialog" aria-modal="true"><h3>메모 수정</h3>${note.quoteText?`<p class="reader-memo-quote">${escapeHtml(note.quoteText)}</p>`:""}<textarea class="reader-memo-input" maxlength="4000" placeholder="메모를 입력하세요.">${escapeHtml(note.noteText)}</textarea><div class="reader-memo-actions"><button type="button" data-note-edit-cancel>취소</button><button type="button" class="primary" data-note-edit-save>저장</button></div></section>`;
+    document.body.appendChild(bd);
+    const input=bd.querySelector(".reader-memo-input");
+    const close=()=>bd.remove();
+    bd.addEventListener("click",e=>{if(e.target===bd)close();});
+    bd.querySelector("[data-note-edit-cancel]")?.addEventListener("click",close);
+    bd.querySelector("[data-note-edit-save]")?.addEventListener("click",async()=>{
+      const noteText=String(input?.value||"").trim(); if(!noteText){input?.focus();return;}
+      const btn=bd.querySelector("[data-note-edit-save]"); btn.disabled=true;
+      try{
+        const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_update",id,noteText})});
+        Object.assign(note,normalizeReaderNote(data.note));
+        close(); renderMyLibraryModal(); renderProfilePage();
+      }catch(error){alert(error.message||"메모를 수정하지 못했습니다.");btn.disabled=false;}
+    });
+    requestAnimationFrame(()=>{input?.focus();input?.setSelectionRange(input.value.length,input.value.length);});
+    return;
+  }
   const del=event.target.closest("[data-library-note-delete]");
   if(del){ const id=Number(del.dataset.libraryNoteDelete||0); if(id && confirm("메모를 삭제할까요?")){ await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_delete",id})}); state.readerNotes=state.readerNotes.filter(n=>n.id!==id); renderMyLibraryModal(); renderProfilePage(); } return; }
   const open=event.target.closest("[data-library-open-location]"); if(!open) return;
