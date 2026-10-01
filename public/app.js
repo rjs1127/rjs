@@ -10778,7 +10778,7 @@ function getIssueReportText() {
   const connectionInfo = connection
     ? `${connection.effectiveType || "-"} / downlink=${Number.isFinite(connection.downlink) ? `${connection.downlink}Mbps` : "-"} / saveData=${connection.saveData ? "예" : "아니오"}`
     : "확인 불가";
-  const readerMode = isReaderPageMode() ? "페이지" : "스크롤";
+  const readerMode = state.readerDisplayMode === "page" ? "페이지" : "스크롤";
   const readerSettings = `테마=${getSavedTheme()}, 글씨=${getSavedReaderFontSize()}, 줄간격=${getSavedReaderSpacing()}, 폰트=${getSavedReaderFontFamily()}`;
 
   return [
