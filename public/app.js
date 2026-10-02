@@ -6960,8 +6960,12 @@ function closeReader(options = {}) {
 }
 
 
-window.addEventListener("popstate", () => {
-  if (!els.readerOverlay?.hidden && state.activeReaderItem) {
+window.addEventListener("popstate", (event) => {
+  if (
+    !els.readerOverlay?.hidden &&
+    state.activeReaderItem &&
+    !event.state?.rjsReaderOpen
+  ) {
     state.readerHistoryActive = false;
     closeReader({ fromHistory: true });
   }
