@@ -101,12 +101,17 @@ const els = {
   settingsMessage: document.getElementById("settingsMessage"),
   searchAliasForm: document.getElementById("searchAliasForm"),
   searchAliasType: document.getElementById("searchAliasType"),
-  searchAliasTitleField: document.getElementById("searchAliasTitleField"),
   searchAliasTitle: document.getElementById("searchAliasTitle"),
   searchAliasAuthor: document.getElementById("searchAliasAuthor"),
+  searchAliasTargetSearch: document.getElementById("searchAliasTargetSearch"),
+  searchAliasTargetLabel: document.getElementById("searchAliasTargetLabel"),
+  searchAliasTargetHint: document.getElementById("searchAliasTargetHint"),
+  searchAliasSuggestions: document.getElementById("searchAliasSuggestions"),
   searchAliasValues: document.getElementById("searchAliasValues"),
   searchAliasMessage: document.getElementById("searchAliasMessage"),
+  searchAliasCount: document.getElementById("searchAliasCount"),
   searchAliasList: document.getElementById("searchAliasList"),
+  searchAliasTypeButtons: Array.from(document.querySelectorAll("[data-alias-type]")),
   reviewList: document.getElementById("reviewList"),
   reviewEmpty: document.getElementById("reviewEmpty"),
   reviewCount: document.getElementById("reviewCount"),
@@ -506,6 +511,19 @@ els.tabs.forEach((tab) => {
       console.error(error);
       if (els.postypeAutoSyncState) els.postypeAutoSyncState.textContent = "상태 확인 실패";
       if (els.driveAutoSyncState) els.driveAutoSyncState.textContent = "상태 확인 실패";
+    });
+  }
+
+  if (name === "search-aliases") {
+    Promise.all([
+      driveAdminLoaded ? Promise.resolve() : loadDriveAdminList(),
+      postypeAdminLoaded ? Promise.resolve() : loadPostypeAdminList(false),
+    ]).then(() => refreshSearchAliasPicker()).catch((error) => {
+      console.error(error);
+      if (els.searchAliasMessage) {
+        els.searchAliasMessage.hidden = false;
+        els.searchAliasMessage.textContent = error.message || "작가·작품 목록을 불러오지 못했습니다.";
+      }
     });
   }
 
@@ -4321,6 +4339,75 @@ els.driveAutoSyncSetupButton?.addEventListener("click", async () => {
 });
 
 let searchAliasData = { authors: {}, works: {} };
+let searchAliasPickerItems = [];
+
+function searchAliasNorm(value) {
+  return String(value || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+}
+
+function buildSearchAliasPickerItems() {
+  const type = els.searchAliasType?.value || "author";
+  const seen = new Set();
+  const result = [];
+  [...driveAdminItems, ...postypeAdminItems].forEach((item) => {
+    const author = String(item.author || item.writer || "").trim();
+    const title = String(item.title || "").trim();
+    if (!author) return;
+    if (type === "author") {
+      const key = searchAliasNorm(author);
+      if (!key || seen.has(key)) return;
+      seen.add(key);
+      result.push({ author, title: "", label: author, search: searchAliasNorm(author) });
+      return;
+    }
+    if (!title) return;
+    const key = `${searchAliasNorm(title)}\u001f${searchAliasNorm(author)}`;
+    if (seen.has(key)) return;
+    seen.add(key);
+    result.push({ author, title, label: `${title} · ${author}`, search: searchAliasNorm(`${title} ${author}`) });
+  });
+  return result.sort((a, b) => a.label.localeCompare(b.label, "ko"));
+}
+
+function renderSearchAliasSuggestions(query = "") {
+  if (!els.searchAliasSuggestions) return;
+  const q = searchAliasNorm(query);
+  const matches = searchAliasPickerItems.filter((item) => !q || item.search.includes(q)).slice(0, 40);
+  els.searchAliasSuggestions.innerHTML = matches.length ? matches.map((item) => `
+    <button type="button" class="alias-suggestion" data-alias-pick data-title="${escapeHtml(item.title)}" data-author="${escapeHtml(item.author)}">
+      <strong>${escapeHtml(els.searchAliasType.value === "work" ? item.title : item.author)}</strong>
+      ${els.searchAliasType.value === "work" ? `<small>${escapeHtml(item.author)}</small>` : ""}
+    </button>`).join("") : '<div class="alias-suggestion-empty">일치하는 항목이 없습니다.</div>';
+  els.searchAliasSuggestions.hidden = false;
+}
+
+function refreshSearchAliasPicker({ keepSelection = false } = {}) {
+  searchAliasPickerItems = buildSearchAliasPickerItems();
+  const isWork = els.searchAliasType?.value === "work";
+  if (els.searchAliasTargetLabel) els.searchAliasTargetLabel.textContent = isWork ? "작품 선택" : "작가 선택";
+  if (els.searchAliasTargetHint) els.searchAliasTargetHint.textContent = isWork ? "제목 또는 작가명으로 검색해 작품을 선택합니다." : "Drive와 POSTYPE에 등록된 작가 중에서 선택합니다.";
+  if (els.searchAliasTargetSearch) els.searchAliasTargetSearch.placeholder = isWork ? "작품명 또는 작가명을 검색하세요" : "작가명을 검색해서 선택하세요";
+  if (!keepSelection) {
+    if (els.searchAliasTitle) els.searchAliasTitle.value = "";
+    if (els.searchAliasAuthor) els.searchAliasAuthor.value = "";
+    if (els.searchAliasTargetSearch) els.searchAliasTargetSearch.value = "";
+  }
+  if (els.searchAliasSuggestions) els.searchAliasSuggestions.hidden = true;
+}
+
+function setSearchAliasType(type, options = {}) {
+  if (!els.searchAliasType) return;
+  els.searchAliasType.value = type === "work" ? "work" : "author";
+  els.searchAliasTypeButtons?.forEach((button) => button.classList.toggle("is-active", button.dataset.aliasType === els.searchAliasType.value));
+  refreshSearchAliasPicker(options);
+}
+
+function selectSearchAliasTarget(title, author) {
+  if (els.searchAliasTitle) els.searchAliasTitle.value = title || "";
+  if (els.searchAliasAuthor) els.searchAliasAuthor.value = author || "";
+  if (els.searchAliasTargetSearch) els.searchAliasTargetSearch.value = els.searchAliasType.value === "work" ? `${title} · ${author}` : author;
+  if (els.searchAliasSuggestions) els.searchAliasSuggestions.hidden = true;
+}
 
 function renderSearchAliases() {
   if (!els.searchAliasList) return;
@@ -4328,12 +4415,13 @@ function renderSearchAliases() {
   Object.values(searchAliasData.authors || {}).forEach((entry) => rows.push({ type: "author", ...entry }));
   Object.values(searchAliasData.works || {}).forEach((entry) => rows.push({ type: "work", ...entry }));
   rows.sort((a, b) => `${a.author || ""} ${a.title || ""}`.localeCompare(`${b.author || ""} ${b.title || ""}`, "ko"));
+  if (els.searchAliasCount) els.searchAliasCount.textContent = `${rows.length.toLocaleString("ko-KR")}개`;
   els.searchAliasList.innerHTML = rows.length ? rows.map((entry) => `
-    <div class="alias-row">
-      <div><strong>${entry.type === "work" ? "작품" : "작가"}</strong><span>${escapeHtml(entry.type === "work" ? `${entry.title} · ${entry.author}` : entry.author)}</span><small>${escapeHtml((entry.aliases || []).join(", "))}</small></div>
-      <button type="button" class="secondary-admin-button" data-alias-edit="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">수정</button>
-      <button type="button" class="secondary-admin-button" data-alias-delete="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">삭제</button>
-    </div>`).join("") : '<p class="muted">등록된 검색 별칭이 없습니다.</p>';
+    <article class="alias-row">
+      <div class="alias-row-main"><span class="alias-kind">${entry.type === "work" ? "작품" : "작가"}</span><div><strong>${escapeHtml(entry.type === "work" ? entry.title : entry.author)}</strong>${entry.type === "work" ? `<small>${escapeHtml(entry.author)}</small>` : ""}</div></div>
+      <div class="alias-chips">${(entry.aliases || []).map((alias) => `<span>${escapeHtml(alias)}</span>`).join("")}</div>
+      <div class="alias-row-actions"><button type="button" class="secondary-admin-button" data-alias-edit="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">수정</button><button type="button" class="secondary-admin-button" data-alias-delete="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">삭제</button></div>
+    </article>`).join("") : '<div class="alias-empty"><strong>아직 등록된 검색 별칭이 없습니다.</strong><span>위에서 작가나 작품을 선택해 첫 별칭을 추가해보세요.</span></div>';
 }
 
 async function loadSearchAliases() {
@@ -4342,15 +4430,30 @@ async function loadSearchAliases() {
   renderSearchAliases();
 }
 
-els.searchAliasType?.addEventListener("change", () => {
-  const isWork = els.searchAliasType.value === "work";
-  els.searchAliasTitleField.hidden = !isWork;
-  if (!isWork) els.searchAliasTitle.value = "";
+els.searchAliasTypeButtons?.forEach((button) => button.addEventListener("click", () => setSearchAliasType(button.dataset.aliasType)));
+els.searchAliasTargetSearch?.addEventListener("focus", () => renderSearchAliasSuggestions(els.searchAliasTargetSearch.value));
+els.searchAliasTargetSearch?.addEventListener("input", () => {
+  els.searchAliasTitle.value = "";
+  els.searchAliasAuthor.value = "";
+  renderSearchAliasSuggestions(els.searchAliasTargetSearch.value);
+});
+els.searchAliasSuggestions?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-alias-pick]");
+  if (!button) return;
+  selectSearchAliasTarget(button.dataset.title || "", button.dataset.author || "");
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest(".alias-picker") && els.searchAliasSuggestions) els.searchAliasSuggestions.hidden = true;
 });
 
 els.searchAliasForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   els.searchAliasMessage.hidden = false;
+  if (!String(els.searchAliasAuthor.value || "").trim() || (els.searchAliasType.value === "work" && !String(els.searchAliasTitle.value || "").trim())) {
+    els.searchAliasMessage.textContent = els.searchAliasType.value === "work" ? "목록에서 작품을 먼저 선택해주세요." : "목록에서 작가를 먼저 선택해주세요.";
+    els.searchAliasTargetSearch?.focus();
+    return;
+  }
   els.searchAliasMessage.textContent = "저장 중…";
   try {
     const data = await api("/api/admin/search-aliases", { method: "POST", body: JSON.stringify({
@@ -4361,8 +4464,8 @@ els.searchAliasForm?.addEventListener("submit", async (event) => {
     }) });
     searchAliasData = data.aliases || searchAliasData;
     renderSearchAliases();
-    els.searchAliasForm.reset();
-    els.searchAliasTitleField.hidden = true;
+    els.searchAliasValues.value = "";
+    refreshSearchAliasPicker();
     els.searchAliasMessage.textContent = "저장했습니다. 사용자 통합검색에 바로 반영됩니다.";
   } catch (error) { els.searchAliasMessage.textContent = error.message || "저장에 실패했습니다."; }
 });
@@ -4375,16 +4478,14 @@ els.searchAliasList?.addEventListener("click", async (event) => {
   const type = edit ? edit.dataset.aliasEdit : del.dataset.aliasDelete;
   const title = button.dataset.title || "";
   const author = button.dataset.author || "";
-  const keyNorm = (v) => String(v || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
-  const key = type === "author" ? keyNorm(author) : `${keyNorm(title)}\u001f${keyNorm(author)}`;
+  const key = type === "author" ? searchAliasNorm(author) : `${searchAliasNorm(title)}\u001f${searchAliasNorm(author)}`;
   const entry = type === "author" ? searchAliasData.authors?.[key] : searchAliasData.works?.[key];
   if (edit) {
-    els.searchAliasType.value = type;
-    els.searchAliasTitleField.hidden = type !== "work";
-    els.searchAliasTitle.value = title;
-    els.searchAliasAuthor.value = author;
+    setSearchAliasType(type, { keepSelection: true });
+    selectSearchAliasTarget(title, author);
     els.searchAliasValues.value = (entry?.aliases || []).join(", ");
     els.searchAliasValues.focus();
+    els.searchAliasForm?.scrollIntoView({ behavior: "smooth", block: "center" });
     return;
   }
   if (!window.confirm("이 검색 별칭을 삭제할까요?")) return;
@@ -4395,6 +4496,7 @@ els.searchAliasList?.addEventListener("click", async (event) => {
   } catch (error) { window.alert(error.message || "삭제에 실패했습니다."); }
 });
 
+setSearchAliasType("author");
 loadSearchAliases().catch((error) => console.warn("검색 별칭 로딩 실패", error));
 
 els.settingsForm.addEventListener("submit", async (event) => {
