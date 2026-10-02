@@ -10889,6 +10889,27 @@ function updateNetworkStatus() {
   els.networkStatusBanner.hidden = navigator.onLine;
 }
 
+// Android 앱 시스템 뒤로가기
+const capacitorAppPlugin = window.Capacitor?.Plugins?.App;
+
+if (capacitorAppPlugin?.addListener) {
+  capacitorAppPlugin.addListener("backButton", () => {
+    const hasInAppHistory = Boolean(
+      history.state?.rjsReaderOpen ||
+      history.state?.rjsSimpleModal ||
+      history.state?.rjsProfilePage ||
+      history.state?.rjsQuoteFeedPage ||
+      history.state?.rjsReaderShare
+    );
+
+    if (hasInAppHistory) {
+      history.back();
+      return;
+    }
+
+    capacitorAppPlugin.minimizeApp();
+  });
+}
 
 if (history.state?.rjsReaderOpen) {
   history.replaceState(
