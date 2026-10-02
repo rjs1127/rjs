@@ -10,6 +10,7 @@ const POSTYPE_INDEX_KEY = "postype:index:v1";
 const DRIVE_CONTENT_TYPE_OVERRIDES_KEY = "archive:drive-content-type-overrides:v1";
 const DRIVE_STATUS_OVERRIDES_KEY = "archive:drive-status-overrides:v1";
 const PUBLIC_ARCHIVE_INDEX_KEY = "archive:public-index:v1";
+const SEARCH_ALIASES_KEY = "archive:search-aliases:v1";
 const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
 
 const DEFAULT_SETTINGS = {
@@ -664,7 +665,7 @@ function mergeDriveArchiveDelta(previousArchive, scannedArchive) {
 
 async function buildPublicArchiveIndex(kv, supplied = {}) {
   const has = (key) => Object.prototype.hasOwnProperty.call(supplied, key);
-  const [archive, overrides, settings, postypeArchive, driveTypeOverrides, driveStatusOverrides] =
+  const [archive, overrides, settings, postypeArchive, driveTypeOverrides, driveStatusOverrides, searchAliases] =
     await Promise.all([
       has("archive") ? supplied.archive : getJson(kv, ARCHIVE_CACHE_KEY, null),
       has("overrides") ? supplied.overrides : getJson(kv, OVERRIDES_KEY, {}),
@@ -672,6 +673,7 @@ async function buildPublicArchiveIndex(kv, supplied = {}) {
       has("postypeArchive") ? supplied.postypeArchive : getJson(kv, POSTYPE_INDEX_KEY, null),
       has("driveTypeOverrides") ? supplied.driveTypeOverrides : getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
       has("driveStatusOverrides") ? supplied.driveStatusOverrides : getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
+      has("searchAliases") ? supplied.searchAliases : getJson(kv, SEARCH_ALIASES_KEY, { authors: {}, works: {} }),
     ]);
 
   if (!archive) return null;
@@ -703,7 +705,18 @@ async function buildPublicArchiveIndex(kv, supplied = {}) {
   const postypeItems = Array.isArray(postypeArchive?.items)
     ? postypeArchive.items.map((item) => ({ ...item, source: "postype" }))
     : [];
-  const items = [...driveItems, ...postypeItems];
+  const normalizeAliasKey = (value) => String(value || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
+  const authorAliases = searchAliases?.authors && typeof searchAliases.authors === "object" ? searchAliases.authors : {};
+  const workAliases = searchAliases?.works && typeof searchAliases.works === "object" ? searchAliases.works : {};
+  const items = [...driveItems, ...postypeItems].map((item) => {
+    const authorKey = normalizeAliasKey(item.author);
+    const workKey = `${normalizeAliasKey(item.title)}\u001f${authorKey}`;
+    const aliases = [
+      ...(Array.isArray(authorAliases[authorKey]?.aliases) ? authorAliases[authorKey].aliases : []),
+      ...(Array.isArray(workAliases[workKey]?.aliases) ? workAliases[workKey].aliases : []),
+    ].map((value) => String(value || "").trim()).filter(Boolean);
+    return aliases.length ? { ...item, searchAliases: [...new Set(aliases)].join(" ") } : item;
+  });
   const combinations = [
     ...new Set(
       items
@@ -746,6 +759,7 @@ export {
   DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
   DRIVE_STATUS_OVERRIDES_KEY,
   PUBLIC_ARCHIVE_INDEX_KEY,
+  SEARCH_ALIASES_KEY,
   DEFAULT_SETTINGS,
   jsonResponse,
   requireKv,

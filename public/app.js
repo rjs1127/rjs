@@ -3377,7 +3377,7 @@ function getFilteredItems() {
     const haystack = normalizeSearchText(
       `${item.title || ""} ${item.author || ""} ${item.fileName || ""} ` +
       `${item.combination || ""} ${item.subCp1 || ""} ${item.subCp2 || ""} ` +
-      `${item.genre || ""} ${item.status || ""}`
+      `${item.genre || ""} ${item.status || ""} ${item.searchAliases || ""}`
     );
 
     const matchesSearch =
