@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-03**
-- 전체 커밋: **333개**
+- 전체 커밋: **334개**
 - 활동일: **14일**
 
 ---
@@ -367,7 +367,7 @@
 
 - 00:47 · fix: handle Android system back button
 - 01:00 · feat: add CORS middleware for mobile app
-- 01:38 · v9.29: feat: add Android Capacitor app
+- 01:38 · feat: add Android Capacitor app
 - 03:29 · v9.29: fix: keep reader open when closing share modal
 - 03:36 · v9.29: feat: add mobile app version endpoint
 - 03:58 · v9.29: feat: add Android offline and native app features
@@ -383,4 +383,5 @@
 - 13:26 · mixed: Archive update (2 files) / app v1.4: 관리자 배포 탭에 Android 앱 전용 릴리즈 영역 추가 / 현재 배포 버전/build와 GitHub Android 소스 버전을 한…
 - 13:36 · app v1.4: 앱 업데이트와 배포 방식을 개선했어요.
 - 13:46 · app v1.5: 자동 업데이트 기능 테스트 버전입니다.
-- 13:59 · app: Android 업데이트 즉시 감지 수정
+- 13:59 · v9.29: app: Android 업데이트 즉시 감지 수정
+- 14:36 · app v1.6: Android 앱에서 메인 하단 웹 버전 옆에 설치된 앱 버전 표시 / 웹 브라우저에서는 앱 버전 표시 없음

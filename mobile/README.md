@@ -29,8 +29,8 @@ node .\patch-native-apk-install.cjs
 npx cap sync android
 ```
 
-`patch-native-apk-install.cjs`는 네이티브 APK 설치 화면 연결과 함께 앱 업데이트 확인의 6시간 캐시를 제거합니다.
-따라서 앱 실행 시 최신 `/api/mobile-version`을 다시 확인합니다.
+`patch-app-update.cjs`는 앱 실행·복귀 시 최신 앱 버전을 직접 확인하고, 앱 화면 하단에 설치된 Android 앱 버전을 표시합니다.
+`patch-native-apk-install.cjs`는 업데이트 APK 다운로드 후 Android 설치 화면으로 연결합니다.
 
 ## 앱 릴리즈
 
@@ -51,6 +51,13 @@ npx cap sync android
 일반 ZIP 업로드는 자동으로 `웹 패치 / Android 앱 패치 / 웹+앱 혼합 패치`를 구분합니다.
 
 <!-- MOBILE_RELEASE_HISTORY -->
+
+## v1.6 · build 7 · 준비 중
+
+- Android 앱에서 메인 하단 웹 버전 옆에 설치된 앱 버전 표시
+- 웹 브라우저에서는 앱 버전 표시 없음
+- 업데이트 API를 운영 Pages 절대주소로 직접 확인
+- 앱 실행뿐 아니라 백그라운드 복귀·화면 재활성화 시에도 업데이트 재확인
 
 ## v1.5 · build 6 · 2026-10-03
 

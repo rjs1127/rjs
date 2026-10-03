@@ -13,7 +13,7 @@ if (!fs.existsSync(indexPath)) {
 let index = fs.readFileSync(indexPath, "utf8");
 
 const css = `
-/* ===== RJS APP UPDATE NOTICE V4 ===== */
+/* ===== RJS APP UPDATE NOTICE V5 ===== */
 .app-update-notice {
   position: relative;
   display: grid;
@@ -239,7 +239,7 @@ body.theme-dark .app-update-close,
     height: 27px;
   }
 }
-/* ===== /RJS APP UPDATE NOTICE V4 ===== */
+/* ===== /RJS APP UPDATE NOTICE V5 ===== */
 `;
 
 const js = `
@@ -261,6 +261,36 @@ const js = `
     localStorage.removeItem("rjsAppUpdateCheckCacheV1");
   } catch {}
   // ===== /RJS APP UPDATE NO CACHE V1 =====
+
+  function renderAppVersionInFooter(info) {
+    const publicVersion = document.getElementById("publicVersion");
+    if (!publicVersion) return;
+
+    let divider = document.getElementById("mobileAppVersionDivider");
+    let appVersion = document.getElementById("mobileAppVersion");
+
+    if (!divider) {
+      divider = document.createElement("span");
+      divider.id = "mobileAppVersionDivider";
+      divider.className = "site-footer-divider";
+      divider.setAttribute("aria-hidden", "true");
+      divider.textContent = "·";
+      publicVersion.insertAdjacentElement("afterend", divider);
+    }
+
+    if (!appVersion) {
+      appVersion = document.createElement("span");
+      appVersion.id = "mobileAppVersion";
+      appVersion.className = "site-footer-version";
+      appVersion.title = "설치된 Android 앱 버전";
+      divider.insertAdjacentElement("afterend", appVersion);
+    }
+
+    const appVersionText = String(info?.version || "").trim();
+    appVersion.textContent = appVersionText
+      ? "앱 v" + appVersionText
+      : "앱 버전 확인 중";
+  }
 
   function getDismissedBuild() {
     try {
@@ -316,10 +346,10 @@ const js = `
 
     updateCheckRunning = true;
     try {
-      const [current, latest] = await Promise.all([
-        App.getInfo(),
-        getLatestInfo()
-      ]);
+      const current = await App.getInfo();
+      renderAppVersionInFooter(current);
+
+      const latest = await getLatestInfo();
 
       if (latest?.enabled === false) return;
 
@@ -355,6 +385,10 @@ const js = `
       updateCheckRunning = false;
     }
   }
+
+  App?.getInfo?.()
+    .then(renderAppVersionInFooter)
+    .catch(() => {});
 
   checkAppUpdate();
 
@@ -432,12 +466,12 @@ if (!index.includes("/app-update.css")) {
 
   index = index.replace(
     headMarker,
-    '  <link rel="stylesheet" href="/app-update.css?v=4" />\n</head>'
+    '  <link rel="stylesheet" href="/app-update.css?v=5" />\n</head>'
   );
 } else {
   index = index.replace(
     /\/app-update\.css\?v=\d+/g,
-    "/app-update.css?v=4"
+    "/app-update.css?v=5"
   );
 }
 
@@ -451,12 +485,12 @@ if (!index.includes("/app-update.js")) {
 
   index = index.replace(
     appScriptMatch[0],
-    '  <script src="/app-update.js?v=4" defer></script>\n' + appScriptMatch[0]
+    '  <script src="/app-update.js?v=5" defer></script>\n' + appScriptMatch[0]
   );
 } else {
   index = index.replace(
     /\/app-update\.js\?v=\d+/g,
-    "/app-update.js?v=4"
+    "/app-update.js?v=5"
   );
 }
 
