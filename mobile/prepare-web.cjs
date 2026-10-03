@@ -10,6 +10,11 @@ const apiOrigin = "https://rjs-cj6.pages.dev";
 console.log("[1/4] public -> mobile/www 복사");
 fs.rmSync(targetDir, { recursive: true, force: true });
 fs.cpSync(sourceDir, targetDir, { recursive: true });
+// 웹 배포용 APK는 앱 내부 번들에 다시 포함하지 않는다.
+fs.rmSync(path.join(targetDir, "downloads"), {
+  recursive: true,
+  force: true,
+});
 
 console.log("[2/4] 앱용 SITE_NAME 적용");
 const indexPath = path.join(targetDir, "index.html");

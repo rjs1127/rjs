@@ -8,17 +8,29 @@ const GITHUB_REPO = "rjs";
 const GITHUB_BRANCH = "main";
 
 const PROTECTED_EXACT = new Set([
-  "wrangler.toml",
+"wrangler.toml",
   ".gitignore",
   ".env",
   ".dev.vars",
+  "mobile/android/local.properties",
+  "mobile/android/key.properties",
+  "mobile/key.properties",
 ]);
 
 const PROTECTED_PREFIXES = [
-  ".git/",
+".git/",
   "node_modules/",
   "credentials/",
   "secrets/",
+  "mobile/node_modules/",
+  "mobile/www/",
+  "mobile/releases/",
+  "mobile/.idea/",
+  "mobile/android/.idea/",
+  "mobile/android/.gradle/",
+  "mobile/android/build/",
+  "mobile/android/app/build/",
+  "mobile/android/app/src/main/assets/public/",
 ];
 
 function isAllowedPath(path) {
@@ -42,6 +54,15 @@ function isAllowedPath(path) {
     /(^|\/)(service[-_]?account|credentials|secret|secrets)(\.|\/|$)/i.test(normalized)
   ) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
+  }
+  if (
+    normalized.startsWith("mobile/") &&
+    (
+      /\.(jks|keystore|p12|pfx)$/i.test(normalized) ||
+      /(^|\/)(local|key)\.properties$/i.test(normalized)
+    )
+  ) {
+    return { allowed: false, path: normalized, reason: "모바일 서명/로컬 설정 파일" };
   }
 
   if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md" || normalized === "HELP_GUIDE.md" || normalized === "HISTORY.md"))) {
