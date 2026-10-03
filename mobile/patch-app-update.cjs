@@ -13,7 +13,7 @@ if (!fs.existsSync(indexPath)) {
 let index = fs.readFileSync(indexPath, "utf8");
 
 const css = `
-/* ===== RJS APP UPDATE NOTICE V3 ===== */
+/* ===== RJS APP UPDATE NOTICE V4 ===== */
 .app-update-notice {
   position: relative;
   display: grid;
@@ -239,7 +239,7 @@ body.theme-dark .app-update-close,
     height: 27px;
   }
 }
-/* ===== /RJS APP UPDATE NOTICE V3 ===== */
+/* ===== /RJS APP UPDATE NOTICE V4 ===== */
 `;
 
 const js = `
@@ -277,14 +277,19 @@ const js = `
     notice.hidden = true;
   }
 
+  const UPDATE_API_URL = "https://rjs-cj6.pages.dev/api/mobile-version";
+
   async function getLatestInfo() {
-    const response = await fetch("/api/mobile-version?_=" + Date.now(), {
+    const response = await fetch(UPDATE_API_URL + "?_=" + Date.now(), {
       cache: "no-store",
-      headers: { "cache-control": "no-cache" }
+      headers: {
+        "cache-control": "no-cache",
+        "pragma": "no-cache"
+      }
     });
 
     if (!response.ok) {
-      throw new Error("mobile_version_fetch_failed");
+      throw new Error("mobile_version_fetch_failed_" + response.status);
     }
 
     return response.json();
@@ -304,9 +309,12 @@ const js = `
     window.open(url, "_blank", "noopener,noreferrer");
   }
 
-  async function checkAppUpdate() {
-    if (navigator.onLine === false || !App?.getInfo) return;
+  let updateCheckRunning = false;
 
+  async function checkAppUpdate() {
+    if (updateCheckRunning || navigator.onLine === false || !App?.getInfo) return;
+
+    updateCheckRunning = true;
     try {
       const [current, latest] = await Promise.all([
         App.getInfo(),
@@ -343,13 +351,27 @@ const js = `
       close.onclick = () => dismiss(latestBuild);
     } catch (error) {
       console.warn("[RJS Mobile] update check skipped", error);
+    } finally {
+      updateCheckRunning = false;
     }
   }
 
   checkAppUpdate();
 
   window.addEventListener("online", () => {
-    window.setTimeout(checkAppUpdate, 500);
+    window.setTimeout(checkAppUpdate, 300);
+  });
+
+  App?.addListener?.("appStateChange", ({ isActive }) => {
+    if (isActive) {
+      window.setTimeout(checkAppUpdate, 250);
+    }
+  });
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) {
+      window.setTimeout(checkAppUpdate, 250);
+    }
   });
 })();
 `;
@@ -410,12 +432,12 @@ if (!index.includes("/app-update.css")) {
 
   index = index.replace(
     headMarker,
-    '  <link rel="stylesheet" href="/app-update.css?v=3" />\n</head>'
+    '  <link rel="stylesheet" href="/app-update.css?v=4" />\n</head>'
   );
 } else {
   index = index.replace(
     /\/app-update\.css\?v=\d+/g,
-    "/app-update.css?v=3"
+    "/app-update.css?v=4"
   );
 }
 
@@ -429,12 +451,12 @@ if (!index.includes("/app-update.js")) {
 
   index = index.replace(
     appScriptMatch[0],
-    '  <script src="/app-update.js?v=3" defer></script>\n' + appScriptMatch[0]
+    '  <script src="/app-update.js?v=4" defer></script>\n' + appScriptMatch[0]
   );
 } else {
   index = index.replace(
     /\/app-update\.js\?v=\d+/g,
-    "/app-update.js?v=3"
+    "/app-update.js?v=4"
   );
 }
 
