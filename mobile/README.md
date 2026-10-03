@@ -52,8 +52,9 @@ npx cap sync android
 
 <!-- MOBILE_RELEASE_HISTORY -->
 
-## v1.6 · build 7 · 준비 중
+## v1.6 · build 7 · 2026-10-03
 
+- 업데이트 정리
 - Android 앱에서 메인 하단 웹 버전 옆에 설치된 앱 버전 표시
 - 웹 브라우저에서는 앱 버전 표시 없음
 - 업데이트 API를 운영 Pages 절대주소로 직접 확인
