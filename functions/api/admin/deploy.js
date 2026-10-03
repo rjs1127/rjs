@@ -73,6 +73,7 @@ function isAllowedPath(path) {
 }
 
 function getDeployContentBase64Limit(path) {
+  // Cloudflare Pages 단일 파일 한도(25 MiB) 안에서 APK만 별도 허용한다.
   return /^public\/downloads\/[^/]+\.apk$/i.test(String(path || ""))
     ? 35_000_000
     : 8_500_000;
@@ -238,6 +239,11 @@ function normalizeVersionLabelServer(value) {
 
 function applyVersionToCommitMessage(message, version) {
   const clean = sanitizeHistoryMessage(message);
+
+  // Android 앱 커밋은 웹 버전으로 덮어쓰지 않는다.
+  if (/^app\s+v\d+(?:\.\d+){1,2}\s*:/i.test(clean)) return clean;
+  if (/^mixed\s*:/i.test(clean)) return clean;
+
   const normalizedVersion = normalizeVersionLabelServer(version);
   if (!normalizedVersion) return clean;
   if (/^v\d+(?:\.\d+){1,2}\s*:/i.test(clean)) {
@@ -434,13 +440,16 @@ function findCloudflareCheck(checkRuns = [], contexts = []) {
 
 async function getRepoTextForMobileRelease(token, repoPath, optional = false) {
   try {
+    const encodedPath = repoPath
+      .split("/")
+      .map((part) => encodeURIComponent(part))
+      .join("/");
+
     const data = await gh(
       token,
-      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${repoPath
-        .split("/")
-        .map(encodeURIComponent)
-        .join("/")}?ref=${encodeURIComponent(GITHUB_BRANCH)}`
+      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${encodedPath}?ref=${encodeURIComponent(GITHUB_BRANCH)}`
     );
+
     return decodeBase64Utf8(String(data?.content || "").replace(/\s+/g, ""));
   } catch (error) {
     if (optional && error?.status === 404) return "";

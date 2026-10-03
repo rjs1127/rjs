@@ -11,8 +11,55 @@ if (!fs.existsSync(jsPath)) {
 
 let js = fs.readFileSync(jsPath, "utf8");
 
+// 앱을 열 때마다 최신 버전을 확인하도록 6시간 캐시를 제거한다.
+js = js
+  .replace(
+    /^\s*const CACHE_KEY = "rjsAppUpdateCheckCacheV1";\s*$/m,
+    ""
+  )
+  .replace(
+    /^\s*const CACHE_MS = 6 \* 60 \* 60 \* 1000;\s*$/m,
+    ""
+  )
+  .replace(
+    /\n\s*function readCache\(\) \{[\s\S]*?\n\s*\}\n\s*function writeCache\(data\) \{[\s\S]*?\n\s*\}\n(?=\s*function getDismissedBuild\(\))/,
+    "\n"
+  );
+
+const getLatestInfoRegex =
+  /\s*async function getLatestInfo\(\) \{[\s\S]*?\n\s*\}\n(?=\s*async function openUpdateUrl\(url\))/;
+
+if (!getLatestInfoRegex.test(js)) {
+  throw new Error("앱 업데이트 최신 버전 조회 함수 위치를 찾지 못했습니다.");
+}
+
+js = js.replace(
+  getLatestInfoRegex,
+`  async function getLatestInfo() {
+    try {
+      localStorage.removeItem("rjsAppUpdateCheckCacheV1");
+    } catch {}
+
+    const response = await fetch("/api/mobile-version?_=" + Date.now(), {
+      cache: "no-store",
+      headers: {
+        "cache-control": "no-cache"
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error("mobile_version_fetch_failed");
+    }
+
+    return response.json();
+  }
+
+`
+);
+
 if (js.includes("RJS NATIVE APK INSTALL V1")) {
-  console.log("네이티브 APK 설치 패치가 이미 적용되어 있습니다.");
+  fs.writeFileSync(jsPath, js, "utf8");
+  console.log("앱 업데이트 6시간 캐시 제거 완료 · 네이티브 설치 패치는 이미 적용되어 있습니다.");
   process.exit(0);
 }
 
@@ -52,7 +99,6 @@ const nativeInstaller = `  // ===== RJS NATIVE APK INSTALL V1 =====
       String(latestVersion || "latest")
         .replace(/[^0-9A-Za-z._-]+/g, "_") || "latest";
     const apkPath = \`updates/syungbook-v\${safeVersion}.apk\`;
-
     let progressHandle = null;
     const originalText = action.textContent || "업데이트";
 
@@ -149,5 +195,4 @@ if (!js.includes(oldClick)) {
 js = js.replace(oldClick, newClick);
 
 fs.writeFileSync(jsPath, js, "utf8");
-
-console.log("네이티브 APK 다운로드 → 설치 화면 연결 패치 완료");
+console.log("앱 업데이트 6시간 캐시 제거 + 네이티브 APK 설치 연결 완료");
