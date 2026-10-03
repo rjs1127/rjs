@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-03**
-- 전체 커밋: **323개**
+- 전체 커밋: **327개**
 - 활동일: **14일**
 
 ---
@@ -373,4 +373,8 @@
 - 03:58 · v9.29: feat: add Android offline and native app features
 - 04:06 · v9.29: chore: finalize Android app icon
 - 10:53 · v9.29: feat: add Android app admin deployment flow
-- 11:00 · v1.2: 셩냥책apk update
+- 11:00 · v9.29: 셩냥책apk update
+- 11:38 · v9.29: fix: allow mobile files in admin deploy
+- 11:38 · v9.29: chore: bump Android app version
+- 11:43 · v9.29: fix: allow mobile files in admin deploy preview
+- 11:48 · Archive update (4 files)
