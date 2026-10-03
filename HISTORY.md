@@ -4,9 +4,9 @@
 > 시간은 한국 표준시(KST, UTC+9) 기준입니다.
 
 - 최초 기록일: **2026-09-20**
-- 최근 기록일: **2026-10-02**
-- 전체 커밋: **314개**
-- 활동일: **13일**
+- 최근 기록일: **2026-10-03**
+- 전체 커밋: **323개**
+- 활동일: **14일**
 
 ---
 
@@ -346,7 +346,7 @@
 - 19:53 · v9.17: 페이징 모드에서 원문 보기 시 숨겨진 스크롤 DOM이 아니라 저장 offset을 포함하는 페이지를 직접 렌더링하도록 수정 / 페이징 모…
 - 19:59 · v9.18: 뷰어를 닫으면 열기 직전의 탭, 검색어, 목록 상태와 스크롤 위치가 그대로 유지됨 / 내 서재 원문 보기의 상세화면 복귀 및 중앙 이동…
 - 20:29 · v9.19: 본문 준비 중에는 이어보기/처음부터 버튼만 잠시 비활성화하고, 렌더링 완료 즉시 활성화합니다 / 초기 로딩 중 진행률 저장은 계속 차단…
-- 21:22 · v9.20: Add files via upload
+- 21:22 · Add files via upload
 - 21:25 · v9.21: 관리자 화면의 ZIP 사전 검사와 서버 배포 API 양쪽 허용 목록을 동일하게 반영했습니다 / 앞으로 신규 기능 개발 완료 시 HELP…
 - 22:53 · v9.22: commit: fix: close reader seek float with viewer
 
@@ -362,3 +362,15 @@
 - 08:42 · v9.27: 모바일 필터 패널의 작품형태·상태, 출처·정렬을 2열로 배치해 세로 길이를 줄였습니다. 매우 좁은 화면에서는 자동으로 1열로 돌아갑니다…
 - 15:08 · v9.28: 관리자 검색 별칭에서 작가/작품별 숨은 검색어를 등록·수정·삭제할 수 있습니다 / 작가 별칭은 작가명, 작품 별칭은 작품명 + 작가명에…
 - 15:16 · v9.29: 작가/작품 별칭을 탭으로 구분하고 기존 작품 데이터를 검색·선택해 등록하도록 개선했습니다 / 작가명·작품명을 직접 입력하지 않아 오타로…
+
+## 2026-10-03
+
+- 00:47 · v9.29: fix: handle Android system back button
+- 01:00 · v9.29: feat: add CORS middleware for mobile app
+- 01:38 · v9.29: feat: add Android Capacitor app
+- 03:29 · v9.29: fix: keep reader open when closing share modal
+- 03:36 · v9.29: feat: add mobile app version endpoint
+- 03:58 · v9.29: feat: add Android offline and native app features
+- 04:06 · v9.29: chore: finalize Android app icon
+- 10:53 · v9.29: feat: add Android app admin deployment flow
+- 11:00 · v1.2: 셩냥책apk update
