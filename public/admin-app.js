@@ -3295,7 +3295,7 @@ function checkDeployPath(path) {
     return { allowed: false, path: normalized, reason: "민감정보 가능 파일" };
   }
 
-  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md" || normalized === "HELP_GUIDE.md" || normalized === "HISTORY.md"))) {
+  if (!(normalized.startsWith("public/") || normalized.startsWith("functions/") || normalized.startsWith("mobile/") || (normalized === "README.md" || normalized === "DEVELOPMENT_GUIDE.md" || normalized === "HELP_GUIDE.md" || normalized === "HISTORY.md"))) {
     return { allowed: false, path: normalized, reason: "허용된 소스 경로가 아님" };
   }
 
