@@ -72,6 +72,12 @@ function isAllowedPath(path) {
   return { allowed: true, path: normalized };
 }
 
+function getDeployContentBase64Limit(path) {
+  return /^public\/downloads\/[^/]+\.apk$/i.test(String(path || ""))
+    ? 35_000_000
+    : 8_500_000;
+}
+
 function githubHeaders(token) {
   return {
     Authorization: `Bearer ${token}`,
@@ -426,6 +432,22 @@ function findCloudflareCheck(checkRuns = [], contexts = []) {
   };
 }
 
+async function getRepoTextForMobileRelease(token, repoPath, optional = false) {
+  try {
+    const data = await gh(
+      token,
+      `/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/${repoPath
+        .split("/")
+        .map(encodeURIComponent)
+        .join("/")}?ref=${encodeURIComponent(GITHUB_BRANCH)}`
+    );
+    return decodeBase64Utf8(String(data?.content || "").replace(/\s+/g, ""));
+  } catch (error) {
+    if (optional && error?.status === 404) return "";
+    throw error;
+  }
+}
+
 export async function onRequestGet(context) {
   try {
     await requireAdminSession(context);
@@ -436,6 +458,31 @@ export async function onRequestGet(context) {
     }
 
     const url = new URL(context.request.url);
+
+    if (String(url.searchParams.get("mobile") || "").toLowerCase() === "source") {
+      const [buildGradle, mobileReadme] = await Promise.all([
+        getRepoTextForMobileRelease(
+          token,
+          "mobile/android/app/build.gradle"
+        ),
+        getRepoTextForMobileRelease(
+          token,
+          "mobile/README.md",
+          true
+        ),
+      ]);
+
+      return jsonResponse(
+        {
+          ok: true,
+          buildGradle,
+          mobileReadme,
+        },
+        200,
+        { "cache-control": "no-store" }
+      );
+    }
+
     const sha = String(url.searchParams.get("sha") || "").trim();
 
     if (!/^[0-9a-f]{7,40}$/i.test(sha)) {
@@ -530,7 +577,7 @@ export async function onRequestPost(context) {
           blocked.push({ path: check.path, reason: "파일 내용 없음" });
           continue;
         }
-        if (contentBase64.length > 8_500_000) {
+        if (contentBase64.length > getDeployContentBase64Limit(check.path)) {
           blocked.push({ path: check.path, reason: "파일 크기 제한 초과" });
           continue;
         }
@@ -675,7 +722,7 @@ export async function onRequestPost(context) {
         blocked.push({ path: check.path, reason: "파일 내용 없음" });
         continue;
       }
-      if (contentBase64.length > 8_500_000) {
+      if (contentBase64.length > getDeployContentBase64Limit(check.path)) {
         blocked.push({ path: check.path, reason: "파일 크기 제한 초과" });
         continue;
       }

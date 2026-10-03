@@ -277,6 +277,8 @@ let deployStatusTimer = null;
 let activeDeployCommitSha = localStorage.getItem("archiveAdminLastDeploySha") || "";
 let activeDeployCommitUrl = localStorage.getItem("archiveAdminLastDeployUrl") || "";
 let pendingDeployVersion = "";
+let pendingDeployKind = "web";
+let mobileReleaseState = { current: null, source: null, apkFile: null, apkMeta: null };
 let userAdminData = {
   summary: {},
   daily: [],
@@ -3255,6 +3257,732 @@ async function loadAdmin() {
   setActiveTab(sessionStorage.getItem("archiveAdminTab") || "dashboard");
 }
 
+
+/* ===== RJS MOBILE RELEASE MANAGER V1 ===== */
+function isMobileDeployPath(path) {
+  const normalized = normalizeZipPath(path);
+  return (
+    normalized.startsWith("mobile/") ||
+    normalized === "functions/api/mobile-version.js" ||
+    /^public\/downloads\/[^/]+\.apk$/i.test(normalized)
+  );
+}
+
+function getDeployKindLabel(kind) {
+  if (kind === "mobile") return "Android 앱 패치";
+  if (kind === "mixed") return "웹 + 앱 혼합 패치";
+  return "웹 패치";
+}
+
+function getClientDeployFileLimit(path) {
+  return /^public\/downloads\/[^/]+\.apk$/i.test(normalizeZipPath(path))
+    ? 25 * 1024 * 1024
+    : 6 * 1024 * 1024;
+}
+
+function buildMobileCommitMessage(
+  mobileReadmeText,
+  fallbackFileCount = 0,
+  zipFileName = "",
+  forcedVersion = ""
+) {
+  const base = buildCommitMessageFromReadme(
+    mobileReadmeText,
+    fallbackFileCount,
+    zipFileName,
+    forcedVersion
+  );
+
+  if (/^v\d+(?:\.\d+)*\s*:/i.test(base)) {
+    return "app " + base;
+  }
+  if (/^Archive update:\s*/i.test(base)) {
+    return "app: " + base.replace(/^Archive update:\s*/i, "");
+  }
+  if (/^Archive update\b/i.test(base)) {
+    return "app: " + base.replace(/^Archive update\s*/i, "").trim();
+  }
+  return "app: " + base;
+}
+
+function utf8ToBase64(text) {
+  return bytesToBase64(new TextEncoder().encode(String(text || "")));
+}
+
+function getKstDateLabel() {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Seoul",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    }).formatToParts(new Date());
+    const map = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return map.year + "-" + map.month + "-" + map.day;
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
+}
+
+function suggestNextMobileVersion(version) {
+  const raw = String(version || "").trim().replace(/^v/i, "");
+  const parts = raw.split(".").map((item) => Number(item));
+  if (!parts.length || parts.some((item) => !Number.isInteger(item) || item < 0)) {
+    return "1.0";
+  }
+  if (parts.length === 1) parts.push(0);
+  parts[parts.length - 1] += 1;
+  return parts.join(".");
+}
+
+function parseSourceAndroidVersion(buildGradleText) {
+  const text = String(buildGradleText || "");
+  const code = text.match(/\bversionCode\s+(\d+)/);
+  const name = text.match(/\bversionName\s+["']([^"']+)["']/);
+  return {
+    version: name ? name[1] : "",
+    build: code ? Number(code[1]) : 0,
+  };
+}
+
+function updateSourceAndroidVersion(buildGradleText, version, build) {
+  let text = String(buildGradleText || "");
+  if (!/\bversionCode\s+\d+/.test(text) || !/\bversionName\s+["'][^"']+["']/.test(text)) {
+    throw new Error("mobile/android/app/build.gradle의 버전 정보를 찾지 못했습니다.");
+  }
+  text = text.replace(/\bversionCode\s+\d+/, "versionCode " + Number(build));
+  text = text.replace(/\bversionName\s+["'][^"']+["']/, 'versionName "' + String(version) + '"');
+  return text;
+}
+
+function upsertMobileReadme(readmeText, version, build, message) {
+  let text = String(readmeText || "").replace(/\r\n/g, "\n").trim();
+  const date = getKstDateLabel();
+  const markerText = "<!-- MOBILE_RELEASE_HISTORY -->";
+
+  if (!text) {
+    text = [
+      "# 셩냥책 Android App",
+      "",
+      "웹사이트 루트 README.md와 분리된 Android 앱 전용 개발·배포 기록입니다.",
+      "",
+      "## 운영 기준",
+      "",
+      "- App ID: hs.rjs.syungbook",
+      "- 앱 이름: 셩냥책",
+      "- 배포 APK: public/downloads/",
+      "- 최신 버전 API: functions/api/mobile-version.js",
+      "- 웹사이트 README 버전과 Android 앱 버전은 서로 독립적으로 관리합니다.",
+      "",
+      markerText,
+      "",
+    ].join("\n");
+  }
+
+  if (!text.includes(markerText)) {
+    text += "\n\n" + markerText + "\n";
+  }
+
+  const escaped = String(version).replace(/[-/\\^$*+?.()|[\]{}]/g, "\\function normalizeZipPath(path) {");
+  const headingPattern = new RegExp(
+    "^##\\s+v" + escaped + "\\b[^\\n]*$",
+    "m"
+  );
+  const headingMatch = headingPattern.exec(text);
+
+  let existingBody = "";
+  let currentStart = -1;
+  let currentEnd = -1;
+
+  if (headingMatch) {
+    currentStart = headingMatch.index;
+    const bodyStart = currentStart + headingMatch[0].length;
+    const tail = text.slice(bodyStart);
+    const nextHeading = tail.search(/^##\s+v\d/m);
+    currentEnd = nextHeading >= 0 ? bodyStart + nextHeading : text.length;
+    existingBody = text.slice(bodyStart, currentEnd).trim();
+  }
+
+  const messageBullet = "- " + String(message || "").trim();
+  let body = existingBody;
+  if (!body.includes(messageBullet)) {
+    body = [messageBullet, body].filter(Boolean).join("\n");
+  }
+
+  const section =
+    "## v" + version + " · build " + Number(build) + " · " + date + "\n\n" +
+    body.trim() + "\n";
+
+  if (currentStart >= 0) {
+    text =
+      text.slice(0, currentStart).replace(/\s*$/, "\n\n") +
+      section +
+      text.slice(currentEnd).replace(/^\s*/, "\n");
+  } else {
+    const markerIndex = text.indexOf(markerText) + markerText.length;
+    text =
+      text.slice(0, markerIndex) +
+      "\n\n" + section +
+      text.slice(markerIndex).replace(/^\s+/, "\n");
+  }
+
+  return text.trim() + "\n";
+}
+
+function makeMobileVersionSource(version, build, message, downloadUrl) {
+  const payload = JSON.stringify({
+    enabled: true,
+    version: String(version),
+    build: Number(build),
+    message: String(message || ""),
+    downloadUrl: String(downloadUrl || ""),
+  });
+
+  return [
+    'import { jsonResponse } from "../_shared.js";',
+    "",
+    "export async function onRequestGet() {",
+    "  return jsonResponse(",
+    "    " + payload + ",",
+    "    200,",
+    '    { "cache-control": "no-store" }',
+    "  );",
+    "}",
+    "",
+  ].join("\n");
+}
+
+function readAxLength8(bytes, offset) {
+  const first = bytes[offset];
+  if ((first & 0x80) !== 0) {
+    return { value: ((first & 0x7f) << 8) | bytes[offset + 1], size: 2 };
+  }
+  return { value: first, size: 1 };
+}
+
+function readAxLength16(view, offset) {
+  const first = view.getUint16(offset, true);
+  if ((first & 0x8000) !== 0) {
+    return {
+      value: ((first & 0x7fff) << 16) | view.getUint16(offset + 2, true),
+      size: 4,
+    };
+  }
+  return { value: first, size: 2 };
+}
+
+function parseAxStringPool(bytes, chunkOffset) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const headerSize = view.getUint16(chunkOffset + 2, true);
+  const stringCount = view.getUint32(chunkOffset + 8, true);
+  const flags = view.getUint32(chunkOffset + 16, true);
+  const stringsStart = view.getUint32(chunkOffset + 20, true);
+  const utf8 = (flags & 0x100) !== 0;
+  const offsetsStart = chunkOffset + headerSize;
+  const stringsBase = chunkOffset + stringsStart;
+  const result = [];
+
+  for (let i = 0; i < stringCount; i += 1) {
+    const relative = view.getUint32(offsetsStart + i * 4, true);
+    let cursor = stringsBase + relative;
+
+    if (utf8) {
+      const utf16Length = readAxLength8(bytes, cursor);
+      cursor += utf16Length.size;
+      const byteLength = readAxLength8(bytes, cursor);
+      cursor += byteLength.size;
+      result.push(
+        new TextDecoder("utf-8").decode(
+          bytes.subarray(cursor, cursor + byteLength.value)
+        )
+      );
+    } else {
+      const charLength = readAxLength16(view, cursor);
+      cursor += charLength.size;
+      let value = "";
+      for (let j = 0; j < charLength.value; j += 1) {
+        value += String.fromCharCode(view.getUint16(cursor + j * 2, true));
+      }
+      result.push(value);
+    }
+  }
+
+  return result;
+}
+
+function parseBinaryAndroidManifest(bytes) {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (bytes.byteLength < 8) throw new Error("AndroidManifest.xml이 너무 짧습니다.");
+
+  const fileType = view.getUint16(0, true);
+  if (fileType !== 0x0003) {
+    const text = new TextDecoder("utf-8").decode(bytes);
+    const name = text.match(/android:versionName\s*=\s*["']([^"']+)["']/i);
+    const code = text.match(/android:versionCode\s*=\s*["'](\d+)["']/i);
+    if (name || code) {
+      return {
+        version: name ? name[1] : "",
+        build: code ? Number(code[1]) : 0,
+      };
+    }
+    throw new Error("APK Manifest 형식을 확인할 수 없습니다.");
+  }
+
+  let strings = null;
+  let offset = view.getUint16(2, true) || 8;
+
+  while (offset + 8 <= bytes.byteLength) {
+    const type = view.getUint16(offset, true);
+    const headerSize = view.getUint16(offset + 2, true);
+    const chunkSize = view.getUint32(offset + 4, true);
+    if (!chunkSize || chunkSize < headerSize || offset + chunkSize > bytes.byteLength) break;
+
+    if (type === 0x0001) {
+      strings = parseAxStringPool(bytes, offset);
+    } else if (type === 0x0102 && strings) {
+      const nameIndex = view.getUint32(offset + 20, true);
+      const elementName = strings[nameIndex] || "";
+      if (elementName === "manifest") {
+        const attributeStart = view.getUint16(offset + 24, true);
+        const attributeSize = view.getUint16(offset + 26, true) || 20;
+        const attributeCount = view.getUint16(offset + 28, true);
+        const attrsOffset = offset + 16 + attributeStart;
+        let version = "";
+        let build = 0;
+
+        for (let i = 0; i < attributeCount; i += 1) {
+          const attrOffset = attrsOffset + i * attributeSize;
+          if (attrOffset + 20 > offset + chunkSize) break;
+
+          const attrNameIndex = view.getUint32(attrOffset + 4, true);
+          const rawValueIndex = view.getUint32(attrOffset + 8, true);
+          const dataType = view.getUint8(attrOffset + 15);
+          const data = view.getUint32(attrOffset + 16, true);
+          const attrName = strings[attrNameIndex] || "";
+
+          let value = "";
+          if (rawValueIndex !== 0xffffffff) {
+            value = strings[rawValueIndex] || "";
+          } else if (dataType === 0x03) {
+            value = strings[data] || "";
+          } else if (dataType === 0x10 || dataType === 0x11) {
+            value = String(data);
+          }
+
+          if (attrName === "versionName") version = value;
+          if (attrName === "versionCode") build = Number(value || data || 0);
+        }
+
+        if (version || build) return { version, build };
+      }
+    }
+
+    offset += chunkSize;
+  }
+
+  throw new Error("APK에서 versionName/versionCode를 찾지 못했습니다.");
+}
+
+async function readApkVersion(file) {
+  if (!window.JSZip) throw new Error("APK 확인에 필요한 ZIP 라이브러리를 불러오지 못했습니다.");
+  const zip = await JSZip.loadAsync(file);
+  const manifest = zip.file("AndroidManifest.xml");
+  if (!manifest) throw new Error("APK에 AndroidManifest.xml이 없습니다.");
+  const bytes = await manifest.async("uint8array");
+  return parseBinaryAndroidManifest(bytes);
+}
+
+function ensureMobileReleasePanel() {
+  if (document.getElementById("mobileReleasePanel")) return;
+
+  const deployPanel = document.querySelector('[data-tab-panel="deploy"] .deploy-panel');
+  if (!deployPanel) return;
+
+  const style = document.createElement("style");
+  style.id = "mobileReleasePanelStyle";
+  style.textContent = [
+    ".mobile-release-panel{margin-top:22px;padding:20px;border:1px solid #ded7ce;border-radius:18px;background:#faf8f4}",
+    ".mobile-release-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}",
+    ".mobile-release-head h3{margin:3px 0 5px;font-size:18px}",
+    ".mobile-release-kicker{font-size:10px;font-weight:900;letter-spacing:.12em;color:#777069}",
+    ".mobile-release-current{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}",
+    ".mobile-release-chip{padding:7px 9px;border:1px solid #ded7ce;border-radius:999px;background:#fff;font-size:11px;font-weight:850}",
+    ".mobile-release-grid{display:grid;grid-template-columns:1fr .7fr .7fr;gap:10px;margin-top:16px}",
+    ".mobile-release-grid label,.mobile-release-message-field{display:grid;gap:6px}",
+    ".mobile-release-grid label>span,.mobile-release-message-field>span{font-size:11px;font-weight:850;color:#5f5953}",
+    ".mobile-release-grid input,.mobile-release-message-field textarea{width:100%;border:1px solid #ded7ce;border-radius:11px;background:#fff;padding:10px 11px}",
+    ".mobile-release-message-field{margin-top:10px}",
+    ".mobile-release-apk{margin-top:12px;padding:13px;border:1px dashed #cfc6bb;border-radius:13px;background:#fff}",
+    ".mobile-release-apk input{width:100%}",
+    ".mobile-release-apk-meta{margin-top:7px;color:#777069;font-size:11px;line-height:1.55}",
+    ".mobile-release-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:14px}",
+    ".mobile-release-actions .primary{border:0;background:#1d1c1a;color:#fff;border-radius:11px;padding:11px 14px;font-weight:850}",
+    ".mobile-release-note{font-size:11px;color:#777069;line-height:1.6}",
+    ".mobile-release-status{margin-top:12px;padding:10px 12px;border-radius:10px;background:#f1ede7;color:#5d574f;font-size:12px;line-height:1.6}",
+    ".mobile-release-status.is-error{background:#fff2f2;color:#9d3434}",
+    ".mobile-release-status.is-success{background:#eef8f1;color:#2d7549}",
+    "@media(max-width:760px){.mobile-release-head{display:block}.mobile-release-current{justify-content:flex-start;margin-top:10px}.mobile-release-grid{grid-template-columns:1fr 1fr}.mobile-release-grid label:first-child{grid-column:1/-1}}"
+  ].join("");
+  document.head.appendChild(style);
+
+  const panel = document.createElement("section");
+  panel.id = "mobileReleasePanel";
+  panel.className = "mobile-release-panel";
+  panel.innerHTML = [
+    '<div class="mobile-release-head">',
+      '<div>',
+        '<span class="mobile-release-kicker">ANDROID APP RELEASE</span>',
+        '<h3>Android 앱 배포</h3>',
+        '<div class="mobile-release-note">APK를 선택하면 APK 내부 버전/build를 확인하고 다운로드 파일·버전 API·Android 소스 버전·모바일 README를 한 커밋으로 배포합니다.</div>',
+      '</div>',
+      '<div class="mobile-release-current">',
+        '<span id="mobileReleaseCurrentVersion" class="mobile-release-chip">현재 v-</span>',
+        '<span id="mobileReleaseCurrentBuild" class="mobile-release-chip">build -</span>',
+        '<button id="mobileReleaseRefresh" class="deploy-status-refresh" type="button">새로고침</button>',
+      '</div>',
+    '</div>',
+    '<div class="mobile-release-apk">',
+      '<input id="mobileReleaseApk" type="file" accept=".apk,application/vnd.android.package-archive" />',
+      '<div id="mobileReleaseApkMeta" class="mobile-release-apk-meta">APK를 선택하면 버전 정보를 확인합니다.</div>',
+    '</div>',
+    '<div class="mobile-release-grid">',
+      '<label><span>새 앱 버전</span><input id="mobileReleaseVersion" type="text" inputmode="decimal" placeholder="1.4" /></label>',
+      '<label><span>새 build</span><input id="mobileReleaseBuild" type="number" min="1" step="1" placeholder="5" /></label>',
+      '<label><span>배포 파일명</span><input id="mobileReleaseFileName" type="text" readonly /></label>',
+    '</div>',
+    '<label class="mobile-release-message-field"><span>업데이트 안내 문구</span><textarea id="mobileReleaseMessageInput" rows="2" placeholder="이번 버전에서 달라진 내용을 입력하세요."></textarea></label>',
+    '<div class="mobile-release-actions">',
+      '<button id="mobileReleaseButton" class="primary" type="button" disabled>Android 앱 배포</button>',
+      '<span id="mobileReleaseSourceMeta" class="mobile-release-note">소스 상태 확인 중…</span>',
+    '</div>',
+    '<div id="mobileReleaseMessage" class="mobile-release-status" hidden></div>'
+  ].join("");
+
+  const statusCard = deployPanel.querySelector("#deployStatusCard");
+  deployPanel.insertBefore(panel, statusCard || null);
+
+  mobileReleaseState.ui = {
+    panel,
+    currentVersion: panel.querySelector("#mobileReleaseCurrentVersion"),
+    currentBuild: panel.querySelector("#mobileReleaseCurrentBuild"),
+    refresh: panel.querySelector("#mobileReleaseRefresh"),
+    apk: panel.querySelector("#mobileReleaseApk"),
+    apkMeta: panel.querySelector("#mobileReleaseApkMeta"),
+    version: panel.querySelector("#mobileReleaseVersion"),
+    build: panel.querySelector("#mobileReleaseBuild"),
+    fileName: panel.querySelector("#mobileReleaseFileName"),
+    message: panel.querySelector("#mobileReleaseMessageInput"),
+    button: panel.querySelector("#mobileReleaseButton"),
+    sourceMeta: panel.querySelector("#mobileReleaseSourceMeta"),
+    status: panel.querySelector("#mobileReleaseMessage"),
+  };
+
+  mobileReleaseState.ui.refresh.addEventListener("click", () => {
+    loadMobileReleaseState(true).catch((error) => showMobileReleaseStatus(error.message, "error"));
+  });
+
+  mobileReleaseState.ui.version.addEventListener("input", refreshMobileReleaseForm);
+  mobileReleaseState.ui.build.addEventListener("input", refreshMobileReleaseForm);
+  mobileReleaseState.ui.message.addEventListener("input", refreshMobileReleaseForm);
+  mobileReleaseState.ui.apk.addEventListener("change", async () => {
+    const file = mobileReleaseState.ui.apk.files?.[0] || null;
+    mobileReleaseState.apkFile = file;
+    mobileReleaseState.apkMeta = null;
+
+    if (!file) {
+      mobileReleaseState.ui.apkMeta.textContent = "APK를 선택하면 버전 정보를 확인합니다.";
+      refreshMobileReleaseForm();
+      return;
+    }
+
+    if (file.size > 25 * 1024 * 1024) {
+      mobileReleaseState.ui.apkMeta.textContent = "APK가 25MB를 초과합니다.";
+      showMobileReleaseStatus("현재 Pages 직접 배포 기준에서는 APK를 25MB 이하로 만들어 주세요.", "error");
+      refreshMobileReleaseForm();
+      return;
+    }
+
+    mobileReleaseState.ui.apkMeta.textContent = "APK 내부 versionName/versionCode 확인 중…";
+
+    try {
+      const meta = await readApkVersion(file);
+      mobileReleaseState.apkMeta = meta;
+
+      if (meta.version) mobileReleaseState.ui.version.value = meta.version;
+      if (meta.build) mobileReleaseState.ui.build.value = String(meta.build);
+
+      mobileReleaseState.ui.apkMeta.textContent =
+        "APK 확인 완료 · v" + (meta.version || "?") +
+        " · build " + (meta.build || "?") +
+        " · " + (file.size / 1024 / 1024).toFixed(2) + "MB";
+    } catch (error) {
+      mobileReleaseState.ui.apkMeta.textContent =
+        "APK 버전 자동 확인 실패 · 버전/build를 직접 확인해 입력하세요. (" +
+        (error.message || "확인 실패") + ")";
+    }
+
+    refreshMobileReleaseForm();
+  });
+
+  mobileReleaseState.ui.button.addEventListener("click", deployMobileRelease);
+}
+
+function showMobileReleaseStatus(message, kind = "") {
+  const ui = mobileReleaseState.ui;
+  if (!ui?.status) return;
+  ui.status.hidden = false;
+  ui.status.classList.toggle("is-error", kind === "error");
+  ui.status.classList.toggle("is-success", kind === "success");
+  ui.status.textContent = String(message || "");
+}
+
+function refreshMobileReleaseForm() {
+  const ui = mobileReleaseState.ui;
+  if (!ui) return;
+
+  const version = String(ui.version.value || "").trim().replace(/^v/i, "");
+  const build = Number(ui.build.value || 0);
+  const currentBuild = Number(mobileReleaseState.current?.build || 0);
+  const message = String(ui.message.value || "").trim();
+
+  ui.fileName.value = version ? "syungbook-v" + version + ".apk" : "";
+
+  const versionOk = /^\d+(?:\.\d+){1,2}$/.test(version);
+  const buildOk = Number.isInteger(build) && build > currentBuild;
+  const fileOk = Boolean(mobileReleaseState.apkFile);
+  const messageOk = Boolean(message);
+
+  if (mobileReleaseState.apkMeta?.version && version !== mobileReleaseState.apkMeta.version) {
+    ui.button.disabled = true;
+    return;
+  }
+  if (mobileReleaseState.apkMeta?.build && build !== Number(mobileReleaseState.apkMeta.build)) {
+    ui.button.disabled = true;
+    return;
+  }
+
+  ui.button.disabled = !(versionOk && buildOk && fileOk && messageOk);
+}
+
+async function loadMobileReleaseState(force = false) {
+  ensureMobileReleasePanel();
+  const ui = mobileReleaseState.ui;
+  if (!ui) return;
+
+  ui.refresh.disabled = true;
+  try {
+    const [latestResponse, source] = await Promise.all([
+      fetch("/api/mobile-version?_=" + Date.now(), { cache: "no-store" }),
+      api("/api/admin/deploy?mobile=source", { method: "GET" }),
+    ]);
+
+    const latest = latestResponse.ok ? await latestResponse.json() : {};
+    mobileReleaseState.current = {
+      version: String(latest?.version || ""),
+      build: Number(latest?.build || 0),
+    };
+    mobileReleaseState.source = source || {};
+
+    ui.currentVersion.textContent =
+      "현재 v" + (mobileReleaseState.current.version || "-");
+    ui.currentBuild.textContent =
+      "build " + (mobileReleaseState.current.build || "-");
+
+    const sourceVersion = parseSourceAndroidVersion(source?.buildGradle || "");
+    ui.sourceMeta.textContent =
+      "GitHub Android 소스 " +
+      (sourceVersion.version ? "v" + sourceVersion.version : "v-") +
+      " · build " + (sourceVersion.build || "-");
+
+    if (!ui.version.value || force) {
+      ui.version.value = suggestNextMobileVersion(mobileReleaseState.current.version || "1.0");
+    }
+    if (!ui.build.value || force) {
+      ui.build.value = String((mobileReleaseState.current.build || 0) + 1);
+    }
+
+    refreshMobileReleaseForm();
+  } finally {
+    ui.refresh.disabled = false;
+  }
+}
+
+async function deployMobileRelease() {
+  const ui = mobileReleaseState.ui;
+  const apkFile = mobileReleaseState.apkFile;
+  if (!ui || !apkFile) return;
+
+  const version = String(ui.version.value || "").trim().replace(/^v/i, "");
+  const build = Number(ui.build.value || 0);
+  const message = String(ui.message.value || "").trim();
+  const currentBuild = Number(mobileReleaseState.current?.build || 0);
+
+  if (!/^\d+(?:\.\d+){1,2}$/.test(version)) {
+    showMobileReleaseStatus("앱 버전 형식을 확인해 주세요. 예: 1.4", "error");
+    return;
+  }
+  if (!Number.isInteger(build) || build <= currentBuild) {
+    showMobileReleaseStatus(
+      "build는 현재 build " + currentBuild + "보다 커야 합니다.",
+      "error"
+    );
+    return;
+  }
+  if (!message) {
+    showMobileReleaseStatus("업데이트 안내 문구를 입력해 주세요.", "error");
+    return;
+  }
+  if (apkFile.size > 25 * 1024 * 1024) {
+    showMobileReleaseStatus("APK가 25MB를 초과합니다.", "error");
+    return;
+  }
+
+  if (mobileReleaseState.apkMeta?.version &&
+      mobileReleaseState.apkMeta.version !== version) {
+    showMobileReleaseStatus(
+      "APK 내부 버전(v" + mobileReleaseState.apkMeta.version +
+      ")과 입력한 버전(v" + version + ")이 다릅니다.",
+      "error"
+    );
+    return;
+  }
+  if (mobileReleaseState.apkMeta?.build &&
+      Number(mobileReleaseState.apkMeta.build) !== build) {
+    showMobileReleaseStatus(
+      "APK 내부 build(" + mobileReleaseState.apkMeta.build +
+      ")와 입력한 build(" + build + ")가 다릅니다.",
+      "error"
+    );
+    return;
+  }
+
+  ui.button.disabled = true;
+  ui.button.textContent = "배포 준비 중…";
+  showMobileReleaseStatus("현재 GitHub Android 소스와 모바일 README를 확인하는 중…");
+
+  try {
+    const source = await api("/api/admin/deploy?mobile=source&_=" + Date.now(), {
+      method: "GET",
+    });
+
+    const buildGradle = updateSourceAndroidVersion(
+      source?.buildGradle || "",
+      version,
+      build
+    );
+    const mobileReadme = upsertMobileReadme(
+      source?.mobileReadme || "",
+      version,
+      build,
+      message
+    );
+    const apkName = "syungbook-v" + version + ".apk";
+    const apkPath = "public/downloads/" + apkName;
+    const downloadUrl = "https://rjs-cj6.pages.dev/downloads/" + apkName;
+    const mobileVersionSource = makeMobileVersionSource(
+      version,
+      build,
+      message,
+      downloadUrl
+    );
+
+    ui.button.textContent = "APK 읽는 중…";
+    const apkBytes = new Uint8Array(await apkFile.arrayBuffer());
+
+    const files = [
+      {
+        path: apkPath,
+        contentBase64: bytesToBase64(apkBytes),
+        size: apkBytes.byteLength,
+      },
+      {
+        path: "functions/api/mobile-version.js",
+        contentBase64: utf8ToBase64(mobileVersionSource),
+        size: new TextEncoder().encode(mobileVersionSource).byteLength,
+      },
+      {
+        path: "mobile/android/app/build.gradle",
+        contentBase64: utf8ToBase64(buildGradle),
+        size: new TextEncoder().encode(buildGradle).byteLength,
+      },
+      {
+        path: "mobile/README.md",
+        contentBase64: utf8ToBase64(mobileReadme),
+        size: new TextEncoder().encode(mobileReadme).byteLength,
+      },
+    ];
+
+    ui.button.textContent = "GitHub 파일 준비 중…";
+    showMobileReleaseStatus(
+      "APK + mobile-version.js + build.gradle + mobile/README.md를 준비하는 중…"
+    );
+
+    const prepared = await api("/api/admin/deploy", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "blobs",
+        files: files.map(({ path, contentBase64 }) => ({ path, contentBase64 })),
+      }),
+    });
+
+    const entries = Array.isArray(prepared?.entries) ? prepared.entries : [];
+    if (entries.length !== files.length) {
+      throw new Error(
+        "앱 배포 파일 준비 수가 일치하지 않습니다. (" +
+        entries.length + "/" + files.length + ")"
+      );
+    }
+
+    ui.button.textContent = "GitHub 커밋 중…";
+    const commitMessage = "app v" + version + ": " + message;
+    const result = await api("/api/admin/deploy", {
+      method: "POST",
+      body: JSON.stringify({
+        mode: "commit",
+        message: commitMessage,
+        deployVersion: "",
+        entries,
+      }),
+    });
+
+    showDeployCommitCreated(result.commitSha, result.commitUrl);
+    refreshDeployStatus({ keepPolling: true });
+    historyLoaded = false;
+
+    mobileReleaseState.current = { version, build };
+    mobileReleaseState.source = {
+      buildGradle,
+      mobileReadme,
+    };
+    mobileReleaseState.apkFile = null;
+    mobileReleaseState.apkMeta = null;
+    ui.apk.value = "";
+    ui.apkMeta.textContent = "배포 요청 완료 · 다음 APK를 선택할 수 있습니다.";
+    ui.currentVersion.textContent = "배포 중 v" + version;
+    ui.currentBuild.textContent = "build " + build;
+    ui.version.value = suggestNextMobileVersion(version);
+    ui.build.value = String(build + 1);
+    ui.message.value = "";
+    refreshMobileReleaseForm();
+
+    showMobileReleaseStatus(
+      "GitHub 커밋 완료 · Cloudflare Pages 배포가 끝나면 v" +
+      version + " 업데이트가 사용자 앱에 노출됩니다.",
+      "success"
+    );
+  } catch (error) {
+    console.error(error);
+    showMobileReleaseStatus(
+      error.message || "Android 앱 배포에 실패했습니다.",
+      "error"
+    );
+  } finally {
+    ui.button.textContent = "Android 앱 배포";
+    refreshMobileReleaseForm();
+  }
+}
+/* ===== /RJS MOBILE RELEASE MANAGER V1 ===== */
+
 function normalizeZipPath(path) {
   return String(path || "")
     .replaceAll("\\", "/")
@@ -3413,6 +4141,7 @@ async function inspectZip(file) {
   const blocked = [];
   const entries = Object.values(zip.files);
   let readmeText = "";
+  let mobileReadmeText = "";
   let versionJsonText = "";
 
   for (const entry of entries) {
@@ -3433,6 +4162,13 @@ async function inspectZip(file) {
         readmeText = "";
       }
     }
+    if (!entry.dir && normalizedEntryPath === "mobile/README.md") {
+      try {
+        mobileReadmeText = await entry.async("string");
+      } catch {
+        mobileReadmeText = "";
+      }
+    }
     if (entry.dir) continue;
 
     const check = checkDeployPath(entry.name);
@@ -3447,7 +4183,7 @@ async function inspectZip(file) {
 
     const bytes = await entry.async("uint8array");
 
-    if (bytes.byteLength > 6 * 1024 * 1024) {
+    if (bytes.byteLength > getClientDeployFileLimit(check.path)) {
       blocked.push({
         path: check.path,
         reason: "파일 크기 제한 초과",
@@ -3465,46 +4201,96 @@ async function inspectZip(file) {
   deployFiles = allowed;
   deployBlocked = blocked;
 
+  const mobileFiles = allowed.filter((item) => isMobileDeployPath(item.path));
+  const webFiles = allowed.filter((item) => !isMobileDeployPath(item.path));
+  pendingDeployKind =
+    mobileFiles.length && webFiles.length
+      ? "mixed"
+      : mobileFiles.length
+        ? "mobile"
+        : "web";
+
   let versionJsonVersion = "";
   if (versionJsonText) {
     try {
       versionJsonVersion = normalizeVersionLabel(JSON.parse(versionJsonText)?.version || "");
     } catch (_) {}
   }
-  const readmeVersion = normalizeVersionLabel(getLatestReadmeVersionSection(readmeText).version);
-  const zipVersionMatch = String(file.name || "").match(/v[0-9]+(?:[_\.][0-9]+)*/i);
-  const zipVersion = zipVersionMatch ? normalizeVersionLabel(zipVersionMatch[0].replaceAll("_", ".")) : "";
-  pendingDeployVersion = versionJsonVersion || readmeVersion || zipVersion;
 
-  const autoMessage = buildCommitMessageFromReadme(
-    readmeText,
-    allowed.length,
-    file.name,
-    pendingDeployVersion
-  );
+  const readmeVersion =
+    normalizeVersionLabel(getLatestReadmeVersionSection(readmeText).version);
+  const mobileReadmeVersion =
+    normalizeVersionLabel(getLatestReadmeVersionSection(mobileReadmeText).version);
+  const zipVersionMatch =
+    String(file.name || "").match(/v[0-9]+(?:[_\.][0-9]+)*/i);
+  const zipVersion = zipVersionMatch
+    ? normalizeVersionLabel(zipVersionMatch[0].replaceAll("_", "."))
+    : "";
+
+  pendingDeployVersion =
+    pendingDeployKind === "mobile"
+      ? ""
+      : (versionJsonVersion || readmeVersion ||
+        (pendingDeployKind === "web" ? zipVersion : ""));
+
+  let autoMessage = "";
+  if (pendingDeployKind === "mobile") {
+    autoMessage = buildMobileCommitMessage(
+      mobileReadmeText,
+      allowed.length,
+      file.name,
+      mobileReadmeVersion || zipVersion
+    );
+  } else if (pendingDeployKind === "mixed") {
+    const webMessage = buildCommitMessageFromReadme(
+      readmeText,
+      webFiles.length,
+      file.name,
+      pendingDeployVersion
+    );
+    const appMessage = buildMobileCommitMessage(
+      mobileReadmeText,
+      mobileFiles.length,
+      file.name,
+      mobileReadmeVersion
+    );
+    autoMessage = "mixed: " + webMessage + " / " + appMessage;
+    if (autoMessage.length > 120) autoMessage = autoMessage.slice(0, 117).trimEnd() + "…";
+  } else {
+    autoMessage = buildCommitMessageFromReadme(
+      readmeText,
+      allowed.length,
+      file.name,
+      pendingDeployVersion
+    );
+  }
 
   if (els.commitMessageInput) {
     els.commitMessageInput.value = autoMessage;
     els.commitMessageInput.dataset.autoGenerated = "true";
-    els.commitMessageInput.title = readmeText
-      ? "version.json 버전 + README.md 최신 변경사항으로 자동 생성됨"
-      : "README.md를 찾지 못해 ZIP 이름/파일 수 기준으로 자동 생성됨";
+    els.commitMessageInput.title =
+      pendingDeployKind === "mobile"
+        ? "mobile/README.md 기준 Android 앱 커밋 메시지"
+        : pendingDeployKind === "mixed"
+          ? "README.md + mobile/README.md를 함께 반영한 혼합 커밋 메시지"
+          : (readmeText
+            ? "version.json 버전 + README.md 최신 변경사항으로 자동 생성됨"
+            : "README.md를 찾지 못해 ZIP 이름/파일 수 기준으로 자동 생성됨");
   }
 
   renderDeployPreview();
-
   if (els.deployMessage) {
     els.deployMessage.hidden = false;
-    els.deployMessage.textContent = readmeText
-      ? `커밋 메시지 자동 생성 완료: ${autoMessage}`
-      : `README.md를 찾지 못해 기본 커밋 메시지를 생성했습니다: ${autoMessage}`;
+    els.deployMessage.textContent =
+      getDeployKindLabel(pendingDeployKind) +
+      " 감지 · 커밋 메시지 자동 생성 완료: " + autoMessage;
   }
 }
 
 function renderDeployPreview() {
   els.deployPreview.hidden = false;
   els.deployFileSummary.textContent =
-    `배포 ${deployFiles.length.toLocaleString("ko-KR")}개 · 제외 ${deployBlocked.length.toLocaleString("ko-KR")}개`;
+    `${getDeployKindLabel(pendingDeployKind)} · 배포 ${deployFiles.length.toLocaleString("ko-KR")}개 · 제외 ${deployBlocked.length.toLocaleString("ko-KR")}개`;
 
   els.allowedFileList.innerHTML = deployFiles.length
     ? deployFiles
@@ -4091,7 +4877,13 @@ els.postypePublishedSyncButton?.addEventListener("click", async () => {
 });
 
 els.postypeBulkAddRowsButton?.addEventListener("click", () => {
-  addPostypeBulkRows(5);
+  ensureMobileReleasePanel();
+loadMobileReleaseState().catch((error) => {
+  console.warn("Android 앱 배포 상태 로딩 실패", error);
+  showMobileReleaseStatus(error.message || "Android 앱 상태를 불러오지 못했습니다.", "error");
+});
+
+addPostypeBulkRows(5);
 });
 
 els.postypeBulkRows?.addEventListener("change", async (event) => {
@@ -5007,7 +5799,7 @@ els.deployButton.addEventListener("click", async () => {
       body: JSON.stringify({
         mode: "commit",
         message,
-        deployVersion: pendingDeployVersion,
+        deployVersion: pendingDeployKind === "mobile" ? "" : pendingDeployVersion,
         entries: treeEntries,
       }),
     });
@@ -5017,7 +5809,7 @@ els.deployButton.addEventListener("click", async () => {
       `아래에서 Cloudflare Pages 빌드 상태를 자동으로 확인합니다.`;
 
     showDeployCommitCreated(result.commitSha, result.commitUrl);
-    if (pendingDeployVersion && els.adminVersion) {
+    if (pendingDeployKind !== "mobile" && pendingDeployVersion && els.adminVersion) {
       els.adminVersion.textContent = `배포 중 ${pendingDeployVersion}`;
     }
     refreshDeployStatus({ keepPolling: true });
@@ -5025,6 +5817,8 @@ els.deployButton.addEventListener("click", async () => {
 
     deployFiles = [];
     deployBlocked = [];
+    pendingDeployKind = "web";
+    pendingDeployVersion = "";
     els.deployPreview.hidden = true;
     els.zipInput.value = "";
   } catch (error) {

@@ -256,35 +256,11 @@ const js = `
   const App = window.Capacitor?.Plugins?.App;
   const Browser = window.Capacitor?.Plugins?.Browser;
   const DISMISSED_KEY = "rjsAppUpdateDismissedBuildV1";
-  const CACHE_KEY = "rjsAppUpdateCheckCacheV1";
-  const CACHE_MS = 6 * 60 * 60 * 1000;
-
-  function normalizeBuild(value) {
-    const number = Number(value);
-    return Number.isFinite(number) ? number : 0;
-  }
-
-  function readCache() {
-    try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      if (!raw) return null;
-      const parsed = JSON.parse(raw);
-      if (!parsed?.checkedAt || !parsed?.data) return null;
-      if ((Date.now() - Number(parsed.checkedAt)) > CACHE_MS) return null;
-      return parsed.data;
-    } catch {
-      return null;
-    }
-  }
-
-  function writeCache(data) {
-    try {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        checkedAt: Date.now(),
-        data
-      }));
-    } catch {}
-  }
+  // ===== RJS APP UPDATE NO CACHE V1 =====
+  try {
+    localStorage.removeItem("rjsAppUpdateCheckCacheV1");
+  } catch {}
+  // ===== /RJS APP UPDATE NO CACHE V1 =====
 
   function getDismissedBuild() {
     try {
@@ -302,20 +278,16 @@ const js = `
   }
 
   async function getLatestInfo() {
-    const cached = readCache();
-    if (cached) return cached;
-
-    const response = await fetch("/api/mobile-version", {
-      cache: "no-store"
+    const response = await fetch("/api/mobile-version?_=" + Date.now(), {
+      cache: "no-store",
+      headers: { "cache-control": "no-cache" }
     });
 
     if (!response.ok) {
       throw new Error("mobile_version_fetch_failed");
     }
 
-    const data = await response.json();
-    writeCache(data);
-    return data;
+    return response.json();
   }
 
   async function openUpdateUrl(url) {
