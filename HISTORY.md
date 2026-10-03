@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-03**
-- 전체 커밋: **330개**
+- 전체 커밋: **331개**
 - 활동일: **14일**
 
 ---
@@ -379,5 +379,6 @@
 - 11:43 · v9.29: fix: allow mobile files in admin deploy preview
 - 11:48 · v9.29: Archive update (4 files)
 - 11:52 · v9.29: Archive site update
-- 13:09 · v9.29: app v1.4: Android 앱 배포 통합 관리 추가
+- 13:09 · app v1.4: Android 앱 배포 통합 관리 추가
 - 13:26 · mixed: Archive update (2 files) / app v1.4: 관리자 배포 탭에 Android 앱 전용 릴리즈 영역 추가 / 현재 배포 버전/build와 GitHub Android 소스 버전을 한…
+- 13:36 · app v1.4: 앱 업데이트와 배포 방식을 개선했어요.

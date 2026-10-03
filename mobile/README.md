@@ -52,8 +52,9 @@ npx cap sync android
 
 <!-- MOBILE_RELEASE_HISTORY -->
 
-## v1.4 · build 5 · 준비 중
+## v1.4 · build 5 · 2026-10-03
 
+- 앱 업데이트와 배포 방식을 개선했어요.
 - 관리자 배포 탭에 Android 앱 전용 릴리즈 영역 추가
 - 현재 배포 버전/build와 GitHub Android 소스 버전을 한 화면에서 확인
 - APK·업데이트 문구·버전/build를 관리자에서 한 번에 배포
