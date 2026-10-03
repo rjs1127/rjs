@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-03**
-- 전체 커밋: **335개**
+- 전체 커밋: **336개**
 - 활동일: **14일**
 
 ---
@@ -369,7 +369,7 @@
 - 01:00 · feat: add CORS middleware for mobile app
 - 01:38 · feat: add Android Capacitor app
 - 03:29 · fix: keep reader open when closing share modal
-- 03:36 · v9.29: feat: add mobile app version endpoint
+- 03:36 · feat: add mobile app version endpoint
 - 03:58 · v9.29: feat: add Android offline and native app features
 - 04:06 · v9.29: chore: finalize Android app icon
 - 10:53 · v9.29: feat: add Android app admin deployment flow
@@ -386,3 +386,4 @@
 - 13:59 · v9.29: app: Android 업데이트 즉시 감지 수정
 - 14:36 · app v1.6: Android 앱에서 메인 하단 웹 버전 옆에 설치된 앱 버전 표시 / 웹 브라우저에서는 앱 버전 표시 없음
 - 14:42 · app v1.6: 업데이트 정리
+- 15:01 · app v1.6: 업데이트 카드가 표시되지 않던 원인 수정 / 앱/서버 build 비교에 사용하는 normalizeBuild() 누락 보완

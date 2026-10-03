@@ -13,7 +13,7 @@ if (!fs.existsSync(indexPath)) {
 let index = fs.readFileSync(indexPath, "utf8");
 
 const css = `
-/* ===== RJS APP UPDATE NOTICE V5 ===== */
+/* ===== RJS APP UPDATE NOTICE V6 ===== */
 .app-update-notice {
   position: relative;
   display: grid;
@@ -239,7 +239,7 @@ body.theme-dark .app-update-close,
     height: 27px;
   }
 }
-/* ===== /RJS APP UPDATE NOTICE V5 ===== */
+/* ===== /RJS APP UPDATE NOTICE V6 ===== */
 `;
 
 const js = `
@@ -261,6 +261,11 @@ const js = `
     localStorage.removeItem("rjsAppUpdateCheckCacheV1");
   } catch {}
   // ===== /RJS APP UPDATE NO CACHE V1 =====
+
+  function normalizeBuild(value) {
+    const parsed = Number.parseInt(String(value ?? "").replace(/[^0-9]/g, ""), 10);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }
 
   function renderAppVersionInFooter(info) {
     const publicVersion = document.getElementById("publicVersion");
@@ -466,12 +471,12 @@ if (!index.includes("/app-update.css")) {
 
   index = index.replace(
     headMarker,
-    '  <link rel="stylesheet" href="/app-update.css?v=5" />\n</head>'
+    '  <link rel="stylesheet" href="/app-update.css?v=6" />\n</head>'
   );
 } else {
   index = index.replace(
     /\/app-update\.css\?v=\d+/g,
-    "/app-update.css?v=5"
+    "/app-update.css?v=6"
   );
 }
 
@@ -485,12 +490,12 @@ if (!index.includes("/app-update.js")) {
 
   index = index.replace(
     appScriptMatch[0],
-    '  <script src="/app-update.js?v=5" defer></script>\n' + appScriptMatch[0]
+    '  <script src="/app-update.js?v=6" defer></script>\n' + appScriptMatch[0]
   );
 } else {
   index = index.replace(
     /\/app-update\.js\?v=\d+/g,
-    "/app-update.js?v=5"
+    "/app-update.js?v=6"
   );
 }
 
