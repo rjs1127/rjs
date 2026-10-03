@@ -52,6 +52,10 @@ npx cap sync android
 
 <!-- MOBILE_RELEASE_HISTORY -->
 
+## v1.5 · build 6 · 2026-10-03
+
+- 자동 업데이트 기능 테스트 버전입니다.
+
 ## v1.4 · build 5 · 2026-10-03
 
 - 앱 업데이트와 배포 방식을 개선했어요.
