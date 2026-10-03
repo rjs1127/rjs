@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-03**
-- 전체 커밋: **327개**
+- 전체 커밋: **328개**
 - 활동일: **14일**
 
 ---
@@ -377,4 +377,5 @@
 - 11:38 · v9.29: fix: allow mobile files in admin deploy
 - 11:38 · v9.29: chore: bump Android app version
 - 11:43 · v9.29: fix: allow mobile files in admin deploy preview
-- 11:48 · Archive update (4 files)
+- 11:48 · v9.29: Archive update (4 files)
+- 11:52 · v1.3: Archive site update
