@@ -4,9 +4,9 @@
 > 시간은 한국 표준시(KST, UTC+9) 기준입니다.
 
 - 최초 기록일: **2026-09-20**
-- 최근 기록일: **2026-10-03**
-- 전체 커밋: **336개**
-- 활동일: **14일**
+- 최근 기록일: **2026-10-05**
+- 전체 커밋: **337개**
+- 활동일: **15일**
 
 ---
 
@@ -370,7 +370,7 @@
 - 01:38 · feat: add Android Capacitor app
 - 03:29 · fix: keep reader open when closing share modal
 - 03:36 · feat: add mobile app version endpoint
-- 03:58 · v9.29: feat: add Android offline and native app features
+- 03:58 · feat: add Android offline and native app features
 - 04:06 · v9.29: chore: finalize Android app icon
 - 10:53 · v9.29: feat: add Android app admin deployment flow
 - 11:00 · v9.29: 셩냥책apk update
@@ -387,3 +387,7 @@
 - 14:36 · app v1.6: Android 앱에서 메인 하단 웹 버전 옆에 설치된 앱 버전 표시 / 웹 브라우저에서는 앱 버전 표시 없음
 - 14:42 · app v1.6: 업데이트 정리
 - 15:01 · app v1.6: 업데이트 카드가 표시되지 않던 원인 수정 / 앱/서버 build 비교에 사용하는 normalizeBuild() 누락 보완
+
+## 2026-10-05
+
+- 07:02 · v9.30: Safari에서 본문 선택값은 정상 생성되지만 네이티브 파란 선택 영역/핸들만 보이지 않는 증상을 확인하기 위한 최소 테스트 패치입니다…

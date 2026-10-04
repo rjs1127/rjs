@@ -3136,10 +3136,16 @@ html.safari-reader .reader-virtual-chunk {
   display:block;
   min-height:1px;
   contain:none !important;
-  -webkit-transform:translateZ(0);
-  transform:translateZ(0);
-  -webkit-backface-visibility:hidden;
-  backface-visibility:hidden;
+  /* v9.30 Safari selection diagnostic:
+     Do not force each text chunk into its own composited layer. WebKit can
+     keep the DOM Selection alive while failing to paint the native blue
+     selection highlight/handles across transformed text chunks. The virtual
+     chunking itself remains unchanged so large-text rendering can be checked
+     independently from the old GPU-layer workaround. */
+  -webkit-transform:none;
+  transform:none;
+  -webkit-backface-visibility:visible;
+  backface-visibility:visible;
 }
 
 /* Use Safari's stable viewport unit on phones so browser toolbar changes
