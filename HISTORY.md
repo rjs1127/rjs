@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-05**
-- 전체 커밋: **338개**
+- 전체 커밋: **339개**
 - 활동일: **15일**
 
 ---
@@ -372,7 +372,7 @@
 - 03:36 · feat: add mobile app version endpoint
 - 03:58 · feat: add Android offline and native app features
 - 04:06 · chore: finalize Android app icon
-- 10:53 · v9.29: feat: add Android app admin deployment flow
+- 10:53 · feat: add Android app admin deployment flow
 - 11:00 · v9.29: 셩냥책apk update
 - 11:38 · v9.29: fix: allow mobile files in admin deploy
 - 11:38 · v9.29: chore: bump Android app version
@@ -392,3 +392,4 @@
 
 - 07:02 · v9.30: Safari에서 본문 선택값은 정상 생성되지만 네이티브 파란 선택 영역/핸들만 보이지 않는 증상을 확인하기 위한 최소 테스트 패치입니다…
 - 07:17 · v9.31: v9.23에서 추가한 줄별 <span> + ::before 들여쓰기 렌더를 Safari에서만 잠시 해제하고, v9.23 이전과 같은 순…
+- 07:30 · v9.32: 다크모드에서 메모 남기기 모달의 제목과 선택 문장이 어두운 배경에 묻혀 보이지 않던 문제를 수정했습니다 / 원인은 메모 모달이 현재 테…
