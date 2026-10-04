@@ -4376,6 +4376,19 @@ function renderReaderIndentedText(container, text) {
   if (!container) return;
 
   const value = String(text ?? "");
+
+  // v9.31 Safari selection diagnostic:
+  // v9.23 changed reader text from plain text nodes to one span per source line
+  // plus a generated ::before indent. Safari can keep a valid DOM Selection
+  // while its native selection highlight/handles fail to paint, so restore the
+  // pre-v9.23 plain-text DOM only on Safari to isolate that rendering change.
+  // Page measurement uses this same helper, so page text and measurement remain
+  // structurally identical and source/search/resume offsets are untouched.
+  if (IS_SAFARI_READER) {
+    container.textContent = value;
+    return;
+  }
+
   container.textContent = "";
 
   const fragment = document.createDocumentFragment();
