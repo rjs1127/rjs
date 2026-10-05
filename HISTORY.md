@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-06**
-- 전체 커밋: **342개**
+- 전체 커밋: **343개**
 - 활동일: **16일**
 
 ---
@@ -376,7 +376,7 @@
 - 11:00 · v1.2: 셩냥책apk update
 - 11:38 · fix: allow mobile files in admin deploy
 - 11:38 · chore: bump Android app version
-- 11:43 · v9.29: fix: allow mobile files in admin deploy preview
+- 11:43 · fix: allow mobile files in admin deploy preview
 - 11:48 · v9.29: Archive update (4 files)
 - 11:52 · v9.29: Archive site update
 - 13:09 · app v1.4: Android 앱 배포 통합 관리 추가
@@ -399,3 +399,4 @@
 ## 2026-10-06
 
 - 08:36 · v9.35: 기존 웹 이용자는 아무 변화 없이 그대로 사용할 수 있도록 자동 설치 팝업이나 사이트 내부 설치 배너는 추가하지 않았습니다 / mani…
+- 08:49 · v9.36: 비로그인 사용자가 한 세션에서 작품을 3회 이상 연 뒤 표시되는 기존 가입 유도 안내 카드가 화면 하단에 일반 문서 요소처럼 노출되던…
