@@ -9608,13 +9608,18 @@ function ensureReaderShareUi() {
     thumbDragStartScrollLeft = thumbs.scrollLeft;
     thumbDragMoved = false;
     thumbs.classList.add("is-dragging");
-    thumbs.setPointerCapture?.(event.pointerId);
   });
 
   thumbs.addEventListener("pointermove", (event) => {
     if (thumbDragPointerId !== event.pointerId) return;
     const deltaX = event.clientX - thumbDragStartX;
-    if (Math.abs(deltaX) > 3) thumbDragMoved = true;
+    if (Math.abs(deltaX) > 3 && !thumbDragMoved) {
+      thumbDragMoved = true;
+      // 단순 클릭까지 pointer capture가 가져가면 PC에서 click target이
+      // 썸네일 버튼이 아니라 목록 컨테이너가 되어 배경 선택이 무시된다.
+      // 실제 드래그가 시작된 뒤에만 capture해 클릭과 드래그를 분리한다.
+      thumbs.setPointerCapture?.(event.pointerId);
+    }
     if (!thumbDragMoved) return;
     event.preventDefault();
     thumbs.scrollLeft = thumbDragStartScrollLeft - deltaX;
