@@ -1,8 +1,15 @@
-# v9.33 — PC 문장 이미지 배경 선택 클릭 복구
+# v9.34 — PC 문장 이미지 배경 클릭 최종 복구
 
-- PC 문장 이미지 편집기의 배경 썸네일을 클릭해도 테마가 바뀌지 않던 문제를 수정했습니다.
-- v8.45에서 추가한 마우스 드래그 탐색이 `pointerdown` 즉시 목록 컨테이너에 pointer capture를 걸면서, 단순 클릭의 최종 `click` 대상이 배경 버튼이 아닌 컨테이너로 바뀌어 선택 이벤트가 무시되던 것이 원인이었습니다.
-- pointer capture는 마우스가 3px 이상 움직여 실제 드래그가 시작된 뒤에만 적용하도록 변경해 PC의 단순 클릭과 좌우 드래그를 분리했습니다.
+- v9.33 이후에도 PC에서 배경 썸네일 좌우 드래그는 되지만 단순 클릭 선택이 되지 않던 문제를 추가 수정했습니다.
+- 실제 원인은 마우스 `pointerdown` 즉시 `.is-dragging` 클래스를 붙이면서 기존 CSS의 `.is-dragging .reader-share-thumb { pointer-events:none; }`가 바로 적용되어, 클릭 완료 전에 썸네일 버튼이 포인터 대상에서 빠지던 것이었습니다.
+- `.is-dragging`과 pointer capture를 모두 마우스가 3px 이상 실제로 움직인 뒤에만 적용하도록 변경해 단순 클릭과 드래그를 완전히 분리했습니다.
+- 모바일 터치 선택/스크롤, 문장 이미지 생성·저장, 배경 데이터와 다른 편집 옵션은 변경하지 않습니다.
+- commit: `fix: restore desktop quote background click target`
+
+# v9.33 — PC 문장 이미지 배경 선택 클릭 1차 수정
+
+- PC 배경 썸네일 단순 클릭과 마우스 드래그를 분리하기 위해 pointer capture를 `pointerdown` 즉시가 아니라 3px 이상 실제 이동 뒤에만 적용하도록 조정했습니다.
+- 배포 후 좌우 드래그는 정상이나 단순 클릭은 여전히 되지 않는 것이 확인되었고, 남아 있던 `.is-dragging`의 즉시 적용 문제는 v9.34에서 추가 수정했습니다.
 - 모바일 터치 스크롤·배경 선택, 키보드 선택, 문장 이미지 생성/저장 로직과 기존 드래그 탐색은 변경하지 않습니다.
 - commit: `fix: restore desktop quote background selection`
 

@@ -5,7 +5,7 @@
 
 - 최초 기록일: **2026-09-20**
 - 최근 기록일: **2026-10-05**
-- 전체 커밋: **340개**
+- 전체 커밋: **341개**
 - 활동일: **15일**
 
 ---
@@ -374,7 +374,7 @@
 - 04:06 · chore: finalize Android app icon
 - 10:53 · feat: add Android app admin deployment flow
 - 11:00 · v1.2: 셩냥책apk update
-- 11:38 · v9.29: fix: allow mobile files in admin deploy
+- 11:38 · fix: allow mobile files in admin deploy
 - 11:38 · v9.29: chore: bump Android app version
 - 11:43 · v9.29: fix: allow mobile files in admin deploy preview
 - 11:48 · v9.29: Archive update (4 files)
@@ -394,3 +394,4 @@
 - 07:17 · v9.31: v9.23에서 추가한 줄별 <span> + ::before 들여쓰기 렌더를 Safari에서만 잠시 해제하고, v9.23 이전과 같은 순…
 - 07:30 · v9.32: 다크모드에서 메모 남기기 모달의 제목과 선택 문장이 어두운 배경에 묻혀 보이지 않던 문제를 수정했습니다 / 원인은 메모 모달이 현재 테…
 - 12:19 · v9.33: PC 문장 이미지 편집기의 배경 썸네일을 클릭해도 테마가 바뀌지 않던 문제를 수정했습니다 / v8.45에서 추가한 마우스 드래그 탐색이…
+- 15:12 · v9.34: v9.33 이후에도 PC에서 배경 썸네일 좌우 드래그는 되지만 단순 클릭 선택이 되지 않던 문제를 추가 수정했습니다 / 실제 원인은 마…

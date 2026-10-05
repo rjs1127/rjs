@@ -9607,7 +9607,6 @@ function ensureReaderShareUi() {
     thumbDragStartX = event.clientX;
     thumbDragStartScrollLeft = thumbs.scrollLeft;
     thumbDragMoved = false;
-    thumbs.classList.add("is-dragging");
   });
 
   thumbs.addEventListener("pointermove", (event) => {
@@ -9615,9 +9614,10 @@ function ensureReaderShareUi() {
     const deltaX = event.clientX - thumbDragStartX;
     if (Math.abs(deltaX) > 3 && !thumbDragMoved) {
       thumbDragMoved = true;
-      // 단순 클릭까지 pointer capture가 가져가면 PC에서 click target이
-      // 썸네일 버튼이 아니라 목록 컨테이너가 되어 배경 선택이 무시된다.
-      // 실제 드래그가 시작된 뒤에만 capture해 클릭과 드래그를 분리한다.
+      // PC에서는 .is-dragging 상태가 썸네일 버튼의 pointer-events를 끈다.
+      // pointerdown 즉시 적용하면 단순 클릭도 버튼을 잃으므로, 실제 드래그가
+      // 시작된 뒤에만 드래그 상태와 pointer capture를 함께 활성화한다.
+      thumbs.classList.add("is-dragging");
       thumbs.setPointerCapture?.(event.pointerId);
     }
     if (!thumbDragMoved) return;
