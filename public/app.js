@@ -809,6 +809,8 @@ const els = {
   bookmarkLibraryButton: document.getElementById("bookmarkLibraryButton"),
   recentLibraryButton: document.getElementById("recentLibraryButton"),
   helpButton: document.getElementById("helpButton"),
+  appInstallHelpPoint: document.getElementById("appInstallHelpPoint"),
+  appInstallHelpSection: document.getElementById("appInstallHelpSection"),
   signupButton: document.getElementById("signupButton"),
   loginButton: document.getElementById("loginButton"),
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
@@ -10911,6 +10913,21 @@ function updateNetworkStatus() {
   els.networkStatusBanner.hidden = navigator.onLine;
 }
 
+function isStandaloneWebApp() {
+  const displayModeStandalone = Boolean(
+    window.matchMedia?.("(display-mode: standalone)")?.matches
+  );
+  const iosStandalone = window.navigator.standalone === true;
+  return displayModeStandalone || iosStandalone;
+}
+
+function syncAppInstallHelpVisibility() {
+  const standalone = isStandaloneWebApp();
+  if (els.appInstallHelpPoint) els.appInstallHelpPoint.hidden = standalone;
+  if (els.appInstallHelpSection) els.appInstallHelpSection.hidden = standalone;
+  document.documentElement.classList.toggle("standalone-webapp", standalone);
+}
+
 // Android 앱 시스템 뒤로가기
 const capacitorAppPlugin = window.Capacitor?.Plugins?.App;
 
@@ -10959,6 +10976,7 @@ initReaderShareSelection();
 applyUserPreferences();
 loadPublicVersion();
 updateNetworkStatus();
+syncAppInstallHelpVisibility();
 window.addEventListener("online", updateNetworkStatus);
 window.addEventListener("offline", updateNetworkStatus);
 updatePageScrollTopButton();

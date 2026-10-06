@@ -4478,3 +4478,9 @@ html.theme-dark .my-library-detail-actions .my-library-feed-switch.active { back
   .signup-nudge { animation: none; }
 }
 
+
+
+/* v9.39 - install guidance visibility */
+.app-install-help[hidden] {
+  display: none !important;
+}
