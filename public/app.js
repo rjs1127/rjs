@@ -7228,6 +7228,35 @@ window.addEventListener("keydown", async (event) => {
     state.readerDisplayMode !== "page"
   ) return;
 
+  const target = event.target instanceof Element
+    ? event.target
+    : document.activeElement;
+  const editingTarget = target instanceof Element && Boolean(
+    target.closest(
+      'input, textarea, select, button, a[href], [contenteditable="true"], [role="textbox"]'
+    )
+  );
+  const auxiliaryUiOpen = Boolean(
+    document.querySelector(
+      '.simple-modal-overlay:not([hidden]), .reader-share-backdrop:not([hidden]), .reader-memo-backdrop'
+    )
+  );
+  const selection = window.getSelection?.();
+
+  // Keep native keyboard behavior while the user is typing, using a modal,
+  // or adjusting a text selection. Page-turn shortcuts should only act on
+  // the reader itself.
+  if (
+    event.defaultPrevented ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.altKey ||
+    event.shiftKey ||
+    editingTarget ||
+    auxiliaryUiOpen ||
+    (selection && String(selection).trim())
+  ) return;
+
   if (event.key === "ArrowRight" || event.key === "PageDown") {
     event.preventDefault();
     await turnReaderPage(1);
