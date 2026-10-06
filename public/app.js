@@ -567,13 +567,9 @@ const READER_FONT_SIZE_KEY = "rjsBookReaderFontSizeV1";
 const READER_FONT_FAMILY_KEY = "rjsBookReaderFontFamilyV1";
 const READER_SIDE_MARGIN_KEY = "rjsBookReaderSideMarginV1";
 const READER_WAKE_LOCK_KEY = "rjsBookReaderWakeLockV1";
-const READER_PORTRAIT_LOCK_KEY = "rjsBookReaderPortraitLockV1";
 let readerWakeLockSentinel = null;
 let readerWakeLockPending = false;
 let readerWakeLockLastError = "";
-let readerOrientationLockPending = false;
-let readerOrientationLocked = false;
-let readerOrientationLastError = "";
 const READER_FONT_FAMILIES = {
   default: 'Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
   paperlogy: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif',
@@ -620,94 +616,6 @@ function getSavedReaderFontFamily() {
 function getSavedReaderSideMargin() {
   const value = getViewerPreferenceStorage().getItem(READER_SIDE_MARGIN_KEY);
   return ["narrow", "normal", "wide"].includes(value) ? value : "normal";
-}
-
-function getSavedReaderPortraitLock() {
-  return getViewerPreferenceStorage().getItem(READER_PORTRAIT_LOCK_KEY) === "on";
-}
-
-function isReaderOrientationLockSupported() {
-  return Boolean(
-    isStandaloneWebApp() &&
-    window.screen?.orientation &&
-    typeof window.screen.orientation.lock === "function" &&
-    typeof window.screen.orientation.unlock === "function"
-  );
-}
-
-function shouldLockReaderOrientation() {
-  return Boolean(
-    isReaderOrientationLockSupported() &&
-    getSavedReaderPortraitLock() &&
-    document.visibilityState === "visible" &&
-    state.activeReaderItem &&
-    !els.readerOverlay?.hidden
-  );
-}
-
-function updateReaderOrientationUi() {
-  const supported = isReaderOrientationLockSupported();
-  if (els.readerPortraitLockRow) els.readerPortraitLockRow.hidden = !supported;
-  if (!supported) return;
-
-  const enabled = getSavedReaderPortraitLock();
-  if (els.readerPortraitLockToggle) {
-    els.readerPortraitLockToggle.textContent = enabled ? "ON" : "OFF";
-    els.readerPortraitLockToggle.classList.toggle("active", enabled);
-    els.readerPortraitLockToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
-  }
-
-  if (els.readerPortraitLockHint) {
-    if (!enabled) {
-      els.readerPortraitLockHint.textContent = "설치형 웹앱에서 TXT 뷰어를 세로 방향으로 고정합니다.";
-    } else if (readerOrientationLocked) {
-      els.readerPortraitLockHint.textContent = "현재 TXT 뷰어를 세로 방향으로 고정하고 있습니다.";
-    } else if (readerOrientationLastError) {
-      els.readerPortraitLockHint.textContent = "설정은 켜져 있지만 현재 기기에서 화면 방향 고정을 적용하지 못했습니다.";
-    } else {
-      els.readerPortraitLockHint.textContent = "TXT 뷰어가 열리면 세로 방향 고정을 시도합니다.";
-    }
-  }
-}
-
-function releaseReaderOrientationLock() {
-  readerOrientationLocked = false;
-  if (window.screen?.orientation && typeof window.screen.orientation.unlock === "function") {
-    try {
-      window.screen.orientation.unlock();
-    } catch {}
-  }
-  updateReaderOrientationUi();
-}
-
-async function requestReaderOrientationLock() {
-  if (!shouldLockReaderOrientation() || readerOrientationLocked || readerOrientationLockPending) {
-    updateReaderOrientationUi();
-    return;
-  }
-
-  readerOrientationLockPending = true;
-  readerOrientationLastError = "";
-  try {
-    await window.screen.orientation.lock("portrait");
-    readerOrientationLocked = true;
-    if (!shouldLockReaderOrientation()) releaseReaderOrientationLock();
-  } catch (error) {
-    readerOrientationLocked = false;
-    readerOrientationLastError = error?.name || "orientation-lock-error";
-  } finally {
-    readerOrientationLockPending = false;
-    updateReaderOrientationUi();
-  }
-}
-
-async function syncReaderOrientationLock() {
-  updateReaderOrientationUi();
-  if (shouldLockReaderOrientation()) {
-    await requestReaderOrientationLock();
-  } else {
-    releaseReaderOrientationLock();
-  }
 }
 
 function getSavedReaderWakeLock() {
@@ -897,7 +805,6 @@ function applyUserPreferences() {
   }
 
   void syncReaderWakeLock();
-  void syncReaderOrientationLock();
 
   state.readerDisplayMode = getPreferredReaderDisplayMode();
   syncReaderModeButtons();
@@ -1117,9 +1024,6 @@ const els = {
   readerWakeLockRow: document.getElementById("readerWakeLockRow"),
   readerWakeLockToggle: document.getElementById("readerWakeLockToggle"),
   readerWakeLockHint: document.getElementById("readerWakeLockHint"),
-  readerPortraitLockRow: document.getElementById("readerPortraitLockRow"),
-  readerPortraitLockToggle: document.getElementById("readerPortraitLockToggle"),
-  readerPortraitLockHint: document.getElementById("readerPortraitLockHint"),
   readerSideMarginButtons: Array.from(document.querySelectorAll("[data-reader-side-margin]")),
   readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
   readerFontSizeButtons: Array.from(document.querySelectorAll("[data-reader-font-size]")),
@@ -6870,7 +6774,6 @@ async function openReader(item, options = {}) {
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
   void syncReaderWakeLock();
-  void syncReaderOrientationLock();
 
   if (els.readerPanel) {
     els.readerPanel.scrollTop = 0;
@@ -7087,7 +6990,6 @@ async function openReader(item, options = {}) {
 
 function finalizeReaderClose() {
   void releaseReaderWakeLock();
-  releaseReaderOrientationLock();
   closeReaderShareUi();
   closeReaderSeekFloat();
   window.clearTimeout(readerSeekMoveTimer);
@@ -7818,16 +7720,8 @@ els.readerWakeLockToggle?.addEventListener("click", () => {
   void syncReaderWakeLock();
 });
 
-els.readerPortraitLockToggle?.addEventListener("click", () => {
-  const nextEnabled = !getSavedReaderPortraitLock();
-  setViewerPreference(READER_PORTRAIT_LOCK_KEY, nextEnabled ? "on" : "off");
-  readerOrientationLastError = "";
-  void syncReaderOrientationLock();
-});
-
 document.addEventListener("visibilitychange", () => {
   void syncReaderWakeLock();
-  void syncReaderOrientationLock();
 });
 
 els.readerSideMarginButtons?.forEach((button) => {
