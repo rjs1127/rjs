@@ -1,3 +1,12 @@
+# v9.46 — 정적 파일 브라우저 캐시 최적화
+
+- Cloudflare Pages 정적 응답용 `public/_headers`를 추가했습니다.
+- 버전 쿼리(`?v=`)로 URL이 관리되는 `app.js`, `style.css`, `theme.css`에 `Cache-Control: public, max-age=31536000, immutable`을 적용해 재방문·설치형 PWA 재실행 시 불필요한 정적 파일 재검증을 줄입니다.
+- `/`, `index.html`, `version.json`, `manifest.webmanifest`는 `no-cache`로 유지해 새 배포와 PWA 메타데이터를 계속 확인할 수 있게 했습니다.
+- `/api/*`와 Pages Functions 응답, 작품 본문·목록 API, 로그인·이어보기·저장 구조에는 캐시 정책을 추가하지 않았습니다.
+- 장기 캐시 대상 파일을 수정할 때는 같은 배포에서 해당 `?v=` 값도 반드시 변경하도록 개발 기준을 명시했습니다.
+- commit: `perf: cache versioned static assets`
+
 # v9.45 — 세로 화면 고정 제거 · 본문 좌우 여백 유지
 
 - 설치형 PWA에서 기기·브라우저에 따라 동작하지 않는 `세로 화면 고정` 토글과 Screen Orientation Lock 호출 코드를 제거했습니다.
