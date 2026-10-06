@@ -579,6 +579,77 @@ const READER_FONT_FAMILIES = {
   kopubbatang: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
 };
 
+const KOPUB_FONT_STYLESHEET_ID = "kopubFontStylesheet";
+const KOPUB_FONT_STYLESHEET_URL = "https://cdn.jsdelivr.net/npm/font-kopub@1.0/kopubbatang.min.css";
+let kopubFontReadyPromise = null;
+
+function ensureKopubFont() {
+  if (document.documentElement.dataset.kopub === "ready") {
+    return Promise.resolve(true);
+  }
+  if (kopubFontReadyPromise) return kopubFontReadyPromise;
+
+  kopubFontReadyPromise = new Promise((resolve) => {
+    let link = document.getElementById(KOPUB_FONT_STYLESHEET_ID);
+    let settled = false;
+    let timeoutId = 0;
+
+    const settle = (ready) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      resolve(ready);
+    };
+
+    const fail = () => {
+      if (settled) return;
+      if (link?.dataset.dynamicKopub === "1") link.remove();
+      document.documentElement.removeAttribute("data-kopub");
+      kopubFontReadyPromise = null;
+      settle(false);
+    };
+
+    const finish = async () => {
+      if (settled) return;
+      try {
+        if (link) link.dataset.loaded = "1";
+        if (document.fonts?.load) {
+          const faces = await document.fonts.load('400 48px "KoPub Batang"');
+          if (Array.isArray(faces) && faces.length === 0) throw new Error("kopub_font_face_missing");
+        }
+        if (settled) return;
+        document.documentElement.dataset.kopub = "ready";
+        settle(true);
+      } catch (_) {
+        fail();
+      }
+    };
+
+    timeoutId = window.setTimeout(fail, 4000);
+
+    if (link?.dataset.loaded === "1" || link?.sheet) {
+      void finish();
+      return;
+    }
+
+    let shouldAppend = false;
+    if (!link) {
+      link = document.createElement("link");
+      link.id = KOPUB_FONT_STYLESHEET_ID;
+      link.rel = "stylesheet";
+      link.href = KOPUB_FONT_STYLESHEET_URL;
+      link.dataset.dynamicKopub = "1";
+      shouldAppend = true;
+    }
+
+    link.addEventListener("load", () => { void finish(); }, { once: true });
+    link.addEventListener("error", fail, { once: true });
+    if (shouldAppend) document.head.appendChild(link);
+  });
+
+  return kopubFontReadyPromise;
+}
+
 function getViewerPreferenceStorage() {
   // 로그인 복원 전 첫 렌더에서도 저장된 로그인 사용자 설정을 그대로 사용한다.
   // 기존에는 state.user가 아직 null이라 sessionStorage를 먼저 읽은 뒤,
@@ -763,6 +834,11 @@ function applyUserPreferences() {
   root.dataset.readerFont = fontFamily;
   root.dataset.readerSideMargin = sideMargin;
   root.style.setProperty("--reader-font-family", READER_FONT_FAMILIES[fontFamily] || READER_FONT_FAMILIES.default);
+  if (fontFamily === "kopubbatang") {
+    // KoPub is intentionally excluded from the render-blocking <head>.
+    // Only users who actually selected it pay the external stylesheet/font cost.
+    void ensureKopubFont();
+  }
 
   if (els.darkModeToggle) {
     const enabled = theme === "dark";
@@ -6442,13 +6518,22 @@ async function renderLongText(text, renderToken) {
   return result(true);
 }
 
-async function streamTextIntoReader(response, renderToken) {
+async function streamTextIntoReader(response, renderToken, beforeRenderPromise = null) {
   const downloadStartedAt = performance.now();
   const text = await collectResponseText(response, renderToken);
   const downloadMs = performance.now() - downloadStartedAt;
 
   if (text === null || renderToken !== state.readerRenderToken) {
     return { rendered: false, downloadMs, renderMs: 0 };
+  }
+
+  if (beforeRenderPromise) {
+    try {
+      await beforeRenderPromise;
+    } catch (_) {}
+    if (renderToken !== state.readerRenderToken) {
+      return { rendered: false, downloadMs, renderMs: 0 };
+    }
   }
 
   state.readerText = text;
@@ -6837,6 +6922,10 @@ async function openReader(item, options = {}) {
   }, 280);
 
   try {
+    const readerFontReadyPromise = getSavedReaderFontFamily() === "kopubbatang"
+      ? ensureKopubFont()
+      : null;
+
     const params = new URLSearchParams({
       id: item.id,
       modified: item.modifiedTime || "unknown",
@@ -6849,10 +6938,15 @@ async function openReader(item, options = {}) {
       contentHeaders.set("authorization", `Bearer ${contentAuthToken}`);
     }
 
+    const contentFetchOptions = { headers: contentHeaders };
+    if (state.user && contentAuthToken) {
+      // Logged-in opens must reach the server so the folded-in recent-view write
+      // cannot be skipped by the browser's private 5-minute content cache.
+      contentFetchOptions.cache = "no-store";
+    }
+
     const fetchStartedAt = performance.now();
-    const response = await fetch(`/api/content?${params.toString()}`, {
-      headers: contentHeaders,
-    });
+    const response = await fetch(`/api/content?${params.toString()}`, contentFetchOptions);
     const responseMs = performance.now() - fetchStartedAt;
     const contentBytes = Math.max(
       0,
@@ -6898,7 +6992,11 @@ async function openReader(item, options = {}) {
     );
 
     await nextFrame();
-    const streamStats = await streamTextIntoReader(response, renderToken);
+    const streamStats = await streamTextIntoReader(
+      response,
+      renderToken,
+      readerFontReadyPromise
+    );
 
     if (!streamStats?.rendered || renderToken !== state.readerRenderToken) return;
 
@@ -7750,9 +7848,12 @@ els.readerFontSizeButtons?.forEach((button) => {
 });
 
 els.readerFontFamilyButtons?.forEach((button) => {
-  button.addEventListener("click", () => {
+  button.addEventListener("click", async () => {
     const fontFamily = button.dataset.readerFontFamily;
     if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
+    if (fontFamily === "kopubbatang") {
+      await ensureKopubFont();
+    }
     setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
     applyUserPreferences();
   });
@@ -10399,6 +10500,9 @@ async function renderReaderShareCanvas() {
   const width = 1200;
   const height = model.ratio === "2:3" ? 1800 : model.ratio === "4:5" ? 1500 : 1200;
   try {
+    if (model.font?.key === "kopubbatang") {
+      await ensureKopubFont();
+    }
     if (document.fonts?.load) {
       await document.fonts.load(`${model.fontWeight || model.font.weight || 400} 48px ${model.font.css}`);
       await document.fonts.ready;

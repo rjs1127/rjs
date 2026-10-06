@@ -1,3 +1,12 @@
+# v9.49 KoPub 지연 로딩·최근조회 요청 기준
+
+- KoPub 바탕 CSS는 초기 `<head>`의 렌더 차단 stylesheet로 두지 않는다. 저장된 리더 글꼴이 KoPub이거나 사용자가 KoPub을 선택하거나 문장 이미지가 KoPub을 실제로 사용할 때만 `ensureKopubFont()`로 로드한다.
+- KoPub 동적 로더는 같은 Promise를 재사용하고 실패 시 재시도 가능 상태로 돌아간다. 외부 CDN 장애가 리더 전체를 무기한 막지 않도록 제한 시간을 두며, 실패 시 기존 fallback 글꼴로 독서를 계속한다.
+- 저장된 KoPub으로 TXT를 열 때 폰트 로딩은 본문 네트워크 수신과 병렬로 시작하되 `renderLongText()` 이전에 완료 여부를 기다려 초기 페이지 계산·이어보기 레이아웃이 fallback→KoPub 순서로 뒤늦게 바뀌지 않도록 한다.
+- 문장 이미지에서 KoPub을 사용할 때는 `document.fonts.load()` 전에 KoPub stylesheet/font 등록을 보장한다. 설정 미리보기만으로 KoPub 다운로드를 유발하지 않는다.
+- 로그인 상태의 TXT 열기는 `/api/content`에 `cache: "no-store"`를 사용해 같은 작품의 짧은 시간 재열기에서도 서버에 접속하고 최근조회 기록을 갱신한다. 비로그인은 서버의 `private, max-age=300` 브라우저 캐시 이점을 유지한다.
+- 위 변경으로 TXT KV 캐시 키·TTL, 본문 offset, 이어보기 저장 구조, 검색·페이지 계산 공식을 변경하지 않는다.
+
 # v9.48 KV 응답 경로 최소 변환 기준
 
 - `/api/archive` 정상 HIT는 `PUBLIC_ARCHIVE_INDEX_KEY`를 `text`로 읽어 저장된 JSON 바이트 의미를 유지한 채 직접 응답한다. 인덱스가 없거나 `null`/빈 값이면 기존 `ARCHIVE_CACHE_KEY` 및 Drive 복구 경로를 사용한다.
