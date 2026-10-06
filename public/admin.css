@@ -3240,7 +3240,7 @@ body.history-modal-open { overflow:hidden; }
 
 
 /* v8.78 - 뷰어 로딩 원인 분해 */
-.visit-performance-card{grid-column:span 2;}
+.visit-performance-card{grid-column:1 / -1;}
 .visit-reader-breakdown{margin-top:14px;padding-top:14px;border-top:1px solid var(--line);display:grid;gap:10px;}
 .visit-reader-breakdown-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;}
 .visit-reader-breakdown-head strong{font-size:13px;}
@@ -3259,7 +3259,6 @@ body.history-modal-open { overflow:hidden; }
 .visit-reader-breakdown-row small{grid-column:1/-1;font-size:8px;color:#9a9088;}
 .visit-reader-breakdown-note{margin:0;}
 @media(max-width:760px){
-  .visit-performance-card{grid-column:auto;}
   .visit-reader-breakdown-head{align-items:flex-start;flex-direction:column;gap:4px;}
   .visit-reader-phase-grid{grid-template-columns:1fr 1fr;}
   .visit-reader-breakdown-columns{grid-template-columns:1fr;}
