@@ -1,3 +1,12 @@
+# v9.48 — KV 응답 변환 최소화 · 검색/필터 영역 접근성 보완
+
+- `/api/content?raw=1`의 KV HIT 경로는 본문을 문자열로 디코딩한 뒤 다시 UTF-8로 인코딩하지 않고 `ArrayBuffer`로 직접 받아 응답하도록 바꿨습니다. 큰 TXT의 캐시 HIT에서 불필요한 변환과 바이트 길이 재계산을 줄입니다.
+- `/api/archive`의 정상 공개 인덱스 HIT는 KV에 저장된 JSON 문자열을 그대로 `application/json`으로 응답해 `JSON.parse → JSON.stringify` 왕복을 제거합니다. 인덱스가 없거나 비정상적으로 비어 있는 경우의 기존 Drive/KV 복구 경로는 그대로 유지합니다.
+- 두 서버 최적화 모두 API 호출 수, 캐시 최신성, 로그인·최근조회 기록, 이어보기 좌표, 본문 내용과 클라이언트 응답 형식을 바꾸지 않습니다.
+- 컴팩트 검색 영역에 `role="search"`, 태블릿 필터 영역에 `role="group"`을 추가해 기존 `aria-label`이 보조기기에 영역 이름으로 전달되도록 보완했습니다.
+- KoPub 지연 로딩, SWR/ETag, Smart Placement, Google 토큰 캐시, SEO는 측정 또는 운영 결정이 필요한 항목이라 이번 버전에는 포함하지 않았습니다.
+- commit: `perf: reduce KV response transforms`
+
 # v9.47 — 검색 입력·접근성·정적 캐시 안전장치
 
 - 메인 검색창도 컴팩트 검색과 동일하게 한글 IME 조합 중 전체 목록 렌더를 미루고, 일반 입력은 90ms로 짧게 묶어 저사양 모바일에서 입력 중 끊김을 줄였습니다.

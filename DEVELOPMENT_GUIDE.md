@@ -1,3 +1,11 @@
+# v9.48 KV 응답 경로 최소 변환 기준
+
+- `/api/archive` 정상 HIT는 `PUBLIC_ARCHIVE_INDEX_KEY`를 `text`로 읽어 저장된 JSON 바이트 의미를 유지한 채 직접 응답한다. 인덱스가 없거나 `null`/빈 값이면 기존 `ARCHIVE_CACHE_KEY` 및 Drive 복구 경로를 사용한다.
+- `/api/content?raw=1`의 KV HIT는 `arrayBuffer`로 읽어 `TextEncoder` 재인코딩 없이 직접 응답한다. `raw=0` JSON 응답과 Drive MISS 디코딩/저장 경로는 기존 문자열 로직을 유지한다.
+- 위 최적화는 HTTP 응답의 의미·본문 문자 내용·이어보기 offset·최근조회 기록·캐시 키와 TTL 정책을 변경하지 않는다.
+- 접근성용 landmark/group 역할 추가는 기존 DOM id/class와 이벤트 바인딩을 바꾸지 않는다.
+- KoPub 지연 로딩, ETag/SWR, Smart Placement, 인증 해시 마이그레이션, SEO처럼 측정·설계가 필요한 변경은 별도 검토 없이 묶어 적용하지 않는다.
+
 # v9.47 검색·접근성·정적 캐시 안전 기준
 
 - 메인 검색과 컴팩트 검색은 모두 한글 IME 조합 중 전체 목록 `render()`를 실행하지 않고, 조합 종료 후 결과를 갱신한다. 일반 연속 입력은 90ms 짧은 지연으로 묶는다.

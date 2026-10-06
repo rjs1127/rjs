@@ -59,12 +59,14 @@ export async function onRequestGet(context) {
     const bodyCacheKey = `body:${fileId}:${modified}`;
 
     const kvReadStartedAt = Date.now();
-    const cached = await kv.get(bodyCacheKey);
+    const cached = raw
+      ? await kv.get(bodyCacheKey, "arrayBuffer")
+      : await kv.get(bodyCacheKey, "text");
     const kvReadMs = Date.now() - kvReadStartedAt;
 
     if (cached !== null) {
       if (raw) {
-        const byteLength = new TextEncoder().encode(cached).byteLength;
+        const byteLength = cached.byteLength;
         return new Response(cached, {
           status: 200,
           headers: {
