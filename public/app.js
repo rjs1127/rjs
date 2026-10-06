@@ -565,6 +565,10 @@ const UI_THEME_KEY = "rjsBookThemeV1";
 const READER_SPACING_KEY = "rjsBookReaderSpacingV1";
 const READER_FONT_SIZE_KEY = "rjsBookReaderFontSizeV1";
 const READER_FONT_FAMILY_KEY = "rjsBookReaderFontFamilyV1";
+const READER_WAKE_LOCK_KEY = "rjsBookReaderWakeLockV1";
+let readerWakeLockSentinel = null;
+let readerWakeLockPending = false;
+let readerWakeLockLastError = "";
 const READER_FONT_FAMILIES = {
   default: 'Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
   paperlogy: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif',
@@ -606,6 +610,102 @@ function getSavedReaderFontFamily() {
   return Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, value)
     ? value
     : "ridibatang";
+}
+
+function getSavedReaderWakeLock() {
+  return getViewerPreferenceStorage().getItem(READER_WAKE_LOCK_KEY) === "on";
+}
+
+function isReaderWakeLockSupported() {
+  return Boolean(navigator.wakeLock && typeof navigator.wakeLock.request === "function");
+}
+
+function shouldHoldReaderWakeLock() {
+  return Boolean(
+    isReaderWakeLockSupported() &&
+    getSavedReaderWakeLock() &&
+    document.visibilityState === "visible" &&
+    state.activeReaderItem &&
+    !els.readerOverlay?.hidden
+  );
+}
+
+function updateReaderWakeLockUi() {
+  const supported = isReaderWakeLockSupported();
+  if (els.readerWakeLockRow) els.readerWakeLockRow.hidden = !supported;
+  if (!supported) return;
+
+  const enabled = getSavedReaderWakeLock();
+  const active = Boolean(readerWakeLockSentinel && !readerWakeLockSentinel.released);
+
+  if (els.readerWakeLockToggle) {
+    els.readerWakeLockToggle.textContent = enabled ? "ON" : "OFF";
+    els.readerWakeLockToggle.classList.toggle("active", enabled);
+    els.readerWakeLockToggle.setAttribute("aria-pressed", enabled ? "true" : "false");
+  }
+
+  if (els.readerWakeLockHint) {
+    if (!enabled) {
+      els.readerWakeLockHint.textContent = "뷰어를 보는 동안 화면 자동 꺼짐을 막습니다. 배터리 사용량이 늘 수 있어요.";
+    } else if (active) {
+      els.readerWakeLockHint.textContent = "현재 뷰어를 보는 동안 화면 켜짐을 유지하고 있습니다.";
+    } else if (readerWakeLockLastError) {
+      els.readerWakeLockHint.textContent = "설정은 켜져 있지만 현재 기기에서 화면 유지 요청을 적용하지 못했습니다.";
+    } else {
+      els.readerWakeLockHint.textContent = "뷰어가 열리고 화면이 활성화되면 자동으로 적용됩니다.";
+    }
+  }
+}
+
+async function releaseReaderWakeLock() {
+  const sentinel = readerWakeLockSentinel;
+  readerWakeLockSentinel = null;
+
+  if (sentinel && !sentinel.released) {
+    try {
+      await sentinel.release();
+    } catch {}
+  }
+
+  updateReaderWakeLockUi();
+}
+
+async function requestReaderWakeLock() {
+  if (!shouldHoldReaderWakeLock() || readerWakeLockSentinel || readerWakeLockPending) {
+    updateReaderWakeLockUi();
+    return;
+  }
+
+  readerWakeLockPending = true;
+  readerWakeLockLastError = "";
+
+  try {
+    const sentinel = await navigator.wakeLock.request("screen");
+    readerWakeLockSentinel = sentinel;
+
+    sentinel.addEventListener("release", () => {
+      if (readerWakeLockSentinel === sentinel) readerWakeLockSentinel = null;
+      updateReaderWakeLockUi();
+    }, { once: true });
+
+    if (!shouldHoldReaderWakeLock()) {
+      await releaseReaderWakeLock();
+    }
+  } catch (error) {
+    readerWakeLockLastError = error?.name || "wake-lock-error";
+  } finally {
+    readerWakeLockPending = false;
+    updateReaderWakeLockUi();
+  }
+}
+
+async function syncReaderWakeLock() {
+  updateReaderWakeLockUi();
+  if (shouldHoldReaderWakeLock()) {
+    await requestReaderWakeLock();
+  } else {
+    await releaseReaderWakeLock();
+  }
 }
 
 function setViewerPreference(key, value) {
@@ -689,6 +789,8 @@ function applyUserPreferences() {
       ? "로그인 상태에서는 이 브라우저에 설정값이 유지됩니다."
       : "비회원 설정은 현재 브라우저 세션에서만 유지됩니다.";
   }
+
+  void syncReaderWakeLock();
 
   state.readerDisplayMode = getPreferredReaderDisplayMode();
   syncReaderModeButtons();
@@ -905,6 +1007,9 @@ const els = {
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
   darkModeToggle: document.getElementById("darkModeToggle"),
+  readerWakeLockRow: document.getElementById("readerWakeLockRow"),
+  readerWakeLockToggle: document.getElementById("readerWakeLockToggle"),
+  readerWakeLockHint: document.getElementById("readerWakeLockHint"),
   readerSpacingButtons: Array.from(document.querySelectorAll("[data-reader-spacing]")),
   readerFontSizeButtons: Array.from(document.querySelectorAll("[data-reader-font-size]")),
   readerFontFamilyButtons: Array.from(document.querySelectorAll("[data-reader-font-family]")),
@@ -6653,6 +6758,7 @@ async function openReader(item, options = {}) {
   els.siteHeader?.classList.remove("compact-mode");
   els.pageScrollTop?.classList.remove("visible");
   els.readerOverlay.hidden = false;
+  void syncReaderWakeLock();
 
   if (els.readerPanel) {
     els.readerPanel.scrollTop = 0;
@@ -6868,6 +6974,7 @@ async function openReader(item, options = {}) {
 }
 
 function finalizeReaderClose() {
+  void releaseReaderWakeLock();
   closeReaderShareUi();
   closeReaderSeekFloat();
   window.clearTimeout(readerSeekMoveTimer);
@@ -7589,6 +7696,17 @@ els.darkModeToggle?.addEventListener("click", () => {
   const nextTheme = getSavedTheme() === "dark" ? "light" : "dark";
   setViewerPreference(UI_THEME_KEY, nextTheme);
   applyUserPreferences();
+});
+
+els.readerWakeLockToggle?.addEventListener("click", () => {
+  const nextEnabled = !getSavedReaderWakeLock();
+  setViewerPreference(READER_WAKE_LOCK_KEY, nextEnabled ? "on" : "off");
+  readerWakeLockLastError = "";
+  void syncReaderWakeLock();
+});
+
+document.addEventListener("visibilitychange", () => {
+  void syncReaderWakeLock();
 });
 
 els.readerSpacingButtons?.forEach((button) => {
