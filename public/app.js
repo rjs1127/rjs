@@ -8589,7 +8589,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 
-function setSearchValue(value, source = "main") {
+function setSearchValue(value, source = "main", { renderResults = true } = {}) {
   disableInitialRecentPostypeBoost();
   state.search = String(value || "");
 
@@ -8603,7 +8603,25 @@ function setSearchValue(value, source = "main") {
 
   els.clearSearch?.classList.toggle("visible", Boolean(state.search));
   els.compactClearSearch?.classList.toggle("visible", Boolean(state.search));
-  render();
+  if (renderResults) render();
+}
+
+let compactSearchRenderTimer = 0;
+let compactSearchComposing = false;
+const COMPACT_SEARCH_RENDER_DELAY_MS = 90;
+
+function cancelCompactSearchRender() {
+  if (!compactSearchRenderTimer) return;
+  window.clearTimeout(compactSearchRenderTimer);
+  compactSearchRenderTimer = 0;
+}
+
+function scheduleCompactSearchRender(delay = COMPACT_SEARCH_RENDER_DELAY_MS) {
+  cancelCompactSearchRender();
+  compactSearchRenderTimer = window.setTimeout(() => {
+    compactSearchRenderTimer = 0;
+    render();
+  }, Math.max(0, Number(delay) || 0));
 }
 
 let mainHeaderCompactActive = false;
@@ -8638,6 +8656,15 @@ function updateCompactHeader() {
     return;
   }
 
+  // Filtering can shorten the document enough for the browser to clamp
+  // scrollY while the compact search field is still being edited. Keep the
+  // compact header stable until typing finishes so the input does not vanish
+  // and interrupt IME / keyboard entry mid-search.
+  if (document.activeElement === els.compactSearchInput) {
+    els.siteHeader.classList.add("compact-mode");
+    return;
+  }
+
   const enterScrollY = Number.isFinite(mainHeaderCompactEnterScrollY)
     ? mainHeaderCompactEnterScrollY
     : window.scrollY;
@@ -8655,9 +8682,27 @@ els.searchInput.addEventListener("input", (event) => {
   scheduleAnalyticsSearch(event.target.value);
 });
 
+els.compactSearchInput?.addEventListener("compositionstart", () => {
+  compactSearchComposing = true;
+  cancelCompactSearchRender();
+});
+
+els.compactSearchInput?.addEventListener("compositionend", (event) => {
+  compactSearchComposing = false;
+  setSearchValue(event.target.value, "compact", { renderResults: false });
+  scheduleCompactSearchRender(0);
+});
+
 els.compactSearchInput?.addEventListener("input", (event) => {
-  setSearchValue(event.target.value, "compact");
+  setSearchValue(event.target.value, "compact", { renderResults: false });
   scheduleAnalyticsSearch(event.target.value);
+
+  // A full archive render on every IME composition update can make Korean
+  // input feel as if it is stopping between syllables. Coalesce ordinary
+  // keystrokes briefly and render once after composition is committed.
+  if (!compactSearchComposing && !event.isComposing) {
+    scheduleCompactSearchRender();
+  }
 });
 
 els.clearSearch.addEventListener("click", () => {
@@ -8666,6 +8711,7 @@ els.clearSearch.addEventListener("click", () => {
 });
 
 els.compactClearSearch?.addEventListener("click", () => {
+  cancelCompactSearchRender();
   setSearchValue("", "compact");
   els.compactSearchInput?.focus();
 });
@@ -8975,10 +9021,43 @@ els.readerPageViewport?.addEventListener("keydown", (event) => {
 });
 els.readerSeekRange?.addEventListener("input", scheduleReaderSeekMove);
 els.readerSeekRange?.addEventListener("change", () => moveReaderToSeekPosition({ persist: true }));
+function openReaderSearchModalFromKeyboard() {
+  if (!state.readerText || els.readerOverlay?.hidden || !els.readerSearchModal) return false;
+
+  const openSimpleModal = getOpenSimpleModal();
+  const auxiliaryUiOpen = Boolean(
+    (openSimpleModal && openSimpleModal !== els.readerSearchModal) ||
+    document.querySelector('.reader-share-backdrop:not([hidden]), .reader-memo-backdrop')
+  );
+  if (auxiliaryUiOpen) return false;
+
+  openModal(els.readerSearchModal);
+  window.setTimeout(() => {
+    if (!(els.readerSearchInput instanceof HTMLInputElement)) return;
+    els.readerSearchInput.focus({ preventScroll: true });
+    els.readerSearchInput.select();
+  }, 0);
+  return true;
+}
+
 els.readerSearchOpenButton?.addEventListener("click", () => {
   if (!state.readerText) return;
   openModal(els.readerSearchModal);
 });
+
+window.addEventListener("keydown", (event) => {
+  const isFindShortcut =
+    (event.ctrlKey || event.metaKey) &&
+    !event.altKey &&
+    !event.shiftKey &&
+    String(event.key || "").toLowerCase() === "f";
+
+  if (!isFindShortcut || els.readerOverlay?.hidden || event.defaultPrevented) return;
+  if (!openReaderSearchModalFromKeyboard()) return;
+
+  event.preventDefault();
+});
+
 els.readerSearchButton?.addEventListener("click", runReaderSearchCount);
 els.readerSearchInput?.addEventListener("keydown", (event) => {
   if (event.key !== "Enter") return;
