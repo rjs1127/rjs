@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { versionStaticAssetUrls } = require('./version-static-assets.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
 const publicDir = path.join(root, 'public');
@@ -36,8 +37,10 @@ fs.writeFileSync(localConfig, fixed, 'utf8');
 copyPublic();
 
 const indexPath = path.join(outDir, 'index.html');
-if (fs.existsSync(indexPath) && siteName) {
-  const html = fs.readFileSync(indexPath, 'utf8').replaceAll('__SITE_NAME__', siteName);
+if (fs.existsSync(indexPath)) {
+  let html = fs.readFileSync(indexPath, 'utf8');
+  if (siteName) html = html.replaceAll('__SITE_NAME__', siteName);
+  html = versionStaticAssetUrls(html, { publicDir: outDir });
   fs.writeFileSync(indexPath, html, 'utf8');
 }
 

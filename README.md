@@ -1,3 +1,13 @@
+# v9.47 — 검색 입력·접근성·정적 캐시 안전장치
+
+- 메인 검색창도 컴팩트 검색과 동일하게 한글 IME 조합 중 전체 목록 렌더를 미루고, 일반 입력은 90ms로 짧게 묶어 저사양 모바일에서 입력 중 끊김을 줄였습니다.
+- 작품 검색용 정규화 문자열은 항목 객체별 `WeakMap`에 한 번만 계산해 재사용하고, 제목/작가 정렬용 `Intl.Collator`도 매 렌더마다 새로 만들지 않고 재사용합니다. 검색어가 비어 있으면 검색용 문자열 자체를 계산하지 않습니다.
+- 필터 칩에 `aria-pressed`, 검색 입력 4곳에 접근 가능한 이름, 결과 수에 `aria-live`, 문장 피드 좋아요 버튼에 의미 있는 접근 가능한 이름을 추가했습니다.
+- 1년 `immutable` 캐시의 버전 누락 사고를 막기 위해 운영 빌드와 로컬 개발 출력에서 `app.js`, `style.css`, `theme.css`의 최종 `?v=`를 파일 내용 SHA-256 해시(앞 12자리)로 자동 치환합니다. 소스의 수동 버전값도 fallback으로 유지합니다.
+- 대용량 TXT 응답 스트림을 받는 중 탭/PWA가 백그라운드로 가면 `requestAnimationFrame` 대신 task yield를 사용해 응답 body 수신이 불필요하게 멈추지 않도록 했습니다. 전경 렌더 경로는 그대로 유지합니다.
+- KoPub 폰트 지연 로딩, SWR/ETag, Smart Placement, minify, SEO/공유 메타 변경은 실측 또는 운영 선택이 필요한 항목이라 이번 버전에는 포함하지 않았습니다.
+- commit: `perf: optimize archive search and harden cached assets`
+
 # v9.46 — 정적 파일 브라우저 캐시 최적화
 
 - Cloudflare Pages 정적 응답용 `public/_headers`를 추가했습니다.

@@ -1,3 +1,13 @@
+# v9.47 검색·접근성·정적 캐시 안전 기준
+
+- 메인 검색과 컴팩트 검색은 모두 한글 IME 조합 중 전체 목록 `render()`를 실행하지 않고, 조합 종료 후 결과를 갱신한다. 일반 연속 입력은 90ms 짧은 지연으로 묶는다.
+- 작품 검색용 haystack은 항목 객체별로 한 번 정규화해 재사용하고, 정렬용 `Intl.Collator`도 공용 인스턴스를 재사용한다. 검색어가 비어 있을 때는 검색 haystack을 만들지 않는다.
+- 단일 선택 필터 칩은 시각적 `.active` 상태와 `aria-pressed` 값을 항상 함께 갱신한다. 검색 입력과 동적 아이콘 버튼은 화면 문구가 없어도 접근 가능한 이름을 유지한다.
+- `public/_headers`의 `immutable` 대상(`app.js`, `style.css`, `theme.css`)은 운영 빌드 및 로컬 출력에서 `public/_build/version-static-assets.cjs`가 실제 파일 SHA-256 앞 12자리로 최종 `?v=`를 치환한다. 예상 자산 참조가 없으면 빌드가 실패해 오래된 URL로 배포되는 것을 막는다.
+- 소스 `index.html`의 사람이 읽는 `?v=` 값도 변경 파일과 함께 계속 갱신해 빌드가 없는 환경의 fallback을 유지한다.
+- 대용량 TXT 스트림 수신 루프는 전경에서는 `requestAnimationFrame`으로 UI 갱신 여유를 주되, 문서가 hidden이면 `nextTask()`로 yield해 백그라운드에서 body 수신 자체가 멈추지 않도록 한다. 이어보기 좌표·본문 검색·페이지 계산 로직은 건드리지 않는다.
+- 폰트 로딩 방식, SWR/ETag, Smart Placement, minify, SEO/공유 정책처럼 실측 또는 운영 선택이 필요한 최적화는 측정/결정 전 임의 적용하지 않는다.
+
 # v9.46 정적 파일 브라우저 캐시 정책
 
 - `public/_headers`는 메인 정적 리소스 `app.js`, `style.css`, `theme.css`에만 1년 `immutable` 브라우저 캐시를 적용한다. API/Pages Functions 응답에는 이 정책을 확장하지 않는다.

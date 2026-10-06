@@ -2131,7 +2131,7 @@ function renderQuoteFeed() {
               </span>
             </span>
           </button>
-          <button type="button" class="quote-feed-like-button${item.liked ? " is-liked" : ""}" data-quote-feed-like="${item.quoteId}" aria-pressed="${item.liked ? "true" : "false"}" ${saving ? "disabled" : ""}>
+          <button type="button" class="quote-feed-like-button${item.liked ? " is-liked" : ""}" data-quote-feed-like="${item.quoteId}" aria-pressed="${item.liked ? "true" : "false"}" aria-label="${item.liked ? "문장 좋아요 취소" : "문장 좋아요"}, ${item.likeCount}개" ${saving ? "disabled" : ""}>
             <span aria-hidden="true">${item.liked ? "♥" : "♡"}</span><b>${item.likeCount}</b>
           </button>
         </article>`;
@@ -3074,7 +3074,8 @@ function buildCombinationFilters(combinations) {
     .map(
       (value) => `
         <button class="chip ${state.combination === value ? "active" : ""}"
-          type="button" data-combination="${escapeHtml(value)}">${escapeHtml(value)}</button>`
+          type="button" data-combination="${escapeHtml(value)}"
+          aria-pressed="${state.combination === value ? "true" : "false"}">${escapeHtml(value)}</button>`
     )
     .join("");
 
@@ -3109,6 +3110,27 @@ function getSearchTokens(query = "") {
   return [...new Set([compact, ...rawTokens].filter(Boolean))];
 }
 
+const ARCHIVE_COLLATOR = new Intl.Collator("ko", {
+  sensitivity: "base",
+  numeric: true,
+});
+const archiveSearchHaystackCache = new WeakMap();
+
+function getArchiveItemSearchHaystack(item) {
+  if (!item || typeof item !== "object") return "";
+  if (archiveSearchHaystackCache.has(item)) {
+    return archiveSearchHaystackCache.get(item);
+  }
+
+  const haystack = normalizeSearchText(
+    `${item.title || ""} ${item.author || ""} ${item.fileName || ""} ` +
+    `${item.combination || ""} ${item.subCp1 || ""} ${item.subCp2 || ""} ` +
+    `${item.genre || ""} ${item.status || ""} ${item.searchAliases || ""}`
+  );
+  archiveSearchHaystackCache.set(item, haystack);
+  return haystack;
+}
+
 function normalizeSortValue(value) {
   if (value === "latest") return "registered";
   return ["title", "author", "registered", "published", "bookmarks"].includes(value)
@@ -3116,10 +3138,16 @@ function normalizeSortValue(value) {
     : "title";
 }
 
-function syncSourceFilterChips() {
-  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.source === state.source);
+function syncFilterChipGroup(container, dataKey, activeValue) {
+  container?.querySelectorAll(".chip").forEach((chip) => {
+    const active = chip.dataset[dataKey] === activeValue;
+    chip.classList.toggle("active", active);
+    chip.setAttribute("aria-pressed", active ? "true" : "false");
   });
+}
+
+function syncSourceFilterChips() {
+  syncFilterChipGroup(els.sourceFilters, "source", state.source);
 }
 
 function applySourceForSort() {
@@ -3312,10 +3340,7 @@ function formatCompactArchiveDate(value) {
 }
 
 function sortItems(items) {
-  const collator = new Intl.Collator("ko", {
-    sensitivity: "base",
-    numeric: true,
-  });
+  const collator = ARCHIVE_COLLATOR;
 
   const boostRecentPostype = shouldUseInitialRecentPostypeBoost();
   const now = Date.now();
@@ -3413,21 +3438,10 @@ function resetFilterState({ includeSearch = false } = {}) {
   if (els.sortSelect) els.sortSelect.value = state.sort;
   if (els.mobileSortSelect) els.mobileSortSelect.value = state.sort;
 
-  els.combinationFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.combination === "전체");
-  });
-
-  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.contentType === "전체");
-  });
-
-  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.statusFilter === "전체");
-  });
-
-  els.sourceFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.source === "전체");
-  });
+  syncFilterChipGroup(els.combinationFilters, "combination", "전체");
+  syncFilterChipGroup(els.contentTypeFilters, "contentType", "전체");
+  syncFilterChipGroup(els.statusFilters, "statusFilter", "전체");
+  syncFilterChipGroup(els.sourceFilters, "source", "전체");
 
   syncQuickFilterButtons();
   render();
@@ -3496,14 +3510,9 @@ function getFilteredItems() {
     const matchesSource =
       state.source === "전체" || itemSource === state.source;
 
-    const haystack = normalizeSearchText(
-      `${item.title || ""} ${item.author || ""} ${item.fileName || ""} ` +
-      `${item.combination || ""} ${item.subCp1 || ""} ${item.subCp2 || ""} ` +
-      `${item.genre || ""} ${item.status || ""} ${item.searchAliases || ""}`
-    );
-
     const matchesSearch =
-      tokens.length === 0 || tokens.every((token) => haystack.includes(token));
+      tokens.length === 0 ||
+      tokens.every((token) => getArchiveItemSearchHaystack(item).includes(token));
 
     const libraryEntry = state.user
       ? getUserLibraryEntry(item.id)
@@ -5685,7 +5694,7 @@ async function collectResponseText(response, renderToken) {
       );
 
       lastPaintAt = now;
-      await nextFrame();
+      await (document.hidden ? nextTask() : nextFrame());
     }
   }
 
@@ -7205,21 +7214,10 @@ window.addEventListener("resize", () => {
 
 window.addEventListener("pageshow", () => {
   // Browser form restoration must not override the JS filter state.
+  syncFilterChipGroup(els.combinationFilters, "combination", state.combination);
+  syncFilterChipGroup(els.contentTypeFilters, "contentType", state.contentType);
+  syncFilterChipGroup(els.statusFilters, "statusFilter", state.statusFilter);
   syncSourceFilterChips();
-
-  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle(
-      "active",
-      chip.dataset.contentType === state.contentType
-    );
-  });
-
-  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle(
-      "active",
-      chip.dataset.statusFilter === state.statusFilter
-    );
-  });
 
   if (els.tabletCombinationSelect) {
     els.tabletCombinationSelect.value = state.combination;
@@ -8748,20 +8746,21 @@ function setSearchValue(value, source = "main", { renderResults = true } = {}) {
   if (renderResults) render();
 }
 
-let compactSearchRenderTimer = 0;
+let archiveSearchRenderTimer = 0;
+let mainSearchComposing = false;
 let compactSearchComposing = false;
-const COMPACT_SEARCH_RENDER_DELAY_MS = 90;
+const ARCHIVE_SEARCH_RENDER_DELAY_MS = 90;
 
-function cancelCompactSearchRender() {
-  if (!compactSearchRenderTimer) return;
-  window.clearTimeout(compactSearchRenderTimer);
-  compactSearchRenderTimer = 0;
+function cancelArchiveSearchRender() {
+  if (!archiveSearchRenderTimer) return;
+  window.clearTimeout(archiveSearchRenderTimer);
+  archiveSearchRenderTimer = 0;
 }
 
-function scheduleCompactSearchRender(delay = COMPACT_SEARCH_RENDER_DELAY_MS) {
-  cancelCompactSearchRender();
-  compactSearchRenderTimer = window.setTimeout(() => {
-    compactSearchRenderTimer = 0;
+function scheduleArchiveSearchRender(delay = ARCHIVE_SEARCH_RENDER_DELAY_MS) {
+  cancelArchiveSearchRender();
+  archiveSearchRenderTimer = window.setTimeout(() => {
+    archiveSearchRenderTimer = 0;
     render();
   }, Math.max(0, Number(delay) || 0));
 }
@@ -8819,20 +8818,35 @@ function updateCompactHeader() {
   }
 }
 
+els.searchInput.addEventListener("compositionstart", () => {
+  mainSearchComposing = true;
+  cancelArchiveSearchRender();
+});
+
+els.searchInput.addEventListener("compositionend", (event) => {
+  mainSearchComposing = false;
+  setSearchValue(event.target.value, "main", { renderResults: false });
+  scheduleArchiveSearchRender(0);
+});
+
 els.searchInput.addEventListener("input", (event) => {
-  setSearchValue(event.target.value, "main");
+  setSearchValue(event.target.value, "main", { renderResults: false });
   scheduleAnalyticsSearch(event.target.value);
+
+  if (!mainSearchComposing && !event.isComposing) {
+    scheduleArchiveSearchRender();
+  }
 });
 
 els.compactSearchInput?.addEventListener("compositionstart", () => {
   compactSearchComposing = true;
-  cancelCompactSearchRender();
+  cancelArchiveSearchRender();
 });
 
 els.compactSearchInput?.addEventListener("compositionend", (event) => {
   compactSearchComposing = false;
   setSearchValue(event.target.value, "compact", { renderResults: false });
-  scheduleCompactSearchRender(0);
+  scheduleArchiveSearchRender(0);
 });
 
 els.compactSearchInput?.addEventListener("input", (event) => {
@@ -8843,17 +8857,18 @@ els.compactSearchInput?.addEventListener("input", (event) => {
   // input feel as if it is stopping between syllables. Coalesce ordinary
   // keystrokes briefly and render once after composition is committed.
   if (!compactSearchComposing && !event.isComposing) {
-    scheduleCompactSearchRender();
+    scheduleArchiveSearchRender();
   }
 });
 
 els.clearSearch.addEventListener("click", () => {
+  cancelArchiveSearchRender();
   setSearchValue("", "main");
   els.searchInput.focus();
 });
 
 els.compactClearSearch?.addEventListener("click", () => {
-  cancelCompactSearchRender();
+  cancelArchiveSearchRender();
   setSearchValue("", "compact");
   els.compactSearchInput?.focus();
 });
@@ -8861,27 +8876,21 @@ els.compactClearSearch?.addEventListener("click", () => {
 els.tabletCombinationSelect?.addEventListener("change", (event) => {
   disableInitialRecentPostypeBoost();
   state.combination = event.target.value;
-  els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.combination === state.combination);
-  });
+  syncFilterChipGroup(els.combinationFilters, "combination", state.combination);
   render();
 });
 
 els.tabletContentTypeSelect?.addEventListener("change", (event) => {
   disableInitialRecentPostypeBoost();
   state.contentType = event.target.value;
-  els.contentTypeFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
-  });
+  syncFilterChipGroup(els.contentTypeFilters, "contentType", state.contentType);
   render();
 });
 
 els.tabletStatusSelect?.addEventListener("change", (event) => {
   disableInitialRecentPostypeBoost();
   state.statusFilter = event.target.value;
-  els.statusFilters?.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
-  });
+  syncFilterChipGroup(els.statusFilters, "statusFilter", state.statusFilter);
   render();
 });
 
@@ -8904,9 +8913,7 @@ els.combinationFilters.addEventListener("click", (event) => {
 
   disableInitialRecentPostypeBoost();
   state.combination = button.dataset.combination;
-  els.combinationFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.combination === state.combination);
-  });
+  syncFilterChipGroup(els.combinationFilters, "combination", state.combination);
   render();
 });
 
@@ -8916,9 +8923,7 @@ els.contentTypeFilters?.addEventListener("click", (event) => {
 
   disableInitialRecentPostypeBoost();
   state.contentType = button.dataset.contentType;
-  els.contentTypeFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.contentType === state.contentType);
-  });
+  syncFilterChipGroup(els.contentTypeFilters, "contentType", state.contentType);
 
   render();
 });
@@ -8929,9 +8934,7 @@ els.statusFilters?.addEventListener("click", (event) => {
 
   disableInitialRecentPostypeBoost();
   state.statusFilter = button.dataset.statusFilter;
-  els.statusFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.statusFilter === state.statusFilter);
-  });
+  syncFilterChipGroup(els.statusFilters, "statusFilter", state.statusFilter);
 
   render();
 });
@@ -8942,9 +8945,7 @@ els.sourceFilters?.addEventListener("click", (event) => {
 
   disableInitialRecentPostypeBoost();
   state.source = button.dataset.source;
-  els.sourceFilters.querySelectorAll(".chip").forEach((chip) => {
-    chip.classList.toggle("active", chip.dataset.source === state.source);
-  });
+  syncFilterChipGroup(els.sourceFilters, "source", state.source);
   render();
 });
 

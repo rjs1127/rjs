@@ -1,4 +1,4 @@
-# v9.46 — browser cache policy for versioned static assets
+# v9.47 — browser cache policy for versioned static assets
 # HTML/version/manifest must revalidate so a new deploy can advertise new asset URLs.
 /
   Cache-Control: no-cache
@@ -13,7 +13,7 @@
   Cache-Control: no-cache
 
 # These files are referenced with explicit ?v= cache-busting URLs.
-# When any file below changes, its ?v= value MUST change in the same deploy.
+# The build helper rewrites the final ?v= to each file's content hash; source values remain a fallback for no-build environments.
 /app.js
   Cache-Control: public, max-age=31536000, immutable
 

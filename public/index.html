@@ -155,7 +155,7 @@
       </a>
       <div id="compactHeaderSearch" class="compact-header-search" aria-label="빠른 검색">
         <span class="compact-search-icon" aria-hidden="true">⌕</span>
-        <input id="compactSearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
+        <input id="compactSearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" aria-label="작품 제목 또는 작성자 검색" />
         <button id="compactClearSearch" class="compact-clear-search" type="button" aria-label="검색어 지우기">×</button>
         <button id="compactFilterButton" class="compact-filter-button" type="button" aria-label="필터 열기" aria-expanded="false" title="필터">
           <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -196,7 +196,7 @@
         <h1 id="heroTitle">내 콘텐츠를<br />한곳에서 찾아보세요.</h1>
         <div id="heroSearchBox" class="search-box">
           <span class="search-icon" aria-hidden="true">⌕</span>
-          <input id="searchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
+          <input id="searchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" aria-label="작품 제목 또는 작성자 검색" />
           <button id="clearSearch" class="clear-search" type="button" aria-label="검색어 지우기">×</button>
         </div>
       </section>
@@ -309,27 +309,27 @@
           <div class="control-card">
             <span class="filter-label">작품형태</span>
             <div id="contentTypeFilters" class="chips">
-              <button class="chip active" type="button" data-content-type="전체">전체</button>
-              <button class="chip" type="button" data-content-type="단편">단편</button>
-              <button class="chip" type="button" data-content-type="연재물">연재</button>
+              <button class="chip active" type="button" data-content-type="전체" aria-pressed="true">전체</button>
+              <button class="chip" type="button" data-content-type="단편" aria-pressed="false">단편</button>
+              <button class="chip" type="button" data-content-type="연재물" aria-pressed="false">연재</button>
             </div>
           </div>
 
           <div class="control-card">
             <span class="filter-label">상태</span>
             <div id="statusFilters" class="chips">
-              <button class="chip active" type="button" data-status-filter="전체">전체</button>
-              <button class="chip" type="button" data-status-filter="연재중">연재중</button>
-              <button class="chip" type="button" data-status-filter="완결">완결</button>
+              <button class="chip active" type="button" data-status-filter="전체" aria-pressed="true">전체</button>
+              <button class="chip" type="button" data-status-filter="연재중" aria-pressed="false">연재중</button>
+              <button class="chip" type="button" data-status-filter="완결" aria-pressed="false">완결</button>
             </div>
           </div>
 
           <div class="control-card">
             <span class="filter-label">출처</span>
             <div id="sourceFilters" class="chips">
-              <button class="chip active" type="button" data-source="전체">전체</button>
-              <button class="chip" type="button" data-source="drive">TXT</button>
-              <button class="chip" type="button" data-source="postype">POSTYPE</button>
+              <button class="chip active" type="button" data-source="전체" aria-pressed="true">전체</button>
+              <button class="chip" type="button" data-source="drive" aria-pressed="false">TXT</button>
+              <button class="chip" type="button" data-source="postype" aria-pressed="false">POSTYPE</button>
             </div>
           </div>
 
@@ -371,7 +371,7 @@
         </div>
         <div class="content-list-topline" aria-label="콘텐츠 목록 안내">
           <p id="recentPostypeGuideNote" class="recent-postype-guide-note" hidden>처음 접속하면 최근 7일 내 발행된 POSTYPE 콘텐츠가 목록 상단에 먼저 표시돼요.</p>
-          <p id="resultCount" class="result-count">불러오는 중…</p>
+          <p id="resultCount" class="result-count" aria-live="polite" aria-atomic="true">불러오는 중…</p>
         </div>
 
         <div id="status" class="status-card">
@@ -463,7 +463,7 @@
           <div class="profile-toolbar-actions">
             <label class="profile-search">
               <span aria-hidden="true">⌕</span>
-              <input id="profileSearchInput" type="search" placeholder="현재 목록에서 검색" autocomplete="off" />
+              <input id="profileSearchInput" type="search" placeholder="현재 목록에서 검색" autocomplete="off" aria-label="현재 내 정보 목록 검색" />
             </label>
             <button id="profileClearButton" class="profile-secondary-button danger profile-clear-button" type="button" hidden>전체삭제</button>
           </div>
@@ -865,7 +865,7 @@
       <h2 id="detailedHelpTitle">사이트 상세 도움말</h2>
       <p class="simple-modal-description">처음 방문해도 바로 사용할 수 있도록 찾기부터 읽기·기록·공유까지 순서대로 안내합니다.</p>
       <div class="detailed-help-sections">
-        <section><h3>1. 작품 찾기</h3><p>메인에서 제목·작가를 검색하고 CP, 작품형태, 상태, 출처 필터와 정렬을 함께 사용할 수 있어요. 외국어 작가명·작품명은 운영자가 등록한 한글 표기나 다른 검색 별칭으로도 찾을 수 있으며, 별칭 자체는 작품 목록에 표시되지 않아요. 모바일에서는 정렬과 보기 방식도 필터 패널 안에서 선택할 수 있고, 현재 선택값은 메인 필터 버튼에서 함께 확인할 수 있어요. 초기화를 누르면 정렬도 제목순으로 돌아갑니다. TXT와 POSTYPE 콘텐츠가 함께 표시되며, TXT는 사이트 뷰어에서 읽고 POSTYPE은 등록된 원문으로 이동합니다.</p></section>
+        <section><h3>1. 작품 찾기</h3><p>메인에서 제목·작가를 검색하고 CP, 작품형태, 상태, 출처 필터와 정렬을 함께 사용할 수 있어요. 한글 입력 중에는 조합이 끝난 뒤 결과를 갱신해 모바일에서도 검색 입력이 끊기지 않도록 처리합니다. 외국어 작가명·작품명은 운영자가 등록한 한글 표기나 다른 검색 별칭으로도 찾을 수 있으며, 별칭 자체는 작품 목록에 표시되지 않아요. 모바일에서는 정렬과 보기 방식도 필터 패널 안에서 선택할 수 있고, 현재 선택값은 메인 필터 버튼에서 함께 확인할 수 있어요. 초기화를 누르면 정렬도 제목순으로 돌아갑니다. TXT와 POSTYPE 콘텐츠가 함께 표시되며, TXT는 사이트 뷰어에서 읽고 POSTYPE은 등록된 원문으로 이동합니다.</p></section>
         <section><h3>2. TXT 뷰어 · 읽기 설정</h3><p>스크롤/페이지 모드, 글꼴, 글자 크기, 줄간격, <strong>본문 좌우 여백(좁게/기본/넓게)</strong>, 다크모드를 설정할 수 있어요. 지원 기기에서는 <strong>화면 켜짐 유지</strong>를 켜 뷰어가 열린 동안 화면 자동 꺼짐을 막을 수 있으며, 뷰어를 닫거나 앱·브라우저가 백그라운드로 가면 화면 유지도 해제됩니다. 다크모드 변경 시 지원되는 설치형 웹앱의 상태바·앱 창 테마 색상도 함께 맞춰집니다. 본문은 문단 첫 줄을 약 1글자 들여써 읽기 편하게 표시합니다. 현재 페이지/전체 페이지와 진행률을 확인할 수 있고, 페이지·진행 표시를 누르면 빠른 이동 슬라이더로 원하는 위치를 바로 찾을 수 있습니다. PC 페이지 모드에서는 ←/→ 또는 Page Up/Page Down 키로 앞뒤 페이지를 넘길 수 있으며, 검색창·메모 등 입력 중에는 페이지 이동 단축키가 작동하지 않습니다.</p></section>
         <section><h3>3. 본문 검색 · 원문 이동</h3><p>뷰어의 검색에서 현재 작품 본문을 검색하면 결과 위치와 앞뒤 문맥이 표시됩니다. 결과를 누르면 해당 문장이 화면 중앙 부근에 오도록 이동하며, 스크롤/페이지 모드 모두 사용할 수 있어요. PC에서는 뷰어가 열린 상태에서 Ctrl+F, Mac에서는 Command+F를 누르면 작품 내 검색창을 바로 열 수 있습니다.</p></section>
         <section><h3>4. 이어보기 · 최근 본 작품</h3><p>로그인 상태로 읽은 TXT의 위치가 저장되어 다시 열 때 이어볼 수 있어요. 이어보기 안내는 뷰어를 열면 먼저 표시되며, 최근 본 작품은 내 정보에서 다시 찾을 수 있습니다.</p></section>
@@ -942,7 +942,7 @@
             <circle cx="11" cy="11" r="6.5"></circle>
             <path d="m16 16 4 4"></path>
           </svg>
-          <input id="librarySearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" />
+          <input id="librarySearchInput" type="search" placeholder="제목 또는 작성자 검색" autocomplete="off" aria-label="현재 목록에서 제목 또는 작성자 검색" />
         </label>
         <button id="libraryClearButton" class="library-clear-button" type="button">전체 삭제</button>
       </div>
@@ -1060,6 +1060,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=945" defer></script>
+  <script src="/app.js?v=947" defer></script>
 </body>
 </html>

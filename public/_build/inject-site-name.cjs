@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { versionStaticAssetUrls } = require("./version-static-assets.cjs");
 
 const root = path.resolve(__dirname, "..", "..");
 const wranglerPath = path.join(root, "wrangler.toml");
@@ -49,6 +50,7 @@ if (!html.includes(token)) {
 }
 
 html = html.replaceAll(token, htmlEscape(siteName));
+html = versionStaticAssetUrls(html, { publicDir: path.join(root, "public") });
 fs.writeFileSync(indexPath, html, "utf8");
 
 console.log(`[build] SITE_NAME injected: ${siteName}`);
