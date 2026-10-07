@@ -1029,6 +1029,7 @@ const els = {
   authSubmitButton: document.getElementById("authSubmitButton"),
   authMessage: document.getElementById("authMessage"),
   authGoSignupButton: document.getElementById("authGoSignupButton"),
+  authForgotPasswordButton: document.getElementById("authForgotPasswordButton"),
   signupModal: document.getElementById("signupModal"),
   signupFormView: document.getElementById("signupFormView"),
   signupCompleteView: document.getElementById("signupCompleteView"),
@@ -1046,8 +1047,15 @@ const els = {
   signupNudgeLogin: document.getElementById("signupNudgeLogin"),
   signupNudgeSignup: document.getElementById("signupNudgeSignup"),
   feedbackModal: document.getElementById("feedbackModal"),
+  feedbackModalKicker: document.getElementById("feedbackModalKicker"),
+  feedbackModalTitle: document.getElementById("feedbackModalTitle"),
+  feedbackModalDescription: document.getElementById("feedbackModalDescription"),
   feedbackForm: document.getElementById("feedbackForm"),
   feedbackCategory: document.getElementById("feedbackCategory"),
+  feedbackAccountFields: document.getElementById("feedbackAccountFields"),
+  feedbackAccountUserId: document.getElementById("feedbackAccountUserId"),
+  feedbackReplyContact: document.getElementById("feedbackReplyContact"),
+  feedbackPrivacyHint: document.getElementById("feedbackPrivacyHint"),
   feedbackMessage: document.getElementById("feedbackMessage"),
   feedbackWebsite: document.getElementById("feedbackWebsite"),
   feedbackSubmitButton: document.getElementById("feedbackSubmitButton"),
@@ -8017,7 +8025,48 @@ async function ensureFeedbackTurnstile() {
   return feedbackTurnstileLoading;
 }
 
-function openFeedbackModal() {
+function isAccountFeedbackCategory() {
+  return String(els.feedbackCategory?.value || "") === "계정 문의";
+}
+
+function syncFeedbackCategoryUi({ clearHiddenAccountValues = false } = {}) {
+  const isAccount = isAccountFeedbackCategory();
+  if (els.feedbackAccountFields) els.feedbackAccountFields.hidden = !isAccount;
+  if (els.feedbackAccountUserId) els.feedbackAccountUserId.required = isAccount;
+  if (els.feedbackReplyContact) els.feedbackReplyContact.required = isAccount;
+
+  if (!isAccount && clearHiddenAccountValues) {
+    if (els.feedbackAccountUserId) els.feedbackAccountUserId.value = "";
+    if (els.feedbackReplyContact) els.feedbackReplyContact.value = "";
+  }
+
+  if (els.feedbackModalKicker) els.feedbackModalKicker.textContent = isAccount ? "ACCOUNT HELP" : "ANONYMOUS FEEDBACK";
+  if (els.feedbackModalTitle) els.feedbackModalTitle.textContent = isAccount ? "계정 문의 보내기" : "익명 의견 보내기";
+  if (els.feedbackModalDescription) {
+    els.feedbackModalDescription.textContent = isAccount
+      ? "비밀번호를 잊은 경우 복구할 계정 아이디와 답변 받을 연락수단을 남겨 주세요. 관리자가 확인 후 수동으로 초기화합니다."
+      : "문의·오류·기능 제안 등 자유롭게 남겨주세요. 일반 의견에는 로그인 정보나 사용자 ID를 저장하지 않습니다.";
+  }
+  if (els.feedbackPrivacyHint) {
+    els.feedbackPrivacyHint.textContent = isAccount
+      ? "계정 문의에는 입력한 계정 아이디와 연락수단만 추가 저장되며 오류 진단정보는 저장하지 않습니다."
+      : "일반 의견은 현재 페이지·사이트 버전과 오류 확인용 진단정보가 함께 저장될 수 있습니다.";
+  }
+  if (els.feedbackSubmitButton && els.feedbackSubmitButton.textContent !== "보내는 중…") {
+    els.feedbackSubmitButton.textContent = isAccount ? "계정 문의 보내기" : "익명으로 보내기";
+  }
+}
+
+function openFeedbackModal({ category = "", accountId = "" } = {}) {
+  const previousCategory = String(els.feedbackCategory?.value || "");
+  if (category && els.feedbackCategory) els.feedbackCategory.value = category;
+  if (category && previousCategory && previousCategory !== category && els.feedbackMessage) {
+    els.feedbackMessage.value = "";
+  }
+  if (category === "계정 문의" && els.feedbackAccountUserId) {
+    els.feedbackAccountUserId.value = String(accountId || "").trim().toLowerCase().slice(0, 20);
+  }
+  syncFeedbackCategoryUi({ clearHiddenAccountValues: !isAccountFeedbackCategory() });
   if (els.feedbackMessageState) {
     els.feedbackMessageState.hidden = true;
     els.feedbackMessageState.classList.remove("is-error");
@@ -8026,15 +8075,34 @@ function openFeedbackModal() {
   ensureFeedbackTurnstile();
 }
 
+els.feedbackCategory?.addEventListener("change", () => {
+  syncFeedbackCategoryUi({ clearHiddenAccountValues: true });
+});
+
 els.helpFeedbackButton?.addEventListener("click", () => {
-  openFeedbackModal();
+  openFeedbackModal({ category: "문의" });
 });
 
 els.feedbackForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = String(els.feedbackMessage?.value || "").trim();
+  const isAccountInquiry = isAccountFeedbackCategory();
+  const accountUserId = String(els.feedbackAccountUserId?.value || "").trim().toLowerCase();
+  const replyContact = String(els.feedbackReplyContact?.value || "").trim();
   if (message.length < 5) {
     els.feedbackMessageState.textContent = "내용을 5자 이상 입력해 주세요.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+    return;
+  }
+  if (isAccountInquiry && !/^[a-z0-9_-]{3,20}$/.test(accountUserId)) {
+    els.feedbackMessageState.textContent = "계정 아이디를 영문 소문자, 숫자, _ - 조합 3~20자로 입력해 주세요.";
+    els.feedbackMessageState.classList.add("is-error");
+    els.feedbackMessageState.hidden = false;
+    return;
+  }
+  if (isAccountInquiry && (replyContact.length < 3 || replyContact.length > 200)) {
+    els.feedbackMessageState.textContent = "답변 받을 연락수단을 3~200자로 입력해 주세요.";
     els.feedbackMessageState.classList.add("is-error");
     els.feedbackMessageState.hidden = false;
     return;
@@ -8069,9 +8137,11 @@ els.feedbackForm?.addEventListener("submit", async (event) => {
         category: els.feedbackCategory?.value || "기타",
         message,
         website: els.feedbackWebsite?.value || "",
+        accountUserId: isAccountInquiry ? accountUserId : "",
+        replyContact: isAccountInquiry ? replyContact : "",
         page: `${location.pathname}${location.search}`,
         version: String(els.publicVersion?.textContent || "").trim(),
-        diagnostic: getIssueReportText(),
+        diagnostic: isAccountInquiry ? "" : getIssueReportText(),
         turnstileToken: feedbackTurnstileToken,
       }),
     });
@@ -8080,7 +8150,11 @@ els.feedbackForm?.addEventListener("submit", async (event) => {
     localStorage.setItem("archiveFeedbackSentAt", String(Date.now()));
     els.feedbackMessage.value = "";
     if (els.feedbackWebsite) els.feedbackWebsite.value = "";
-    els.feedbackMessageState.textContent = "의견을 보냈어요. 고맙습니다.";
+    if (els.feedbackAccountUserId) els.feedbackAccountUserId.value = "";
+    if (els.feedbackReplyContact) els.feedbackReplyContact.value = "";
+    els.feedbackMessageState.textContent = isAccountInquiry
+      ? "계정 문의를 보냈어요. 관리자가 확인 후 남겨주신 연락수단으로 답변합니다."
+      : "의견을 보냈어요. 고맙습니다.";
     els.feedbackMessageState.hidden = false;
     window.setTimeout(() => closeModal(els.feedbackModal), 900);
     // Siteverify 토큰은 1회용이므로 성공 후 위젯을 제거한다.
@@ -8094,7 +8168,7 @@ els.feedbackForm?.addEventListener("submit", async (event) => {
     resetFeedbackTurnstile("자동 입력 방지 확인을 다시 진행해 주세요.", true);
   } finally {
     els.feedbackSubmitButton.disabled = true;
-    els.feedbackSubmitButton.textContent = "익명으로 보내기";
+    els.feedbackSubmitButton.textContent = isAccountInquiry ? "계정 문의 보내기" : "익명으로 보내기";
   }
 });
 
@@ -8132,6 +8206,13 @@ els.recentLibraryButton?.addEventListener("click", () => {
 
 
 
+els.authForgotPasswordButton?.addEventListener("click", () => {
+  openFeedbackModal({
+    category: "계정 문의",
+    accountId: els.authUserId?.value || "",
+  });
+});
+
 els.authGoSignupButton?.addEventListener("click", () => {
   openSignupModal();
 });
@@ -8163,7 +8244,7 @@ els.signupForm?.addEventListener("submit", async (event) => {
 
   if (!els.signupRecoveryConfirm.checked) {
     setSignupMessage(
-      "계정 복구가 현재 제공되지 않는다는 안내를 확인해 주세요.",
+      "자동 비밀번호 찾기 없이 관리자 수동 초기화 방식이라는 안내를 확인해 주세요.",
       true
     );
     return;

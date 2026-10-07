@@ -630,6 +630,11 @@ function renderFeedbackAdmin(data = {}) {
             ${["new", "checked", "done"].map((value) => `<button type="button" data-feedback-status="${value}" class="${status === value ? "is-active" : ""}">${escapeHtml(feedbackStatusLabel(value))}</button>`).join("")}
           </div>
         </div>
+        ${item.category === "계정 문의" ? `
+          <div class="feedback-admin-account">
+            <div><span>계정 ID</span><strong>${escapeHtml(item.account_user_id || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.account_user_id || "")}" aria-label="계정 아이디 복사">복사</button></div>
+            <div><span>연락수단</span><strong>${escapeHtml(item.reply_contact || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.reply_contact || "")}" aria-label="연락수단 복사">복사</button></div>
+          </div>` : ""}
         <div class="feedback-admin-card-message">${escapeHtml(item.message || "")}</div>
         <button type="button" class="feedback-admin-card-context" data-feedback-context aria-expanded="false">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")} <span aria-hidden="true">▾</span></button>
         <pre class="feedback-admin-diagnostic" data-feedback-diagnostic hidden>${escapeHtml(item.diagnostic || "이 의견에는 저장된 진단정보가 없습니다.")}</pre>
@@ -1117,6 +1122,7 @@ function renderAdminUsers() {
       <td>${Number(user.readCount || 0).toLocaleString("ko-KR")}</td>
       <td>
         <div class="user-actions">
+          <button class="user-action-button" type="button" data-user-action="reset_password">비밀번호 초기화</button>
           <button class="user-action-button" type="button" data-user-action="reset_sessions">세션 초기화</button>
           <button class="user-action-button danger" type="button" data-user-action="delete_user">계정 삭제</button>
         </div>
@@ -4515,6 +4521,77 @@ els.userRefreshButton?.addEventListener("click", async () => {
 
 els.userSearchInput?.addEventListener("input", renderAdminUsers);
 
+async function copyAdminText(value) {
+  const text = String(value || "");
+  if (!text) return false;
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    let textarea = null;
+    try {
+      textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      return Boolean(document.execCommand("copy"));
+    } catch {
+      return false;
+    } finally {
+      textarea?.remove();
+    }
+  }
+}
+
+function showTemporaryPasswordModal(userId, temporaryPassword) {
+  let modal = document.getElementById("temporaryPasswordModal");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "temporaryPasswordModal";
+    modal.className = "admin-password-modal";
+    modal.hidden = true;
+    modal.innerHTML = `
+      <div class="admin-password-modal-backdrop" data-password-modal-close></div>
+      <section class="admin-password-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="temporaryPasswordModalTitle">
+        <button type="button" class="admin-password-modal-close" data-password-modal-close aria-label="닫기">×</button>
+        <span>ACCOUNT RECOVERY</span>
+        <h3 id="temporaryPasswordModalTitle">임시 비밀번호 발급 완료</h3>
+        <p class="admin-password-modal-user"></p>
+        <div class="admin-password-value-row">
+          <code></code>
+          <button type="button" data-password-copy>복사</button>
+        </div>
+        <p class="admin-password-modal-note">이 비밀번호 원문은 서버나 DB에 별도 저장되지 않습니다. 창을 닫기 전에 복사해 사용자에게 전달해 주세요. 기존 로그인 세션은 모두 만료되었습니다.</p>
+        <button type="button" class="admin-password-modal-done" data-password-modal-close>확인</button>
+      </section>`;
+    document.body.appendChild(modal);
+    modal.addEventListener("click", async (event) => {
+      if (event.target.closest("[data-password-modal-close]")) {
+        modal.hidden = true;
+        document.body.classList.remove("admin-password-modal-open");
+        modal.querySelector("code").textContent = "";
+        return;
+      }
+      const copyButton = event.target.closest("[data-password-copy]");
+      if (!copyButton) return;
+      const copied = await copyAdminText(modal.querySelector("code")?.textContent || "");
+      copyButton.textContent = copied ? "복사됨" : "복사 실패";
+      window.setTimeout(() => { copyButton.textContent = "복사"; }, 1200);
+    });
+  }
+
+  modal.querySelector(".admin-password-modal-user").textContent = `${userId} 계정의 새 임시 비밀번호입니다.`;
+  modal.querySelector("code").textContent = String(temporaryPassword || "");
+  const copyButton = modal.querySelector("[data-password-copy]");
+  if (copyButton) copyButton.textContent = "복사";
+  modal.hidden = false;
+  document.body.classList.add("admin-password-modal-open");
+  window.setTimeout(() => copyButton?.focus(), 0);
+}
+
 els.userTableBody?.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-user-action]");
   if (!button) return;
@@ -4525,18 +4602,18 @@ els.userTableBody?.addEventListener("click", async (event) => {
 
   if (!userId || !action) return;
 
-  const confirmed = window.confirm(
-    action === "delete_user"
-      ? `${userId} 계정을 삭제할까요?\n이어보기, 북마크, 최근 조회, 방문 기록과 로그인 세션이 모두 삭제됩니다.`
-      : `${userId} 계정의 모든 로그인 세션을 초기화할까요?\n현재 로그인된 기기들은 다시 로그인해야 합니다.`
-  );
+  const confirmMessage = action === "delete_user"
+    ? `${userId} 계정을 삭제할까요?\n세션, 독서 기록, 북마크, 좋아요, 저장 문장·메모, 피드 반응, 계정 연결 통계와 계정 문의 정보가 함께 삭제됩니다.`
+    : action === "reset_password"
+      ? `${userId} 계정의 비밀번호를 임시 비밀번호로 초기화할까요?\n기존 로그인 세션은 모두 만료됩니다.`
+      : `${userId} 계정의 모든 로그인 세션을 초기화할까요?\n현재 로그인된 기기들은 다시 로그인해야 합니다.`;
 
-  if (!confirmed) return;
+  if (!window.confirm(confirmMessage)) return;
 
   button.disabled = true;
 
   try {
-    await api("/api/admin/user-action", {
+    const data = await api("/api/admin/user-action", {
       method: "POST",
       body: JSON.stringify({ action, userId }),
     });
@@ -4544,10 +4621,14 @@ els.userTableBody?.addEventListener("click", async (event) => {
     await loadUserAdminData(false);
 
     els.userMessage.hidden = false;
-    els.userMessage.textContent =
-      action === "delete_user"
+    if (action === "reset_password") {
+      els.userMessage.textContent = `${userId} 계정의 비밀번호를 초기화했습니다.`;
+      showTemporaryPasswordModal(userId, data?.temporaryPassword || "");
+    } else {
+      els.userMessage.textContent = action === "delete_user"
         ? `${userId} 계정을 삭제했습니다.`
         : `${userId} 계정의 로그인 세션을 초기화했습니다.`;
+    }
   } catch (error) {
     els.userMessage.hidden = false;
     els.userMessage.textContent = error.message || "작업에 실패했습니다.";
@@ -5935,6 +6016,16 @@ document.addEventListener("click", (event) => {
     loadFeedbackAdmin().catch(console.error);
     return;
   }
+  const copyButton = event.target.closest("[data-feedback-copy]");
+  if (copyButton) {
+    const original = copyButton.textContent;
+    copyAdminText(copyButton.dataset.feedbackCopy || "").then((copied) => {
+      copyButton.textContent = copied ? "복사됨" : "복사 실패";
+      window.setTimeout(() => { copyButton.textContent = original; }, 1200);
+    });
+    return;
+  }
+
   const contextButton = event.target.closest("[data-feedback-context]");
   if (contextButton) {
     const card = contextButton.closest("[data-feedback-id]");

@@ -11,14 +11,28 @@ async function ensureFeedbackSchema(db) {
       page TEXT,
       version TEXT,
       diagnostic TEXT,
+      account_user_id TEXT,
+      reply_contact TEXT,
       status TEXT NOT NULL DEFAULT 'new',
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `).run();
-  try {
-    await db.prepare(`ALTER TABLE feedback ADD COLUMN diagnostic TEXT`).run();
-  } catch (_) {}
+  const info = await db.prepare("PRAGMA table_info(feedback)").all();
+  const columns = new Set((info?.results || []).map((column) => String(column?.name || "")));
+  const migrations = [
+    ["diagnostic", `ALTER TABLE feedback ADD COLUMN diagnostic TEXT`],
+    ["account_user_id", `ALTER TABLE feedback ADD COLUMN account_user_id TEXT`],
+    ["reply_contact", `ALTER TABLE feedback ADD COLUMN reply_contact TEXT`],
+  ];
+  for (const [column, sql] of migrations) {
+    if (columns.has(column)) continue;
+    try {
+      await db.prepare(sql).run();
+    } catch (error) {
+      if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
+    }
+  }
   await db.prepare(`
     CREATE INDEX IF NOT EXISTS idx_feedback_status_created
     ON feedback(status, created_at DESC)
@@ -38,13 +52,13 @@ export async function onRequestGet(context) {
 
     const rows = safeStatus === "all"
       ? await db.prepare(`
-          SELECT feedback_id, category, message, page, version, diagnostic, status, created_at, updated_at
+          SELECT feedback_id, category, message, page, version, diagnostic, account_user_id, reply_contact, status, created_at, updated_at
           FROM feedback
           ORDER BY created_at DESC
           LIMIT 300
         `).all()
       : await db.prepare(`
-          SELECT feedback_id, category, message, page, version, diagnostic, status, created_at, updated_at
+          SELECT feedback_id, category, message, page, version, diagnostic, account_user_id, reply_contact, status, created_at, updated_at
           FROM feedback
           WHERE status = ?
           ORDER BY created_at DESC

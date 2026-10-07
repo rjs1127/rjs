@@ -5,9 +5,20 @@ import {
   ensurePersonalizationSchema,
   ensureQuoteFeedSchema,
   ensureBookmarkStatsSchema,
+  randomHex,
+  hashPassword,
   userErrorResponse,
 } from "../../_user.js";
 import { requireAdminSession } from "../../_admin_session.js";
+
+function createTemporaryPassword(length = 16) {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  let password = "";
+  for (const value of bytes) password += alphabet[value % alphabet.length];
+  return password;
+}
 
 export async function onRequestPost(context) {
   try {
@@ -48,12 +59,38 @@ export async function onRequestPost(context) {
       });
     }
 
+    if (action === "reset_password") {
+      const temporaryPassword = createTemporaryPassword();
+      const salt = randomHex(16);
+      const passwordHash = await hashPassword(temporaryPassword, salt);
+
+      await db.batch([
+        db.prepare(`
+          UPDATE users
+          SET password_salt = ?, password_hash = ?
+          WHERE user_id = ?
+        `).bind(salt, passwordHash, userId),
+        db.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).bind(userId),
+      ]);
+
+      return jsonResponse({
+        ok: true,
+        action,
+        userId,
+        temporaryPassword,
+      }, 200, { "cache-control": "no-store" });
+    }
+
     if (action === "delete_user") {
       await ensurePersonalizationSchema(db);
       await ensureQuoteFeedSchema(db);
       await ensureBookmarkStatsSchema(db);
       const now = Date.now();
-      await db.batch([
+      const feedbackInfo = await db.prepare("PRAGMA table_info(feedback)").all();
+      const feedbackColumns = new Set(
+        (feedbackInfo?.results || []).map((column) => String(column?.name || ""))
+      );
+      const deleteStatements = [
         db.prepare(`
           UPDATE item_bookmark_counts
           SET bookmark_count = MAX(0, bookmark_count - 1),
@@ -67,13 +104,33 @@ export async function onRequestPost(context) {
         db.prepare(`DELETE FROM user_sessions WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_items WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_likes WHERE user_id = ?`).bind(userId),
+        // 사용자가 다른 사람의 공개 문장에 남긴 좋아요를 먼저 지워 like_count 트리거를 정상 반영한다.
+        db.prepare(`DELETE FROM shared_quote_likes WHERE user_id = ?`).bind(userId),
+        // 사용자가 공유한 문장을 지우면 기존 트리거가 해당 문장에 달린 모든 좋아요도 정리한다.
         db.prepare(`DELETE FROM shared_quotes WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_quotes WHERE user_id = ?`).bind(userId),
+        db.prepare(`DELETE FROM reader_notes WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visits WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM user_visit_stats WHERE user_id = ?`).bind(userId),
+      ];
+
+      // v9.50 이후 계정 문의는 account_user_id/reply_contact를 저장하므로 계정 삭제 때 함께 제거한다.
+      if (feedbackColumns.has("account_user_id")) {
+        deleteStatements.push(
+          db.prepare(`
+            DELETE FROM feedback
+            WHERE category = '계정 문의' AND account_user_id = ?
+          `).bind(userId)
+        );
+      }
+
+      deleteStatements.push(
+        db.prepare(`DELETE FROM analytics_sessions WHERE user_id = ?`).bind(userId),
         db.prepare(`DELETE FROM users WHERE user_id = ?`).bind(userId),
-        db.prepare(`DELETE FROM item_bookmark_counts WHERE bookmark_count <= 0`),
-      ]);
+        db.prepare(`DELETE FROM item_bookmark_counts WHERE bookmark_count <= 0`)
+      );
+
+      await db.batch(deleteStatements);
 
       return jsonResponse({
         ok: true,

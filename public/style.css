@@ -2345,6 +2345,22 @@ body.reader-open .page-scroll-top {
 
 
 /* v6.21 - dedicated signup guidance */
+.auth-forgot-link {
+  justify-self: end;
+  margin: -2px 0 1px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 2px 0;
+  font: inherit;
+  font-size: 9px;
+  font-weight: 800;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.auth-forgot-link:hover { color: var(--ink); }
+
 .auth-secondary-link {
   width: 100%;
   margin-top: 11px;
@@ -4197,15 +4213,19 @@ html.auth-session-pending #signupButton {
 .feedback-form { display: grid; gap: 14px; margin-top: 16px; }
 .feedback-form label { display: grid; gap: 7px; }
 .feedback-form label > span { font-size: 11px; font-weight: 800; color: var(--muted); }
-.feedback-form select, .feedback-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); padding: 11px 12px; font: inherit; outline: none; }
+.feedback-form select, .feedback-form textarea, .feedback-form input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--line); border-radius: 12px; background: var(--paper); color: var(--ink); padding: 11px 12px; font: inherit; outline: none; }
 .feedback-form textarea { resize: vertical; min-height: 150px; line-height: 1.6; }
-.feedback-form select:focus, .feedback-form textarea:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(80,72,64,.08); }
+.feedback-form select:focus, .feedback-form textarea:focus, .feedback-form input[type="text"]:focus { border-color: var(--ink); box-shadow: 0 0 0 3px rgba(80,72,64,.08); }
+.feedback-account-fields { display:grid; gap:12px; padding:12px; border:1px solid var(--line-soft); border-radius:13px; background:rgba(255,255,255,.45); }
+.feedback-account-fields[hidden] { display:none; }
+.feedback-account-notice { margin:0; color:var(--muted); font-size:9px; line-height:1.55; }
 .feedback-form-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .feedback-form-footer small { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .feedback-honeypot { position: absolute !important; left: -9999px !important; width: 1px !important; height: 1px !important; overflow: hidden !important; }
 .feedback-message { margin: 0; font-size: 11px; line-height: 1.5; color: var(--muted); }
 .feedback-message.is-error { color: #a33; }
-html.theme-dark .feedback-form select, html.theme-dark .feedback-form textarea { background: var(--paper); color: var(--ink); }
+html.theme-dark .feedback-form select, html.theme-dark .feedback-form textarea, html.theme-dark .feedback-form input[type="text"] { background: var(--paper); color: var(--ink); }
+html.theme-dark .feedback-account-fields { background:rgba(255,255,255,.025); }
 @media (max-width: 760px) { .feedback-form-footer { align-items: stretch; flex-direction: column; } .feedback-form-footer .modal-primary-button { width: 100%; } }
 
 
