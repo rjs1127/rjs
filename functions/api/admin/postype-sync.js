@@ -11,6 +11,8 @@ import { createDailyRestorePoint } from "../../_ops_automation.js";
 const POSTYPE_SPREADSHEET_ID = "1A6SL397yG59Yfs95x4SAlgqz5oVe26YMOw18gDw2fIw";
 const POSTYPE_SHEET_NAME = "POSTYPE";
 const POSTYPE_INDEX_KEY = "postype:index:v1";
+const LARGE_REMOVAL_MIN_COUNT = 10;
+const LARGE_REMOVAL_RATIO = 0.10;
 
 const REQUIRED_HEADERS = [
   "id",
@@ -203,8 +205,28 @@ function archivesEqual(left, right) {
     JSON.stringify(comparableArchive(right));
 }
 
-export async function runPostypeSync(env) {
+function getRemovedPostypeIds(previousArchive, nextArchive) {
+  const nextIds = new Set((nextArchive?.items || []).map((item) => String(item?.id || "")));
+  return (previousArchive?.items || [])
+    .map((item) => String(item?.id || ""))
+    .filter((id) => id && !nextIds.has(id));
+}
+
+function getLargeRemovalWarning(previousCount, removedCount) {
+  const previous = Math.max(0, Number(previousCount || 0));
+  const removed = Math.max(0, Number(removedCount || 0));
+  if (!previous || !removed) return "";
+
+  const ratio = removed / previous;
+  if (removed === previous || (removed >= LARGE_REMOVAL_MIN_COUNT && ratio >= LARGE_REMOVAL_RATIO)) {
+    return `POSTYPE 노출 작품이 한 번에 ${removed.toLocaleString("ko-KR")}개 (${Math.round(ratio * 100)}%) 줄어들 예정이라 자동 반영을 보류했습니다.`;
+  }
+  return "";
+}
+
+export async function runPostypeSync(env, options = {}) {
   const kv = requireKv(env);
+  const allowLargeRemoval = Boolean(options.allowLargeRemoval);
 
   const accessToken = await getSheetsAccessToken(env);
   const range = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:Z`;
@@ -348,6 +370,31 @@ export async function runPostypeSync(env) {
   };
 
   const existingArchive = await getJson(kv, POSTYPE_INDEX_KEY, null);
+  const removedIds = getRemovedPostypeIds(existingArchive, archive);
+  const previousCount = Number(existingArchive?.count || 0);
+  const removalWarning = getLargeRemovalWarning(previousCount, removedIds.length);
+
+  if (removalWarning && !allowLargeRemoval) {
+    return {
+      ok: true,
+      blocked: true,
+      blockedReason: "large_removal",
+      warning: `${removalWarning} 관리자가 수동 동기화에서 한 번 더 확인하면 적용할 수 있습니다.`,
+      key: POSTYPE_INDEX_KEY,
+      changed: false,
+      kvWritten: false,
+      syncedAt: existingArchive?.syncedAt || null,
+      checkedAt: syncedAt,
+      count: previousCount,
+      candidateCount: archive.count,
+      previousCount,
+      candidateRemovedCount: removedIds.length,
+      candidateRemoved: removedIds,
+      totalRows: archive.totalRows,
+      disabledCount: archive.disabledCount,
+    };
+  }
+
   const changed = !archivesEqual(existingArchive, archive);
   let effectiveSyncedAt = existingArchive?.syncedAt || syncedAt;
 
@@ -365,6 +412,7 @@ export async function runPostypeSync(env) {
 
   return {
     ok: true,
+    blocked: false,
     key: POSTYPE_INDEX_KEY,
     changed,
     kvWritten: changed,
@@ -379,7 +427,11 @@ export async function runPostypeSync(env) {
 export async function onRequestPost(context) {
   try {
     await requireAdminSession(context);
-    const data = await runPostypeSync(context.env);
+    let body = {};
+    try { body = await context.request.json(); } catch {}
+    const data = await runPostypeSync(context.env, {
+      allowLargeRemoval: body?.forceLargeRemoval === true,
+    });
     return jsonResponse(data, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(error);

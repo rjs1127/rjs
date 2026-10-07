@@ -2501,6 +2501,12 @@ function formatAutoSyncResult(source, status) {
     return "Drive 변경사항 확인 중";
   }
   if (status.state === "error") return `실패 · ${status.error || "오류 확인 필요"}`;
+  if (status.state === "warning") {
+    const pendingRemoved = Number(status.candidateRemovedCount || 0);
+    return status.warning || (pendingRemoved > 0
+      ? `자동 반영 보류 · 삭제 후보 ${pendingRemoved.toLocaleString("ko-KR")}개`
+      : "자동 반영 보류 · 관리자 확인 필요");
+  }
 
   if (source === "postype") {
     const updated = Number(status.updatedLatestDates || 0);
@@ -2577,6 +2583,9 @@ function renderAutoSyncStatus(data, setup = autoSyncSetupState) {
       } else if (status?.state === "error") {
         stateEl.textContent = "최근 실행 오류";
         stateEl.classList.add("is-error");
+      } else if (status?.state === "warning") {
+        stateEl.textContent = "확인 필요";
+        stateEl.classList.add("is-warning");
       } else if (scheduleReady) {
         stateEl.textContent = "예약 연결됨";
         stateEl.classList.add("is-ready");
@@ -2688,10 +2697,13 @@ function renderDriveLastSyncStatus(lastSync) {
   const added = Number(lastSync.addedCount || 0);
   const updated = Number(lastSync.updatedCount || 0);
   const removed = Number(lastSync.removedCount || 0);
+  const warning = lastSync?.state === "warning"
+    ? String(lastSync.warning || "동기화 반영 보류 · 관리자 확인 필요")
+    : "";
   els.driveLastSyncStatus.innerHTML = `
     <strong>마지막 동기화</strong>
     <span>${escapeHtml(formatAdminDateTime(lastSync.checkedAt || lastSync.syncedAt))}</span>
-    <em>추가 ${added} · 수정 ${updated} · 삭제 ${removed}</em>`;
+    <em>${warning ? `확인 필요 · ${escapeHtml(warning)}` : `추가 ${added} · 수정 ${updated} · 삭제 ${removed}`}</em>`;
 }
 
 async function loadDriveAdminList() {
@@ -4637,16 +4649,64 @@ els.userTableBody?.addEventListener("click", async (event) => {
   }
 });
 
+async function requestDriveSyncWithSafetyConfirmation() {
+  let data = await api("/api/admin/sync", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+  if (data?.blocked && data.blockedReason === "large_removal") {
+    const removed = Number(data.candidateRemovedCount || 0);
+    const confirmed = window.confirm(
+      `${data.warning || "Drive에서 대량 삭제가 감지되어 자동 반영을 보류했습니다."}\n\n` +
+      `삭제 후보 ${removed.toLocaleString("ko-KR")}개를 실제로 반영하려면 확인을 눌러 다시 동기화합니다.`
+    );
+    if (!confirmed) return data;
+
+    data = await api("/api/admin/sync", {
+      method: "POST",
+      body: JSON.stringify({ forceLargeRemoval: true }),
+    });
+  }
+
+  return data;
+}
+
+async function requestPostypeSyncWithSafetyConfirmation() {
+  let data = await api("/api/admin/postype-sync", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+
+  if (data?.blocked && data.blockedReason === "large_removal") {
+    const removed = Number(data.candidateRemovedCount || 0);
+    const confirmed = window.confirm(
+      `${data.warning || "POSTYPE 노출 작품의 대량 감소가 감지되어 자동 반영을 보류했습니다."}\n\n` +
+      `감소 후보 ${removed.toLocaleString("ko-KR")}개를 실제로 반영하려면 확인을 눌러 다시 동기화합니다.`
+    );
+    if (!confirmed) return data;
+
+    data = await api("/api/admin/postype-sync", {
+      method: "POST",
+      body: JSON.stringify({ forceLargeRemoval: true }),
+    });
+  }
+
+  return data;
+}
+
 els.syncButton.addEventListener("click", async () => {
   els.syncButton.disabled = true;
   els.syncMessage.hidden = false;
   els.syncMessage.textContent = "Google Drive를 다시 읽는 중입니다…";
 
   try {
-    const data = await api("/api/admin/sync", {
-      method: "POST",
-      body: "{}",
-    });
+    const data = await requestDriveSyncWithSafetyConfirmation();
+    if (data?.blocked) {
+      els.syncMessage.textContent = data.warning || "Drive 동기화를 안전을 위해 반영하지 않았습니다.";
+      renderDiagnostics(data.diagnostics || []);
+      return;
+    }
     const reconciled = Number(data.reconciledCount || 0);
     const added = Number(data.addedCount || 0);
     const updated = Number(data.updatedCount || 0);
@@ -4825,10 +4885,11 @@ els.driveRescanButton?.addEventListener("click", async () => {
     "Google Drive를 다시 읽는 중입니다…";
 
   try {
-    const data = await api("/api/admin/sync", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+    const data = await requestDriveSyncWithSafetyConfirmation();
+    if (data?.blocked) {
+      els.driveListMessage.textContent = data.warning || "Drive 동기화를 안전을 위해 반영하지 않았습니다.";
+      return;
+    }
     driveAdminLoaded = false;
     await loadDriveAdminList();
     const added = Number(data.addedCount || 0);
@@ -5246,10 +5307,11 @@ els.postypeSyncButton?.addEventListener("click", async () => {
   els.postypeIdMessage.textContent = "POSTYPE 시트를 읽어 KV에 저장하는 중입니다…";
 
   try {
-    const data = await api("/api/admin/postype-sync", {
-      method: "POST",
-      body: "{}",
-    });
+    const data = await requestPostypeSyncWithSafetyConfirmation();
+    if (data?.blocked) {
+      els.postypeIdMessage.textContent = data.warning || "POSTYPE 동기화를 안전을 위해 반영하지 않았습니다.";
+      return;
+    }
 
     els.postypeIdMessage.textContent =
       (data.changed

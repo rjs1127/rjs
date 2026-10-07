@@ -130,23 +130,31 @@ export async function runDriveAutoSync(env, trigger = "auto") {
   try {
     const data = await runDriveSync(env);
     const finishedAt = new Date().toISOString();
+    const blocked = Boolean(data.blocked);
     const status = await putAutoStatus(kv, "drive", {
-      state: "success",
+      state: blocked ? "warning" : "success",
       trigger,
       startedAt,
       finishedAt,
       checkedAt: data.checkedAt || finishedAt,
-      changed: Boolean(data.changed),
+      changed: blocked ? false : Boolean(data.changed),
+      blocked,
+      blockedReason: data.blockedReason || "",
+      warning: data.warning || "",
+      scanIssues: Array.isArray(data.scanIssues) ? data.scanIssues.slice(0, 20) : [],
       addedCount: Number(data.addedCount || 0),
       updatedCount: Number(data.updatedCount || 0),
       removedCount: Number(data.removedCount || 0),
+      candidateRemovedCount: Number(data.candidateRemovedCount || 0),
+      candidateCount: Number(data.candidateCount || 0),
       count: Number(data.count || 0),
       ...(trigger === "schedule" ? {
         lastScheduledAt: data.checkedAt || finishedAt,
-        lastScheduledChanged: Boolean(data.changed),
+        lastScheduledChanged: blocked ? false : Boolean(data.changed),
         lastScheduledAddedCount: Number(data.addedCount || 0),
         lastScheduledUpdatedCount: Number(data.updatedCount || 0),
         lastScheduledRemovedCount: Number(data.removedCount || 0),
+        lastScheduledWarning: data.warning || "",
       } : {}),
       error: "",
     });
@@ -308,13 +316,19 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
 
     const syncResult = await runPostypeSync(env);
     const finishedAt = new Date().toISOString();
-    const changed = Boolean(syncResult.changed || updatedLatestDates > 0);
+    const blocked = Boolean(syncResult.blocked);
+    const changed = Boolean((!blocked && syncResult.changed) || updatedLatestDates > 0);
     const status = await putAutoStatus(kv, "postype", {
-      state: totalFailed ? "partial" : "success",
+      state: blocked ? "warning" : (totalFailed ? "partial" : "success"),
       trigger,
       finishedAt,
       checkedAt: syncResult.checkedAt || finishedAt,
       changed,
+      blocked,
+      blockedReason: syncResult.blockedReason || "",
+      warning: syncResult.warning || "",
+      candidateRemovedCount: Number(syncResult.candidateRemovedCount || 0),
+      candidateCount: Number(syncResult.candidateCount || 0),
       processedSeries,
       totalSeries: seriesRows.length,
       updatedLatestDates,
@@ -329,6 +343,7 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
         lastScheduledChanged: changed,
         lastScheduledUpdatedLatestDates: updatedLatestDates,
         lastScheduledFailedSeries: totalFailed,
+        lastScheduledWarning: syncResult.warning || "",
       } : {}),
       error: "",
     });

@@ -65,6 +65,10 @@ const state = {
   profileVisibleLimit: 15,
   authMode: "login",
   pendingAuthReason: "",
+  authRestoreInFlight: false,
+  authRestoreRetryNeeded: false,
+  authRestoreRetryCount: 0,
+  authRestoreRetryTimer: 0,
   remoteProgressSyncedAt: new Map(),
   progressSavePending: new Map(),
   localProgressSavedAt: new Map(),
@@ -76,6 +80,7 @@ const state = {
   visitRecordedUserId: "",
   remoteProgressState: new Map(),
   bookmarkSaveTimers: new Map(),
+  bookmarkPersistedValues: new Map(),
   bookmarkCounts: new Map(),
   bookmarkCountsLoaded: false,
   bookmarkCountsLoadedAt: 0,
@@ -1229,7 +1234,10 @@ async function userApi(path, options = {}) {
     if (response.status === 401) {
       clearUserSession(false);
     }
-    throw new Error(data?.error || "요청을 처리하지 못했습니다.");
+    const error = new Error(data?.error || "요청을 처리하지 못했습니다.");
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
@@ -1480,6 +1488,13 @@ function clearUserSession(clearToken = true) {
   state.remoteProgressState = new Map();
   state.remoteProgressSyncedAt = new Map();
   state.progressSavePending = new Map();
+  state.bookmarkPersistedValues = new Map();
+  state.authRestoreRetryNeeded = false;
+  state.authRestoreRetryCount = 0;
+  if (state.authRestoreRetryTimer) {
+    window.clearTimeout(state.authRestoreRetryTimer);
+    state.authRestoreRetryTimer = 0;
+  }
   state.localProgressSavedAt = new Map();
   state.lastExitProgressSignature = "";
   state.lastExitProgressAt = 0;
@@ -1661,6 +1676,12 @@ function applyUserLibraryRows(rows = []) {
       const normalized = normalizeLibraryRow(row);
       return [normalized.fileId, normalized];
     })
+  );
+  state.bookmarkPersistedValues = new Map(
+    [...state.userLibrary.entries()].map(([fileId, entry]) => [
+      fileId,
+      Boolean(entry?.bookmarked),
+    ])
   );
 
   state.remoteProgressState = new Map(
@@ -2562,9 +2583,12 @@ async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceIt
 }
 
 async function restoreAuth() {
+  if (state.authRestoreInFlight) return;
+
   const token = getAuthToken();
   const probeServerSession = !token && shouldProbeServerSession();
   if (!token && !probeServerSession) {
+    state.authRestoreRetryNeeded = false;
     applyUserPreferences();
     updateAccountUi();
     return;
@@ -2574,6 +2598,7 @@ async function restoreAuth() {
     document.documentElement.classList.add("auth-session-pending");
   }
 
+  state.authRestoreInFlight = true;
   try {
     // 로그인 첫 화면에 필요한 개인화 데이터를 한 번의 요청으로 복원한다.
     // Safari에서는 JS 저장소에 토큰이 보이지 않아도 서버가 발급한 HttpOnly
@@ -2582,6 +2607,12 @@ async function restoreAuth() {
       method: "POST",
       body: "{}",
     });
+    state.authRestoreRetryNeeded = false;
+    state.authRestoreRetryCount = 0;
+    if (state.authRestoreRetryTimer) {
+      window.clearTimeout(state.authRestoreRetryTimer);
+      state.authRestoreRetryTimer = 0;
+    }
     state.user = data.user;
     applyUserPreferences();
     updateAccountUi();
@@ -2591,8 +2622,28 @@ async function restoreAuth() {
       state.visitRecordedUserId = state.user?.userId || "";
     }
     flushAnalyticsSession();
-  } catch {
-    clearUserSession(Boolean(token));
+  } catch (error) {
+    if (Number(error?.status || 0) === 401) {
+      // 실제 인증 거절일 때만 장기 자동로그인 토큰/쿠키를 폐기한다.
+      clearUserSession(Boolean(token));
+      return;
+    }
+
+    // 네트워크 단절·5xx 같은 일시 오류는 정상 세션을 로그아웃시키지 않는다.
+    // 공개 화면은 계속 사용할 수 있게 pending UI만 해제하고, 토큰은 다음 복원에 재사용한다.
+    state.authRestoreRetryNeeded = true;
+    applyUserPreferences();
+    updateAccountUi();
+
+    if (navigator.onLine && state.authRestoreRetryCount < 1 && !state.authRestoreRetryTimer) {
+      state.authRestoreRetryCount += 1;
+      state.authRestoreRetryTimer = window.setTimeout(() => {
+        state.authRestoreRetryTimer = 0;
+        if (state.authRestoreRetryNeeded) restoreAuth();
+      }, 1500);
+    }
+  } finally {
+    state.authRestoreInFlight = false;
   }
 }
 
@@ -3853,6 +3904,78 @@ function getPostypeQuoteButtonHtml(item, className = "item-quote-button") {
   `;
 }
 
+function renderBookmarkStateChange(fileId) {
+  render();
+  if (!els.libraryModal?.hidden) renderUserLibraryModal();
+  if (state.profileOpen) renderProfilePage();
+  if (String(state.activeReaderItem?.id || "") === String(fileId || "")) {
+    updateReaderBookmarkButton();
+  }
+}
+
+async function persistBookmarkValue(fileId, label = "북마크") {
+  const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
+  const rollbackValue = state.bookmarkPersistedValues.has(fileId)
+    ? Boolean(state.bookmarkPersistedValues.get(fileId))
+    : false;
+
+  try {
+    const data = await userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "bookmark",
+        fileId,
+        bookmarked: finalValue,
+      }),
+    });
+    state.bookmarkPersistedValues.set(fileId, finalValue);
+    applyBookmarkCountResponse(fileId, data);
+    return true;
+  } catch (error) {
+    // 요청 중 사용자가 다시 토글했다면 더 최신 UI 상태를 오래된 실패가 덮지 않는다.
+    if (Boolean(getUserLibraryEntry(fileId)?.bookmarked) === finalValue) {
+      updateUserLibraryEntry(fileId, { bookmarked: rollbackValue });
+      renderBookmarkStateChange(fileId);
+      window.alert(`${label}를 저장하지 못했습니다. 이전 상태로 되돌렸습니다.`);
+    }
+    console.warn(`${label} 저장 실패`, error);
+    return false;
+  }
+}
+
+function scheduleBookmarkSave(fileId, delay, label = "북마크") {
+  const previousTimer = state.bookmarkSaveTimers.get(fileId);
+  if (previousTimer) window.clearTimeout(previousTimer);
+
+  const timer = window.setTimeout(async () => {
+    state.bookmarkSaveTimers.delete(fileId);
+    await persistBookmarkValue(fileId, label);
+  }, delay);
+  state.bookmarkSaveTimers.set(fileId, timer);
+}
+
+function flushPendingBookmarkSavesBeforePageExit() {
+  if (!state.user || !state.bookmarkSaveTimers.size) return;
+
+  const token = getAuthToken();
+  for (const fileId of state.bookmarkSaveTimers.keys()) {
+    const bookmarked = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
+    const headers = new Headers({ "content-type": "application/json" });
+    if (token) headers.set("authorization", `Bearer ${token}`);
+
+    // 타이머는 취소하지 않는다. bfcache에서 페이지가 돌아오면 정상 저장이 다시 실행되어
+    // keepalive 성공 여부와 무관하게 persisted 상태를 확정할 수 있다.
+    fetch("/api/user/item", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ action: "bookmark", fileId, bookmarked }),
+      cache: "no-store",
+      credentials: "same-origin",
+      keepalive: true,
+    }).catch(() => {});
+  }
+}
+
 async function togglePostypeBookmark(item) {
   if (!item || item.source !== "postype") return;
 
@@ -3875,29 +3998,7 @@ async function togglePostypeBookmark(item) {
   render();
   if (!els.libraryModal?.hidden) renderUserLibraryModal();
 
-  const previousTimer = state.bookmarkSaveTimers.get(fileId);
-  if (previousTimer) window.clearTimeout(previousTimer);
-
-  const timer = window.setTimeout(async () => {
-    state.bookmarkSaveTimers.delete(fileId);
-    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
-
-    try {
-      const data = await userApi("/api/user/item", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "bookmark",
-          fileId,
-          bookmarked: finalValue,
-        }),
-      });
-      applyBookmarkCountResponse(fileId, data);
-    } catch (error) {
-      console.warn("포스타입 북마크 저장 실패", error);
-    }
-  }, 300);
-
-  state.bookmarkSaveTimers.set(fileId, timer);
+  scheduleBookmarkSave(fileId, 300, "포스타입 북마크");
 }
 
 
@@ -3922,26 +4023,7 @@ async function toggleListBookmark(item) {
   render();
   if (!els.libraryModal?.hidden) renderUserLibraryModal();
 
-  const previousTimer = state.bookmarkSaveTimers.get(fileId);
-  if (previousTimer) window.clearTimeout(previousTimer);
-  const timer = window.setTimeout(async () => {
-    state.bookmarkSaveTimers.delete(fileId);
-    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
-    try {
-      const data = await userApi("/api/user/item", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "bookmark",
-          fileId,
-          bookmarked: finalValue,
-        }),
-      });
-      applyBookmarkCountResponse(fileId, data);
-    } catch (error) {
-      console.warn("북마크 저장 실패", error);
-    }
-  }, 300);
-  state.bookmarkSaveTimers.set(fileId, timer);
+  scheduleBookmarkSave(fileId, 300, "북마크");
 }
 
 function getMobileListMoreHtml(item) {
@@ -8360,29 +8442,7 @@ els.readerBookmarkButton?.addEventListener("click", () => {
   });
   updateReaderBookmarkButton();
 
-  const previousTimer = state.bookmarkSaveTimers.get(fileId);
-  if (previousTimer) window.clearTimeout(previousTimer);
-
-  const timer = window.setTimeout(async () => {
-    state.bookmarkSaveTimers.delete(fileId);
-    const finalValue = Boolean(getUserLibraryEntry(fileId)?.bookmarked);
-
-    try {
-      const data = await userApi("/api/user/item", {
-        method: "POST",
-        body: JSON.stringify({
-          action: "bookmark",
-          fileId,
-          bookmarked: finalValue,
-        }),
-      });
-      applyBookmarkCountResponse(fileId, data);
-    } catch (error) {
-      console.warn("북마크 저장 실패", error);
-    }
-  }, 650);
-
-  state.bookmarkSaveTimers.set(fileId, timer);
+  scheduleBookmarkSave(fileId, 650, "북마크");
 });
 
 
@@ -9478,7 +9538,11 @@ function flushReaderProgressBeforePageExit() {
   }).catch(() => {});
 }
 
-window.addEventListener("pagehide", flushReaderProgressBeforePageExit);
+window.addEventListener("pagehide", (event) => {
+  flushReaderProgressBeforePageExit();
+  // bfcache로 잠시 보관되는 페이지는 타이머가 복귀 후 계속 실행되므로 중복 요청을 만들지 않는다.
+  if (!event.persisted) flushPendingBookmarkSavesBeforePageExit();
+});
 
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") {
@@ -11413,7 +11477,13 @@ applyUserPreferences();
 loadPublicVersion();
 updateNetworkStatus();
 syncAppInstallHelpVisibility();
-window.addEventListener("online", updateNetworkStatus);
+window.addEventListener("online", () => {
+  updateNetworkStatus();
+  if (state.authRestoreRetryNeeded) {
+    state.authRestoreRetryCount = 0;
+    restoreAuth();
+  }
+});
 window.addEventListener("offline", updateNetworkStatus);
 updatePageScrollTopButton();
 updateCompactHeader();

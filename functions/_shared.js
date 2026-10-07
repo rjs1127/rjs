@@ -168,25 +168,50 @@ async function getSheetsAccessToken(env) {
   );
 }
 
-async function driveFetch(accessToken, path, init = {}) {
-  const response = await fetch(`https://www.googleapis.com/drive/v3${path}`, {
-    ...init,
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      ...(init.headers || {}),
-    },
-  });
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  if (!response.ok) {
+function getRetryDelayMs(response, attempt) {
+  const retryAfter = Number(response?.headers?.get?.("retry-after") || 0);
+  if (Number.isFinite(retryAfter) && retryAfter > 0) {
+    return Math.min(2500, retryAfter * 1000);
+  }
+  return attempt === 0 ? 250 : 700;
+}
+
+async function driveFetch(accessToken, path, init = {}) {
+  const maxRetries = 2;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
+    const response = await fetch(`https://www.googleapis.com/drive/v3${path}`, {
+      ...init,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...(init.headers || {}),
+      },
+    });
+
+    if (response.ok) return response;
+
+    const retryable = response.status === 429 || response.status >= 500;
+    if (retryable && attempt < maxRetries) {
+      try { await response.arrayBuffer(); } catch {}
+      await wait(getRetryDelayMs(response, attempt));
+      continue;
+    }
+
     let message = `Google Drive API 오류 (${response.status})`;
     try {
       const data = await response.json();
       message = data?.error?.message || message;
     } catch {}
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
 
-  return response;
+  throw new Error("Google Drive API 재시도에 실패했습니다.");
 }
 
 async function listFolder(accessToken, folderId) {
