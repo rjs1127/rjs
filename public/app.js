@@ -52,6 +52,7 @@ const state = {
   quoteFeedItems: [],
   quoteFeedNextCursor: null,
   quoteFeedLoading: false,
+  quoteFeedError: "",
   quoteFeedLoaded: false,
   quoteFeedSort: "latest",
   quoteFeedLikeSaving: new Set(),
@@ -2267,6 +2268,11 @@ function renderQuoteFeed() {
     }).join("");
   }
 
+  if (els.quoteFeedStatus && state.quoteFeedError) {
+    els.quoteFeedStatus.hidden = false;
+    els.quoteFeedStatus.textContent = state.quoteFeedError;
+  }
+
   if (els.quoteFeedSortLatest) {
     els.quoteFeedSortLatest.classList.toggle("is-active", state.quoteFeedSort === "latest");
     els.quoteFeedSortLatest.disabled = state.quoteFeedLoading;
@@ -2291,6 +2297,7 @@ async function loadQuoteFeed({ append = false } = {}) {
   if (state.quoteFeedLoading) return;
   if (append && !state.quoteFeedNextCursor) return;
   state.quoteFeedLoading = true;
+  state.quoteFeedError = "";
   renderQuoteFeed();
   try {
     const params = new URLSearchParams({ limit: "18", sort: state.quoteFeedSort });
@@ -2308,10 +2315,7 @@ async function loadQuoteFeed({ append = false } = {}) {
   } catch (error) {
     console.warn("문장 피드 불러오기 실패", error);
     if (!append) state.quoteFeedItems = [];
-    if (els.quoteFeedStatus) {
-      els.quoteFeedStatus.hidden = false;
-      els.quoteFeedStatus.textContent = "문장 피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
-    }
+    state.quoteFeedError = "문장 피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
   } finally {
     state.quoteFeedLoading = false;
     renderQuoteFeed();
