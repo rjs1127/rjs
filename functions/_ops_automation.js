@@ -140,14 +140,32 @@ function buildSyncHealth(postype, drive) {
     { source: "drive", label: "Drive", status: drive },
   ].map((item) => {
     const last = item.status?.lastScheduledAt || "";
-    const error = item.status?.lastScheduledError || (item.status?.state === "error" ? item.status?.error : "");
-    const onTime = sameKstDate(last, expectedDate) && !error;
-    return { ...item, expectedDate, lastScheduledAt: last, onTime, error: error || "" };
+    const error = item.status?.lastScheduledError || "";
+    const warning = item.status?.lastScheduledWarning || "";
+    const scheduledState = item.status?.lastScheduledState || (
+      error ? "error" :
+      warning ? "warning" :
+      item.status?.state === "error" ? "error" :
+      "success"
+    );
+    const onTime = sameKstDate(last, expectedDate);
+    const needsAttention = !onTime || scheduledState !== "success" || Boolean(error) || Boolean(warning);
+    return {
+      ...item,
+      expectedDate,
+      lastScheduledAt: last,
+      onTime,
+      needsAttention,
+      scheduledState,
+      error: error || "",
+      warning: warning || "",
+    };
   });
   return {
     expectedDate,
     rows,
     delayed: rows.filter((row) => !row.onTime),
+    attention: rows.filter((row) => row.needsAttention),
   };
 }
 
@@ -164,7 +182,15 @@ export async function runOpsAutomation(env, trigger = "schedule") {
   const syncHealth = buildSyncHealth(postype, drive);
   const warnings = [
     ...perfWarnings.map((text) => ({ type: "performance", text })),
-    ...syncHealth.delayed.map((row) => ({ type: "sync", source: row.source, text: `${row.label} 자동동기화 확인 필요` })),
+    ...syncHealth.attention.map((row) => ({
+      type: "sync",
+      source: row.source,
+      text: row.error
+        ? `${row.label} 자동동기화 오류: ${row.error}`
+        : row.warning
+          ? `${row.label} 자동동기화 확인 필요: ${row.warning}`
+          : `${row.label} 자동동기화 확인 필요`,
+    })),
   ];
   const checkedAt = new Date().toISOString();
   const status = {
@@ -191,8 +217,28 @@ export async function getOpsAutomationStatus(env) {
     getJson(kv, AUTO_SYNC_STATUS_KEYS.drive, null),
   ]);
   const syncHealth = buildSyncHealth(postype, drive);
+  const performanceWarnings = Array.isArray(saved?.performanceWarnings) ? saved.performanceWarnings : [];
+  const syncWarnings = syncHealth.attention.map((row) => ({
+    type: "sync",
+    source: row.source,
+    text: row.error
+      ? `${row.label} 자동동기화 오류: ${row.error}`
+      : row.warning
+        ? `${row.label} 자동동기화 확인 필요: ${row.warning}`
+        : `${row.label} 자동동기화 확인 필요`,
+  }));
+  const warnings = [
+    ...performanceWarnings.map((value) => typeof value === "string" ? { type: "performance", text: value } : value),
+    ...syncWarnings,
+  ];
+  const currentStatus = saved ? {
+    ...saved,
+    state: warnings.length ? "warning" : "normal",
+    syncHealth,
+    warnings,
+  } : null;
   return {
-    status: saved,
+    status: currentStatus,
     syncHealth,
     restorePoints: Array.isArray(restorePoints) ? restorePoints.slice(0, 10) : [],
     schedule: { time: "00:30", timezone: "Asia/Seoul", description: "전날 자동동기화 및 최근 24시간 성능 점검" },

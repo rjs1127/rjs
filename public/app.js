@@ -2724,10 +2724,21 @@ function updateReaderBookmarkButton() {
 function recordRecentView(item) {
   if (!state.user || !item) return;
 
-  // The server-side recent-view write is folded into /api/content so opening
-  // one work does not create a second Functions round trip. Keep the local
-  // timestamp immediate so recent-item UI still updates without waiting.
-  updateUserLibraryEntry(item.id, { viewedAt: Date.now() });
+  const viewedAt = Date.now();
+  updateUserLibraryEntry(item.id, { viewedAt });
+
+  // TXT는 /api/content 성공 뒤 서버 최근조회가 함께 저장된다.
+  // POSTYPE는 외부 링크만 열기 때문에 여기서 별도 view 저장이 필요하다.
+  if (item.source === "postype") {
+    void userApi("/api/user/item", {
+      method: "POST",
+      body: JSON.stringify({ action: "view", fileId: item.id }),
+    }).then((data) => {
+      updateUserLibraryEntry(item.id, { viewedAt: Number(data?.viewedAt || viewedAt) });
+    }).catch((error) => {
+      console.warn("POSTYPE 최근조회 저장 실패", error);
+    });
+  }
 }
 
 
@@ -8159,12 +8170,12 @@ function syncFeedbackCategoryUi({ clearHiddenAccountValues = false } = {}) {
   if (els.feedbackModalTitle) els.feedbackModalTitle.textContent = isAccount ? "계정 문의 보내기" : "익명 의견 보내기";
   if (els.feedbackModalDescription) {
     els.feedbackModalDescription.textContent = isAccount
-      ? "비밀번호를 잊은 경우 복구할 계정 아이디와 답변 받을 연락수단을 남겨 주세요. 관리자가 확인 후 수동으로 초기화합니다."
+      ? "비밀번호를 잊은 경우 계정 아이디·답변 받을 연락수단과 함께 최근 읽은 작품이나 북마크한 작품 등 본인 확인에 도움이 되는 이용 기록을 내용에 적어 주세요. 관리자가 계정 기록과 대조한 뒤 수동으로 초기화합니다."
       : "문의·오류·기능 제안 등 자유롭게 남겨주세요. 일반 의견에는 로그인 정보나 사용자 ID를 저장하지 않습니다.";
   }
   if (els.feedbackPrivacyHint) {
     els.feedbackPrivacyHint.textContent = isAccount
-      ? "계정 문의에는 입력한 계정 아이디와 연락수단만 추가 저장되며 오류 진단정보는 저장하지 않습니다."
+      ? "계정 문의에는 입력한 계정 아이디·연락수단과 문의 내용이 저장됩니다. 연락수단만으로는 본인 확인하지 않으며 오류 진단정보는 저장하지 않습니다."
       : "일반 의견은 현재 페이지·사이트 버전과 오류 확인용 진단정보가 함께 저장될 수 있습니다.";
   }
   if (els.feedbackSubmitButton && els.feedbackSubmitButton.textContent !== "보내는 중…") {
@@ -10442,7 +10453,7 @@ function ensureReaderShareUi() {
     bd.innerHTML=`<section class="reader-memo-dialog" role="dialog" aria-modal="true"><h3>메모 남기기</h3><p class="reader-memo-quote">${escapeHtml(text)}</p><textarea class="reader-memo-input" maxlength="4000" placeholder="이 문장에 남길 메모를 입력하세요."></textarea><div class="reader-memo-actions"><button type="button" data-memo-cancel>취소</button><button type="button" class="primary" data-memo-save>저장</button></div></section>`;
     document.body.appendChild(bd); const input=bd.querySelector("textarea"); setTimeout(()=>input?.focus(),0);
     const closeMemo=()=>bd.remove(); bd.querySelector("[data-memo-cancel]")?.addEventListener("click",closeMemo); bd.addEventListener("pointerdown",e=>{if(e.target===bd)closeMemo();});
-    bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); state.myLibraryLoaded=true; closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
+    bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
 readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };

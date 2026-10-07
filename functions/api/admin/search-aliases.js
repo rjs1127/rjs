@@ -1,4 +1,4 @@
-import { SEARCH_ALIASES_KEY, jsonResponse, requireKv, getJson, refreshPublicArchiveIndex } from "../../_shared.js";
+import { SEARCH_ALIASES_KEY, jsonResponse, requireKv, getJson, refreshPublicArchiveIndex, repairPublicArchiveIndexIfDirty } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
 const normalizeKey = (value) => String(value || "").normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("ko-KR");
@@ -48,11 +48,13 @@ export async function onRequestPost(context) {
         );
 
     if (unchanged) {
+      const repaired = await repairPublicArchiveIndexIfDirty(kv, { searchAliases: data });
       return jsonResponse({
         ok: true,
         changed: false,
         kvWritten: false,
-        indexRefreshed: false,
+        indexRefreshed: repaired,
+        publicIndexRepaired: repaired,
         aliases: data,
       });
     }

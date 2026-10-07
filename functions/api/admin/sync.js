@@ -8,6 +8,7 @@ import {
   mergeDriveArchiveDelta,
   reconcileOverridesWithArchive,
   refreshPublicArchiveIndex,
+  repairPublicArchiveIndexIfDirty,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 import { createDailyRestorePoint } from "../../_ops_automation.js";
@@ -15,6 +16,7 @@ import { createDailyRestorePoint } from "../../_ops_automation.js";
 const LAST_DRIVE_SYNC_KEY = "archive:last-drive-sync:v1";
 const LARGE_REMOVAL_MIN_COUNT = 10;
 const LARGE_REMOVAL_RATIO = 0.10;
+const BODY_CACHE_PURGE_QUEUE_KEY = "archive:body-cache-purge-queue:v1";
 
 function collectDriveScanIssues(archive) {
   const issues = [];
@@ -41,6 +43,44 @@ function getLargeRemovalWarning(previousCount, removedCount) {
     return `Drive 작품이 한 번에 ${removed.toLocaleString("ko-KR")}개 (${Math.round(ratio * 100)}%) 삭제될 예정이라 자동 반영을 보류했습니다.`;
   }
   return "";
+}
+
+
+async function enqueueBodyCachePurges(kv, ids = []) {
+  const nextIds = [...new Set((ids || []).map((id) => String(id || "").trim()).filter(Boolean))];
+  if (!nextIds.length) return [];
+  const previous = await getJson(kv, BODY_CACHE_PURGE_QUEUE_KEY, []);
+  const merged = [...new Set([...(Array.isArray(previous) ? previous : []), ...nextIds])];
+  await kv.put(BODY_CACHE_PURGE_QUEUE_KEY, JSON.stringify(merged));
+  return merged;
+}
+
+async function purgeQueuedBodyCaches(kv, archive) {
+  const queued = await getJson(kv, BODY_CACHE_PURGE_QUEUE_KEY, []);
+  if (!Array.isArray(queued) || !queued.length) return { queued: 0, deletedKeys: 0 };
+
+  const activeIds = new Set((archive?.items || []).map((item) => String(item?.id || "")).filter(Boolean));
+  const targets = [...new Set(queued.map((id) => String(id || "").trim()).filter((id) => id && !activeIds.has(id)))];
+  if (!targets.length) {
+    await kv.delete(BODY_CACHE_PURGE_QUEUE_KEY);
+    return { queued: queued.length, deletedKeys: 0 };
+  }
+
+  let deletedKeys = 0;
+  for (const id of targets) {
+    let cursor = undefined;
+    do {
+      const page = await kv.list({ prefix: `body:${id}:`, ...(cursor ? { cursor } : {}) });
+      for (const key of page?.keys || []) {
+        await kv.delete(key.name);
+        deletedKeys += 1;
+      }
+      cursor = page?.list_complete ? undefined : page?.cursor;
+    } while (cursor);
+  }
+
+  await kv.delete(BODY_CACHE_PURGE_QUEUE_KEY);
+  return { queued: targets.length, deletedKeys };
 }
 
 async function saveBlockedLastSync(kv, previousArchive, scannedArchive, patch = {}) {
@@ -149,20 +189,33 @@ export async function runDriveSync(env, options = {}) {
   }
 
   const archive = delta.archive;
-  const reconciliation = reconcileOverridesWithArchive(
+  const initialReconciliation = reconcileOverridesWithArchive(
     archive,
     existingOverrides,
     previousArchive
   );
 
+  // Drive 스캔 중 관리자가 수동 제목/작가를 수정해도 오래된 스냅샷으로
+  // OVERRIDES_KEY 전체를 덮어쓰지 않는다. 실제로 제거가 필요한 ID만
+  // 저장 직전에 최신 overrides에서 지운다.
+  const reconciledIds = new Set((initialReconciliation.reconciled || []).map((item) => String(item?.id || "")).filter(Boolean));
+  let latestOverrides = existingOverrides || {};
+  let nextOverrides = initialReconciliation.overrides || {};
+  if (reconciledIds.size) {
+    latestOverrides = await getJson(kv, OVERRIDES_KEY, {});
+    nextOverrides = { ...(latestOverrides || {}) };
+    for (const id of reconciledIds) delete nextOverrides[id];
+  }
+
   const overridesChanged =
-    JSON.stringify(existingOverrides || {}) !==
-    JSON.stringify(reconciliation.overrides || {});
+    JSON.stringify(latestOverrides || {}) !==
+    JSON.stringify(nextOverrides || {});
+  const reconciliation = { ...initialReconciliation, overrides: nextOverrides };
 
   if (delta.changed || overridesChanged) {
     await createDailyRestorePoint(kv, "drive", {
       archive: previousArchive,
-      overrides: existingOverrides || {},
+      overrides: latestOverrides || {},
     }, {
       addedCount: delta.added.length,
       updatedCount: delta.updated.length,
@@ -171,19 +224,40 @@ export async function runDriveSync(env, options = {}) {
     });
   }
 
+  // 삭제된 Drive 파일의 본문 캐시는 나중에라도 반드시 정리할 수 있도록
+  // 원본 아카이브를 바꾸기 전에 삭제 대기열을 남긴다. 파일이 복구되면
+  // purge 단계에서 현재 아카이브를 보고 자동으로 제외한다.
+  if (delta.removed.length) {
+    await enqueueBodyCachePurges(kv, delta.removed);
+  }
+
   if (delta.changed) {
     await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
   }
   if (overridesChanged) {
-    await kv.put(OVERRIDES_KEY, JSON.stringify(reconciliation.overrides));
+    await kv.put(OVERRIDES_KEY, JSON.stringify(nextOverrides));
   }
 
+  let publicIndexRepaired = false;
   if (delta.changed || overridesChanged) {
-    await refreshPublicArchiveIndex(kv, { archive, overrides: reconciliation.overrides });
+    // overrides는 여기서 다시 읽게 해 동기화 도중 들어온 관리자 수정이
+    // 공개 인덱스에서 되돌아가지 않도록 한다.
+    await refreshPublicArchiveIndex(kv, { archive });
+  } else {
+    publicIndexRepaired = await repairPublicArchiveIndexIfDirty(kv, { archive });
+  }
+
+  let cachePurge = { queued: 0, deletedKeys: 0 };
+  let cachePurgeWarning = "";
+  try {
+    cachePurge = await purgeQueuedBodyCaches(kv, archive);
+  } catch (error) {
+    cachePurgeWarning = `삭제된 TXT 본문 캐시 정리를 완료하지 못했습니다: ${error?.message || "알 수 없는 오류"}`;
+    console.warn(cachePurgeWarning);
   }
 
   const lastSync = {
-    state: "success",
+    state: cachePurgeWarning ? "warning" : "success",
     blocked: false,
     checkedAt: delta.checkedAt || new Date().toISOString(),
     syncedAt: archive.syncedAt || null,
@@ -193,6 +267,10 @@ export async function runDriveSync(env, options = {}) {
     removedCount: delta.removed.length,
     unchangedCount: delta.unchangedCount,
     count: archive.count,
+    publicIndexRepaired,
+    cachePurgeDeletedKeys: Number(cachePurge.deletedKeys || 0),
+    cachePurgeWarning,
+    warning: cachePurgeWarning,
   };
   await kv.put(LAST_DRIVE_SYNC_KEY, JSON.stringify(lastSync));
 
@@ -215,6 +293,10 @@ export async function runDriveSync(env, options = {}) {
     diagnostics: archive.diagnostics || [],
     reconciledCount: reconciliation.reconciled.length,
     reconciled: reconciliation.reconciled,
+    publicIndexRepaired,
+    cachePurgeDeletedKeys: Number(cachePurge.deletedKeys || 0),
+    cachePurgeWarning,
+    warning: cachePurgeWarning,
   };
 }
 

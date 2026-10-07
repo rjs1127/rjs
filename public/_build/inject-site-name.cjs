@@ -5,6 +5,7 @@ const { versionStaticAssetUrls } = require("./version-static-assets.cjs");
 const root = path.resolve(__dirname, "..", "..");
 const wranglerPath = path.join(root, "wrangler.toml");
 const indexPath = path.join(root, "public", "index.html");
+const versionPath = path.join(root, "public", "version.json");
 const token = "__SITE_NAME__";
 
 function decodeTomlString(raw) {
@@ -50,10 +51,25 @@ if (!html.includes(token)) {
 }
 
 html = html.replaceAll(token, htmlEscape(siteName));
+
+if (!fs.existsSync(versionPath)) {
+  throw new Error("public/version.json을 찾지 못했습니다.");
+}
+const versionData = JSON.parse(fs.readFileSync(versionPath, "utf8"));
+const publicVersion = String(versionData?.version || "").trim();
+if (!/^\d+\.\d+(?:\.\d+)?$/.test(publicVersion)) {
+  throw new Error("public/version.json의 version 형식이 올바르지 않습니다.");
+}
+const publicVersionPattern = /(<span\s+id=["']publicVersion["'][^>]*>)\s*v?[^<]*(<\/span>)/i;
+if (!publicVersionPattern.test(html)) {
+  throw new Error("public/index.html에서 #publicVersion 표시를 찾지 못했습니다.");
+}
+html = html.replace(publicVersionPattern, `$1v${publicVersion}$2`);
 html = versionStaticAssetUrls(html, { publicDir: path.join(root, "public") });
 fs.writeFileSync(indexPath, html, "utf8");
 
 console.log(`[build] SITE_NAME injected: ${siteName}`);
+console.log(`[build] public version injected: v${publicVersion}`);
 
 // Do not publish local/build helpers with the public site. The Git working
 // tree remains unchanged; this cleanup only affects the build output clone.

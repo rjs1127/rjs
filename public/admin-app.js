@@ -317,6 +317,9 @@ let driveAdminPage = 1;
 let driveAdminFilter = "all";
 let feedbackAdminLoaded = false;
 let feedbackAdminFilter = "all";
+let sharedQuoteAdminLoaded = false;
+let sharedQuoteAdminData = { count: 0, items: [] };
+let deployInProgress = false;
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
 let resourceAnalyticsPeriod = "today";
@@ -421,7 +424,8 @@ function renderOpsAutomation(data = {}) {
   const perf = status?.performance || {};
   const warnings = Array.isArray(status?.warnings) ? status.warnings : [];
   const restorePoints = Array.isArray(data.restorePoints) ? data.restorePoints : [];
-  const normal = status?.state === "normal" && !(syncHealth?.delayed || []).length;
+  const syncAttention = Array.isArray(syncHealth?.attention) ? syncHealth.attention : (syncHealth?.delayed || []);
+  const normal = status?.state === "normal" && !syncAttention.length;
 
   if (els.opsAutomationOverall) {
     els.opsAutomationOverall.classList.toggle("is-warning", !normal && Boolean(status));
@@ -431,11 +435,21 @@ function renderOpsAutomation(data = {}) {
   if (els.opsAutomationCheckedAt) els.opsAutomationCheckedAt.textContent = status?.checkedAt ? `마지막 점검 ${formatSummaryDate(status.checkedAt)}` : "매일 00:30 자동 점검";
 
   const delayed = Array.isArray(syncHealth?.delayed) ? syncHealth.delayed : [];
-  if (els.opsAutomationSyncState) els.opsAutomationSyncState.textContent = delayed.length ? `지연 ${delayed.length}건` : "정상";
+  const attention = Array.isArray(syncHealth?.attention) ? syncHealth.attention : delayed;
+  if (els.opsAutomationSyncState) {
+    els.opsAutomationSyncState.textContent = attention.length
+      ? `확인 ${attention.length}건${delayed.length ? ` · 지연 ${delayed.length}` : ""}`
+      : "정상";
+  }
   if (els.opsAutomationSyncMeta) {
     const rows = Array.isArray(syncHealth?.rows) ? syncHealth.rows : [];
     els.opsAutomationSyncMeta.textContent = rows.length
-      ? rows.map((row) => `${row.label} ${row.onTime ? "✓" : "확인"}`).join(" · ")
+      ? rows.map((row) => {
+          if (!row.onTime) return `${row.label} 지연`;
+          if (row.error) return `${row.label} 오류`;
+          if (row.warning || row.scheduledState === "warning" || row.scheduledState === "partial") return `${row.label} 확인`;
+          return `${row.label} ✓`;
+        }).join(" · ")
       : "POSTYPE · Drive";
   }
 
@@ -553,14 +567,24 @@ function setActiveTab(name) {
     });
   }
 
-  if (name === "feedback" && !feedbackAdminLoaded) {
-    loadFeedbackAdmin().catch((error) => {
-      console.error(error);
-      if (els.feedbackAdminMessage) {
-        els.feedbackAdminMessage.hidden = false;
-        els.feedbackAdminMessage.textContent = error.message || "의견함을 불러오지 못했습니다.";
-      }
-    });
+  if (name === "feedback") {
+    ensureSharedQuoteModerationPanel();
+    if (!feedbackAdminLoaded) {
+      loadFeedbackAdmin().catch((error) => {
+        console.error(error);
+        if (els.feedbackAdminMessage) {
+          els.feedbackAdminMessage.hidden = false;
+          els.feedbackAdminMessage.textContent = error.message || "의견함을 불러오지 못했습니다.";
+        }
+      });
+    }
+    if (!sharedQuoteAdminLoaded) {
+      loadSharedQuoteAdmin().catch((error) => {
+        console.error(error);
+        const message = document.getElementById("sharedQuoteAdminMessage");
+        if (message) message.textContent = error.message || "공개 문장 목록을 불러오지 못했습니다.";
+      });
+    }
   }
 
   if (name === "resources" && !resourceUsageLoaded) {
@@ -586,6 +610,20 @@ function renderFeedbackBadge(value) {
   const newCount = Math.max(0, Number(value || 0));
   els.feedbackTabBadge.textContent = String(newCount);
   els.feedbackTabBadge.hidden = newCount <= 0;
+}
+
+function feedbackAccountSummary(userId) {
+  const normalized = String(userId || "").trim().toLowerCase();
+  if (!normalized) return "계정 요약 없음";
+  const user = (userAdminData.users || []).find((entry) => String(entry.userId || "").toLowerCase() === normalized);
+  if (!user) return "현재 불러온 유저 목록에서 계정 요약을 찾지 못했습니다. 유저 관리에서 직접 확인하세요.";
+  return [
+    `가입 ${formatShortDate(user.createdAt)}`,
+    `최근 활동 ${user.lastActivityAt ? formatDate(user.lastActivityAt) : "-"}`,
+    `북마크 ${Number(user.bookmarkCount || 0).toLocaleString("ko-KR")}`,
+    `최근조회 ${Number(user.recentCount || 0).toLocaleString("ko-KR")}`,
+    `읽음 ${Number(user.readCount || 0).toLocaleString("ko-KR")}`,
+  ].join(" · ");
 }
 
 function renderFeedbackAdmin(data = {}) {
@@ -619,6 +657,8 @@ function renderFeedbackAdmin(data = {}) {
           <div class="feedback-admin-account">
             <div><span>계정 ID</span><strong>${escapeHtml(item.account_user_id || "-")}</strong><span class="feedback-admin-account-actions"><button type="button" data-feedback-copy="${escapeHtml(item.account_user_id || "")}" aria-label="계정 아이디 복사" ${item.account_user_id ? "" : "disabled"}>복사</button><button type="button" data-feedback-user-open="${escapeHtml(item.account_user_id || "")}" ${item.account_user_id ? "" : "disabled"}>유저 관리</button></span></div>
             <div><span>연락수단</span><strong>${escapeHtml(item.reply_contact || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.reply_contact || "")}" aria-label="연락수단 복사" ${item.reply_contact ? "" : "disabled"}>복사</button></div>
+            <p class="feedback-admin-account-summary">${escapeHtml(feedbackAccountSummary(item.account_user_id))}</p>
+            <p class="feedback-admin-account-warning">연락수단만으로는 본인 확인이 되지 않습니다. 문의 내용의 최근 열람·북마크 등 이용 기록을 위 계정 요약 및 유저 관리의 실제 기록과 대조한 뒤 비밀번호를 초기화하세요.</p>
           </div>` : ""}
         <div class="feedback-admin-card-message">${escapeHtml(item.message || "")}</div>
         <button type="button" class="feedback-admin-card-context" data-feedback-context aria-expanded="false">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")} <span aria-hidden="true">▾</span></button>
@@ -633,6 +673,83 @@ async function loadFeedbackAdmin() {
   const data = await api(`/api/admin/feedback?status=${encodeURIComponent(feedbackAdminFilter)}`, { method: "GET" });
   renderFeedbackAdmin(data);
   feedbackAdminLoaded = true;
+}
+
+function ensureSharedQuoteModerationPanel() {
+  if (document.getElementById("sharedQuoteModerationPanel")) return;
+  const feedbackPanel = document.querySelector('[data-tab-panel="feedback"] .panel');
+  if (!feedbackPanel) return;
+
+  const section = document.createElement("section");
+  section.id = "sharedQuoteModerationPanel";
+  section.className = "shared-quote-admin-panel";
+  section.innerHTML = `
+    <div class="shared-quote-admin-head">
+      <div>
+        <span>QUOTE FEED MODERATION</span>
+        <strong>공개 문장 관리</strong>
+        <p>공개 피드에서 내려야 하는 문장만 개별 삭제합니다. 사용자의 개인 저장 문장은 유지됩니다.</p>
+      </div>
+      <button type="button" id="sharedQuoteAdminRefresh">새로고침</button>
+    </div>
+    <div class="shared-quote-admin-summary">전체 공개 <strong id="sharedQuoteAdminCount">-</strong></div>
+    <div id="sharedQuoteAdminList" class="shared-quote-admin-list"></div>
+    <p id="sharedQuoteAdminMessage" class="message" hidden></p>`;
+  feedbackPanel.appendChild(section);
+
+  section.querySelector("#sharedQuoteAdminRefresh")?.addEventListener("click", () => {
+    sharedQuoteAdminLoaded = false;
+    loadSharedQuoteAdmin().catch((error) => {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
+    });
+  });
+
+  section.querySelector("#sharedQuoteAdminList")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-shared-quote-delete]");
+    if (!button) return;
+    const quoteId = Number(button.dataset.sharedQuoteDelete || 0);
+    if (!quoteId || !window.confirm("이 문장을 공개 피드에서 내릴까요? 개인 저장 문장은 삭제되지 않습니다.")) return;
+    button.disabled = true;
+    try {
+      await api("/api/admin/shared-quotes", { method: "DELETE", body: JSON.stringify({ quoteId }) });
+      sharedQuoteAdminData.items = (sharedQuoteAdminData.items || []).filter((item) => Number(item.quote_id || 0) !== quoteId);
+      sharedQuoteAdminData.count = Math.max(0, Number(sharedQuoteAdminData.count || 0) - 1);
+      renderSharedQuoteAdmin();
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = "공개 피드에서 문장을 내렸습니다."; }
+    } catch (error) {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 내리지 못했습니다."; }
+      button.disabled = false;
+    }
+  });
+}
+
+function renderSharedQuoteAdmin() {
+  ensureSharedQuoteModerationPanel();
+  const count = document.getElementById("sharedQuoteAdminCount");
+  const list = document.getElementById("sharedQuoteAdminList");
+  if (count) count.textContent = Number(sharedQuoteAdminData.count || 0).toLocaleString("ko-KR");
+  if (!list) return;
+  const items = Array.isArray(sharedQuoteAdminData.items) ? sharedQuoteAdminData.items : [];
+  list.innerHTML = items.length ? items.map((item) => `
+    <article class="shared-quote-admin-card">
+      <div class="shared-quote-admin-meta"><span>${escapeHtml(item.user_id || "-")}</span><span>${escapeHtml(formatDate(item.shared_at))}</span><span>좋아요 ${Number(item.like_count || 0).toLocaleString("ko-KR")}</span></div>
+      <strong>${escapeHtml(item.title || "제목 없음")}${item.author ? ` · ${escapeHtml(item.author)}` : ""}</strong>
+      <p>${escapeHtml(item.quote_text || "")}</p>
+      <button type="button" data-shared-quote-delete="${Number(item.quote_id || 0)}">피드에서 내리기</button>
+    </article>`).join("") : '<div class="shared-quote-admin-empty">현재 공개된 문장이 없습니다.</div>';
+}
+
+async function loadSharedQuoteAdmin() {
+  ensureSharedQuoteModerationPanel();
+  const message = document.getElementById("sharedQuoteAdminMessage");
+  if (message) message.hidden = true;
+  const data = await api("/api/admin/shared-quotes?limit=100", { method: "GET" });
+  sharedQuoteAdminData = { count: Number(data.count || 0), items: data.items || [] };
+  sharedQuoteAdminLoaded = true;
+  renderSharedQuoteAdmin();
 }
 
 function renderDiagnostics(items = []) {
@@ -892,7 +1009,7 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitTodayWorkOpens) els.visitTodayWorkOpens.textContent = Number(today.workOpens || 0).toLocaleString("ko-KR");
   if (els.visitSignupShown) els.visitSignupShown.textContent = Number(acquisition.shown || 0).toLocaleString("ko-KR");
   if (els.visitSignupClose) els.visitSignupClose.textContent = Number(acquisition.close || 0).toLocaleString("ko-KR");
-  if (els.visitSignupCloseRate) els.visitSignupCloseRate.textContent = `노출 대비 ${Number(acquisition.closeRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
+  if (els.visitSignupCloseRate) els.visitSignupCloseRate.textContent = `노출 대비 ${Number(acquisition.signupCloseRate || 0).toLocaleString("ko-KR", { maximumFractionDigits: 1 })}%`;
   if (els.visitSignupLoginClicks) els.visitSignupLoginClicks.textContent = Number(acquisition.loginClicks || 0).toLocaleString("ko-KR");
   if (els.visitSignupLoginCompleted) els.visitSignupLoginCompleted.textContent = `완료 ${Number(acquisition.loginCompleted || 0).toLocaleString("ko-KR")}`;
   if (els.visitSignupClicks) els.visitSignupClicks.textContent = Number(acquisition.signupClicks || 0).toLocaleString("ko-KR");
@@ -971,7 +1088,7 @@ function renderVisitAnalytics(data = analyticsAdminData) {
   if (els.visitReaderPercentiles) {
     const detailCount = Number(readerBreakdown.count || 0);
     els.visitReaderPercentiles.textContent = detailCount
-      ? `세부 ${detailCount.toLocaleString("ko-KR")}회 · 중앙구간 ≤ ${formatVisitLoad(readerBreakdown.p50ApproxMs)} · P95 구간 ≤ ${formatVisitLoad(readerBreakdown.p95ApproxMs)}`
+      ? `세부 ${detailCount.toLocaleString("ko-KR")}회 · 중앙구간 ${readerBreakdown.p50OpenEnded ? "8초 초과" : `≤ ${formatVisitLoad(readerBreakdown.p50ApproxMs)}`} · P95 구간 ${readerBreakdown.p95OpenEnded ? "8초 초과" : `≤ ${formatVisitLoad(readerBreakdown.p95ApproxMs)}`}`
       : "v8.79 이후 데이터 집계";
   }
   if (els.visitReaderPhaseGrid) {
@@ -2348,6 +2465,7 @@ function renderDriveAdminList() {
 
 
 function textHealthStatusLabel(status) {
+  if (status === "error") return "검사 실패";
   if (status === "severe") return "심각";
   if (status === "suspect") return "확인 필요";
   return "정상";
@@ -2359,6 +2477,7 @@ function renderTextHealth(data = {}) {
   const total = Number(summary.total || 0);
   const checked = Number(summary.checked || 0);
   const pending = Number(summary.pending || 0);
+  const errors = Number(summary.errors || 0);
 
   if (els.textHealthChecked) els.textHealthChecked.textContent = `${checked.toLocaleString("ko-KR")} / ${total.toLocaleString("ko-KR")}`;
   if (els.textHealthNormal) els.textHealthNormal.textContent = Number(summary.normal || 0).toLocaleString("ko-KR");
@@ -2386,7 +2505,9 @@ function renderTextHealth(data = {}) {
         <div class="text-health-reasons">${(item.reasons || []).map((reason) => `<span>${escapeHtml(reason)}</span>`).join("")}</div>
         ${item.sample ? `<pre class="text-health-sample">${escapeHtml(item.sample)}</pre>` : ""}
         <div class="text-health-actions">
-          <button type="button" class="text-health-normal-button" data-text-health-normal="${escapeHtml(item.id || "")}" data-text-health-modified="${escapeHtml(item.modifiedTime || "")}">정상으로 확인</button>
+          ${item.status === "error"
+            ? `<span class="text-health-retry-note">다음 전체 검사에서 다시 시도합니다.</span>`
+            : `<button type="button" class="text-health-normal-button" data-text-health-normal="${escapeHtml(item.id || "")}" data-text-health-modified="${escapeHtml(item.modifiedTime || "")}">정상으로 확인</button>`}
         </div>
       </article>`).join("");
   }
@@ -2395,7 +2516,9 @@ function renderTextHealth(data = {}) {
     if (!checked) {
       els.textHealthProgress.textContent = "아직 검사하지 않았습니다. ‘전체 검사’를 누르면 TXT를 소량 배치로 나눠 확인합니다.";
     } else if (pending > 0) {
-      els.textHealthProgress.textContent = `검사 완료 ${checked.toLocaleString("ko-KR")}개 · 변경/미검사 ${pending.toLocaleString("ko-KR")}개 남음`;
+      els.textHealthProgress.textContent = `검사 완료 ${checked.toLocaleString("ko-KR")}개 · 변경/미검사 ${pending.toLocaleString("ko-KR")}개 남음${errors ? ` · 검사 실패 ${errors.toLocaleString("ko-KR")}개` : ""}`;
+    } else if (errors > 0) {
+      els.textHealthProgress.textContent = `검사 가능한 파일 확인 완료 · 일시적 검사 실패 ${errors.toLocaleString("ko-KR")}개 · 다음 전체 검사에서 재시도`;
     } else {
       const when = summary.lastCheckedAt ? formatAdminDateTime(summary.lastCheckedAt) : "-";
       els.textHealthProgress.textContent = `전체 검사 완료 · 마지막 검사 ${when}`;
@@ -2416,12 +2539,13 @@ async function runTextHealthScan() {
   els.textHealthScanButton.disabled = true;
   els.textHealthScanButton.textContent = "검사 중…";
   let totalProcessed = 0;
+  const scanRunId = globalThis.crypto?.randomUUID?.() || `scan-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
   try {
     while (true) {
       const data = await api("/api/admin/text-health", {
         method: "POST",
-        body: JSON.stringify({ limit: 12 }),
+        body: JSON.stringify({ limit: 12, scanRunId }),
       });
       totalProcessed += Number(data.processed || 0);
       renderTextHealth(data);
@@ -2743,30 +2867,32 @@ async function saveDriveAdminChanges() {
     `${dirtyItems.length.toLocaleString("ko-KR")}개 작품형태를 저장하는 중입니다…`;
 
   try {
+    // 저장 도중 사용자가 다시 선택을 바꿔도, 실제 서버로 보낸 값만
+    // '저장 완료' 기준값으로 반영한다. 이후 편집은 미저장 상태로 남는다.
+    const submittedUpdates = dirtyItems.map((item) => ({
+      id: item.id,
+      contentType: item.draftOverrideContentType || "auto",
+      status: item.draftOverrideStatus || "auto",
+    }));
+    const submittedById = new Map(submittedUpdates.map((item) => [item.id, item]));
+
     const data = await api("/api/admin/drive-items", {
       method: "POST",
-      body: JSON.stringify({
-        updates: dirtyItems.map((item) => ({
-          id: item.id,
-          contentType:
-            item.draftOverrideContentType || "auto",
-          status:
-            item.draftOverrideStatus || "auto",
-        })),
-      }),
+      body: JSON.stringify({ updates: submittedUpdates }),
     });
 
     dirtyItems.forEach((item) => {
+      const submitted = submittedById.get(item.id);
+      if (!submitted) return;
       item.overrideContentType =
-        item.draftOverrideContentType || "";
+        submitted.contentType === "auto" ? "" : submitted.contentType;
       item.contentType =
         item.overrideContentType ||
         item.autoContentType;
       item.overrideStatus =
-        item.contentType === "연재물"
-          ? (item.draftOverrideStatus || "")
+        item.contentType === "연재물" && submitted.status !== "auto"
+          ? submitted.status
           : "";
-      item.draftOverrideStatus = item.overrideStatus;
       item.status =
         item.contentType === "연재물"
           ? (item.overrideStatus || "완결")
@@ -4425,6 +4551,13 @@ function renderDeployPreview() {
 
 async function handleZipFile(file) {
   if (!file) return;
+  if (deployInProgress) {
+    if (els.deployMessage) {
+      els.deployMessage.hidden = false;
+      els.deployMessage.textContent = "배포가 진행 중입니다. 완료된 뒤 다른 ZIP을 선택해 주세요.";
+    }
+    return;
+  }
 
   if (!file.name.toLowerCase().endsWith(".zip")) {
     els.deployMessage.hidden = false;
@@ -4655,7 +4788,7 @@ els.userTableBody?.addEventListener("click", async (event) => {
   const confirmMessage = action === "delete_user"
     ? `${userId} 계정을 삭제할까요?\n세션, 독서 기록, 북마크, 좋아요, 저장 문장·메모, 피드 반응, 계정 연결 통계와 계정 문의 정보가 함께 삭제됩니다.`
     : action === "reset_password"
-      ? `${userId} 계정의 비밀번호를 임시 비밀번호로 초기화할까요?\n기존 로그인 세션은 모두 만료됩니다.`
+      ? `${userId} 계정의 비밀번호를 임시 비밀번호로 초기화할까요?\n연락수단만으로 본인 확인하지 말고 가입일·최근 활동·북마크/최근조회 등 문의자가 적은 이용 기록을 대조했는지 확인해 주세요.\n기존 로그인 세션은 모두 만료됩니다.`
       : `${userId} 계정의 모든 로그인 세션을 초기화할까요?\n현재 로그인된 기기들은 다시 로그인해야 합니다.`;
 
   if (!window.confirm(confirmMessage)) return;
@@ -5120,37 +5253,47 @@ els.postypePublishedSyncButton?.addEventListener("click", async () => {
     : "변경사항을 확인하고 KV와 비교하는 중입니다…";
 
   try {
-    const data = await api("/api/admin/postype-published-sync", {
+    const updates = dirtyItems.map((item) => ({
+      id: item.id,
+      latestPublishedDate: item.draftLatestPublishedDate || "",
+      publishType: item.draftPublishType || "단일글",
+      status: item.draftStatus || "완결",
+    }));
+    const submit = (forceLargeRemoval = false) => api("/api/admin/postype-published-sync", {
       method: "POST",
-      body: JSON.stringify({
-        updates: dirtyItems.map((item) => ({
-          id: item.id,
-          latestPublishedDate: item.draftLatestPublishedDate || "",
-          publishType: item.draftPublishType || "단일글",
-          status: item.draftStatus || "완결",
-        })),
-      }),
+      body: JSON.stringify({ updates, forceLargeRemoval }),
     });
 
-    els.postypeListMessage.textContent =
+    let data = await submit(false);
+    if (data.blocked && data.blockedReason === "large_removal") {
+      const confirmed = window.confirm(
+        `${data.warning || "POSTYPE 작품이 대량으로 줄어들 예정입니다."}\n\n` +
+        `후보 삭제 ${Number(data.candidateRemovedCount || 0).toLocaleString("ko-KR")}개 · 반영 후 ${Number(data.candidateCount || 0).toLocaleString("ko-KR")}개\n` +
+        "정말 이 상태를 공개 목록에 반영할까요?"
+      );
+      if (!confirmed) {
+        els.postypeListMessage.textContent = "대량 감소 반영을 취소했습니다. Google Sheet 변경값은 유지되고 공개 목록은 기존 상태를 유지합니다.";
+        return;
+      }
+      data = await submit(true);
+    }
+
+    const resultMessage =
       (data.sheetUpdatedCount
         ? `시트 ${Number(data.sheetUpdatedCount).toLocaleString("ko-KR")}개 변경 반영`
         : "시트 변경사항 없음") +
       " · " +
       (data.kvWritten
         ? "KV 업데이트 1회"
-        : "KV 업데이트 생략");
+        : data.publicIndexRepaired
+          ? "공개 인덱스 복구 완료"
+          : "KV 업데이트 생략");
+
+    els.postypeListMessage.textContent = resultMessage;
 
     await loadPostypeAdminList(false);
     els.postypeListMessage.hidden = false;
-    els.postypeListMessage.textContent =
-      (data.sheetUpdatedCount
-        ? `시트 ${Number(data.sheetUpdatedCount).toLocaleString("ko-KR")}개 변경 반영`
-        : "시트 변경사항 없음") +
-      " · " +
-      (data.kvWritten
-        ? "KV 업데이트 1회"
-        : "KV 업데이트 생략");
+    els.postypeListMessage.textContent = resultMessage;
   } catch (error) {
     els.postypeListMessage.textContent = error.message || "최근 발행일 동기화에 실패했습니다.";
   } finally {
@@ -5299,11 +5442,18 @@ els.postypeBulkRegisterButton?.addEventListener("click", async () => {
       body: JSON.stringify({ items }),
     });
 
-    els.postypeBulkMessage.textContent =
-      "일괄 등록 완료: " + Number(data.addedCount || 0).toLocaleString("ko-KR") +
-      "개 · " + data.firstId + " ~ " + data.lastId +
-      " · 현재 노출 " + Number(data.count || 0).toLocaleString("ko-KR") + "개";
+    if (data.refreshPending) {
+      els.postypeBulkMessage.textContent =
+        `Google Sheet 등록 완료: ${Number(data.addedCount || 0).toLocaleString("ko-KR")}개 · ${data.firstId || ""} ~ ${data.lastId || ""} · ` +
+        (data.warning || "공개 목록 갱신이 남았습니다. POSTYPE 동기화를 다시 실행해 주세요.");
+    } else {
+      els.postypeBulkMessage.textContent =
+        "일괄 등록 완료: " + Number(data.addedCount || 0).toLocaleString("ko-KR") +
+        "개 · " + data.firstId + " ~ " + data.lastId +
+        " · 현재 노출 " + Number(data.count || 0).toLocaleString("ko-KR") + "개";
+    }
 
+    // Sheet append가 성공한 응답이면 입력을 남겨 재시도로 중복 등록하지 않는다.
     clearPostypeBulkRows();
   } catch (error) {
     els.postypeBulkMessage.textContent = error.message || "일괄 등록에 실패했습니다.";
@@ -5649,6 +5799,7 @@ els.commitMessageInput?.addEventListener("input", () => {
 });
 
 els.zipInput.addEventListener("change", (event) => {
+  if (deployInProgress) return;
   handleZipFile(event.target.files?.[0]);
 });
 
@@ -5664,6 +5815,11 @@ els.zipDropZone.addEventListener("dragleave", () => {
 els.zipDropZone.addEventListener("drop", (event) => {
   event.preventDefault();
   els.zipDropZone.classList.remove("dragover");
+  if (deployInProgress) {
+    els.deployMessage.hidden = false;
+    els.deployMessage.textContent = "배포가 진행 중입니다. 완료된 뒤 다른 ZIP을 선택해 주세요.";
+    return;
+  }
   handleZipFile(event.dataTransfer.files?.[0]);
 });
 
@@ -6054,9 +6210,22 @@ els.deployStatusRefreshButton?.addEventListener("click", () => {
 });
 
 els.deployButton.addEventListener("click", async () => {
-  if (!deployFiles.length) return;
+  if (deployInProgress || !deployFiles.length) return;
 
-  const message = els.commitMessageInput.value.trim() || "Archive site update";
+  // 배포 시작 순간의 ZIP/버전/종류를 고정한다. 배치 업로드 도중
+  // 다른 ZIP을 선택해 서로 다른 소스가 한 커밋에 섞이는 일을 막는다.
+  const deployment = {
+    files: deployFiles.map((file) => ({ ...file })),
+    version: pendingDeployVersion,
+    kind: pendingDeployKind,
+    message: els.commitMessageInput.value.trim() || "Archive site update",
+  };
+  deployInProgress = true;
+  if (els.zipInput) els.zipInput.disabled = true;
+  if (els.commitMessageInput) els.commitMessageInput.disabled = true;
+  els.zipDropZone?.classList.add("is-disabled");
+
+  const message = deployment.message;
 
   els.deployButton.disabled = true;
   els.deployButton.textContent = "GitHub 커밋 중…";
@@ -6068,14 +6237,14 @@ els.deployButton.addEventListener("click", async () => {
     // 여러 invocation으로 나누고, 마지막에 한 번만 tree/commit/ref를 생성한다.
     const batchSize = 30;
     const treeEntries = [];
-    const totalBatches = Math.ceil(deployFiles.length / batchSize);
+    const totalBatches = Math.ceil(deployment.files.length / batchSize);
 
-    for (let i = 0; i < deployFiles.length; i += batchSize) {
-      const batch = deployFiles.slice(i, i + batchSize);
+    for (let i = 0; i < deployment.files.length; i += batchSize) {
+      const batch = deployment.files.slice(i, i + batchSize);
       const batchNumber = Math.floor(i / batchSize) + 1;
       els.deployButton.textContent = `파일 준비 ${batchNumber}/${totalBatches}`;
       els.deployMessage.textContent =
-        `GitHub 파일을 준비하고 있습니다… (${Math.min(i + batch.length, deployFiles.length)}/${deployFiles.length})`;
+        `GitHub 파일을 준비하고 있습니다… (${Math.min(i + batch.length, deployment.files.length)}/${deployment.files.length})`;
 
       const prepared = await api("/api/admin/deploy", {
         method: "POST",
@@ -6088,8 +6257,8 @@ els.deployButton.addEventListener("click", async () => {
       if (Array.isArray(prepared.entries)) treeEntries.push(...prepared.entries);
     }
 
-    if (treeEntries.length !== deployFiles.length) {
-      throw new Error(`파일 준비 수가 일치하지 않습니다. (${treeEntries.length}/${deployFiles.length})`);
+    if (treeEntries.length !== deployment.files.length) {
+      throw new Error(`파일 준비 수가 일치하지 않습니다. (${treeEntries.length}/${deployment.files.length})`);
     }
 
     els.deployButton.textContent = "GitHub 커밋 중…";
@@ -6100,7 +6269,7 @@ els.deployButton.addEventListener("click", async () => {
       body: JSON.stringify({
         mode: "commit",
         message,
-        deployVersion: pendingDeployKind === "mobile" ? "" : pendingDeployVersion,
+        deployVersion: deployment.kind === "mobile" ? "" : deployment.version,
         entries: treeEntries,
       }),
     });
@@ -6110,8 +6279,8 @@ els.deployButton.addEventListener("click", async () => {
       `아래에서 Cloudflare Pages 빌드 상태를 자동으로 확인합니다.`;
 
     showDeployCommitCreated(result.commitSha, result.commitUrl);
-    if (pendingDeployKind !== "mobile" && pendingDeployVersion && els.adminVersion) {
-      els.adminVersion.textContent = `배포 중 ${pendingDeployVersion}`;
+    if (deployment.kind !== "mobile" && deployment.version && els.adminVersion) {
+      els.adminVersion.textContent = `배포 중 ${deployment.version}`;
     }
     refreshDeployStatus({ keepPolling: true });
     historyLoaded = false;
@@ -6125,7 +6294,11 @@ els.deployButton.addEventListener("click", async () => {
   } catch (error) {
     els.deployMessage.textContent = error.message;
   } finally {
-    els.deployButton.disabled = false;
+    deployInProgress = false;
+    if (els.zipInput) els.zipInput.disabled = false;
+    if (els.commitMessageInput) els.commitMessageInput.disabled = false;
+    els.zipDropZone?.classList.remove("is-disabled");
+    els.deployButton.disabled = deployFiles.length === 0;
     els.deployButton.textContent = "GitHub에 배포";
   }
 });

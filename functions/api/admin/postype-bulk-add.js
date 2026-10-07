@@ -286,6 +286,8 @@ function buildArchive(values, headers) {
 
 export async function onRequestPost(context) {
   let stage = "auth";
+  let sheetAppendCommitted = false;
+  let committedRows = [];
 
   try {
     await requireAdminSession(context);
@@ -393,6 +395,8 @@ export async function onRequestPost(context) {
       return { id, row };
     });
 
+    committedRows = rows.map((entry) => ({ id: entry.id }));
+
     stage = "sheet_append";
     const appendRange = `'${POSTYPE_SHEET_NAME.replace(/'/g, "''")}'!A:AZ`;
     const appendUrl =
@@ -429,10 +433,19 @@ export async function onRequestPost(context) {
       );
     }
 
+    // 여기부터는 Google Sheet 등록 자체는 이미 성공했다. 뒤 단계가 실패해도
+    // 같은 입력을 다시 append하도록 500을 반환하지 않는다.
+    sheetAppendCommitted = true;
     const lastNumber = nextNumber - 1;
 
     stage = "kv_sequence";
-    await kv.put(POSTYPE_ID_SEQUENCE_KEY, String(lastNumber));
+    try {
+      await kv.put(POSTYPE_ID_SEQUENCE_KEY, String(lastNumber));
+    } catch (sequenceError) {
+      // 다음 등록은 Sheet의 실제 최고 ID도 다시 읽으므로 sequence 갱신 실패만으로
+      // 등록 전체를 실패 처리할 필요가 없다.
+      console.warn("POSTYPE ID sequence 갱신 실패", sequenceError);
+    }
 
     // 기존 공개 캐시에 방금 등록한 항목만 합쳐 즉시 노출한다.
     // 매 등록마다 A:Z 전체를 다시 읽는 비용/실패 가능성을 제거한다.
@@ -452,6 +465,8 @@ export async function onRequestPost(context) {
 
     return jsonResponse({
       ok: true,
+      registrationCommitted: true,
+      refreshPending: false,
       addedCount: rows.length,
       firstId: rows[0]?.id || "",
       lastId: rows[rows.length - 1]?.id || "",
@@ -460,6 +475,22 @@ export async function onRequestPost(context) {
     }, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(`POSTYPE bulk add failed at ${stage}`, error);
+
+    if (sheetAppendCommitted) {
+      return jsonResponse({
+        ok: true,
+        registrationCommitted: true,
+        refreshPending: true,
+        stage,
+        warning: `Google Sheet 등록은 완료됐지만 공개 목록 갱신을 마치지 못했습니다. POSTYPE 동기화를 다시 실행하면 복구됩니다. (${error?.message || "후속 처리 실패"})`,
+        addedCount: committedRows.length,
+        firstId: committedRows[0]?.id || "",
+        lastId: committedRows[committedRows.length - 1]?.id || "",
+        count: null,
+        syncedAt: null,
+      }, 200, { "cache-control": "no-store" });
+    }
+
     return jsonResponse({
       ok: false,
       stage,

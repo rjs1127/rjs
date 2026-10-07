@@ -131,8 +131,9 @@ export async function runDriveAutoSync(env, trigger = "auto") {
     const data = await runDriveSync(env);
     const finishedAt = new Date().toISOString();
     const blocked = Boolean(data.blocked);
+    const warningText = data.warning || data.cachePurgeWarning || "";
     const status = await putAutoStatus(kv, "drive", {
-      state: blocked ? "warning" : "success",
+      state: blocked || warningText ? "warning" : "success",
       trigger,
       startedAt,
       finishedAt,
@@ -140,7 +141,7 @@ export async function runDriveAutoSync(env, trigger = "auto") {
       changed: blocked ? false : Boolean(data.changed),
       blocked,
       blockedReason: data.blockedReason || "",
-      warning: data.warning || "",
+      warning: warningText,
       scanIssues: Array.isArray(data.scanIssues) ? data.scanIssues.slice(0, 20) : [],
       addedCount: Number(data.addedCount || 0),
       updatedCount: Number(data.updatedCount || 0),
@@ -154,7 +155,9 @@ export async function runDriveAutoSync(env, trigger = "auto") {
         lastScheduledAddedCount: Number(data.addedCount || 0),
         lastScheduledUpdatedCount: Number(data.updatedCount || 0),
         lastScheduledRemovedCount: Number(data.removedCount || 0),
-        lastScheduledWarning: data.warning || "",
+        lastScheduledState: blocked || warningText ? "warning" : "success",
+        lastScheduledWarning: warningText,
+        lastScheduledError: "",
       } : {}),
       error: "",
     });
@@ -166,7 +169,12 @@ export async function runDriveAutoSync(env, trigger = "auto") {
       trigger,
       finishedAt,
       checkedAt: finishedAt,
-      ...(trigger === "schedule" ? { lastScheduledAt: finishedAt, lastScheduledError: error?.message || "Drive 자동 동기화 실패" } : {}),
+      ...(trigger === "schedule" ? {
+        lastScheduledAt: finishedAt,
+        lastScheduledState: "error",
+        lastScheduledWarning: "",
+        lastScheduledError: error?.message || "Drive 자동 동기화 실패",
+      } : {}),
       error: error?.message || "Drive 자동 동기화 실패",
     });
     throw error;
@@ -343,7 +351,9 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
         lastScheduledChanged: changed,
         lastScheduledUpdatedLatestDates: updatedLatestDates,
         lastScheduledFailedSeries: totalFailed,
-        lastScheduledWarning: syncResult.warning || "",
+        lastScheduledState: blocked ? "warning" : (totalFailed ? "partial" : "success"),
+        lastScheduledWarning: syncResult.warning || (totalFailed ? `시리즈 발행정보 확인 실패 ${totalFailed}건` : ""),
+        lastScheduledError: "",
       } : {}),
       error: "",
     });
@@ -367,7 +377,12 @@ export async function runPostypeAutoSyncBatch(env, options = {}) {
       trigger,
       finishedAt: failedAt,
       checkedAt: failedAt,
-      ...(trigger === "schedule" ? { lastScheduledAt: failedAt, lastScheduledError: error?.message || "POSTYPE 자동 동기화 실패" } : {}),
+      ...(trigger === "schedule" ? {
+        lastScheduledAt: failedAt,
+        lastScheduledState: "error",
+        lastScheduledWarning: "",
+        lastScheduledError: error?.message || "POSTYPE 자동 동기화 실패",
+      } : {}),
       error: error?.message || "POSTYPE 자동 동기화 실패",
     });
     throw error;

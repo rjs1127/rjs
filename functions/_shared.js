@@ -10,6 +10,7 @@ const POSTYPE_INDEX_KEY = "postype:index:v1";
 const DRIVE_CONTENT_TYPE_OVERRIDES_KEY = "archive:drive-content-type-overrides:v1";
 const DRIVE_STATUS_OVERRIDES_KEY = "archive:drive-status-overrides:v1";
 const PUBLIC_ARCHIVE_INDEX_KEY = "archive:public-index:v1";
+const PUBLIC_ARCHIVE_INDEX_DIRTY_KEY = "archive:public-index-dirty:v1";
 const SEARCH_ALIASES_KEY = "archive:search-aliases:v1";
 const DRIVE_SHORT_MAX_BYTES = 200 * 1024;
 
@@ -752,8 +753,11 @@ async function buildPublicArchiveIndex(kv, supplied = {}) {
     a.localeCompare(b, "ko", { sensitivity: "base", numeric: true })
   );
 
+  // 공개 API에는 사용자 화면에 실제로 필요한 필드만 노출한다.
+  // Drive 내부 폴더 ID/diagnostics 같은 운영 정보는 관리자 API에서만 다룬다.
   return {
-    ...driveArchive,
+    source: driveArchive?.source || "drive",
+    syncedAt: driveArchive?.syncedAt || null,
     items,
     count: items.length,
     combinations,
@@ -767,11 +771,43 @@ async function buildPublicArchiveIndex(kv, supplied = {}) {
   };
 }
 
+async function markPublicArchiveIndexDirty(kv, error) {
+  try {
+    await kv.put(PUBLIC_ARCHIVE_INDEX_DIRTY_KEY, JSON.stringify({
+      dirty: true,
+      markedAt: new Date().toISOString(),
+      error: String(error?.message || error || "공개 인덱스 갱신 실패").slice(0, 500),
+    }));
+  } catch (markerError) {
+    console.warn("공개 인덱스 복구 표시 저장 실패", markerError);
+  }
+}
+
 async function refreshPublicArchiveIndex(kv, supplied = {}) {
-  const index = await buildPublicArchiveIndex(kv, supplied);
-  if (!index) return null;
-  await kv.put(PUBLIC_ARCHIVE_INDEX_KEY, JSON.stringify(index));
-  return index;
+  try {
+    const index = await buildPublicArchiveIndex(kv, supplied);
+    if (!index) {
+      await markPublicArchiveIndexDirty(kv, "공개 인덱스 원본 아카이브 없음");
+      return null;
+    }
+    await kv.put(PUBLIC_ARCHIVE_INDEX_KEY, JSON.stringify(index));
+    try {
+      await kv.delete(PUBLIC_ARCHIVE_INDEX_DIRTY_KEY);
+    } catch (cleanupError) {
+      console.warn("공개 인덱스 복구 표시 정리 실패", cleanupError);
+    }
+    return index;
+  } catch (error) {
+    await markPublicArchiveIndexDirty(kv, error);
+    throw error;
+  }
+}
+
+async function repairPublicArchiveIndexIfDirty(kv, supplied = {}) {
+  const dirty = await kv.get(PUBLIC_ARCHIVE_INDEX_DIRTY_KEY);
+  if (!dirty) return false;
+  const index = await refreshPublicArchiveIndex(kv, supplied);
+  return Boolean(index);
 }
 
 export {
@@ -784,6 +820,7 @@ export {
   DRIVE_CONTENT_TYPE_OVERRIDES_KEY,
   DRIVE_STATUS_OVERRIDES_KEY,
   PUBLIC_ARCHIVE_INDEX_KEY,
+  PUBLIC_ARCHIVE_INDEX_DIRTY_KEY,
   SEARCH_ALIASES_KEY,
   DEFAULT_SETTINGS,
   jsonResponse,
@@ -802,6 +839,7 @@ export {
   mergeDriveArchiveDelta,
   buildPublicArchiveIndex,
   refreshPublicArchiveIndex,
+  repairPublicArchiveIndexIfDirty,
   applyOverrides,
   reconcileOverridesWithArchive,
   readSettings,

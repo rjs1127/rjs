@@ -3356,3 +3356,13 @@ body.history-modal-open { overflow:hidden; }
 .admin-password-modal-done{width:100%;background:#24211e;color:#fff;border-color:#24211e}
 body.admin-password-modal-open{overflow:hidden}
 @media(max-width:560px){.admin-password-modal{padding:12px;align-items:end}.admin-password-modal-dialog{border-radius:20px 20px 14px 14px}.feedback-admin-account>div{grid-template-columns:1fr auto}.feedback-admin-account>div>span:first-child{grid-column:1/-1}.feedback-admin-account-actions{grid-column:2;grid-row:2}}
+
+/* v9.54 final data/ops safety */
+.feedback-admin-account-summary{margin:2px 0 0;padding:8px 9px;border-radius:9px;background:#fff;color:#625b54;font-size:10px;line-height:1.55;overflow-wrap:anywhere}
+.feedback-admin-account-warning{margin:2px 0 0;color:#8a5a45;font-size:10px;line-height:1.55}
+.shared-quote-admin-panel{margin-top:22px;padding-top:20px;border-top:1px solid var(--line,#ddd8cf)}
+.shared-quote-admin-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}
+.shared-quote-admin-head>div{min-width:0}.shared-quote-admin-head span{display:block;margin-bottom:4px;color:#8a8278;font-size:10px;font-weight:850;letter-spacing:.12em}.shared-quote-admin-head strong{display:block;font-size:17px}.shared-quote-admin-head p{margin:6px 0 0;color:#777067;font-size:12px;line-height:1.55}.shared-quote-admin-head button,.shared-quote-admin-card button{border:1px solid #d8d0c7;border-radius:9px;background:#fff;padding:7px 10px;color:#675f58;font:inherit;font-size:10px;font-weight:800;cursor:pointer}.shared-quote-admin-summary{margin:14px 0 8px;color:#817970;font-size:11px}.shared-quote-admin-list{display:grid;gap:9px}.shared-quote-admin-card{padding:13px 14px;border:1px solid #e0d9d1;border-radius:14px;background:#fffdf9}.shared-quote-admin-card>strong{display:block;margin-top:5px;font-size:12px}.shared-quote-admin-card>p{margin:8px 0 10px;white-space:pre-wrap;overflow-wrap:anywhere;color:#4f4943;font-size:12px;line-height:1.65}.shared-quote-admin-meta{display:flex;flex-wrap:wrap;gap:5px 9px;color:#91877d;font-size:9px}.shared-quote-admin-empty{padding:16px;border:1px dashed #ddd5cc;border-radius:12px;color:#8b837a;font-size:11px;text-align:center}
+.drop-zone.is-disabled{opacity:.55;cursor:not-allowed;pointer-events:none}
+.text-health-retry-note{display:inline-block;margin-top:8px;color:#95644d;font-size:11px;font-weight:750}
+@media(max-width:700px){.shared-quote-admin-head{display:block}.shared-quote-admin-head button{width:100%;margin-top:10px}.shared-quote-admin-card button{width:100%}}

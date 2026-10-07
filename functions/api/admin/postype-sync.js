@@ -3,6 +3,7 @@ import {
   requireKv,
   getJson,
   refreshPublicArchiveIndex,
+  repairPublicArchiveIndexIfDirty,
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -205,14 +206,14 @@ function archivesEqual(left, right) {
     JSON.stringify(comparableArchive(right));
 }
 
-function getRemovedPostypeIds(previousArchive, nextArchive) {
+export function getRemovedPostypeIds(previousArchive, nextArchive) {
   const nextIds = new Set((nextArchive?.items || []).map((item) => String(item?.id || "")));
   return (previousArchive?.items || [])
     .map((item) => String(item?.id || ""))
     .filter((id) => id && !nextIds.has(id));
 }
 
-function getLargeRemovalWarning(previousCount, removedCount) {
+export function getPostypeLargeRemovalWarning(previousCount, removedCount) {
   const previous = Math.max(0, Number(previousCount || 0));
   const removed = Math.max(0, Number(removedCount || 0));
   if (!previous || !removed) return "";
@@ -372,7 +373,7 @@ export async function runPostypeSync(env, options = {}) {
   const existingArchive = await getJson(kv, POSTYPE_INDEX_KEY, null);
   const removedIds = getRemovedPostypeIds(existingArchive, archive);
   const previousCount = Number(existingArchive?.count || 0);
-  const removalWarning = getLargeRemovalWarning(previousCount, removedIds.length);
+  const removalWarning = getPostypeLargeRemovalWarning(previousCount, removedIds.length);
 
   if (removalWarning && !allowLargeRemoval) {
     return {
@@ -398,6 +399,7 @@ export async function runPostypeSync(env, options = {}) {
   const changed = !archivesEqual(existingArchive, archive);
   let effectiveSyncedAt = existingArchive?.syncedAt || syncedAt;
 
+  let publicIndexRepaired = false;
   if (changed) {
     await createDailyRestorePoint(kv, "postype", {
       archive: existingArchive,
@@ -408,6 +410,10 @@ export async function runPostypeSync(env, options = {}) {
     await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
     await refreshPublicArchiveIndex(kv, { postypeArchive: archive });
     effectiveSyncedAt = syncedAt;
+  } else {
+    // 원본 POSTYPE KV는 최신인데 이전 공개 인덱스 갱신만 실패했던 경우
+    // '변경 없음' 재동기화로도 공개 인덱스를 복구한다.
+    publicIndexRepaired = await repairPublicArchiveIndexIfDirty(kv, { postypeArchive: archive });
   }
 
   return {
@@ -421,6 +427,7 @@ export async function runPostypeSync(env, options = {}) {
     count: archive.count,
     totalRows: archive.totalRows,
     disabledCount: archive.disabledCount,
+    publicIndexRepaired,
   };
 }
 

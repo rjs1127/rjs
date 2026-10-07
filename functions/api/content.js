@@ -6,7 +6,7 @@ import {
   verifyFileInsideArchive,
   decodeTextSmart,
 } from "../_shared.js";
-import { requireUser } from "../_user.js";
+import { requireUser, getBearerToken, getCookieToken } from "../_user.js";
 
 
 const DRIVE_FILE_ID_PATTERN = /^[A-Za-z0-9_-]{10,200}$/;
@@ -23,9 +23,13 @@ function getBodyCacheKey(fileId, modified) {
   return `body:${fileId}:${modified || "unknown"}`;
 }
 
+function hasUserSessionCredential(request) {
+  return Boolean(getBearerToken(request) || getCookieToken(request));
+}
+
 async function recordAuthenticatedRecentView(context, fileId) {
   try {
-    if (!context.request.headers.get("authorization")) return;
+    if (!hasUserSessionCredential(context.request)) return;
 
     const auth = await requireUser(context);
     const now = Date.now();
@@ -44,7 +48,7 @@ async function recordAuthenticatedRecentView(context, fileId) {
 }
 
 function scheduleAuthenticatedRecentView(context, fileId) {
-  if (!context.request.headers.get("authorization")) return;
+  if (!hasUserSessionCredential(context.request)) return;
 
   const task = recordAuthenticatedRecentView(context, fileId);
   if (typeof context.waitUntil === "function") {

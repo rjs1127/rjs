@@ -94,20 +94,22 @@ function aggregateReaderPerf(performanceRows) {
   }
 
   const histogramOrder = [
-    ["under1", 1000], ["oneTo2", 2000], ["twoTo4", 4000],
-    ["fourTo8", 8000], ["over8", 12000],
+    ["under1", 1000, false], ["oneTo2", 2000, false], ["twoTo4", 4000, false],
+    ["fourTo8", 8000, false], ["over8", 8000, true],
   ];
   const histogramTotal = histogramOrder.reduce((sum, [key]) => sum + totals.histogram[key], 0);
   const percentileApprox = (ratio) => {
-    if (!histogramTotal) return null;
+    if (!histogramTotal) return { value: null, openEnded: false };
     const target = histogramTotal * ratio;
     let running = 0;
-    for (const [key, upper] of histogramOrder) {
+    for (const [key, upper, openEnded] of histogramOrder) {
       running += totals.histogram[key];
-      if (running >= target) return upper;
+      if (running >= target) return { value: upper, openEnded };
     }
-    return histogramOrder.at(-1)[1];
+    return { value: 8000, openEnded: true };
   };
+  const p50 = percentileApprox(.5);
+  const p95 = percentileApprox(.95);
 
   const mapRows = (map) => [...map.values()]
     .map((item) => ({ name: item.name, count: item.count, averageMs: item.count ? item.sum / item.count : null }))
@@ -120,8 +122,10 @@ function aggregateReaderPerf(performanceRows) {
   return {
     count: totals.total.count,
     averageMs: averagePerfBucket(totals.total),
-    p50ApproxMs: percentileApprox(.5),
-    p95ApproxMs: percentileApprox(.95),
+    p50ApproxMs: p50.value,
+    p95ApproxMs: p95.value,
+    p50OpenEnded: p50.openEnded,
+    p95OpenEnded: p95.openEnded,
     phases: {
       responseMs: averagePerfBucket(totals.response),
       downloadMs: averagePerfBucket(totals.download),

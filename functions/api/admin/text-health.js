@@ -129,12 +129,14 @@ function summarize(archive, records) {
   const items = Array.isArray(archive?.items) ? archive.items : [];
   const validIds = new Set(items.map((item) => String(item.id || "")));
   const itemById = new Map(items.map((item) => [String(item.id || ""), item]));
-  const activeRecords = Object.values(records || {}).filter((record) => {
+  const currentRecords = Object.values(records || {}).filter((record) => {
     const item = itemById.get(String(record?.id || ""));
     return item &&
       Number(record.detectorVersion || 0) === DETECTOR_VERSION &&
       String(record.modifiedTime || "") === String(item.modifiedTime || "");
   });
+  const activeRecords = currentRecords.filter((record) => record.status !== "error");
+  const errors = currentRecords.filter((record) => record.status === "error").length;
   const severe = activeRecords.filter((record) => record.status === "severe").length;
   const suspect = activeRecords.filter((record) => record.status === "suspect").length;
   const normal = activeRecords.filter((record) => record.status === "normal").length;
@@ -151,6 +153,7 @@ function summarize(archive, records) {
     normal,
     suspect,
     severe,
+    errors,
     pending: stale,
     lastCheckedAt: activeRecords.reduce((latest, record) => {
       const value = String(record.checkedAt || "");
@@ -283,6 +286,7 @@ export async function onRequestPost(context) {
     const kv = requireKv(context.env);
     const body = await context.request.json().catch(() => ({}));
     const force = Boolean(body?.force);
+    const scanRunId = String(body?.scanRunId || "").trim().slice(0, 120);
     const requestedLimit = Number(body?.limit || MAX_BATCH);
     const limit = Math.max(1, Math.min(MAX_BATCH, Number.isFinite(requestedLimit) ? requestedLimit : MAX_BATCH));
 
@@ -304,9 +308,14 @@ export async function onRequestPost(context) {
     const queue = items.filter((item) => {
       if (force) return true;
       const record = records[item.id];
-      return !record ||
-      Number(record.detectorVersion || 0) !== DETECTOR_VERSION ||
-      String(record.modifiedTime || "") !== String(item.modifiedTime || "");
+      if (!record ||
+          Number(record.detectorVersion || 0) !== DETECTOR_VERSION ||
+          String(record.modifiedTime || "") !== String(item.modifiedTime || "")) {
+        return true;
+      }
+      // 이전 실행에서 일시적으로 읽지 못한 파일은 다음 '전체 검사'에서
+      // 다시 시도한다. 같은 실행 배치 안에서는 실패 파일을 무한 재시도하지 않는다.
+      return record.status === "error" && (!scanRunId || String(record.failedRunId || "") !== scanRunId);
     });
     const batch = queue.slice(0, limit);
 
@@ -358,22 +367,21 @@ export async function onRequestPost(context) {
           modifiedTime: item.modifiedTime || null,
           encoding: "확인 실패",
           checkedAt: now,
-          status: "severe",
-          score: 100,
+          status: "error",
+          score: 0,
           reasons: [`파일 검사 실패: ${error?.message || "알 수 없는 오류"}`],
           sample: "",
           chars: 0,
           counts: {},
           detectorVersion: DETECTOR_VERSION,
+          failedRunId: scanRunId || now,
         };
       }
     }
 
     await kv.put(TEXT_HEALTH_KEY, JSON.stringify({ version: 2, records, updatedAt: now }));
     const summary = summarize(archive, records);
-    const remaining = force
-      ? Math.max(0, queue.length - batch.length)
-      : summary.pending;
+    const remaining = Math.max(0, queue.length - batch.length);
 
     return jsonResponse({
       ok: true,

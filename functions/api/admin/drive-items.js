@@ -6,6 +6,7 @@ import {
   getJson,
   buildArchiveFromDrive,
   refreshPublicArchiveIndex,
+  repairPublicArchiveIndexIfDirty,
   applyOverrides,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -266,8 +267,14 @@ export async function onRequestPost(context) {
       );
     }
 
+    let publicIndexRepaired = false;
     if (typeChanged || statusChanged) {
       await refreshPublicArchiveIndex(kv, {
+        driveTypeOverrides: nextTypes,
+        driveStatusOverrides: nextStatuses,
+      });
+    } else {
+      publicIndexRepaired = await repairPublicArchiveIndexIfDirty(kv, {
         driveTypeOverrides: nextTypes,
         driveStatusOverrides: nextStatuses,
       });
@@ -284,6 +291,7 @@ export async function onRequestPost(context) {
           ]).size,
         statusOverrideCount: Object.keys(nextStatuses).length,
         kvWritten: typeChanged || statusChanged,
+        publicIndexRepaired,
       },
       200,
       { "cache-control": "no-store" }

@@ -318,41 +318,17 @@ export async function onRequestPost(context) {
         return jsonResponse({ error: "저장 문장 ID가 올바르지 않습니다." }, 400);
       }
 
-      const quote = await auth.db.prepare(`
-        SELECT id, title, author, quote_text
-        FROM user_quotes
-        WHERE user_id = ? AND id = ?
-        LIMIT 1
-      `).bind(auth.userId, id).first();
-
-      if (!quote) return jsonResponse({ error: "저장 문장을 찾을 수 없습니다." }, 404);
-
       if (shared) {
         const nextWorkId = cleanText(body?.workId, 300);
-        const nextTitle = cleanText(quote.title, 300);
-        const nextAuthor = cleanText(quote.author, 200);
-        const nextQuoteText = cleanText(quote.quote_text, 4000);
-        const existing = await auth.db.prepare(`
-          SELECT shared_at, work_id, title, author, quote_text
-          FROM shared_quotes
-          WHERE quote_id = ? AND user_id = ?
-          LIMIT 1
-        `).bind(id, auth.userId).first();
-        const sharedAt = existing?.shared_at == null ? now : Number(existing.shared_at);
 
-        const unchanged = Boolean(existing) &&
-          String(existing.work_id || "") === nextWorkId &&
-          String(existing.title || "") === nextTitle &&
-          String(existing.author || "") === nextAuthor &&
-          String(existing.quote_text || "") === nextQuoteText;
-
-        if (unchanged) {
-          return jsonResponse({ ok: true, shared: true, sharedAt, changed: false });
-        }
-
-        await auth.db.prepare(`
+        // 공개 행은 현재 사용자의 개인 문장이 실제로 존재하는 순간에만 만든다.
+        // SELECT 후 별도 INSERT를 하지 않아 다른 탭의 quote_delete와 겹쳐도
+        // 삭제된 문장이 늦게 다시 공개 피드에 남는 고아 행을 만들지 않는다.
+        const result = await auth.db.prepare(`
           INSERT INTO shared_quotes(quote_id, user_id, work_id, title, author, quote_text, shared_at)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
+          SELECT q.id, q.user_id, ?, q.title, q.author, q.quote_text, ?
+          FROM user_quotes q
+          WHERE q.user_id = ? AND q.id = ?
           ON CONFLICT(quote_id) DO UPDATE SET
             user_id = excluded.user_id,
             work_id = excluded.work_id,
@@ -360,15 +336,35 @@ export async function onRequestPost(context) {
             author = excluded.author,
             quote_text = excluded.quote_text
         `).bind(
-          id,
-          auth.userId,
           nextWorkId,
-          nextTitle,
-          nextAuthor,
-          nextQuoteText,
-          sharedAt
+          now,
+          auth.userId,
+          id
         ).run();
-        return jsonResponse({ ok: true, shared: true, sharedAt, changed: true });
+
+        if (!Number(result?.meta?.changes || 0)) {
+          return jsonResponse({ error: "저장 문장을 찾을 수 없습니다." }, 404);
+        }
+
+        const current = await auth.db.prepare(`
+          SELECT shared_at
+          FROM shared_quotes
+          WHERE quote_id = ? AND user_id = ?
+          LIMIT 1
+        `).bind(id, auth.userId).first();
+
+        // 바로 뒤에서 다른 탭이 원문을 삭제했다면 quote_delete가 공개 행도
+        // 함께 지운다. 그 경우 성공으로 오인하지 않고 현재 상태를 알려준다.
+        if (!current) {
+          return jsonResponse({ error: "저장 문장이 삭제되어 공개하지 않았습니다." }, 409);
+        }
+
+        return jsonResponse({
+          ok: true,
+          shared: true,
+          sharedAt: Number(current.shared_at || now),
+          changed: true,
+        });
       }
 
       await auth.db.prepare(`

@@ -3,9 +3,12 @@ import {
   requireKv,
   getJson,
   refreshPublicArchiveIndex,
+  repairPublicArchiveIndexIfDirty,
   getSheetsAccessToken,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
+import { createDailyRestorePoint } from "../../_ops_automation.js";
+import { getRemovedPostypeIds, getPostypeLargeRemovalWarning } from "./postype-sync.js";
 
 const POSTYPE_SPREADSHEET_ID = "1A6SL397yG59Yfs95x4SAlgqz5oVe26YMOw18gDw2fIw";
 const POSTYPE_SHEET_NAME = "POSTYPE";
@@ -167,7 +170,16 @@ function buildArchive(values, headers) {
     const id = cell(row, headerIndex, "id").toUpperCase();
     const enabled = cell(row, headerIndex, "enabled").toUpperCase();
 
-    if (!id) continue;
+    if (!id) {
+      const error = new Error(`POSTYPE 시트에 ID가 비어 있는 행이 있습니다: ${index + 1}행`);
+      error.status = 400;
+      throw error;
+    }
+    if (!/^P\d{4,}$/i.test(id)) {
+      const error = new Error(`POSTYPE ID 형식이 올바르지 않습니다: ${id}`);
+      error.status = 400;
+      throw error;
+    }
 
     if (seenIds.has(id)) {
       const error = new Error(`POSTYPE 시트에 중복 ID가 있습니다: ${id}`);
@@ -190,6 +202,28 @@ function buildArchive(values, headers) {
     }
 
     const url = cell(row, headerIndex, "url");
+    const combination = cell(row, headerIndex, "combination");
+    const title = cell(row, headerIndex, "title");
+    const author = cell(row, headerIndex, "author");
+    const status = cell(row, headerIndex, "status");
+    const lengthType = cell(row, headerIndex, "lengthType");
+    for (const [name, value] of Object.entries({ combination, title, author, status, lengthType, url })) {
+      if (!value) {
+        const error = new Error(`POSTYPE ${name} 값이 비어 있습니다. ID: ${id}`);
+        error.status = 400;
+        throw error;
+      }
+    }
+    if (status && !["연재", "완결"].includes(status)) {
+      const error = new Error(`POSTYPE status 값이 올바르지 않습니다. ID: ${id}`);
+      error.status = 400;
+      throw error;
+    }
+    if (lengthType && !["단편", "시리즈", "장편"].includes(lengthType)) {
+      const error = new Error(`POSTYPE lengthType 값이 올바르지 않습니다. ID: ${id}`);
+      error.status = 400;
+      throw error;
+    }
     if (url && !isValidUrl(url)) {
       const error = new Error(`POSTYPE URL 형식이 올바르지 않습니다. ID: ${id}`);
       error.status = 400;
@@ -199,14 +233,14 @@ function buildArchive(values, headers) {
     items.push({
       id,
       source: "postype",
-      combination: cell(row, headerIndex, "combination"),
+      combination,
       subCp1: cell(row, headerIndex, "subCp1"),
       subCp2: cell(row, headerIndex, "subCp2"),
-      title: cell(row, headerIndex, "title"),
+      title,
       genre: cell(row, headerIndex, "genre"),
-      author: cell(row, headerIndex, "author"),
-      status: cell(row, headerIndex, "status"),
-      lengthType: cell(row, headerIndex, "lengthType"),
+      author,
+      status,
+      lengthType,
       workLength: cell(row, headerIndex, "workLength"),
       publishType: cell(row, headerIndex, "publishType") || (/\/series\/\d+/i.test(url) || cell(row, headerIndex, "linkType") === "manual" ? "다회차" : "단일글"),
       linkType: cell(row, headerIndex, "linkType") || (/\/series\/\d+/i.test(url) ? "series" : "post"),
@@ -237,6 +271,7 @@ export async function onRequestPost(context) {
 
     const kv = requireKv(context.env);
     const body = await context.request.json();
+    const allowLargeRemoval = body?.forceLargeRemoval === true;
     const requestedUpdates = Array.isArray(body?.updates)
       ? body.updates
       : [];
@@ -426,25 +461,64 @@ export async function onRequestPost(context) {
       POSTYPE_INDEX_KEY,
       null
     );
+    const removedIds = getRemovedPostypeIds(existingArchive, archive);
+    const previousCount = Number(existingArchive?.count || 0);
+    const removalWarning = getPostypeLargeRemovalWarning(previousCount, removedIds.length);
+
+    if (removalWarning && !allowLargeRemoval) {
+      return jsonResponse({
+        ok: true,
+        blocked: true,
+        blockedReason: "large_removal",
+        warning: `${removalWarning} 발행정보 동기화에서도 관리자 확인 후에만 반영할 수 있습니다.`,
+        headerAdded: headerInfo.added,
+        sheetChanged: updates.length > 0,
+        sheetUpdatedCount: updates.length,
+        updated: updates,
+        kvChanged: false,
+        kvWritten: false,
+        count: previousCount,
+        candidateCount: archive.count,
+        candidateRemovedCount: removedIds.length,
+        candidateRemoved: removedIds,
+        totalRows: archive.totalRows,
+        disabledCount: archive.disabledCount,
+        syncedAt: existingArchive?.syncedAt || null,
+      }, 200, { "cache-control": "no-store" });
+    }
+
     const kvChanged = !archivesEqual(existingArchive, archive);
     let effectiveSyncedAt =
       existingArchive?.syncedAt || archive.syncedAt;
+    let publicIndexRepaired = false;
 
     if (kvChanged) {
+      await createDailyRestorePoint(kv, "postype", {
+        archive: existingArchive,
+      }, {
+        reason: "published_sync",
+        previousCount,
+        nextCount: Number(archive.count || 0),
+        removedCount: removedIds.length,
+      });
       await kv.put(POSTYPE_INDEX_KEY, JSON.stringify(archive));
       await refreshPublicArchiveIndex(kv, { postypeArchive: archive });
       effectiveSyncedAt = archive.syncedAt;
+    } else {
+      publicIndexRepaired = await repairPublicArchiveIndexIfDirty(kv, { postypeArchive: archive });
     }
 
     return jsonResponse(
       {
         ok: true,
+        blocked: false,
         headerAdded: headerInfo.added,
         sheetChanged: updates.length > 0,
         sheetUpdatedCount: updates.length,
         updated: updates,
         kvChanged,
         kvWritten: kvChanged,
+        publicIndexRepaired,
         count: archive.count,
         totalRows: archive.totalRows,
         disabledCount: archive.disabledCount,
