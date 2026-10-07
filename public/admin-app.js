@@ -6414,6 +6414,133 @@ document.addEventListener("click", (event) => {
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
 
+
+const ADMIN_PROMPT_LIBRARY = [
+  {
+    title: "기본 개발 작업",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [작업내용]만 최소 수정해줘.
+관련 범위만 확인하고 localhost에서 직접 영향 범위만 테스트해줘.
+
+운영 KV/D1/Secret과 기존 Android 변경은 건드리지 마.
+이상 없으면 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+전체 감사·불필요한 리팩터링은 하지 마.`
+  },
+  {
+    title: "작은 UI · 정렬 · 문구 수정",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [수정 요청]만 최소 수정해줘.
+기존 디자인·반응형·다크모드·정상 기능은 그대로 유지해.
+관련 파일만 확인하고 불필요한 구조 변경이나 리팩터링은 하지 마.
+
+변경 JS/CJS 문법 검사와 git diff --check, 직접 영향 범위의 localhost 확인만 해줘.
+이상 없으면 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+운영 KV/D1/Secret과 기존 Android 변경은 건드리지 마.`
+  },
+  {
+    title: "위험 작업 · 인증 · D1 · 동기화",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [작업내용]의 실제 흐름과 원인을 먼저 확인해줘.
+인증, D1 write, 동기화, 삭제, 이어보기 등 기존 정상 기능의 회귀 방지를 최우선으로 해.
+추측 복원이나 관련 없는 리팩터링은 하지 말고 최소 수정해줘.
+
+운영 KV/D1/Secret에는 직접 쓰지 말고 로컬 D1/합성 데이터로 정상·실패·경계 상황을 확인해줘.
+우선 수정과 테스트 결과를 확인한 뒤 이상 없을 때만 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+기존 Android 변경은 건드리지 마.`
+  },
+  {
+    title: "감사만 · 수정 금지",
+    text: `현재 최신 main 기준으로 [점검 대상]만 독립적으로 감사해줘.
+
+코드 수정, 테스트용 소스 변경, 서버 실행, 배포, commit/push는 하지 마.
+관련 파일과 실제 호출 흐름만 확인하고 추측하지 마.
+
+각 항목을 해결됨 / 미해결 / 판단불가로 짧게 판정하고,
+미해결인 경우에만 실제 근거·영향·최소 수정 방향을 알려줘.
+이미 정상인 영역을 다시 설계하거나 새 기능을 제안하지 마.`
+  },
+  {
+    title: "버그 원인 분석만",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 참고해서 현재 최신 main 기준으로 [증상]의 원인만 분석해줘.
+
+아직 코드는 수정하지 마.
+관련 UI → API → 저장소/상태 흐름을 필요한 범위까지만 따라가고,
+재현 가능한 원인과 영향 범위를 먼저 특정해줘.
+
+결과는 원인 / 영향 파일 / 최소 수정안 / 회귀 위험 순서로 짧게 보고해줘.`
+  },
+  {
+    title: "사용량 절약 · 빠른 마무리",
+    text: `사용량이 얼마 남지 않았으니 현재 작업 범위 밖의 추가 감사·리팩터링·문서 확장은 하지 말고,
+필수 구현과 직접 관련 테스트만 마무리해서 commit/push까지 끝내줘.
+결과 보고도 아주 짧게 해줘.`
+  }
+];
+
+function renderPromptLibrary() {
+  const root = document.getElementById("promptLibraryList");
+  if (!root) return;
+  root.innerHTML = ADMIN_PROMPT_LIBRARY.map((item, index) => `
+    <article class="prompt-library-item" data-prompt-index="${index}">
+      <div class="prompt-library-row">
+        <button class="prompt-library-title" type="button" data-prompt-toggle="${index}" aria-expanded="false">
+          <span>${escapeHtml(item.title)}</span><span class="prompt-library-arrow" aria-hidden="true">▾</span>
+        </button>
+        <button class="prompt-library-copy" type="button" data-prompt-copy="${index}">복사</button>
+      </div>
+      <div class="prompt-library-detail" data-prompt-detail="${index}" hidden>
+        <pre>${escapeHtml(item.text)}</pre>
+        <button class="prompt-library-close" type="button" data-prompt-close="${index}">닫기</button>
+      </div>
+    </article>`).join("");
+}
+
+async function copyPromptText(index, button) {
+  const item = ADMIN_PROMPT_LIBRARY[index];
+  if (!item) return;
+  const original = button.textContent;
+  const copied = await copyAdminText(item.text);
+  button.textContent = copied ? "복사됨" : "복사 실패";
+  window.setTimeout(() => { button.textContent = original; }, 1200);
+}
+
+document.addEventListener("click", (event) => {
+  const copyButton = event.target.closest("[data-prompt-copy]");
+  if (copyButton) {
+    copyPromptText(Number(copyButton.dataset.promptCopy), copyButton);
+    return;
+  }
+  const closeButton = event.target.closest("[data-prompt-close]");
+  if (closeButton) {
+    const index = closeButton.dataset.promptClose;
+    const detail = document.querySelector(`[data-prompt-detail="${index}"]`);
+    const toggle = document.querySelector(`[data-prompt-toggle="${index}"]`);
+    if (detail) detail.hidden = true;
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", "false");
+      const arrow = toggle.querySelector(".prompt-library-arrow");
+      if (arrow) arrow.textContent = "▾";
+      toggle.focus();
+    }
+    return;
+  }
+  const toggleButton = event.target.closest("[data-prompt-toggle]");
+  if (!toggleButton) return;
+  const index = toggleButton.dataset.promptToggle;
+  const detail = document.querySelector(`[data-prompt-detail="${index}"]`);
+  if (!detail) return;
+  const opening = detail.hidden;
+  detail.hidden = !opening;
+  toggleButton.setAttribute("aria-expanded", opening ? "true" : "false");
+  const arrow = toggleButton.querySelector(".prompt-library-arrow");
+  if (arrow) arrow.textContent = opening ? "▴" : "▾";
+});
+
+renderPromptLibrary();
+
 loadVersionMetadata();
 
 if (activeDeployCommitSha) {
