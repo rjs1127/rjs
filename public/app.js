@@ -3202,8 +3202,12 @@ function applySettings(settings = {}) {
     els.siteAppleTouchIcon?.setAttribute("href", "/apple-touch-icon.png?v=632");
   }
 
-  if (settings.eyebrow) els.heroEyebrow.textContent = settings.eyebrow;
-  if (settings.title) els.heroTitle.textContent = settings.title;
+  if (els.heroEyebrow) {
+    els.heroEyebrow.textContent = String(settings.eyebrow ?? "");
+  }
+  if (els.heroTitle) {
+    els.heroTitle.textContent = String(settings.title ?? "");
+  }
 
   els.heroSection?.classList.remove("hero-settings-pending");
   els.heroSection?.classList.add("hero-settings-ready");

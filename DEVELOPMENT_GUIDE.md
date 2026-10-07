@@ -1,5 +1,6 @@
 # v9.55 GPT 새 채팅 인수인계 기준
 
+- 메인 hero의 eyebrow/title 표시값은 `/api/archive`가 반환하는 `settings.eyebrow`/`settings.title`을 단일 출처로 사용한다. `index.html`에 과거 문구를 fallback 데이터처럼 하드코딩하지 않고, 빈 문자열도 유효한 설정값으로 DOM에 그대로 반영한다. `hero-settings-pending`/`hero-settings-ready` 깜빡임 방지 구조와 SITE_NAME/favicon/설정 저장 구조는 별도 요구 없이 함께 변경하지 않는다.
 - 새 채팅의 개발 시작점은 루트 `GPT_DEVELOPMENT_HANDOFF.md`로 통일한다. 사용자가 최신 전체 ZIP을 첨부하면 해당 ZIP을 유일한 기준본으로 삼고 `public/version.json` → 인수인계 문서 → README 최신 섹션 → DEVELOPMENT_GUIDE 관련 구간 → 작업 관련 실제 소스 순으로 최소 범위만 확인한다.
 - 전체 HISTORY와 전체 개발 가이드를 매 작업마다 처음부터 읽지 않는다. 과거 회귀 확인이 필요한 경우에만 `HISTORY.md`를 기능/버전 키워드로 검색해 컨텍스트 사용량을 줄인다.
 - `GPT_DEVELOPMENT_HANDOFF.md`는 관리자 ZIP 배포가 허용하는 루트 문서로 취급한다. 브라우저 배포 미리보기와 서버 배포 허용 목록을 항상 같은 상태로 유지한다.
