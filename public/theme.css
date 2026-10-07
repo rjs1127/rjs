@@ -4826,16 +4826,26 @@ body.reader-open .network-status-banner {
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin:8px 0 2px;
-  padding:9px 10px;
-  border:1px solid var(--theme-line-soft);
-  border-radius:12px;
-  background:var(--theme-surface);
+  margin:5px 0 0;
+  padding:4px 1px 2px;
 }
 .profile-offline-actions[hidden] { display:none !important; }
 .profile-offline-actions-note { color:var(--theme-muted); font-size:10px; line-height:1.45; }
-.profile-offline-actions-buttons { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
-.profile-offline-actions .profile-secondary-button { min-height:32px; padding:6px 9px; font-size:11px; }
+.profile-offline-actions-buttons { display:flex; align-items:center; justify-content:flex-end; gap:3px; flex-wrap:wrap; }
+.profile-offline-actions .profile-secondary-button {
+  min-height:28px;
+  padding:4px 7px;
+  border-color:transparent;
+  border-radius:8px;
+  background:transparent;
+  font-size:10px;
+}
+.profile-offline-actions .profile-secondary-button:hover,
+.profile-offline-actions .profile-secondary-button:focus-visible {
+  border-color:var(--theme-line-soft);
+  background:var(--theme-secondary-bg);
+}
+.profile-offline-actions .profile-secondary-button.danger { color:#a34c4c; }
 .offline-entry-delete { color:#a34c4c !important; }
 .offline-profile-entry.is-selecting .profile-entry-main {
   display:grid;
@@ -4858,8 +4868,9 @@ body.reader-open .network-status-banner {
 .offline-profile-check input:checked + span { background:var(--theme-primary-text); border-color:var(--theme-primary-text); }
 .offline-profile-check input:focus-visible + span { outline:2px solid var(--theme-primary-text); outline-offset:2px; }
 @media (max-width:640px) {
-  .profile-offline-actions { align-items:flex-start; flex-direction:column; padding:9px 10px 10px; }
-  .profile-offline-actions-buttons { width:100%; justify-content:flex-end; }
+  .profile-offline-actions { align-items:center; gap:6px; padding:3px 0 1px; }
+  .profile-offline-actions-note { flex:1 1 auto; min-width:0; }
+  .profile-offline-actions-buttons { flex:0 0 auto; justify-content:flex-end; }
   .offline-profile-entry.is-selecting { grid-template-columns:1fr; }
   .offline-profile-entry.is-selecting .profile-entry-actions { display:none; }
 }
