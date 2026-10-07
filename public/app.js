@@ -3438,7 +3438,7 @@ function getArchiveItemSearchHaystack(item) {
 
 function normalizeSortValue(value) {
   if (value === "latest") return "registered";
-  return ["title", "author", "registered", "published", "bookmarks"].includes(value)
+  return ["title", "author", "registered", "published", "bookmarks", "size"].includes(value)
     ? value
     : "title";
 }
@@ -3688,6 +3688,13 @@ function sortItems(items) {
       return collator.compare(a.title || "", b.title || "");
     }
 
+    if (state.sort === "size") {
+      const aSize = Number.isFinite(Number(a.size)) ? Math.max(0, Number(a.size)) : 0;
+      const bSize = Number.isFinite(Number(b.size)) ? Math.max(0, Number(b.size)) : 0;
+      if (bSize !== aSize) return bSize - aSize;
+      return collator.compare(a.title || "", b.title || "");
+    }
+
     const aTime = getRegisteredTimestamp(a);
     const bTime = getRegisteredTimestamp(b);
     if (bTime !== aTime) return bTime - aTime;
@@ -3772,6 +3779,7 @@ function updateFilterSummary() {
       registered: "최근등록일",
       published: "최근발행일",
       bookmarks: "북마크순",
+      size: "분량순",
     };
     parts.push(sortLabels[state.sort] || "제목순");
     parts.push(state.view === "card" ? "카드형" : "리스트형");
@@ -7501,6 +7509,7 @@ if (els.sortSelect) {
     <option value="registered">최근등록일</option>
     <option value="published">최근발행일</option>
     <option value="bookmarks">북마크순</option>
+    <option value="size">분량순</option>
   `;
   els.sortSelect.value = state.sort;
 }
