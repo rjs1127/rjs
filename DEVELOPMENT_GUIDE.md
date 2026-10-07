@@ -1,3 +1,12 @@
+# v9.52 문장·본문 요청 정합성 기준
+
+- 저장 문장은 신규 저장 시 서버에서 중복 여부를 최종 판정한다. TXT는 `user_id + quote_text + work_id + start_offset`, 위치가 없는 직접입력/POSTYPE 문장은 `user_id + quote_text + title + author` 기준으로 새 중복 행을 만들지 않는다. 기존 중복 데이터를 임의 정리하지 않는다.
+- 오래된 저장 문장의 `workId`가 현재 목록에서 사라졌을 때 제목·작성자 fallback 후보가 둘 이상이면 첫 후보를 임의 선택하거나 `quote_location_update`로 잘못된 새 ID를 저장하지 않는다. 유일 후보일 때만 기존 위치 보정 흐름을 사용한다.
+- 문장 피드의 TXT 원문 이동은 저장 당시 `start_offset/source_text`가 현재 본문에서도 유효하면 그 위치를 사용한다. 저장 위치가 유효하지 않을 때는 문장이 유일하게 일치하는 경우에만 기존 텍스트 탐색으로 보정한다. 피드용 jump는 사용자 저장 위치를 갱신하지 않으며, 여러 위치가 일치하거나 찾지 못하면 0 위치로 열어 안내한다.
+- `/api/content`는 Google Drive ID 형태와 RFC3339 `modified`(또는 `unknown`)만 받는다. KV MISS 뒤에는 Drive가 반환한 실제 `modifiedTime`으로 canonical `body:` 키를 정하고 그 키만 새로 쓴다. 클라이언트가 보낸 임의 `modified` 값으로 신규 본문 캐시 키를 만들지 않는다.
+- 로그인 최근조회는 `/api/content` 요청 시작 시 선기록하지 않는다. 유효 KV 본문 HIT 또는 Drive 본문 다운로드·디코딩·KV 저장 성공 뒤에만 best-effort로 기록하며 본문 실패가 `user_items` 최근조회에 남지 않게 한다.
+- 다기기 이어보기 저장 경쟁, bootstrap/profile LIMIT 확대, 인증 해시 변경, 게스트 이어보기는 별도 검토 전 이 정합성 패치에 섞지 않는다.
+
 # v9.51 로그인·저장·동기화 안전 기준
 
 - 자동 로그인 복원은 HTTP 401처럼 실제 인증 거절이 확인된 경우에만 장기 토큰·쿠키를 폐기한다. 네트워크 오류나 5xx에서는 토큰을 보존하고 공개 화면 사용을 유지하며, 온라인 복귀 시 복원을 다시 시도한다.

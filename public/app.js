@@ -2145,12 +2145,16 @@ function renderProfilePage() {
 
 
 function normalizeQuoteFeedItem(row) {
+  const rawStartOffset = row?.start_offset ?? row?.startOffset;
+  const rawEndOffset = row?.end_offset ?? row?.endOffset;
   return {
     quoteId: Number(row?.quote_id ?? row?.quoteId ?? 0),
     workId: String(row?.work_id ?? row?.workId ?? ""),
     title: String(row?.title || ""),
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
+    startOffset: rawStartOffset == null ? null : Number(rawStartOffset),
+    endOffset: rawEndOffset == null ? null : Number(rawEndOffset),
     sharedAt: Number(row?.shared_at ?? row?.sharedAt ?? 0),
     likeCount: Math.max(0, Number(row?.like_count ?? row?.likeCount ?? 0)),
     liked: Number(row?.liked || 0) === 1 || row?.liked === true,
@@ -2194,16 +2198,36 @@ function formatQuoteFeedDate(value) {
 function findQuoteFeedWork(item) {
   if (!item) return null;
   if (item.workId) {
-    const direct = state.items.find((candidate) => candidate.id === item.workId);
+    const direct = state.items.find((candidate) => String(candidate.id) === String(item.workId));
     if (direct) return direct;
   }
   const title = normalizeSearchText(item.title);
   const author = normalizeSearchText(item.author);
   if (!title) return null;
-  return state.items.find((candidate) =>
+  const matches = state.items.filter((candidate) =>
     normalizeSearchText(candidate.title) === title &&
     (!author || normalizeSearchText(candidate.author) === author)
-  ) || null;
+  );
+  // A stale/missing workId must never fall through to an arbitrary same-title work.
+  return matches.length === 1 ? matches[0] : null;
+}
+
+function getQuoteFeedJump(item) {
+  if (!item) return null;
+  const quoteText = String(item.quoteText || "").trim();
+  if (!quoteText) return null;
+  return {
+    _feedJump: true,
+    workId: String(item.workId || ""),
+    quoteText,
+    sourceText: quoteText,
+    startOffset: item.startOffset == null || !Number.isFinite(Number(item.startOffset))
+      ? null
+      : Number(item.startOffset),
+    endOffset: item.endOffset == null || !Number.isFinite(Number(item.endOffset))
+      ? null
+      : Number(item.endOffset),
+  };
 }
 
 function renderQuoteFeed() {
@@ -2571,11 +2595,17 @@ async function saveCurrentReaderQuote({ quoteText: rawQuoteText = null, sourceIt
   });
   const savedQuote = data.quote ? normalizeSavedQuote(data.quote) : null;
   if (savedQuote) {
-    if (state.savedQuotesLoaded) {
-      state.savedQuotes.unshift(savedQuote);
-      state.savedQuoteCount = state.savedQuotes.length;
-    } else {
-      state.savedQuoteCount = Math.max(0, Number(state.savedQuoteCount || 0)) + 1;
+    savedQuote._alreadySaved = data.created === false;
+    if (data.created !== false) {
+      if (state.savedQuotesLoaded) {
+        state.savedQuotes.unshift(savedQuote);
+        state.savedQuoteCount = state.savedQuotes.length;
+      } else {
+        state.savedQuoteCount = Math.max(0, Number(state.savedQuoteCount || 0)) + 1;
+      }
+    } else if (state.savedQuotesLoaded) {
+      const existingIndex = state.savedQuotes.findIndex((quote) => Number(quote.id) === Number(savedQuote.id));
+      if (existingIndex >= 0) state.savedQuotes[existingIndex] = savedQuote;
     }
   }
   if (state.profileOpen) renderProfilePage();
@@ -6873,10 +6903,11 @@ async function resolveSavedQuoteJumpLocation(quote, item) {
     .filter(Boolean);
 
   for (const candidate of candidates) {
-    const found = findQuoteTextOffsetInReader(candidate, quote.startOffset);
+    const preferredOffset = quote?._feedJump ? null : quote.startOffset;
+    const found = findQuoteTextOffsetInReader(candidate, preferredOffset);
     if (!found) continue;
     const location = { ...found, repaired: true };
-    persistSavedQuoteLocation(quote, item, location);
+    if (!quote?._feedJump) persistSavedQuoteLocation(quote, item, location);
     return location;
   }
 
@@ -6910,7 +6941,7 @@ async function openSavedQuoteLocation(quote) {
     window.alert("이 저장 문장의 원본 TXT 작품을 찾을 수 없습니다.");
     return;
   }
-  if (candidates.length > 1 && !quote.workId) {
+  if (candidates.length > 1) {
     window.alert("같은 제목과 작성자의 작품이 여러 개라 원문 위치를 안전하게 특정할 수 없습니다.");
     return;
   }
@@ -7138,7 +7169,9 @@ async function openReader(item, options = {}) {
       if (els.readerResume) els.readerResume.hidden = true;
       if (!quoteJumpLocation) {
         window.setTimeout(() => {
-          window.alert("저장한 문장의 원문 위치를 찾지 못했습니다. 원문이 수정되었거나 저장 문구가 편집된 경우일 수 있습니다.");
+          window.alert(options?.quoteJump?._feedJump
+            ? "피드 문장의 원문 위치를 정확히 찾지 못해 작품 처음에서 열었습니다."
+            : "저장한 문장의 원문 위치를 찾지 못했습니다. 원문이 수정되었거나 저장 문구가 편집된 경우일 수 있습니다.");
         }, 0);
       }
     } else {
@@ -8525,11 +8558,17 @@ els.quoteFeedGrid?.addEventListener("click", (event) => {
 });
 
 els.quoteFeedOpenWorkButton?.addEventListener("click", () => {
-  const item = findQuoteFeedWork(state.quoteFeedActiveItem);
+  const feedItem = state.quoteFeedActiveItem;
+  const item = findQuoteFeedWork(feedItem);
   if (!item) return;
   closeModal(els.quoteFeedModal);
   hideQuoteFeedPage({ clearHistoryMarker: true });
-  openContentItem(item);
+  if (item.source === "postype") {
+    openContentItem(item);
+    return;
+  }
+  recordAnalyticsWorkOpen(true);
+  openReader(item, { quoteJump: getQuoteFeedJump(feedItem) });
 });
 
 window.addEventListener("popstate", (event) => {
@@ -10268,10 +10307,14 @@ function ensureReaderShareUi() {
       });
       if (savedQuote) {
         lastSavedQuote = savedQuote;
-        quoteSaveButton.textContent = "저장 완료";
+        quoteSaveButton.textContent = savedQuote._alreadySaved ? "이미 저장됨" : "저장 완료";
         quoteSaveButton.classList.add("saved");
         if (savedPanel) {
           savedPanel.hidden = false;
+          const savedHeadText = savedPanel.querySelector(".reader-share-saved-head span:last-child");
+          if (savedHeadText) {
+            savedHeadText.textContent = savedQuote._alreadySaved ? "이미 저장된 문장이에요" : "문장을 저장했어요";
+          }
           const sheetScroll = backdrop.querySelector(".reader-share-sheet-scroll");
           window.requestAnimationFrame(() => {
             const behavior = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ? "auto" : "smooth";
@@ -10286,8 +10329,15 @@ function ensureReaderShareUi() {
           });
         }
         if (publicToggle) {
+          const isShared = savedQuote.shared === true;
           publicToggle.disabled = false;
-          publicToggle.setAttribute("aria-pressed", "false");
+          publicToggle.setAttribute("aria-pressed", isShared ? "true" : "false");
+          const copy = savedPanel?.querySelector(".reader-share-public-copy small");
+          if (copy) {
+            copy.textContent = isShared
+              ? "문장 피드에 공개됐어요. 내 정보에서 언제든 비공개로 바꿀 수 있어요."
+              : "공개한 문장은 내 정보에서 언제든 다시 비공개로 바꿀 수 있어요.";
+          }
         }
         window.setTimeout(() => {
           quoteSaveButton.textContent = original;

@@ -2,6 +2,7 @@ import { jsonResponse } from "../_shared.js";
 import {
   requireUserDb,
   ensureQuoteFeedSchema,
+  ensurePersonalizationSchema,
   getBearerToken,
   sha256Hex,
 } from "../_user.js";
@@ -50,6 +51,7 @@ async function getOptionalUserId(db, request) {
 export async function onRequestGet(context) {
   try {
     const db = requireUserDb(context.env);
+    await ensurePersonalizationSchema(db);
     await ensureQuoteFeedSchema(db);
 
     const url = new URL(context.request.url);
@@ -66,8 +68,10 @@ export async function onRequestGet(context) {
         : "";
       const sql = `
         SELECT sq.quote_id, sq.work_id, sq.title, sq.author, sq.quote_text, sq.shared_at, sq.like_count,
+               q.start_offset, q.end_offset,
                ${userId ? "CASE WHEN l.quote_id IS NULL THEN 0 ELSE 1 END" : "0"} AS liked
         FROM shared_quotes sq
+        LEFT JOIN user_quotes q ON q.id = sq.quote_id AND q.user_id = sq.user_id
         ${userId ? "LEFT JOIN shared_quote_likes l ON l.quote_id = sq.quote_id AND l.user_id = ?" : ""}
         ${where}
         ORDER BY sq.like_count DESC, sq.shared_at DESC, sq.quote_id DESC
@@ -85,8 +89,10 @@ export async function onRequestGet(context) {
         : "";
       const sql = `
         SELECT sq.quote_id, sq.work_id, sq.title, sq.author, sq.quote_text, sq.shared_at, sq.like_count,
+               q.start_offset, q.end_offset,
                ${userId ? "CASE WHEN l.quote_id IS NULL THEN 0 ELSE 1 END" : "0"} AS liked
         FROM shared_quotes sq
+        LEFT JOIN user_quotes q ON q.id = sq.quote_id AND q.user_id = sq.user_id
         ${userId ? "LEFT JOIN shared_quote_likes l ON l.quote_id = sq.quote_id AND l.user_id = ?" : ""}
         ${where}
         ORDER BY sq.shared_at DESC, sq.quote_id DESC

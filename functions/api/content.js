@@ -9,6 +9,20 @@ import {
 import { requireUser } from "../_user.js";
 
 
+const DRIVE_FILE_ID_PATTERN = /^[A-Za-z0-9_-]{10,200}$/;
+const RFC3339_MODIFIED_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/;
+
+function normalizeModifiedParam(value) {
+  const raw = String(value || "unknown").trim();
+  if (!raw || raw === "unknown") return "unknown";
+  if (raw.length > 64 || !RFC3339_MODIFIED_PATTERN.test(raw)) return null;
+  return Number.isFinite(Date.parse(raw)) ? raw : null;
+}
+
+function getBodyCacheKey(fileId, modified) {
+  return `body:${fileId}:${modified || "unknown"}`;
+}
+
 async function recordAuthenticatedRecentView(context, fileId) {
   try {
     if (!context.request.headers.get("authorization")) return;
@@ -43,31 +57,35 @@ function scheduleAuthenticatedRecentView(context, fileId) {
 
 export async function onRequestGet(context) {
   const url = new URL(context.request.url);
-  const fileId = url.searchParams.get("id");
-  const modified = url.searchParams.get("modified") || "unknown";
+  const fileId = String(url.searchParams.get("id") || "").trim();
+  const modified = normalizeModifiedParam(url.searchParams.get("modified"));
   const raw = url.searchParams.get("raw") === "1";
 
   if (!fileId) return jsonResponse({ error: "파일 ID가 없습니다." }, 400);
-
-  // Logged-in recent-view tracking shares this same Functions request instead
-  // of issuing a separate /api/user/item POST from the browser.
-  scheduleAuthenticatedRecentView(context, fileId);
+  if (!DRIVE_FILE_ID_PATTERN.test(fileId)) {
+    return jsonResponse({ error: "파일 ID 형식이 올바르지 않습니다." }, 400);
+  }
+  if (modified == null) {
+    return jsonResponse({ error: "파일 수정 시각 형식이 올바르지 않습니다." }, 400);
+  }
 
   try {
     const serverStartedAt = Date.now();
     const kv = requireKv(context.env);
-    const bodyCacheKey = `body:${fileId}:${modified}`;
+    const requestedBodyCacheKey = getBodyCacheKey(fileId, modified);
 
-    const kvReadStartedAt = Date.now();
-    const cached = raw
-      ? await kv.get(bodyCacheKey, "arrayBuffer")
-      : await kv.get(bodyCacheKey, "text");
-    const kvReadMs = Date.now() - kvReadStartedAt;
+    let kvReadStartedAt = Date.now();
+    let cached = raw
+      ? await kv.get(requestedBodyCacheKey, "arrayBuffer")
+      : await kv.get(requestedBodyCacheKey, "text");
+    let kvReadMs = Date.now() - kvReadStartedAt;
 
-    if (cached !== null) {
+    const respondFromCache = (value) => {
+      // Recent-view tracking starts only after a valid body has actually been found.
+      scheduleAuthenticatedRecentView(context, fileId);
       if (raw) {
-        const byteLength = cached.byteLength;
-        return new Response(cached, {
+        const byteLength = value.byteLength;
+        return new Response(value, {
           status: 200,
           headers: {
             "content-type": "text/plain; charset=utf-8",
@@ -81,7 +99,7 @@ export async function onRequestGet(context) {
       }
 
       return jsonResponse(
-        { id: fileId, content: cached, cached: true },
+        { id: fileId, content: value, cached: true },
         200,
         {
           "cache-control": "private, max-age=300",
@@ -89,7 +107,9 @@ export async function onRequestGet(context) {
           "x-content-server-total-ms": String(Date.now() - serverStartedAt),
         }
       );
-    }
+    };
+
+    if (cached !== null) return respondFromCache(cached);
 
     const tokenStartedAt = Date.now();
     const accessToken = await getAccessToken(context.env);
@@ -98,6 +118,20 @@ export async function onRequestGet(context) {
     const verifyStartedAt = Date.now();
     const verified = await verifyFileInsideArchive(accessToken, fileId);
     const verifyMs = Date.now() - verifyStartedAt;
+
+    // Never create arbitrary body:* keys from a client supplied modified value.
+    // Once Drive has verified the file, only its real modifiedTime becomes the write key.
+    const verifiedModified = normalizeModifiedParam(verified?.file?.modifiedTime) || "unknown";
+    const canonicalBodyCacheKey = getBodyCacheKey(fileId, verifiedModified);
+
+    if (canonicalBodyCacheKey !== requestedBodyCacheKey) {
+      kvReadStartedAt = Date.now();
+      cached = raw
+        ? await kv.get(canonicalBodyCacheKey, "arrayBuffer")
+        : await kv.get(canonicalBodyCacheKey, "text");
+      kvReadMs += Date.now() - kvReadStartedAt;
+      if (cached !== null) return respondFromCache(cached);
+    }
 
     const driveRequestStartedAt = Date.now();
     const response = await driveFetch(
@@ -115,7 +149,7 @@ export async function onRequestGet(context) {
     const decodeMs = Date.now() - decodeStartedAt;
 
     const kvWriteStartedAt = Date.now();
-    await kv.put(bodyCacheKey, content);
+    await kv.put(canonicalBodyCacheKey, content);
     const kvWriteMs = Date.now() - kvWriteStartedAt;
 
     const buildServerTimingHeaders = () => ({
@@ -128,6 +162,9 @@ export async function onRequestGet(context) {
       "x-content-server-kv-write-ms": String(kvWriteMs),
       "x-content-server-total-ms": String(Date.now() - serverStartedAt),
     });
+
+    // Record recent-view only after Drive download/decode/cache write succeeded.
+    scheduleAuthenticatedRecentView(context, fileId);
 
     if (raw) {
       const byteLength = new TextEncoder().encode(content).byteLength;
