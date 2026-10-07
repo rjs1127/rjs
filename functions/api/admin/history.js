@@ -14,14 +14,6 @@ function githubHeaders(token) {
   };
 }
 
-function decodeBase64Utf8(value) {
-  const binary = atob(String(value || "").replace(/\s+/g, ""));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder("utf-8").decode(bytes);
-}
-
-
 async function fetchCommitDays(token) {
   const rows = [];
   for (let page = 1; page <= 20; page += 1) {
@@ -34,7 +26,8 @@ async function fetchCommitDays(token) {
       throw new Error(body?.message || `GitHub commit history 조회 오류 (${response.status})`);
     }
     const pageRows = await response.json();
-    if (!Array.isArray(pageRows) || !pageRows.length) break;
+    if (!Array.isArray(pageRows)) throw new Error("GitHub commit history 응답 형식이 올바르지 않습니다.");
+    if (!pageRows.length) break;
     rows.push(...pageRows);
     if (pageRows.length < 100) break;
   }
@@ -66,41 +59,32 @@ async function fetchCommitDays(token) {
   };
 }
 
-function parseHistoryMarkdown(markdown) {
-  const lines = String(markdown || "").replace(/\r\n/g, "\n").split("\n");
-  const days = [];
-  let current = null;
+// Cache successful reads per isolate; never bypass authentication or cache failures.
+const HISTORY_CACHE_MS = 5 * 60 * 1000;
+let historyCache = null;
+let historyInFlight = null;
 
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-    const dateMatch = line.match(/^##\s+(\d{4}-\d{2}-\d{2})$/);
-    if (dateMatch) {
-      current = { date: dateMatch[1], entries: [] };
-      days.push(current);
-      continue;
-    }
-
-    if (!current) continue;
-    const entryMatch = line.match(/^-\s+(\d{2}:\d{2})\s+·\s+(.+)$/);
-    if (!entryMatch) continue;
-    current.entries.push({ time: entryMatch[1], message: entryMatch[2].trim() });
+async function getCommitHistory(token) {
+  if (historyCache?.token === token && historyCache.expiresAt > Date.now()) {
+    return historyCache.data;
   }
+  if (historyInFlight?.token === token) return historyInFlight.promise;
 
-  const sorted = days
-    .filter((day) => day.entries.length)
-    .sort((a, b) => b.date.localeCompare(a.date));
-  const commitCount = sorted.reduce((sum, day) => sum + day.entries.length, 0);
-  const datesAsc = sorted.map((day) => day.date).sort();
-
-  return {
-    days: sorted,
-    summary: {
-      firstDate: datesAsc[0] || "",
-      lastDate: datesAsc[datesAsc.length - 1] || "",
-      commitCount,
-      activeDays: sorted.length,
-    },
-  };
+  const pending = { token };
+  pending.promise = fetchCommitDays(token).then((history) => {
+    const data = {
+      ok: true,
+      ...history,
+      source: "github-main",
+      updatedAt: new Date().toISOString(),
+    };
+    historyCache = { token, data, expiresAt: Date.now() + HISTORY_CACHE_MS };
+    return data;
+  }).finally(() => {
+    if (historyInFlight === pending) historyInFlight = null;
+  });
+  historyInFlight = pending;
+  return pending.promise;
 }
 
 export async function onRequestGet(context) {
@@ -109,50 +93,8 @@ export async function onRequestGet(context) {
     const token = context.env.GITHUB_TOKEN;
     if (!token) throw new Error("Cloudflare Secret 'GITHUB_TOKEN'이 설정되지 않았습니다.");
 
-    const response = await fetch(
-      `https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/contents/HISTORY.md?ref=${encodeURIComponent(GITHUB_BRANCH)}`,
-      { headers: githubHeaders(token) }
-    );
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        const fallback = await fetchCommitDays(token);
-        return jsonResponse({
-          ok: true,
-          ...fallback,
-          source: "github-fallback",
-          historyFilePending: true,
-          updatedAt: new Date().toISOString(),
-        }, 200, { "cache-control": "no-store" });
-      }
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body?.message || `GitHub HISTORY.md 조회 오류 (${response.status})`);
-    }
-
-    const data = await response.json();
-    const markdown = decodeBase64Utf8(data?.content || "");
-    const parsed = parseHistoryMarkdown(markdown);
-
-    // 첫 HISTORY.md가 안내문만 포함한 마이그레이션 상태이거나
-    // 날짜별 커밋 형식이 아직 하나도 없다면 실제 GitHub 커밋을 즉시 표시한다.
-    // 다음 관리자 배포에서 deploy.js가 같은 실제 이력을 HISTORY.md에 정식 저장한다.
-    if (!parsed.summary.commitCount) {
-      const fallback = await fetchCommitDays(token);
-      return jsonResponse({
-        ok: true,
-        ...fallback,
-        source: "github-fallback",
-        historyFilePending: true,
-        updatedAt: new Date().toISOString(),
-      }, 200, { "cache-control": "no-store" });
-    }
-
-    return jsonResponse({
-      ok: true,
-      ...parsed,
-      source: "HISTORY.md",
-      updatedAt: new Date().toISOString(),
-    }, 200, { "cache-control": "no-store" });
+    const data = await getCommitHistory(token);
+    return jsonResponse(data, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(error);
     return jsonResponse(

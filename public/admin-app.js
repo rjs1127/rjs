@@ -5974,7 +5974,7 @@ function renderHistoryActivity(days = historyDays, mode = historyActivityMode) {
 function renderHistoryTimeline(days = []) {
   if (!els.historyTimeline) return;
   if (!days.length) {
-    els.historyTimeline.innerHTML = `<div class="history-empty">HISTORY.md에 표시할 기록이 없습니다.</div>`;
+    els.historyTimeline.innerHTML = `<div class="history-empty">GitHub main에 표시할 커밋 기록이 없습니다.</div>`;
     return;
   }
 
@@ -6080,9 +6080,9 @@ async function loadHistory(force = false) {
 
     renderHistoryActivity(days, historyActivityMode);
     renderHistoryTimeline(days);
-    if (data?.historyFilePending && els.historyMessage) {
+    if (data?.source === "github-main" && els.historyMessage) {
       els.historyMessage.hidden = false;
-      els.historyMessage.textContent = "현재는 GitHub 커밋 이력을 직접 표시 중입니다. 다음 관리자 배포부터 HISTORY.md가 자동 생성되어 같은 데이터 원본으로 전환됩니다.";
+      els.historyMessage.textContent = "GitHub main의 실제 커밋 이력입니다. 최대 5분간 캐시되며, Cloudflare 배포 횟수와는 별도입니다.";
     }
     historyLoaded = true;
   } finally {
