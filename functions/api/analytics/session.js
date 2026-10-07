@@ -1,8 +1,11 @@
+import { checkAnalyticsRequest, admitAnalytics } from '../../_abuse_guard.js';
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
   ensureUserSchema,
   requireUser,
+  getBearerToken,
+  getCookieToken,
 } from "../../_user.js";
 
 const KST_OFFSET_MS = 9 * 60 * 60 * 1000;
@@ -105,13 +108,14 @@ async function optionalUserId(context) {
 }
 
 export async function onRequestPost(context) {
+  let admission;
   try {
     if (!isSameOriginPost(context.request)) {
       return jsonResponse({ error: "허용되지 않은 요청입니다." }, 403);
     }
 
-    const db = requireUserDb(context.env);
-    await ensureUserSchema(db);
+    const rejected = checkAnalyticsRequest(context.request);
+    if (rejected) return rejected;
 
     let body = {};
     try {
@@ -125,6 +129,25 @@ export async function onRequestPost(context) {
     if (!visitorId || !sessionId) {
       return jsonResponse({ error: "방문 식별 정보가 올바르지 않습니다." }, 400);
     }
+
+    // Preserve changed page/reader metrics; coalesce only near-identical heartbeats.
+    const signature = JSON.stringify([
+      clampInt(body.pageViews, 1), clampInt(body.workOpens), clampInt(body.searches),
+      clampInt(body.pageLoadMs, 0, MAX_LOAD_MS), clampInt(body.archiveLoadMs, 0, MAX_LOAD_MS),
+      clampInt(body.readerLoadMsSum, 0, MAX_LOAD_MS * 500), clampInt(body.readerLoadCount, 0, 500),
+      cleanReaderPerf(body.readerPerf), cleanVersion(body.appVersion),
+      ...["Shown", "LoginClicks", "SignupClicks", "LoginCompleted", "SignupCompleted", "Close"]
+        .map(name => clampInt(body["signupNudge" + name], 0, 1)),
+      Boolean(getBearerToken(context.request) || getCookieToken(context.request)),
+    ]);
+    admission = admitAnalytics(context.request, visitorId, sessionId, signature);
+    if (admission.response) return admission.response;
+    if (admission.ignored) return jsonResponse(
+      { ok: true, sessionId, userLinked: Boolean(admission.userLinked), recordedAt: Date.now(), ignored: true },
+      200, { "cache-control": "no-store" }
+    );
+    const db = requireUserDb(context.env);
+    await ensureUserSchema(db);
 
     const now = Date.now();
     const startedAt = Math.max(
@@ -261,6 +284,7 @@ export async function onRequestPost(context) {
       signupNudgeSignupCompleted,
       signupNudgeClose
     ).run();
+    admission.commit(Boolean(userId));
 
     return jsonResponse(
       { ok: true, sessionId, userLinked: Boolean(userId), recordedAt: now },
@@ -268,6 +292,7 @@ export async function onRequestPost(context) {
       { "cache-control": "no-store" }
     );
   } catch (error) {
+    admission?.cancel?.();
     console.error("방문 분석 세션 저장 실패", error);
     return jsonResponse(
       { error: "방문 통계를 기록하지 못했습니다." },

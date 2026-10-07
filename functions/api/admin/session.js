@@ -1,3 +1,4 @@
+import { checkLoginRequest, recordLoginFailure, recordLoginSuccess } from '../../_abuse_guard.js';
 import { jsonResponse } from "../../_shared.js";
 import {
   createAdminSessionToken,
@@ -16,10 +17,13 @@ export async function onRequestPost(context) {
       );
     }
 
+    const rejected = checkLoginRequest(context.request, true);
+    if (rejected) return rejected;
     const body = await context.request.json();
     const supplied = String(body?.password || "");
 
     if (!supplied || supplied !== configured) {
+      recordLoginFailure(context.request, "", true);
       return jsonResponse(
         { error: "관리자 비밀번호가 올바르지 않습니다." },
         401,
@@ -28,6 +32,7 @@ export async function onRequestPost(context) {
     }
 
     const token = await createAdminSessionToken(context.env);
+    recordLoginSuccess(context.request, "", true);
 
     return new Response(
       JSON.stringify({ ok: true }),
@@ -41,6 +46,7 @@ export async function onRequestPost(context) {
       }
     );
   } catch (error) {
+    if (error instanceof SyntaxError) recordLoginFailure(context.request, "", true);
     console.error(error);
     return jsonResponse(
       { error: error?.message || "관리자 로그인에 실패했습니다." },

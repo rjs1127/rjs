@@ -1,3 +1,4 @@
+import { checkSignup, reserveSignup } from '../../_abuse_guard.js';
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
@@ -13,6 +14,8 @@ import {
 
 export async function onRequestPost(context) {
   try {
+    const rejected = checkSignup(context.request);
+    if (rejected) return rejected;
     const db = requireUserDb(context.env);
     await ensureUserSchema(db);
 
@@ -34,10 +37,17 @@ export async function onRequestPost(context) {
     const passwordHash = await hashPassword(password, salt);
     const now = Date.now();
 
-    await db.prepare(`
-      INSERT INTO users(user_id, password_salt, password_hash, created_at)
-      VALUES (?, ?, ?, ?)
-    `).bind(userId, salt, passwordHash, now).run();
+    const reservation = reserveSignup(context.request);
+    if (reservation.response) return reservation.response;
+    try {
+      await db.prepare(`
+        INSERT INTO users(user_id, password_salt, password_hash, created_at)
+        VALUES (?, ?, ?, ?)
+      `).bind(userId, salt, passwordHash, now).run();
+    } catch (error) {
+      reservation.release();
+      throw error;
+    }
 
     const session = await createSession(db, userId);
 

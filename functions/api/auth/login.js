@@ -1,3 +1,4 @@
+import { checkLoginRequest, checkLoginAccount, recordLoginFailure, recordLoginSuccess } from '../../_abuse_guard.js';
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
@@ -12,15 +13,20 @@ import {
 } from "../../_user.js";
 
 export async function onRequestPost(context) {
+  let userId = "";
   try {
+    const rejected = checkLoginRequest(context.request);
+    if (rejected) return rejected;
     const db = requireUserDb(context.env);
     await ensureUserSchema(db);
 
     const body = await context.request.json();
-    const userId = normalizeUserId(body?.userId);
+    userId = normalizeUserId(body?.userId);
     const password = String(body?.password || "");
     const remember = body?.remember !== false;
 
+    const accountRejected = checkLoginAccount(context.request, userId);
+    if (accountRejected) return accountRejected;
     validateCredentials(userId, password);
 
     const user = await db.prepare(`
@@ -31,16 +37,19 @@ export async function onRequestPost(context) {
     `).bind(userId).first();
 
     if (!user) {
+      recordLoginFailure(context.request, userId);
       return jsonResponse({ error: "아이디 또는 비밀번호가 올바르지 않습니다." }, 401);
     }
 
     const passwordHash = await hashPassword(password, user.password_salt);
 
     if (passwordHash !== user.password_hash) {
+      recordLoginFailure(context.request, userId);
       return jsonResponse({ error: "아이디 또는 비밀번호가 올바르지 않습니다." }, 401);
     }
 
     const session = await createSession(db, userId);
+    recordLoginSuccess(context.request, userId);
 
     return jsonResponse({
       ok: true,
@@ -54,6 +63,7 @@ export async function onRequestPost(context) {
         : buildClearUserSessionCookie(),
     });
   } catch (error) {
+    if (error?.status === 400 || error instanceof SyntaxError) recordLoginFailure(context.request, userId);
     console.error(error);
     return userErrorResponse(error);
   }
