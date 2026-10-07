@@ -1,4 +1,6 @@
 import {
+  ARCHIVE_CACHE_KEY,
+  getJson,
   jsonResponse,
   requireKv,
   getAccessToken,
@@ -79,9 +81,18 @@ export async function onRequestGet(context) {
     const requestedBodyCacheKey = getBodyCacheKey(fileId, modified);
 
     let kvReadStartedAt = Date.now();
-    let cached = raw
-      ? await kv.get(requestedBodyCacheKey, "arrayBuffer")
-      : await kv.get(requestedBodyCacheKey, "text");
+    // The source archive remains authoritative even if the public index update failed.
+    const [archive, cachedBody] = await Promise.all([
+      getJson(kv, ARCHIVE_CACHE_KEY, null),
+      kv.get(requestedBodyCacheKey, raw ? "arrayBuffer" : "text"),
+    ]);
+    if (Array.isArray(archive?.items) && !archive.items.some((item) => item.id === fileId)) {
+      return jsonResponse({ error: "삭제되었거나 현재 제공되지 않는 작품입니다." }, 404, {
+        "cache-control": "no-store",
+      });
+    }
+    // Without an authoritative archive, verify Drive before trusting an old body.
+    let cached = Array.isArray(archive?.items) ? cachedBody : null;
     let kvReadMs = Date.now() - kvReadStartedAt;
 
     const respondFromCache = (value) => {
@@ -93,7 +104,7 @@ export async function onRequestGet(context) {
           status: 200,
           headers: {
             "content-type": "text/plain; charset=utf-8",
-            "cache-control": "private, max-age=300",
+            "cache-control": "private, no-cache",
             "x-content-bytes": String(byteLength),
             "x-content-cached": "1",
             "x-content-server-kv-read-ms": String(kvReadMs),
@@ -106,7 +117,7 @@ export async function onRequestGet(context) {
         { id: fileId, content: value, cached: true },
         200,
         {
-          "cache-control": "private, max-age=300",
+          "cache-control": "private, no-cache",
           "x-content-server-kv-read-ms": String(kvReadMs),
           "x-content-server-total-ms": String(Date.now() - serverStartedAt),
         }
@@ -176,7 +187,7 @@ export async function onRequestGet(context) {
         status: 200,
         headers: {
           "content-type": "text/plain; charset=utf-8",
-          "cache-control": "private, max-age=300",
+          "cache-control": "private, no-cache",
           "x-content-bytes": String(byteLength),
           "x-content-cached": "0",
           ...buildServerTimingHeaders(),
@@ -195,7 +206,7 @@ export async function onRequestGet(context) {
       },
       200,
       {
-        "cache-control": "private, max-age=300",
+        "cache-control": "private, no-cache",
         ...buildServerTimingHeaders(),
       }
     );

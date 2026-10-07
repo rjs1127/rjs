@@ -234,6 +234,16 @@ export async function runDriveSync(env, options = {}) {
   if (delta.changed) {
     await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
   }
+  // Purge after the source archive is saved, before any derived index write can fail.
+  let cachePurge = { queued: 0, deletedKeys: 0 };
+  let cachePurgeWarning = "";
+  try {
+    cachePurge = await purgeQueuedBodyCaches(kv, archive);
+  } catch (error) {
+    cachePurgeWarning = `삭제된 TXT 본문 캐시 정리를 완료하지 못했습니다: ${error?.message || "알 수 없는 오류"}`;
+    console.warn(cachePurgeWarning);
+  }
+
   if (overridesChanged) {
     await kv.put(OVERRIDES_KEY, JSON.stringify(nextOverrides));
   }
@@ -245,15 +255,6 @@ export async function runDriveSync(env, options = {}) {
     await refreshPublicArchiveIndex(kv, { archive });
   } else {
     publicIndexRepaired = await repairPublicArchiveIndexIfDirty(kv, { archive });
-  }
-
-  let cachePurge = { queued: 0, deletedKeys: 0 };
-  let cachePurgeWarning = "";
-  try {
-    cachePurge = await purgeQueuedBodyCaches(kv, archive);
-  } catch (error) {
-    cachePurgeWarning = `삭제된 TXT 본문 캐시 정리를 완료하지 못했습니다: ${error?.message || "알 수 없는 오류"}`;
-    console.warn(cachePurgeWarning);
   }
 
   const lastSync = {
