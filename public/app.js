@@ -1,3 +1,19 @@
+// The worker handles public bodies only; unsupported/private contexts keep normal reads.
+const offlineBodyReady = (async () => {
+  if (!('serviceWorker' in navigator) || !window.isSecureContext || window.Capacitor?.isNativePlatform?.()) return;
+  try {
+    await navigator.serviceWorker.register('/body-sw.js', { scope: '/', updateViaCache: 'none' });
+    if (!navigator.serviceWorker.controller) {
+      await new Promise(resolve => {
+        const ready = () => { clearTimeout(timer); navigator.serviceWorker.removeEventListener('controllerchange', ready); resolve(); };
+        const timer = setTimeout(ready, 2500);
+        navigator.serviceWorker.addEventListener('controllerchange', ready);
+        if (navigator.serviceWorker.controller) ready();
+      });
+    }
+  } catch (error) { console.warn('오프라인 본문 저장을 사용할 수 없습니다.', error); }
+})();
+
 /* V7 PUBLIC CLIENT CONTRACT
  * - Internal content type remains `연재물`; UI label is `연재`.
  * - Filter changes never mutate another filter implicitly.
@@ -3237,6 +3253,7 @@ async function loadArchive(force = false) {
 
   try {
     const url = force ? `/api/archive?t=${Date.now()}` : "/api/archive";
+    await offlineBodyReady;
     const response = await fetch(url, { cache: "no-store" });
     const data = await response.json();
 
@@ -7099,6 +7116,7 @@ async function openReader(item, options = {}) {
     }
 
     const fetchStartedAt = performance.now();
+    await offlineBodyReady;
     const response = await fetch(`/api/content?${params.toString()}`, contentFetchOptions);
     const responseMs = performance.now() - fetchStartedAt;
     const contentBytes = Math.max(

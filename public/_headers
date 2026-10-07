@@ -22,3 +22,7 @@
 
 /theme.css
   Cache-Control: public, max-age=31536000, immutable
+
+# Always revalidate worker code; never give the worker an immutable URL.
+/body-sw.js
+  Cache-Control: no-cache

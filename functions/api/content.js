@@ -104,6 +104,7 @@ export async function onRequestGet(context) {
           status: 200,
           headers: {
             "content-type": "text/plain; charset=utf-8",
+            "x-content-public": "1",
             "cache-control": "private, no-cache",
             "x-content-bytes": String(byteLength),
             "x-content-cached": "1",
@@ -187,6 +188,7 @@ export async function onRequestGet(context) {
         status: 200,
         headers: {
           "content-type": "text/plain; charset=utf-8",
+          "x-content-public": "1",
           "cache-control": "private, no-cache",
           "x-content-bytes": String(byteLength),
           "x-content-cached": "0",
