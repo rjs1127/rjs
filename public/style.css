@@ -4504,3 +4504,65 @@ html.theme-dark .my-library-detail-actions .my-library-feed-switch.active { back
 .app-install-help[hidden] {
   display: none !important;
 }
+
+/* v9.62 - offline body cache visibility */
+.offline-card-badge,
+.offline-list-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border: 1px solid rgba(100, 116, 92, .22);
+  border-radius: 999px;
+  background: rgba(121, 139, 110, .10);
+  color: #66755f;
+  font-size: 9px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: -.01em;
+  white-space: nowrap;
+}
+
+.offline-card-badge {
+  position: absolute;
+  left: 16px;
+  bottom: 16px;
+  min-height: 24px;
+  padding: 0 8px;
+  pointer-events: none;
+}
+
+.offline-list-badge {
+  flex: 0 0 auto;
+  min-height: 21px;
+  padding: 0 7px;
+}
+
+html.theme-dark .offline-card-badge,
+html.theme-dark .offline-list-badge {
+  border-color: rgba(194, 210, 183, .18);
+  background: rgba(171, 193, 157, .10);
+  color: #c1d0b8;
+}
+
+@media (max-width: 640px) {
+  .offline-list-badge {
+    display: none;
+  }
+
+  .content-list tbody tr.offline-body-saved {
+    background: rgba(121, 139, 110, .065);
+  }
+
+  .content-list tbody tr.offline-body-saved:hover {
+    background: rgba(121, 139, 110, .10);
+  }
+
+  html.theme-dark .content-list tbody tr.offline-body-saved {
+    background: rgba(171, 193, 157, .055);
+  }
+
+  html.theme-dark .content-list tbody tr.offline-body-saved:hover {
+    background: rgba(171, 193, 157, .08);
+  }
+}

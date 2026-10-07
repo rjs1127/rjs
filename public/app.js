@@ -14,6 +14,71 @@ const offlineBodyReady = (async () => {
   } catch (error) { console.warn('오프라인 본문 저장을 사용할 수 없습니다.', error); }
 })();
 
+function isOfflineBodySupported() {
+  return Boolean(
+    'serviceWorker' in navigator &&
+    window.isSecureContext &&
+    !window.Capacitor?.isNativePlatform?.()
+  );
+}
+
+function hasOfflineBody(itemOrId) {
+  if (itemOrId && typeof itemOrId === "object" && itemOrId.source === "postype") return false;
+  const id = typeof itemOrId === "string" ? itemOrId : itemOrId?.id;
+  return Boolean(id && state.offlineBodyIds.has(String(id)));
+}
+
+function getOfflineArchiveItems() {
+  return state.items.filter((item) => item.source !== "postype" && hasOfflineBody(item));
+}
+
+function applyOfflineBodyIds(ids, { rerender = true } = {}) {
+  const next = new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean));
+  const previous = state.offlineBodyIds;
+  if (
+    previous.size === next.size &&
+    [...next].every((id) => previous.has(id))
+  ) return false;
+
+  state.offlineBodyIds = next;
+  const readerOpen = Boolean(els.readerOverlay && !els.readerOverlay.hidden);
+  if (rerender && state.items.length && !readerOpen) render();
+  else if (rerender && state.profileOpen && !readerOpen) renderProfilePage();
+  return true;
+}
+
+async function requestOfflineBodyIds() {
+  if (!isOfflineBodySupported()) return [];
+  await offlineBodyReady;
+  const controller = navigator.serviceWorker.controller;
+  if (!controller) return [];
+
+  return new Promise((resolve) => {
+    const channel = new MessageChannel();
+    const timer = window.setTimeout(() => resolve([]), 1800);
+    channel.port1.onmessage = (event) => {
+      window.clearTimeout(timer);
+      const ids = Array.isArray(event.data?.ids) ? event.data.ids : [];
+      applyOfflineBodyIds(ids);
+      resolve(ids);
+    };
+    try {
+      controller.postMessage({ type: "offline-bodies-list" }, [channel.port2]);
+    } catch {
+      window.clearTimeout(timer);
+      resolve([]);
+    }
+  });
+}
+
+if (isOfflineBodySupported()) {
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data?.type !== "offline-bodies-changed") return;
+    applyOfflineBodyIds(event.data.ids);
+  });
+  offlineBodyReady.then(() => requestOfflineBodyIds()).catch(() => {});
+}
+
 /* V7 PUBLIC CLIENT CONTRACT
  * - Internal content type remains `연재물`; UI label is `연재`.
  * - Filter changes never mutate another filter implicitly.
@@ -65,6 +130,8 @@ const state = {
   myLibraryError: false,
   myLibraryDetailWorkId: "",
   myLibraryDetailTab: "all",
+  profileLibraryMode: "records",
+  offlineBodyIds: new Set(),
   readerReturnToMyLibrary: false,
   quoteFeedItems: [],
   quoteFeedNextCursor: null,
@@ -1114,6 +1181,8 @@ const els = {
   profileRecentCount: document.getElementById("profileRecentCount"),
   profileLikeCount: document.getElementById("profileLikeCount"),
   profileQuoteCount: document.getElementById("profileQuoteCount"),
+  profileLibraryModeTabs: document.getElementById("profileLibraryModeTabs"),
+  profileOfflineCount: document.getElementById("profileOfflineCount"),
   profileSearchInput: document.getElementById("profileSearchInput"),
   profileListMeta: document.getElementById("profileListMeta"),
   profileList: document.getElementById("profileList"),
@@ -2069,6 +2138,15 @@ function renderProfilePage() {
   document.querySelectorAll("[data-profile-tab]").forEach((button) => {
     button.classList.toggle("active", button.dataset.profileTab === state.profileTab);
   });
+  if (els.profileLibraryModeTabs) {
+    els.profileLibraryModeTabs.hidden = state.profileTab !== "library";
+    els.profileLibraryModeTabs.querySelectorAll("[data-profile-library-mode]").forEach((button) => {
+      const active = button.dataset.profileLibraryMode === state.profileLibraryMode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
+  }
+  if (els.profileOfflineCount) els.profileOfflineCount.textContent = String(getOfflineArchiveItems().length);
 
   let rows = [];
   let html = "";
@@ -2099,7 +2177,20 @@ function renderProfilePage() {
         </div>`;
     }).join("") : '<div class="profile-empty">좋아요한 작품이 없습니다.</div>';
   } else if (state.profileTab === "library") {
-    if (!state.myLibraryLoaded) {
+    if (state.profileLibraryMode === "offline") {
+      const offlineWorks = getOfflineArchiveItems()
+        .filter((item) => !q || normalizeSearchText(`${item.title || ""} ${item.author || ""}`).includes(q))
+        .sort((a, b) => ARCHIVE_COLLATOR.compare(a.title || "", b.title || ""));
+      rows = offlineWorks;
+      html = offlineWorks.length ? offlineWorks.map((item) => `
+        <div class="profile-entry offline-profile-entry">
+          <div class="profile-entry-main">
+            <span class="profile-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
+            <span class="profile-entry-meta">${escapeHtml(item.author || "작성자 미상")} · 이 브라우저에 본문 저장됨</span>
+          </div>
+          <div class="profile-entry-actions"><button type="button" data-profile-open="${escapeHtml(item.id)}">열기</button></div>
+        </div>`).join("") : '<div class="profile-empty">이 브라우저에 오프라인 저장된 작품이 없습니다.</div>';
+    } else if (!state.myLibraryLoaded) {
       rows = [];
       html = state.myLibraryError
         ? '<div class="profile-empty">내 서재를 불러오지 못했습니다. 내 서재 탭을 다시 눌러주세요.</div>'
@@ -4185,9 +4276,19 @@ function getItemLikeButtonHtml(item, className = "item-like-button") {
     </button>`;
 }
 
+function getOfflineCardBadgeHtml(item) {
+  if (!hasOfflineBody(item)) return "";
+  return `<span class="offline-card-badge" aria-label="오프라인 저장됨" title="이 브라우저에 본문이 저장되어 있습니다.">오프라인</span>`;
+}
+
+function getOfflineListBadgeHtml(item) {
+  if (!hasOfflineBody(item)) return "";
+  return `<span class="offline-list-badge" aria-label="오프라인 저장됨" title="이 브라우저에 본문이 저장되어 있습니다.">오프라인</span>`;
+}
+
 function renderCards(items) {
   els.contentGrid.innerHTML = items.map((item) => `
-    <article class="content-card ${item.source === "postype" ? "postype-item" : "drive-item"}"
+    <article class="content-card ${item.source === "postype" ? "postype-item" : "drive-item"} ${hasOfflineBody(item) ? "offline-body-saved" : ""}"
       tabindex="0" role="button"
       data-id="${escapeHtml(item.id)}"
       aria-label="${escapeHtml(item.title)} ${item.source === "postype" ? "포스타입에서 열기" : "본문 열기"}">
@@ -4203,6 +4304,7 @@ function renderCards(items) {
       <h3 class="card-title">${escapeHtml(item.title)}</h3>
       <p class="card-author">${escapeHtml(item.author)}</p>
       ${getPostypeMetaHtml(item)}
+      ${getOfflineCardBadgeHtml(item)}
       <div class="card-actions">
         ${item.source === "postype"
           ? `${getPostypeBookmarkButtonHtml(item, "postype-bookmark-button card-postype-bookmark")}${getPostypeQuoteButtonHtml(item, "item-quote-button card-quote-button")}${getRecentPostypeNewBadgeHtml(item)}`
@@ -4239,7 +4341,7 @@ function getListBookmarkIndicator(item) {
 function renderList(items) {
   els.contentListBody.innerHTML = items.map((item) => `
     <tr tabindex="0" data-id="${escapeHtml(item.id)}"
-      class="${item.source === "postype" ? "postype-item" : "drive-item"}">
+      class="${item.source === "postype" ? "postype-item" : "drive-item"} ${hasOfflineBody(item) ? "offline-body-saved" : ""}">
       <td>${escapeHtml(item.combination)}</td>
       <td><span class="list-content-type-wrap"><span>${escapeHtml(getContentTypeDisplayLabel(getItemContentType(item)))}</span></span></td>
       <td class="list-title">
@@ -4250,6 +4352,7 @@ function renderList(items) {
               <span class="list-title-text${getListTitleLengthClass(item.title)}">${escapeHtml(item.title)}</span>
             </span>
             ${getItemReadingBadge(item)}
+            ${getOfflineListBadgeHtml(item)}
           </span>
           <span class="list-title-actions">
             ${getItemLikeButtonHtml(item, "item-like-button list-like-button")}
@@ -8646,10 +8749,21 @@ document.querySelectorAll("[data-profile-tab], [data-profile-tab-jump]").forEach
     state.profileVisibleLimit = 15;
     if (els.profileSearchInput) els.profileSearchInput.value = "";
     renderProfilePage();
-    if (state.profileTab === "library" && !state.myLibraryLoaded) {
+    if (state.profileTab === "library" && state.profileLibraryMode === "records" && !state.myLibraryLoaded) {
       loadMyLibrary();
     }
   });
+});
+
+els.profileLibraryModeTabs?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-profile-library-mode]");
+  if (!button) return;
+  state.profileLibraryMode = button.dataset.profileLibraryMode === "offline" ? "offline" : "records";
+  state.profileSearch = "";
+  if (els.profileSearchInput) els.profileSearchInput.value = "";
+  renderProfilePage();
+  if (state.profileLibraryMode === "records" && !state.myLibraryLoaded) loadMyLibrary();
+  if (state.profileLibraryMode === "offline") requestOfflineBodyIds();
 });
 
 els.profileSearchInput?.addEventListener("input", (event) => {
@@ -11511,6 +11625,7 @@ async function copyIssueReportInfo(button = els.copyIssueInfoButton) {
 function updateNetworkStatus() {
   if (!els.networkStatusBanner) return;
   els.networkStatusBanner.hidden = navigator.onLine;
+  document.documentElement.classList.toggle("is-offline", !navigator.onLine);
 }
 
 function isStandaloneWebApp() {

@@ -21,15 +21,35 @@ function bodyKey(id) {
   return new Request(`${self.location.origin}/api/content?id=${encodeURIComponent(id)}&raw=1`);
 }
 
+async function getCachedBodyIds() {
+  const cache = await caches.open(BODY_CACHE);
+  const ids = [];
+  for (const request of await cache.keys()) {
+    const id = new URL(request.url).searchParams.get('id');
+    if (id) ids.push(id);
+  }
+  return ids;
+}
+
+async function notifyClients() {
+  const ids = await getCachedBodyIds();
+  const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+  for (const client of clients) client.postMessage({ type: 'offline-bodies-changed', ids });
+}
+
 async function pruneArchive(response) {
   if (response.status !== 200) return;
   const data = await response.json();
   if (!Array.isArray(data.items) || !data.items.every(item => typeof item?.id === 'string' && item.id)) return;
   archiveIds = new Set(data.items.map(item => item.id));
   const cache = await caches.open(BODY_CACHE);
+  let changed = false;
   for (const key of await cache.keys()) {
-    if (!archiveIds.has(new URL(key.url).searchParams.get('id'))) await cache.delete(key);
+    if (!archiveIds.has(new URL(key.url).searchParams.get('id'))) {
+      changed = (await cache.delete(key)) || changed;
+    }
   }
+  if (changed) await notifyClients();
 }
 
 async function storeBody(id, response, serial) {
@@ -89,6 +109,7 @@ async function storeBody(id, response, serial) {
     }
     await cache.put(key, saved);
   }
+  await notifyClients();
 }
 
 async function contentResponse(event, id) {
@@ -123,7 +144,10 @@ async function contentResponse(event, id) {
   }
   if (response.status === 404 || response.status === 410) {
     unavailableIds.add(id);
-    await mutate(() => caches.open(BODY_CACHE).then(cache => cache.delete(bodyKey(id)))).catch(() => {});
+    await mutate(async () => {
+      const cache = await caches.open(BODY_CACHE);
+      if (await cache.delete(bodyKey(id))) await notifyClients();
+    }).catch(() => {});
   } else if (response.status === 200 && response.headers.get('x-content-public') === '1'
     && response.headers.get('content-type')?.startsWith('text/plain') && !response.redirected) {
     unavailableIds.delete(id);
@@ -142,7 +166,21 @@ self.addEventListener('activate', event => event.waitUntil((async () => {
     }
   });
   await self.clients.claim();
+  await notifyClients().catch(() => {});
 })()));
+
+self.addEventListener('message', event => {
+  if (event.data?.type !== 'offline-bodies-list') return;
+  const port = event.ports?.[0];
+  if (!port) return;
+  event.waitUntil((async () => {
+    try {
+      port.postMessage({ ids: await getCachedBodyIds() });
+    } catch {
+      port.postMessage({ ids: [] });
+    }
+  })());
+});
 
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);

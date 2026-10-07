@@ -4752,3 +4752,70 @@ html.theme-dark .content-section .section-head-actions .quote-feed-entry-button:
   display: inline-block;
   width: 1em;
 }
+
+/* v9.62 - offline library view + reader-safe network notice */
+.profile-library-mode-tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  margin: 10px 0 0;
+  padding: 3px;
+  border: 1px solid var(--theme-line-soft);
+  border-radius: 999px;
+  background: var(--theme-surface);
+}
+
+.profile-library-mode-tabs[hidden] {
+  display: none !important;
+}
+
+.profile-library-mode-tabs button {
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--theme-muted);
+  padding: 6px 10px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 750;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.profile-library-mode-tabs button.active {
+  background: var(--theme-primary-bg);
+  color: var(--theme-primary-text);
+}
+
+.profile-library-mode-tabs #profileOfflineCount {
+  display: inline-block;
+  min-width: 1.2em;
+  margin-left: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.offline-profile-entry {
+  border-color: rgba(121, 139, 110, .20);
+  background: var(--theme-surface);
+}
+
+body.reader-open .network-status-banner {
+  bottom: max(72px, calc(env(safe-area-inset-bottom) + 58px));
+}
+
+@media (max-width: 640px) {
+  .profile-library-mode-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .profile-library-mode-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  body.reader-open .network-status-banner {
+    bottom: max(66px, calc(env(safe-area-inset-bottom) + 54px));
+  }
+}
