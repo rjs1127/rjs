@@ -4819,3 +4819,47 @@ body.reader-open .network-status-banner {
     bottom: max(66px, calc(env(safe-area-inset-bottom) + 54px));
   }
 }
+
+/* v9.66 - offline saved-body management */
+.profile-offline-actions {
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin:8px 0 2px;
+  padding:9px 10px;
+  border:1px solid var(--theme-line-soft);
+  border-radius:12px;
+  background:var(--theme-surface);
+}
+.profile-offline-actions[hidden] { display:none !important; }
+.profile-offline-actions-note { color:var(--theme-muted); font-size:10px; line-height:1.45; }
+.profile-offline-actions-buttons { display:flex; align-items:center; justify-content:flex-end; gap:6px; flex-wrap:wrap; }
+.profile-offline-actions .profile-secondary-button { min-height:32px; padding:6px 9px; font-size:11px; }
+.offline-entry-delete { color:#a34c4c !important; }
+.offline-profile-entry.is-selecting .profile-entry-main {
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr);
+  align-items:center;
+  gap:10px;
+}
+.offline-profile-entry.is-selected { border-color:rgba(121,139,110,.38); background:rgba(121,139,110,.055); }
+.offline-profile-copy { min-width:0; display:block; }
+.offline-profile-check { position:relative; display:grid; place-items:center; width:28px; height:28px; cursor:pointer; }
+.offline-profile-check input { position:absolute; opacity:0; pointer-events:none; }
+.offline-profile-check span {
+  width:18px;
+  height:18px;
+  border:1px solid var(--theme-line);
+  border-radius:6px;
+  background:var(--theme-secondary-bg);
+  box-shadow:inset 0 0 0 3px var(--theme-secondary-bg);
+}
+.offline-profile-check input:checked + span { background:var(--theme-primary-text); border-color:var(--theme-primary-text); }
+.offline-profile-check input:focus-visible + span { outline:2px solid var(--theme-primary-text); outline-offset:2px; }
+@media (max-width:640px) {
+  .profile-offline-actions { align-items:flex-start; flex-direction:column; padding:9px 10px 10px; }
+  .profile-offline-actions-buttons { width:100%; justify-content:flex-end; }
+  .offline-profile-entry.is-selecting { grid-template-columns:1fr; }
+  .offline-profile-entry.is-selecting .profile-entry-actions { display:none; }
+}

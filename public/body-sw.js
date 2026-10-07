@@ -170,14 +170,29 @@ self.addEventListener('activate', event => event.waitUntil((async () => {
 })()));
 
 self.addEventListener('message', event => {
-  if (event.data?.type !== 'offline-bodies-list') return;
+  const type = event.data?.type;
+  if (!['offline-bodies-list', 'offline-bodies-delete', 'offline-bodies-clear'].includes(type)) return;
   const port = event.ports?.[0];
   if (!port) return;
   event.waitUntil((async () => {
     try {
+      if (type === 'offline-bodies-delete') {
+        const ids = [...new Set((Array.isArray(event.data?.ids) ? event.data.ids : []).map(String).filter(id => /^[A-Za-z0-9_-]{10,200}$/.test(id)))];
+        await mutate(async () => {
+          const cache = await caches.open(BODY_CACHE);
+          for (const id of ids) await cache.delete(bodyKey(id));
+        });
+        await notifyClients();
+      } else if (type === 'offline-bodies-clear') {
+        await mutate(async () => {
+          await caches.delete(BODY_CACHE);
+          await caches.open(BODY_CACHE);
+        });
+        await notifyClients();
+      }
       port.postMessage({ ids: await getCachedBodyIds() });
-    } catch {
-      port.postMessage({ ids: [] });
+    } catch (error) {
+      port.postMessage({ ids: [], error: error?.message || '오프라인 저장을 처리하지 못했습니다.' });
     }
   })());
 });

@@ -71,6 +71,40 @@ async function requestOfflineBodyIds() {
   });
 }
 
+async function deleteOfflineBodies(ids = [], { all = false } = {}) {
+  if (!isOfflineBodySupported()) throw new Error("오프라인 저장을 사용할 수 없습니다.");
+  await offlineBodyReady;
+  const controller = navigator.serviceWorker.controller;
+  if (!controller) throw new Error("오프라인 저장을 아직 사용할 수 없습니다.");
+
+  const normalized = [...new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean))];
+  if (!all && !normalized.length) return [...state.offlineBodyIds];
+
+  return new Promise((resolve, reject) => {
+    const channel = new MessageChannel();
+    const timer = window.setTimeout(() => reject(new Error("오프라인 저장 삭제 응답이 지연되고 있습니다.")), 2500);
+    channel.port1.onmessage = (event) => {
+      window.clearTimeout(timer);
+      if (event.data?.error) {
+        reject(new Error(event.data.error));
+        return;
+      }
+      const nextIds = Array.isArray(event.data?.ids) ? event.data.ids : [];
+      applyOfflineBodyIds(nextIds);
+      resolve(nextIds);
+    };
+    try {
+      controller.postMessage(
+        all ? { type: "offline-bodies-clear" } : { type: "offline-bodies-delete", ids: normalized },
+        [channel.port2],
+      );
+    } catch (error) {
+      window.clearTimeout(timer);
+      reject(error);
+    }
+  });
+}
+
 if (isOfflineBodySupported()) {
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type !== "offline-bodies-changed") return;
@@ -132,6 +166,8 @@ const state = {
   myLibraryDetailTab: "all",
   profileLibraryMode: "records",
   offlineBodyIds: new Set(),
+  offlineDeleteMode: false,
+  offlineDeleteSelection: new Set(),
   readerReturnToMyLibrary: false,
   quoteFeedItems: [],
   quoteFeedNextCursor: null,
@@ -1183,6 +1219,11 @@ const els = {
   profileQuoteCount: document.getElementById("profileQuoteCount"),
   profileLibraryModeTabs: document.getElementById("profileLibraryModeTabs"),
   profileOfflineCount: document.getElementById("profileOfflineCount"),
+  profileOfflineActions: document.getElementById("profileOfflineActions"),
+  profileOfflineSelectButton: document.getElementById("profileOfflineSelectButton"),
+  profileOfflineDeleteSelectedButton: document.getElementById("profileOfflineDeleteSelectedButton"),
+  profileOfflineCancelButton: document.getElementById("profileOfflineCancelButton"),
+  profileOfflineDeleteAllButton: document.getElementById("profileOfflineDeleteAllButton"),
   profileSearchInput: document.getElementById("profileSearchInput"),
   profileListMeta: document.getElementById("profileListMeta"),
   profileList: document.getElementById("profileList"),
@@ -2146,7 +2187,26 @@ function renderProfilePage() {
       button.setAttribute("aria-pressed", active ? "true" : "false");
     });
   }
-  if (els.profileOfflineCount) els.profileOfflineCount.textContent = String(getOfflineArchiveItems().length);
+  const offlineCount = getOfflineArchiveItems().length;
+  if (els.profileOfflineCount) els.profileOfflineCount.textContent = String(offlineCount);
+  const offlineViewActive = state.profileTab === "library" && state.profileLibraryMode === "offline";
+  if (!offlineViewActive && state.offlineDeleteMode) {
+    state.offlineDeleteMode = false;
+    state.offlineDeleteSelection.clear();
+  }
+  if (els.profileOfflineActions) els.profileOfflineActions.hidden = !offlineViewActive;
+  if (els.profileOfflineSelectButton) els.profileOfflineSelectButton.hidden = !offlineViewActive || state.offlineDeleteMode || offlineCount === 0;
+  if (els.profileOfflineDeleteSelectedButton) {
+    const selectedCount = state.offlineDeleteSelection.size;
+    els.profileOfflineDeleteSelectedButton.hidden = !offlineViewActive || !state.offlineDeleteMode;
+    els.profileOfflineDeleteSelectedButton.disabled = selectedCount === 0;
+    els.profileOfflineDeleteSelectedButton.textContent = selectedCount ? `선택 삭제 ${selectedCount}` : "선택 삭제";
+  }
+  if (els.profileOfflineCancelButton) els.profileOfflineCancelButton.hidden = !offlineViewActive || !state.offlineDeleteMode;
+  if (els.profileOfflineDeleteAllButton) {
+    els.profileOfflineDeleteAllButton.hidden = !offlineViewActive || state.offlineDeleteMode || offlineCount === 0;
+    els.profileOfflineDeleteAllButton.disabled = offlineCount === 0;
+  }
 
   let rows = [];
   let html = "";
@@ -2182,14 +2242,22 @@ function renderProfilePage() {
         .filter((item) => !q || normalizeSearchText(`${item.title || ""} ${item.author || ""}`).includes(q))
         .sort((a, b) => ARCHIVE_COLLATOR.compare(a.title || "", b.title || ""));
       rows = offlineWorks;
-      html = offlineWorks.length ? offlineWorks.map((item) => `
-        <div class="profile-entry offline-profile-entry">
+      html = offlineWorks.length ? offlineWorks.map((item) => {
+        const selected = state.offlineDeleteSelection.has(String(item.id));
+        return `
+        <div class="profile-entry offline-profile-entry${state.offlineDeleteMode ? " is-selecting" : ""}${selected ? " is-selected" : ""}">
           <div class="profile-entry-main">
-            <span class="profile-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
-            <span class="profile-entry-meta">${escapeHtml(item.author || "작성자 미상")} · 이 브라우저에 본문 저장됨</span>
+            ${state.offlineDeleteMode ? `<label class="offline-profile-check"><input type="checkbox" data-offline-select="${escapeHtml(item.id)}" ${selected ? "checked" : ""} /><span aria-hidden="true"></span></label>` : ""}
+            <span class="offline-profile-copy">
+              <span class="profile-entry-title">${escapeHtml(item.title || "제목 미상")}</span>
+              <span class="profile-entry-meta">${escapeHtml(item.author || "작성자 미상")} · 이 브라우저에 본문 저장됨</span>
+            </span>
           </div>
-          <div class="profile-entry-actions"><button type="button" data-profile-open="${escapeHtml(item.id)}">열기</button></div>
-        </div>`).join("") : '<div class="profile-empty">이 브라우저에 오프라인 저장된 작품이 없습니다.</div>';
+          <div class="profile-entry-actions">
+            ${state.offlineDeleteMode ? "" : `<button type="button" data-profile-open="${escapeHtml(item.id)}">열기</button><button class="offline-entry-delete" type="button" data-offline-delete="${escapeHtml(item.id)}">삭제</button>`}
+          </div>
+        </div>`;
+      }).join("") : '<div class="profile-empty">이 브라우저에 오프라인 저장된 작품이 없습니다.</div>';
     } else if (!state.myLibraryLoaded) {
       rows = [];
       html = state.myLibraryError
@@ -8768,11 +8836,57 @@ els.profileLibraryModeTabs?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-profile-library-mode]");
   if (!button) return;
   state.profileLibraryMode = button.dataset.profileLibraryMode === "offline" ? "offline" : "records";
+  state.offlineDeleteMode = false;
+  state.offlineDeleteSelection.clear();
   state.profileSearch = "";
   if (els.profileSearchInput) els.profileSearchInput.value = "";
   renderProfilePage();
   if (state.profileLibraryMode === "records" && !state.myLibraryLoaded) loadMyLibrary();
   if (state.profileLibraryMode === "offline") requestOfflineBodyIds();
+});
+
+els.profileOfflineSelectButton?.addEventListener("click", () => {
+  state.offlineDeleteMode = true;
+  state.offlineDeleteSelection.clear();
+  renderProfilePage();
+});
+
+els.profileOfflineCancelButton?.addEventListener("click", () => {
+  state.offlineDeleteMode = false;
+  state.offlineDeleteSelection.clear();
+  renderProfilePage();
+});
+
+els.profileOfflineDeleteSelectedButton?.addEventListener("click", async () => {
+  const ids = [...state.offlineDeleteSelection].filter((id) => state.offlineBodyIds.has(id));
+  if (!ids.length) return;
+  if (!window.confirm(`선택한 오프라인 저장 ${ids.length}개를 이 기기에서 삭제할까요?\n작품과 계정 기록은 삭제되지 않습니다.`)) return;
+  els.profileOfflineDeleteSelectedButton.disabled = true;
+  try {
+    await deleteOfflineBodies(ids);
+    state.offlineDeleteSelection.clear();
+    state.offlineDeleteMode = false;
+  } catch (error) {
+    console.warn(error);
+    window.alert(error.message || "선택한 오프라인 저장을 삭제하지 못했습니다.");
+    renderProfilePage();
+  }
+});
+
+els.profileOfflineDeleteAllButton?.addEventListener("click", async () => {
+  const count = state.offlineBodyIds.size;
+  if (!count) return;
+  if (!window.confirm(`이 기기에 저장된 오프라인 본문 ${count}개를 모두 삭제할까요?\n작품, 북마크, 이어보기, 메모 등 계정 기록은 삭제되지 않습니다.`)) return;
+  els.profileOfflineDeleteAllButton.disabled = true;
+  try {
+    await deleteOfflineBodies([], { all: true });
+    state.offlineDeleteSelection.clear();
+    state.offlineDeleteMode = false;
+  } catch (error) {
+    console.warn(error);
+    window.alert(error.message || "오프라인 저장을 모두 삭제하지 못했습니다.");
+    renderProfilePage();
+  }
 });
 
 els.profileSearchInput?.addEventListener("input", (event) => {
@@ -8782,6 +8896,30 @@ els.profileSearchInput?.addEventListener("input", (event) => {
 });
 
 els.profileList?.addEventListener("click", async (event) => {
+  const offlineDelete = event.target.closest("[data-offline-delete]");
+  if (offlineDelete) {
+    const id = String(offlineDelete.dataset.offlineDelete || "");
+    const item = state.items.find((candidate) => String(candidate.id) === id);
+    if (!id || !window.confirm(`이 기기에 저장된 ${item?.title ? `「${item.title}」의 ` : ""}오프라인 본문만 삭제할까요?\n작품, 북마크, 이어보기, 메모 등 계정 기록은 삭제되지 않습니다.`)) return;
+    offlineDelete.disabled = true;
+    try {
+      await deleteOfflineBodies([id]);
+      state.offlineDeleteSelection.delete(id);
+    } catch (error) {
+      console.warn(error);
+      window.alert(error.message || "오프라인 저장을 삭제하지 못했습니다.");
+      if (offlineDelete.isConnected) offlineDelete.disabled = false;
+    }
+    return;
+  }
+  const offlineSelect = event.target.closest("[data-offline-select]");
+  if (offlineSelect) {
+    const id = String(offlineSelect.dataset.offlineSelect || "");
+    if (offlineSelect.checked) state.offlineDeleteSelection.add(id);
+    else state.offlineDeleteSelection.delete(id);
+    renderProfilePage();
+    return;
+  }
   const libraryWork = event.target.closest("[data-library-work]");
   if (libraryWork) { openMyLibraryWork(libraryWork.dataset.libraryWork); return; }
   const open = event.target.closest("[data-profile-open]");
