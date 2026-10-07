@@ -1,3 +1,4 @@
+import { adminPeriod } from '../../_admin_period.js';
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUserDb,
@@ -13,21 +14,6 @@ function kstDateKey(timestamp) {
   return new Date(Number(timestamp) + KST_OFFSET_MS)
     .toISOString()
     .slice(0, 10);
-}
-
-function buildDateKeys(days) {
-  const now = Date.now();
-  const todayStartUtc =
-    Math.floor((now + KST_OFFSET_MS) / 86400000) * 86400000 -
-    KST_OFFSET_MS;
-
-  return Array.from({ length: days }, (_, index) => {
-    const start = todayStartUtc - (days - 1 - index) * 86400000;
-    return {
-      key: kstDateKey(start),
-      start,
-    };
-  });
 }
 
 async function migrateLegacyVisitsOnce(db) {
@@ -155,12 +141,10 @@ export async function onRequestGet(context) {
     await cleanupLegacyVisitRows(db);
 
     const url = new URL(context.request.url);
-    const days = Math.max(
-      7,
-      Math.min(30, Number(url.searchParams.get("days") || 14))
-    );
-
-    const dateKeys = buildDateKeys(days);
+    const oldest = url.searchParams.get('days') === 'all' ? await db.prepare("SELECT MIN(ts) AS first FROM (SELECT MIN(created_at) AS ts FROM users UNION ALL SELECT CAST(strftime('%s',MIN(metric_date)||'T00:00:00+09:00') AS INTEGER)*1000 AS ts FROM daily_user_metrics)").first() : null;
+    const period = adminPeriod(url.searchParams.get('days'), Date.now(), oldest?.first);
+    const days = period.days;
+    const dateKeys = period.dateKeys;
     const from = dateKeys[0].start;
     const fromDate = dateKeys[0].key;
 

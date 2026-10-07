@@ -290,6 +290,7 @@ let userAdminData = {
   users: [],
 };
 let visitPerformanceScope = "current";
+let visitPeriodDays = "14";
 let analyticsAdminData = {
   summary: {},
   today: {},
@@ -983,6 +984,10 @@ function renderVisitAnalytics(data = analyticsAdminData) {
     : null;
   const useCurrentPerformance = visitPerformanceScope === "current" && currentPerformance;
   const performanceData = useCurrentPerformance ? currentPerformance : performanceRoot;
+  const periodText = data.periodDays === 'all' ? '전체' : String(data.periodDays || 14) + '일';
+  document.querySelectorAll('[data-visit-period-label]').forEach(node => { node.textContent = periodText + ' ' + node.dataset.visitPeriodLabel; });
+  const trendTitle = document.getElementById('visitTrendTitle');
+  if (trendTitle) trendTitle.textContent = periodText + ' 유입량';
   const acquisition = data.acquisition || {};
   const daily = Array.isArray(data.daily) ? data.daily : [];
   const sessions = Number(summary.sessions || 0);
@@ -1079,6 +1084,7 @@ function renderVisitAnalytics(data = analyticsAdminData) {
       : "전체 누적 · 이전 버전 성능 포함";
   }
 
+  if (data.performanceDetailAvailable === false && els.visitPerfScopeMeta) els.visitPerfScopeMeta.textContent += ' · 90일/전체 상세 histogram은 화면 조회에서 생략(내보내기에서 제공)';
   if (els.visitPageLoad) els.visitPageLoad.textContent = formatVisitLoad(performanceData.pageLoadMs);
   if (els.visitArchiveLoad) els.visitArchiveLoad.textContent = formatVisitLoad(performanceData.archiveLoadMs);
   if (els.visitReaderLoad) els.visitReaderLoad.textContent = formatVisitLoad(performanceData.readerLoadMs);
@@ -1233,10 +1239,11 @@ function renderAdminUsers() {
   `).join("");
 }
 
-async function loadUserAdminData(showMessage = false) {
+async function loadUserAdminData(showMessage = false, strictAnalytics = false) {
   const [data, analytics] = await Promise.all([
-    api("/api/admin/users?days=14"),
-    api("/api/admin/analytics?days=14").catch((error) => {
+    api(`/api/admin/users?days=${visitPeriodDays}`),
+    api(`/api/admin/analytics?days=${visitPeriodDays}`).catch((error) => {
+      if (strictAnalytics) throw error;
       console.warn("전체 방문 통계를 불러오지 못했습니다.", error);
       return {
         summary: {}, today: {}, performance: {}, acquisition: {}, daily: [], hourly: [],
@@ -1252,6 +1259,8 @@ async function loadUserAdminData(showMessage = false) {
     users: data.users || [],
   };
   analyticsAdminData = {
+    periodDays: analytics.periodDays,
+    performanceDetailAvailable: analytics.performanceDetailAvailable,
     summary: analytics.summary || {},
     today: analytics.today || {},
     performance: analytics.performance || {},
@@ -6416,4 +6425,66 @@ loadAdmin().catch((error) => {
   if (String(error?.message || "").includes("로그인")) {
     window.location.replace("/admin");
   }
+});
+// Admin statistics export: load the local OOXML writer only on demand.
+const statsModal = document.getElementById('statsExportModal');
+const statsOpen = document.getElementById('statsExportOpen');
+const statsPeriod = document.getElementById('visitPeriodSelect');
+let reportWriterPromise = null;
+let exportingStats = false;
+function closeStatsExport() {
+  if (exportingStats || !statsModal) return;
+  statsModal.hidden = true;
+  document.body.classList.remove('history-modal-open');
+  statsOpen?.focus();
+}
+statsOpen?.addEventListener('click', () => {
+  statsModal.hidden = false;
+  document.body.classList.add('history-modal-open');
+  document.getElementById('statsExportPeriod').focus();
+});
+statsModal?.querySelectorAll('[data-export-close]').forEach(button => button.addEventListener('click', closeStatsExport));
+document.addEventListener('keydown', event => {
+  if (!statsModal || statsModal.hidden) return;
+  if (event.key === 'Escape') closeStatsExport();
+  if (event.key === 'Tab') {
+    const nodes = [...statsModal.querySelectorAll('button,input,select')].filter(node=>!node.disabled);
+    const first=nodes[0],last=nodes.at(-1);
+    if(event.shiftKey && document.activeElement===first){event.preventDefault();last.focus();}
+    else if(!event.shiftKey && document.activeElement===last){event.preventDefault();first.focus();}
+  }
+});
+statsPeriod?.addEventListener('change', async () => {
+  const previous=visitPeriodDays;
+  visitPeriodDays=statsPeriod.value;
+  statsPeriod.disabled=true;
+  try { await loadUserAdminData(false, true); }
+  catch(error){visitPeriodDays=previous;statsPeriod.value=previous;window.alert(error.message);}
+  finally{statsPeriod.disabled=false;}
+});
+function loadReportWriter() {
+  if (window.AdminReportXlsx) return Promise.resolve();
+  if (!reportWriterPromise) reportWriterPromise=new Promise((resolve,reject)=>{
+    const script=document.createElement('script');script.src='/admin-report-xlsx.js?v=961';
+    script.onload=()=>window.AdminReportXlsx?resolve():reject(new Error('XLSX 생성기를 불러오지 못했습니다.'));
+    script.onerror=()=>{script.remove();reject(new Error('XLSX 생성기를 불러오지 못했습니다. 다시 시도해 주세요.'));};
+    document.head.appendChild(script);
+  }).catch(error=>{reportWriterPromise=null;throw error;});
+  return reportWriterPromise;
+}
+document.getElementById('statsExportForm')?.addEventListener('submit', async event => {
+  event.preventDefault();if(exportingStats)return;
+  const button=document.getElementById('statsExportGenerate'),status=document.getElementById('statsExportStatus');
+  const choice=document.getElementById('statsExportPeriod').value;
+  const include=[...statsModal.querySelectorAll('input[name=section]:checked')].map(node=>node.value);
+  exportingStats=true;button.disabled=true;status.textContent='데이터를 같은 기준 시각으로 조회하고 있습니다…';
+  try{
+    const report=await api('/api/admin/stats-export',{method:'POST',body:JSON.stringify({days:choice==='current'?visitPeriodDays:choice,include})});
+    if(report.validationFailed)throw new Error('일부 통계 검증 불일치가 발견되어 다운로드를 중단했습니다. 다시 조회해 주세요.');
+    status.textContent='XLSX를 생성하고 있습니다…';await loadReportWriter();
+    const blob=window.AdminReportXlsx.create(report),url=URL.createObjectURL(blob),link=document.createElement('a');
+    link.href=url;link.download=report.filename;link.click();setTimeout(()=>URL.revokeObjectURL(url),30000);
+    status.textContent='완료 · XLSX 생성 및 검산을 마쳤습니다. 저장되지 않은 이력/제외 항목은 N/A로 표시됩니다.';
+  }catch(error){status.textContent='실패 · '+(error.message||'통계를 내보내지 못했습니다.');}
+  finally{exportingStats=false;button.disabled=false;}
 });

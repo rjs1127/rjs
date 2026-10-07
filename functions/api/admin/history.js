@@ -32,6 +32,7 @@ async function fetchCommitDays(token) {
     if (pageRows.length < 100) break;
   }
 
+  const commits = rows.map(row => ({ sha: row.sha, date: row?.commit?.committer?.date || row?.commit?.author?.date, message: String(row?.commit?.message || '').split('\n')[0] }));
   const grouped = new Map();
   for (const row of rows) {
     const rawDate = row?.commit?.committer?.date || row?.commit?.author?.date || "";
@@ -50,6 +51,8 @@ async function fetchCommitDays(token) {
   const datesAsc = days.map((day) => day.date).sort();
   return {
     days,
+    commits,
+    truncated: rows.length === 2000,
     summary: {
       firstDate: datesAsc[0] || "",
       lastDate: datesAsc[datesAsc.length - 1] || "",
@@ -64,7 +67,7 @@ const HISTORY_CACHE_MS = 5 * 60 * 1000;
 let historyCache = null;
 let historyInFlight = null;
 
-async function getCommitHistory(token) {
+export async function getCommitHistory(token) {
   if (historyCache?.token === token && historyCache.expiresAt > Date.now()) {
     return historyCache.data;
   }
@@ -93,7 +96,7 @@ export async function onRequestGet(context) {
     const token = context.env.GITHUB_TOKEN;
     if (!token) throw new Error("Cloudflare Secret 'GITHUB_TOKEN'이 설정되지 않았습니다.");
 
-    const data = await getCommitHistory(token);
+    const { commits, ...data } = await getCommitHistory(token);
     return jsonResponse(data, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(error);

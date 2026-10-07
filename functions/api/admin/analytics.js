@@ -1,3 +1,4 @@
+import { adminPeriod } from '../../_admin_period.js';
 import { jsonResponse } from "../../_shared.js";
 import { requireUserDb, ensureUserSchema } from "../../_user.js";
 import { requireAdminSession } from "../../_admin_session.js";
@@ -8,17 +9,6 @@ function kstDateKey(timestamp) {
   return new Date(Number(timestamp) + KST_OFFSET_MS)
     .toISOString()
     .slice(0, 10);
-}
-
-function buildDateKeys(days) {
-  const now = Date.now();
-  const todayStartUtc =
-    Math.floor((now + KST_OFFSET_MS) / 86400000) * 86400000 - KST_OFFSET_MS;
-
-  return Array.from({ length: days }, (_, index) => {
-    const start = todayStartUtc - (days - 1 - index) * 86400000;
-    return { key: kstDateKey(start), start };
-  });
 }
 
 function rows(result) {
@@ -39,7 +29,7 @@ function averagePerfBucket(bucket) {
   return bucket?.count ? bucket.sum / bucket.count : null;
 }
 
-function aggregateReaderPerf(performanceRows) {
+export function aggregateReaderPerf(performanceRows) {
   const totals = {
     total: emptyPerfBucket(), response: emptyPerfBucket(), download: emptyPerfBucket(),
     render: emptyPerfBucket(), layout: emptyPerfBucket(),
@@ -150,8 +140,10 @@ export async function onRequestGet(context) {
     await ensureUserSchema(db);
 
     const url = new URL(context.request.url);
-    const days = Math.max(7, Math.min(30, Number(url.searchParams.get("days") || 14)));
-    const dateKeys = buildDateKeys(days);
+    const oldest = url.searchParams.get('days') === 'all' ? await db.prepare("SELECT MIN(started_at) AS first FROM analytics_sessions").first() : null;
+    const period = adminPeriod(url.searchParams.get('days'), Date.now(), oldest?.first);
+    const days = period.days;
+    const dateKeys = period.dateKeys;
     const from = dateKeys[0].start;
     const fromDate = dateKeys[0].key;
     const todayDate = dateKeys.at(-1).key;
@@ -308,8 +300,8 @@ export async function onRequestGet(context) {
         SELECT reader_perf_json, device_type, browser_name
         FROM analytics_sessions
         WHERE started_at >= ?
-          AND reader_load_count > 0
-      `).bind(from).all(),
+          AND reader_load_count > 0 AND ? = 1
+      `).bind(from, days !== 'all' && days <= 30 ? 1 : 0).all(),
 
       db.prepare(`
         SELECT
@@ -376,8 +368,8 @@ export async function onRequestGet(context) {
           FROM analytics_sessions
           WHERE started_at >= ?
             AND app_version = ?
-            AND reader_load_count > 0
-        `).bind(from, currentVersion).all(),
+            AND reader_load_count > 0 AND ? = 1
+        `).bind(from, currentVersion, days !== 'all' && days <= 30 ? 1 : 0).all(),
       ]);
     }
 
@@ -417,6 +409,7 @@ export async function onRequestGet(context) {
     return jsonResponse({
       ok: true,
       periodDays: days,
+      performanceDetailAvailable: days !== 'all' && days <= 30,
       dataStartedAt: Number(firstDataRow?.started_at || 0) || null,
       summary: {
         sessions,
