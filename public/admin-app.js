@@ -469,25 +469,7 @@ async function loadOpsAutomation(force = false) {
 }
 
 function setActiveTab(name) {
-  els.opsAutomationRunButton?.addEventListener("click", async () => {
-  els.opsAutomationRunButton.disabled = true;
-  if (els.opsAutomationMessage) {
-    els.opsAutomationMessage.hidden = false;
-    els.opsAutomationMessage.textContent = "운영 상태를 점검하는 중…";
-  }
-  try {
-    const data = await api("/api/admin/ops-automation", { method: "POST", body: "{}" });
-    opsAutomationLoaded = false;
-    await loadOpsAutomation(true);
-    if (els.opsAutomationMessage) els.opsAutomationMessage.textContent = data?.status?.state === "warning" ? "점검 완료 · 확인 필요한 항목이 있습니다." : "점검 완료 · 현재 운영 상태는 정상입니다.";
-  } catch (error) {
-    if (els.opsAutomationMessage) els.opsAutomationMessage.textContent = error.message || "운영 자동 점검에 실패했습니다.";
-  } finally {
-    els.opsAutomationRunButton.disabled = false;
-  }
-});
-
-els.tabs.forEach((tab) => {
+  els.tabs.forEach((tab) => {
     tab.classList.toggle("active", tab.dataset.tabTarget === name);
   });
 
@@ -599,6 +581,13 @@ function feedbackStatusLabel(status) {
   return "미확인";
 }
 
+function renderFeedbackBadge(value) {
+  if (!els.feedbackTabBadge) return;
+  const newCount = Math.max(0, Number(value || 0));
+  els.feedbackTabBadge.textContent = String(newCount);
+  els.feedbackTabBadge.hidden = newCount <= 0;
+}
+
 function renderFeedbackAdmin(data = {}) {
   const items = Array.isArray(data.items) ? data.items : [];
   const counts = data.counts || {};
@@ -606,11 +595,7 @@ function renderFeedbackAdmin(data = {}) {
   els.feedbackCountNew.textContent = Number(counts.new || 0).toLocaleString("ko-KR");
   els.feedbackCountChecked.textContent = Number(counts.checked || 0).toLocaleString("ko-KR");
   els.feedbackCountDone.textContent = Number(counts.done || 0).toLocaleString("ko-KR");
-  if (els.feedbackTabBadge) {
-    const newCount = Number(counts.new || 0);
-    els.feedbackTabBadge.textContent = String(newCount);
-    els.feedbackTabBadge.hidden = newCount <= 0;
-  }
+  renderFeedbackBadge(counts.new);
   document.querySelectorAll("[data-feedback-filter]").forEach((button) => {
     button.classList.toggle("is-active", button.dataset.feedbackFilter === feedbackAdminFilter);
   });
@@ -619,7 +604,7 @@ function renderFeedbackAdmin(data = {}) {
     const id = Number(item.feedback_id || 0);
     const status = String(item.status || "new");
     return `
-      <article class="feedback-admin-card" data-feedback-id="${id}">
+      <article class="feedback-admin-card" data-feedback-id="${id}" data-feedback-category="${escapeHtml(item.category || "기타")}">
         <div class="feedback-admin-card-head">
           <div class="feedback-admin-card-meta">
             <span class="feedback-admin-card-category">${escapeHtml(item.category || "기타")}</span>
@@ -632,8 +617,8 @@ function renderFeedbackAdmin(data = {}) {
         </div>
         ${item.category === "계정 문의" ? `
           <div class="feedback-admin-account">
-            <div><span>계정 ID</span><strong>${escapeHtml(item.account_user_id || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.account_user_id || "")}" aria-label="계정 아이디 복사">복사</button></div>
-            <div><span>연락수단</span><strong>${escapeHtml(item.reply_contact || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.reply_contact || "")}" aria-label="연락수단 복사">복사</button></div>
+            <div><span>계정 ID</span><strong>${escapeHtml(item.account_user_id || "-")}</strong><span class="feedback-admin-account-actions"><button type="button" data-feedback-copy="${escapeHtml(item.account_user_id || "")}" aria-label="계정 아이디 복사" ${item.account_user_id ? "" : "disabled"}>복사</button><button type="button" data-feedback-user-open="${escapeHtml(item.account_user_id || "")}" ${item.account_user_id ? "" : "disabled"}>유저 관리</button></span></div>
+            <div><span>연락수단</span><strong>${escapeHtml(item.reply_contact || "-")}</strong><button type="button" data-feedback-copy="${escapeHtml(item.reply_contact || "")}" aria-label="연락수단 복사" ${item.reply_contact ? "" : "disabled"}>복사</button></div>
           </div>` : ""}
         <div class="feedback-admin-card-message">${escapeHtml(item.message || "")}</div>
         <button type="button" class="feedback-admin-card-context" data-feedback-context aria-expanded="false">페이지 ${escapeHtml(item.page || "-")} · 버전 ${escapeHtml(item.version || "-")} <span aria-hidden="true">▾</span></button>
@@ -2492,8 +2477,17 @@ function formatAdminDateTime(value) {
   });
 }
 
+const AUTO_SYNC_STALE_MS = 15 * 60 * 1000;
+
+function isAutoSyncRunningStale(status) {
+  if (status?.state !== "running") return false;
+  const heartbeat = Date.parse(status.checkedAt || status.startedAt || "");
+  return Number.isFinite(heartbeat) && Date.now() - heartbeat > AUTO_SYNC_STALE_MS;
+}
+
 function formatAutoSyncResult(source, status) {
   if (!status) return "아직 실행 없음";
+  if (isAutoSyncRunningStale(status)) return "15분 이상 상태 갱신 없음 · 다시 실행해 주세요";
   if (status.state === "running") {
     if (source === "postype") {
       return `확인 중 · 시리즈 ${Number(status.processedSeries || 0).toLocaleString("ko-KR")}개 처리`;
@@ -2577,7 +2571,10 @@ function renderAutoSyncStatus(data, setup = autoSyncSetupState) {
   const renderOne = (source, status, stateEl, lastEl, resultEl, setupButton) => {
     if (stateEl) {
       stateEl.classList.remove("is-ready", "is-warning", "is-running", "is-error");
-      if (status?.state === "running") {
+      if (isAutoSyncRunningStale(status)) {
+        stateEl.textContent = "중단됨 · 다시 실행";
+        stateEl.classList.add("is-warning");
+      } else if (status?.state === "running") {
         stateEl.textContent = "동기화 중";
         stateEl.classList.add("is-running");
       } else if (status?.state === "error") {
@@ -3219,6 +3216,7 @@ async function loadAdmin() {
   const editedCount = Number(data.editedCount || 0);
   const totalCount = Number(data.count || 0);
   const normalCount = Math.max(0, totalCount - reviewCount - editedCount);
+  renderFeedbackBadge(data.feedbackNewCount);
 
   const archiveItems = Array.isArray(archiveData.items) ? archiveData.items : [];
   const driveItems = archiveItems.filter((item) => (item.source || "drive") !== "postype");
@@ -4446,6 +4444,28 @@ async function handleZipFile(file) {
   }
 }
 
+els.opsAutomationRunButton?.addEventListener("click", async () => {
+  els.opsAutomationRunButton.disabled = true;
+  if (els.opsAutomationMessage) {
+    els.opsAutomationMessage.hidden = false;
+    els.opsAutomationMessage.textContent = "운영 상태를 점검하는 중…";
+  }
+  try {
+    const data = await api("/api/admin/ops-automation", { method: "POST", body: "{}" });
+    opsAutomationLoaded = false;
+    await loadOpsAutomation(true);
+    if (els.opsAutomationMessage) {
+      els.opsAutomationMessage.textContent = data?.status?.state === "warning"
+        ? "점검 완료 · 확인 필요한 항목이 있습니다."
+        : "점검 완료 · 현재 운영 상태는 정상입니다.";
+    }
+  } catch (error) {
+    if (els.opsAutomationMessage) els.opsAutomationMessage.textContent = error.message || "운영 자동 점검에 실패했습니다.";
+  } finally {
+    els.opsAutomationRunButton.disabled = false;
+  }
+});
+
 els.tabs.forEach((tab) => {
   tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
 });
@@ -4532,6 +4552,24 @@ els.userRefreshButton?.addEventListener("click", async () => {
 });
 
 els.userSearchInput?.addEventListener("input", renderAdminUsers);
+
+function openAdminUserFromFeedback(userId) {
+  const normalized = String(userId || "").trim().toLowerCase();
+  if (!normalized) return;
+  setActiveTab("users");
+  if (els.userSearchInput) {
+    els.userSearchInput.value = normalized;
+    renderAdminUsers();
+    els.userSearchInput.focus();
+  }
+  const matched = getFilteredAdminUsers().some((user) => String(user.userId || "").toLowerCase() === normalized);
+  if (els.userMessage) {
+    els.userMessage.hidden = false;
+    els.userMessage.textContent = matched
+      ? `${normalized} 계정을 표시했습니다.`
+      : `${normalized} 계정을 현재 불러온 사용자 목록에서 찾지 못했습니다.`;
+  }
+}
 
 async function copyAdminText(value) {
   const text = String(value || "");
@@ -4630,16 +4668,24 @@ els.userTableBody?.addEventListener("click", async (event) => {
       body: JSON.stringify({ action, userId }),
     });
 
-    await loadUserAdminData(false);
-
     els.userMessage.hidden = false;
     if (action === "reset_password") {
+      const temporaryPassword = String(data?.temporaryPassword || "");
       els.userMessage.textContent = `${userId} 계정의 비밀번호를 초기화했습니다.`;
-      showTemporaryPasswordModal(userId, data?.temporaryPassword || "");
+      showTemporaryPasswordModal(userId, temporaryPassword);
+    } else if (action === "delete_user") {
+      userAdminData.users = (userAdminData.users || []).filter((user) => user.userId !== userId);
+      renderAdminUsers();
+      els.userMessage.textContent = `${userId} 계정을 삭제했습니다.`;
     } else {
-      els.userMessage.textContent = action === "delete_user"
-        ? `${userId} 계정을 삭제했습니다.`
-        : `${userId} 계정의 로그인 세션을 초기화했습니다.`;
+      els.userMessage.textContent = `${userId} 계정의 로그인 세션을 초기화했습니다.`;
+    }
+
+    try {
+      await loadUserAdminData(false);
+    } catch (refreshError) {
+      console.warn("user admin refresh failed after successful action", refreshError);
+      els.userMessage.textContent += " 목록 새로고침은 실패했습니다. 새로고침 버튼으로 다시 확인해 주세요.";
     }
   } catch (error) {
     els.userMessage.hidden = false;
@@ -5416,6 +5462,7 @@ function refreshSearchAliasPicker({ keepSelection = false } = {}) {
     if (els.searchAliasTargetSearch) els.searchAliasTargetSearch.value = "";
   }
   if (els.searchAliasSuggestions) els.searchAliasSuggestions.hidden = true;
+  renderSearchAliases();
 }
 
 function setSearchAliasType(type, options = {}) {
@@ -5432,6 +5479,21 @@ function selectSearchAliasTarget(title, author) {
   if (els.searchAliasSuggestions) els.searchAliasSuggestions.hidden = true;
 }
 
+function countSearchAliasMatches(entry) {
+  const items = [...driveAdminItems, ...postypeAdminItems];
+  const authorKey = searchAliasNorm(entry?.author || "");
+  if (!authorKey) return 0;
+  if (entry?.type === "author") {
+    return items.filter((item) => searchAliasNorm(item.author || item.writer || "") === authorKey).length;
+  }
+  const titleKey = searchAliasNorm(entry?.title || "");
+  if (!titleKey) return 0;
+  return items.filter((item) =>
+    searchAliasNorm(item.title || "") === titleKey &&
+    searchAliasNorm(item.author || item.writer || "") === authorKey
+  ).length;
+}
+
 function renderSearchAliases() {
   if (!els.searchAliasList) return;
   const rows = [];
@@ -5439,12 +5501,16 @@ function renderSearchAliases() {
   Object.values(searchAliasData.works || {}).forEach((entry) => rows.push({ type: "work", ...entry }));
   rows.sort((a, b) => `${a.author || ""} ${a.title || ""}`.localeCompare(`${b.author || ""} ${b.title || ""}`, "ko"));
   if (els.searchAliasCount) els.searchAliasCount.textContent = `${rows.length.toLocaleString("ko-KR")}개`;
-  els.searchAliasList.innerHTML = rows.length ? rows.map((entry) => `
-    <article class="alias-row">
-      <div class="alias-row-main"><span class="alias-kind">${entry.type === "work" ? "작품" : "작가"}</span><div><strong>${escapeHtml(entry.type === "work" ? entry.title : entry.author)}</strong>${entry.type === "work" ? `<small>${escapeHtml(entry.author)}</small>` : ""}</div></div>
+  els.searchAliasList.innerHTML = rows.length ? rows.map((entry) => {
+    const matchCount = countSearchAliasMatches(entry);
+    const matchLabel = matchCount > 0 ? `현재 매칭 ${matchCount.toLocaleString("ko-KR")}개` : "현재 매칭 0개 · 고아";
+    return `
+    <article class="alias-row ${matchCount > 0 ? "" : "is-orphan"}">
+      <div class="alias-row-main"><span class="alias-kind">${entry.type === "work" ? "작품" : "작가"}</span><div><strong>${escapeHtml(entry.type === "work" ? entry.title : entry.author)}</strong>${entry.type === "work" ? `<small>${escapeHtml(entry.author)}</small>` : ""}<small class="alias-match-status">${escapeHtml(matchLabel)}</small></div></div>
       <div class="alias-chips">${(entry.aliases || []).map((alias) => `<span>${escapeHtml(alias)}</span>`).join("")}</div>
       <div class="alias-row-actions"><button type="button" class="secondary-admin-button" data-alias-edit="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">수정</button><button type="button" class="secondary-admin-button" data-alias-delete="${entry.type}" data-title="${escapeHtml(entry.title || "")}" data-author="${escapeHtml(entry.author || "")}">삭제</button></div>
-    </article>`).join("") : '<div class="alias-empty"><strong>아직 등록된 검색 별칭이 없습니다.</strong><span>위에서 작가나 작품을 선택해 첫 별칭을 추가해보세요.</span></div>';
+    </article>`;
+  }).join("") : '<div class="alias-empty"><strong>아직 등록된 검색 별칭이 없습니다.</strong><span>위에서 작가나 작품을 선택해 첫 별칭을 추가해보세요.</span></div>';
 }
 
 async function loadSearchAliases() {
@@ -5489,7 +5555,11 @@ els.searchAliasForm?.addEventListener("submit", async (event) => {
     renderSearchAliases();
     els.searchAliasValues.value = "";
     refreshSearchAliasPicker();
-    els.searchAliasMessage.textContent = "저장했습니다. 사용자 통합검색에 바로 반영됩니다.";
+    els.searchAliasMessage.textContent = data.changed === false
+      ? "변경된 내용이 없어 다시 저장하지 않았습니다."
+      : data.indexRefreshed === false
+        ? (data.warning || "별칭은 저장했지만 공개 검색 인덱스는 갱신되지 않았습니다.")
+        : "저장했습니다. 사용자 통합검색에 바로 반영됩니다.";
   } catch (error) { els.searchAliasMessage.textContent = error.message || "저장에 실패했습니다."; }
 });
 
@@ -6078,6 +6148,12 @@ document.addEventListener("click", (event) => {
     loadFeedbackAdmin().catch(console.error);
     return;
   }
+  const userOpenButton = event.target.closest("[data-feedback-user-open]");
+  if (userOpenButton) {
+    openAdminUserFromFeedback(userOpenButton.dataset.feedbackUserOpen || "");
+    return;
+  }
+
   const copyButton = event.target.closest("[data-feedback-copy]");
   if (copyButton) {
     const original = copyButton.textContent;
@@ -6107,10 +6183,15 @@ document.addEventListener("click", (event) => {
   const card = statusButton.closest("[data-feedback-id]");
   const id = Number(card?.dataset.feedbackId || 0);
   if (!id) return;
+  const nextStatus = statusButton.dataset.feedbackStatus;
+  if (card?.dataset.feedbackCategory === "계정 문의" && nextStatus === "done") {
+    const confirmed = window.confirm("계정 문의를 처리완료로 바꾸면 저장된 답변 연락수단이 삭제됩니다. 처리완료로 변경할까요?");
+    if (!confirmed) return;
+  }
   statusButton.disabled = true;
   api("/api/admin/feedback", {
     method: "PATCH",
-    body: JSON.stringify({ id, status: statusButton.dataset.feedbackStatus }),
+    body: JSON.stringify({ id, status: nextStatus }),
   }).then(() => {
     feedbackAdminLoaded = false;
     return loadFeedbackAdmin();

@@ -8,6 +8,8 @@ import {
   readSettings,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
+import { requireUserDb } from "../../_user.js";
+import { ensureFeedbackSchema } from "../../_feedback.js";
 
 export async function onRequestGet(context) {
   try {
@@ -31,6 +33,20 @@ export async function onRequestGet(context) {
       (item) => item.parseFailed && Boolean(overrides[item.id])
     ).length;
 
+    let feedbackNewCount = 0;
+    try {
+      const db = requireUserDb(context.env);
+      await ensureFeedbackSchema(db);
+      const feedbackCount = await db.prepare(`
+        SELECT COUNT(*) AS count
+        FROM feedback
+        WHERE status = 'new'
+      `).first();
+      feedbackNewCount = Number(feedbackCount?.count || 0);
+    } catch (error) {
+      console.warn("feedback badge count failed", error);
+    }
+
     return jsonResponse({
       settings,
       syncedAt: archive?.syncedAt || null,
@@ -38,6 +54,7 @@ export async function onRequestGet(context) {
       diagnostics: archive?.diagnostics || [],
       needsReview,
       editedCount: effectiveEditedCount,
+      feedbackNewCount,
     });
   } catch (error) {
     return jsonResponse(

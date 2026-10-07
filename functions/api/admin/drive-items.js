@@ -1,10 +1,12 @@
 import {
   ARCHIVE_CACHE_KEY,
+  OVERRIDES_KEY,
   jsonResponse,
   requireKv,
   getJson,
   buildArchiveFromDrive,
   refreshPublicArchiveIndex,
+  applyOverrides,
 } from "../../_shared.js";
 import { requireAdminSession } from "../../_admin_session.js";
 
@@ -68,13 +70,15 @@ export async function onRequestGet(context) {
       await kv.put(ARCHIVE_CACHE_KEY, JSON.stringify(archive));
     }
 
-    const [typeOverrides, statusOverrides, lastSync] = await Promise.all([
+    const [titleAuthorOverrides, typeOverrides, statusOverrides, lastSync] = await Promise.all([
+      getJson(kv, OVERRIDES_KEY, {}),
       getJson(kv, DRIVE_CONTENT_TYPE_OVERRIDES_KEY, {}),
       getJson(kv, DRIVE_STATUS_OVERRIDES_KEY, {}),
       getJson(kv, LAST_DRIVE_SYNC_KEY, null),
     ]);
 
-    const items = (archive?.items || [])
+    const effectiveArchive = applyOverrides(archive, titleAuthorOverrides);
+    const items = (effectiveArchive?.items || [])
       .map((item) => toAdminItem(item, typeOverrides, statusOverrides))
       .sort((a, b) => {
         const createdDiff =

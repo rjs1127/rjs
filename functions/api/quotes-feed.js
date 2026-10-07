@@ -4,6 +4,7 @@ import {
   ensureQuoteFeedSchema,
   ensurePersonalizationSchema,
   getBearerToken,
+  getCookieToken,
   sha256Hex,
 } from "../_user.js";
 
@@ -35,7 +36,7 @@ function parseLikesCursor(value) {
 }
 
 async function getOptionalUserId(db, request) {
-  const token = getBearerToken(request);
+  const token = getBearerToken(request) || getCookieToken(request);
   if (!token) return "";
   const tokenHash = await sha256Hex(token);
   const session = await db.prepare(`

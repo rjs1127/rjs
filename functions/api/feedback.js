@@ -1,45 +1,9 @@
 import { jsonResponse } from "../_shared.js";
 import { requireUserDb } from "../_user.js";
+import { ensureFeedbackSchema } from "../_feedback.js";
 
 const CATEGORIES = new Set(["문의", "오류·수정", "기능 제안", "추가 요청", "계정 문의", "기타"]);
 const TURNSTILE_VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
-
-async function ensureFeedbackSchema(db) {
-  await db.prepare(`
-    CREATE TABLE IF NOT EXISTS feedback (
-      feedback_id INTEGER PRIMARY KEY AUTOINCREMENT,
-      category TEXT NOT NULL,
-      message TEXT NOT NULL,
-      page TEXT,
-      version TEXT,
-      diagnostic TEXT,
-      account_user_id TEXT,
-      reply_contact TEXT,
-      status TEXT NOT NULL DEFAULT 'new',
-      created_at INTEGER NOT NULL,
-      updated_at INTEGER NOT NULL
-    )
-  `).run();
-  const info = await db.prepare("PRAGMA table_info(feedback)").all();
-  const columns = new Set((info?.results || []).map((column) => String(column?.name || "")));
-  const migrations = [
-    ["diagnostic", `ALTER TABLE feedback ADD COLUMN diagnostic TEXT`],
-    ["account_user_id", `ALTER TABLE feedback ADD COLUMN account_user_id TEXT`],
-    ["reply_contact", `ALTER TABLE feedback ADD COLUMN reply_contact TEXT`],
-  ];
-  for (const [column, sql] of migrations) {
-    if (columns.has(column)) continue;
-    try {
-      await db.prepare(sql).run();
-    } catch (error) {
-      if (!/duplicate column/i.test(String(error?.message || ""))) throw error;
-    }
-  }
-  await db.prepare(`
-    CREATE INDEX IF NOT EXISTS idx_feedback_status_created
-    ON feedback(status, created_at DESC)
-  `).run();
-}
 
 function getTurnstileConfig(env) {
   return {
