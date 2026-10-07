@@ -46,6 +46,7 @@ const state = {
   readerNotes: [],
   myLibraryLoaded: false,
   myLibraryLoading: false,
+  myLibraryError: false,
   myLibraryDetailWorkId: "",
   myLibraryDetailTab: "all",
   readerReturnToMyLibrary: false,
@@ -1484,6 +1485,7 @@ function clearUserSession(clearToken = true) {
   state.readerNotes = [];
   state.myLibraryLoaded = false;
   state.myLibraryLoading = false;
+  state.myLibraryError = false;
   state.profileUserCreatedAt = null;
   state.profileOpen = false;
   state.remoteProgressState = new Map();
@@ -1782,6 +1784,7 @@ async function loadUserProfileData() {
     state.savedQuotes = [];
     state.readerNotes = [];
     state.myLibraryLoaded = false;
+    state.myLibraryError = false;
     state.profileUserCreatedAt = null;
     return;
   }
@@ -1958,6 +1961,8 @@ function normalizeReaderNote(row) {
 async function loadMyLibrary(force = false) {
   if (!state.user || state.myLibraryLoading || (state.myLibraryLoaded && !force)) return;
   state.myLibraryLoading = true;
+  state.myLibraryError = false;
+  if (state.profileOpen) renderProfilePage();
   try {
     const data = await userApi("/api/user/profile?section=library");
     state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
@@ -1965,6 +1970,12 @@ async function loadMyLibrary(force = false) {
     state.savedQuotesLoaded = true;
     state.readerNotes = (data.notes || []).map(normalizeReaderNote);
     state.myLibraryLoaded = true;
+  } catch (error) {
+    // userApi already clears the session and closes the profile on HTTP 401.
+    if (Number(error?.status) !== 401 && state.user) {
+      state.myLibraryError = true;
+      console.warn("내 서재 불러오기 실패", error);
+    }
   } finally {
     state.myLibraryLoading = false;
     if (state.profileOpen) renderProfilePage();
@@ -2074,7 +2085,9 @@ function renderProfilePage() {
   } else if (state.profileTab === "library") {
     if (!state.myLibraryLoaded) {
       rows = [];
-      html = state.myLibraryLoading ? '<div class="profile-empty">내 서재를 불러오는 중입니다.</div>' : '<div class="profile-empty">내 서재를 불러오는 중입니다.</div>';
+      html = state.myLibraryError
+        ? '<div class="profile-empty">내 서재를 불러오지 못했습니다. 내 서재 탭을 다시 눌러주세요.</div>'
+        : '<div class="profile-empty">내 서재를 불러오는 중입니다.</div>';
     } else {
       const works = getMyLibraryWorks().filter((row) => !q || normalizeSearchText(`${row.title} ${row.author}`).includes(q));
       rows = works;
