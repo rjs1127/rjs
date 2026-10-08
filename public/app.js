@@ -10325,12 +10325,12 @@ const READER_SHARE_BACKGROUNDS = [
     effect: "opal-shimmer",
   },
   {
-    name: "월광수면",
-    background: "radial-gradient(circle at 72% 18%, rgba(238,245,255,.24) 0 7%, rgba(238,245,255,0) 16%), repeating-radial-gradient(ellipse at 50% 84%, rgba(176,202,238,.10) 0 1px, rgba(176,202,238,0) 3px 12px), linear-gradient(155deg, #0e1b35 0%, #172a4b 52%, #101827 100%)",
-    text: "#eef4ff",
-    meta: "#9db2d0",
-    accent: "#cbdcff",
-    effect: "moon-water",
+    name: "미스트",
+    background: "radial-gradient(ellipse at 18% 24%, rgba(255,255,255,.76) 0 12%, rgba(255,255,255,0) 42%), radial-gradient(ellipse at 82% 70%, rgba(184,203,221,.30) 0 14%, rgba(184,203,221,0) 46%), radial-gradient(ellipse at 54% 44%, rgba(218,226,236,.30) 0 16%, rgba(218,226,236,0) 50%), linear-gradient(145deg, #f6f8fb 0%, #e8edf3 48%, #dce4ec 100%)",
+    text: "#425468",
+    meta: "#7a8999",
+    accent: "#60788f",
+    effect: "mist-layers",
   },
   {
     name: "청자유약",
@@ -10397,20 +10397,28 @@ const READER_SHARE_BACKGROUNDS = [
     effect: "graphite-grain",
   },
   {
-    name: "은빛파문",
-    background: "repeating-radial-gradient(circle at 82% 24%, rgba(100,118,139,.12) 0 1px, rgba(100,118,139,0) 2px 16px), linear-gradient(145deg, #f8fafc 0%, #e8edf3 48%, #d9e1e9 100%)",
-    text: "#465565",
-    meta: "#7f8d9b",
-    accent: "#63798f",
-    effect: "silver-ripples",
+    name: "페탈",
+    background: "radial-gradient(ellipse at 12% 18%, rgba(255,255,255,.86) 0 10%, rgba(255,255,255,0) 34%), radial-gradient(ellipse at 84% 76%, rgba(238,173,185,.18) 0 14%, rgba(238,173,185,0) 40%), linear-gradient(145deg, #fffafb 0%, #faeef1 50%, #f3e2e7 100%)",
+    text: "#8f5964",
+    meta: "#b38a92",
+    accent: "#d48a9a",
+    effect: "petal-flow",
   },
   {
-    name: "자정서고",
-    background: "linear-gradient(90deg, rgba(255,255,255,.025) 0 2%, rgba(255,255,255,0) 2% 7%, rgba(255,255,255,.018) 7% 8%, rgba(255,255,255,0) 8% 14%), linear-gradient(145deg, #101916 0%, #172520 48%, #0f1714 100%)",
-    text: "#edf4ef",
-    meta: "#9bb0a3",
-    accent: "#bfd6c7",
-    effect: "midnight-library",
+    name: "글로우",
+    background: "radial-gradient(circle at 18% 26%, rgba(218,255,178,.17) 0 3%, rgba(218,255,178,0) 18%), radial-gradient(circle at 78% 20%, rgba(255,232,132,.16) 0 2%, rgba(255,232,132,0) 16%), radial-gradient(circle at 82% 76%, rgba(190,255,198,.12) 0 3%, rgba(190,255,198,0) 18%), linear-gradient(150deg, #101a19 0%, #172822 52%, #0e1716 100%)",
+    text: "#eef7ef",
+    meta: "#9eb7a8",
+    accent: "#dceca0",
+    effect: "soft-glow",
+  },
+  {
+    name: "테이프",
+    background: "linear-gradient(11deg, transparent 0 80%, rgba(214,191,150,.12) 80% 84%, transparent 84%), repeating-linear-gradient(0deg, rgba(104,88,69,.028) 0 1px, transparent 1px 6px), linear-gradient(145deg, #fbf7ef 0%, #f2eadc 100%)",
+    text: "#4d4338",
+    meta: "#8c7e6f",
+    accent: "#b98e68",
+    effect: "paper-tape",
   },
   {
     name: "새벽안개",
@@ -11232,12 +11240,25 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
       ctx.ellipse(width*x, height*y, width*size, height*size*.46, -0.35, 0, Math.PI*2);
       ctx.stroke();
     });
-  } else if (effect === "moon-water") {
-    const moon = ctx.createRadialGradient(width*.72,height*.18,0,width*.72,height*.18,width*.11);
-    moon.addColorStop(0,"rgba(244,248,255,.30)"); moon.addColorStop(.5,"rgba(226,238,255,.12)"); moon.addColorStop(1,"rgba(226,238,255,0)");
-    ctx.fillStyle=moon; ctx.fillRect(0,0,width,height);
-    ctx.strokeStyle="rgba(190,214,244,.24)"; ctx.lineWidth=Math.max(1,width/900);
-    for (let i=0;i<7;i++){ const y=height*(.67+i*.035); ctx.beginPath(); ctx.ellipse(width*.52,y,width*(.18+i*.03),height*.012,0,0,Math.PI*2); ctx.stroke(); }
+  } else if (effect === "mist-layers") {
+    const veils = [
+      [.18,.24,.44,"rgba(255,255,255,.28)"],
+      [.82,.7,.38,"rgba(186,205,222,.18)"],
+      [.52,.48,.54,"rgba(224,231,238,.16)"]
+    ];
+    veils.forEach(([x,y,r,color]) => {
+      const g = ctx.createRadialGradient(width*x,height*y,0,width*x,height*y,width*r);
+      g.addColorStop(0,color);
+      g.addColorStop(.58,color.replace(/0\.\d+\)$/, '0.06)'));
+      g.addColorStop(1,"rgba(220,228,236,0)");
+      ctx.fillStyle=g; ctx.fillRect(0,0,width,height);
+    });
+    ctx.strokeStyle="rgba(255,255,255,.20)";
+    ctx.lineWidth=Math.max(1,width/1500);
+    for(let i=0;i<4;i++){
+      const y=.3+i*.14; ctx.beginPath(); ctx.moveTo(-width*.05,height*y);
+      ctx.bezierCurveTo(width*.24,height*(y-.05),width*.52,height*(y+.05),width*1.05,height*(y-.015)); ctx.stroke();
+    }
   } else if (effect === "celadon-glaze") {
     ctx.strokeStyle="rgba(54,100,88,.18)"; ctx.lineWidth=Math.max(1,width/1500);
     const cracks=[[[.08,.12],[.23,.28],[.18,.48],[.34,.66]],[[.82,.08],[.69,.24],[.76,.43],[.63,.61],[.72,.86]],[[.38,.02],[.46,.2],[.41,.37],[.53,.54],[.47,.76]]];
@@ -11267,15 +11288,44 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     ctx.strokeStyle="rgba(42,46,52,.08)"; ctx.lineWidth=Math.max(1,width/1600);
     for(let y=0;y<height;y+=Math.max(8,height/90)){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y+height*.02);ctx.stroke();}
     ctx.globalAlpha=.45; ctx.fillStyle="rgba(255,255,255,.22)"; for(let i=0;i<34;i++){const x=((i*37)%101)/100*width;const y=((i*61)%97)/96*height;ctx.fillRect(x,y,Math.max(1,width/900),Math.max(1,width/900));}
-  } else if (effect === "silver-ripples") {
-    ctx.strokeStyle="rgba(89,110,132,.17)"; ctx.lineWidth=Math.max(1,width/1200);
-    for(let i=1;i<=7;i++){ctx.beginPath();ctx.arc(width*.82,height*.24,width*(.035*i),0,Math.PI*2);ctx.stroke();}
-    const shine=ctx.createLinearGradient(0,height*.66,width,height*.42);shine.addColorStop(0,"rgba(255,255,255,0)");shine.addColorStop(.5,"rgba(255,255,255,.22)");shine.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=shine;ctx.fillRect(0,0,width,height);
-  } else if (effect === "midnight-library") {
-    ctx.fillStyle="rgba(220,236,225,.035)";
-    const shelves=[[.08,.18,.08,.7],[.19,.12,.06,.76],[.29,.2,.1,.68],[.43,.1,.07,.78],[.56,.16,.09,.72],[.7,.11,.06,.77],[.82,.18,.1,.7]];
-    shelves.forEach(([x,y,w,h])=>ctx.fillRect(width*x,height*y,width*w,height*h));
-    ctx.strokeStyle="rgba(199,219,205,.09)";ctx.lineWidth=Math.max(1,width/1200);[.34,.66].forEach(y=>{ctx.beginPath();ctx.moveTo(width*.06,height*y);ctx.lineTo(width*.94,height*y);ctx.stroke();});
+  } else if (effect === "petal-flow") {
+    const petals = [
+      [.08,.18,.018,-.5],[.14,.28,.013,.4],[.2,.14,.016,-.2],[.28,.34,.012,.8],
+      [.72,.16,.012,-.7],[.82,.24,.018,.25],[.9,.38,.014,.7],[.78,.7,.016,-.3],
+      [.9,.78,.011,.4],[.18,.76,.013,-.8],[.3,.84,.017,.15],[.66,.86,.012,.65]
+    ];
+    petals.forEach(([x,y,r,rot], index) => {
+      ctx.save(); ctx.translate(width*x,height*y); ctx.rotate(rot);
+      const rr=width*r; ctx.fillStyle=index%3===0?"rgba(218,126,146,.48)":"rgba(240,171,185,.40)";
+      ctx.beginPath();
+      ctx.moveTo(0,-rr);
+      ctx.bezierCurveTo(rr*.85,-rr*.62,rr*.9,rr*.25,0,rr);
+      ctx.bezierCurveTo(-rr*.9,rr*.25,-rr*.85,-rr*.62,0,-rr);
+      ctx.fill(); ctx.restore();
+    });
+    ctx.strokeStyle="rgba(212,138,154,.12)"; ctx.lineWidth=Math.max(1,width/1500);
+    ctx.beginPath(); ctx.moveTo(-width*.05,height*.36); ctx.bezierCurveTo(width*.28,height*.18,width*.52,height*.5,width*1.05,height*.28); ctx.stroke();
+  } else if (effect === "soft-glow") {
+    const lights=[[.12,.24,.022],[.2,.68,.014],[.34,.18,.012],[.68,.26,.018],[.82,.18,.011],[.88,.66,.022],[.7,.78,.013],[.44,.82,.01]];
+    lights.forEach(([x,y,r],i)=>{
+      const radius=width*r*5.4; const g=ctx.createRadialGradient(width*x,height*y,0,width*x,height*y,radius);
+      const core=i%2?"rgba(238,255,170,.50)":"rgba(205,255,183,.48)";
+      g.addColorStop(0,core); g.addColorStop(.18,"rgba(221,249,169,.22)"); g.addColorStop(1,"rgba(221,249,169,0)");
+      ctx.fillStyle=g; ctx.fillRect(width*x-radius,height*y-radius,radius*2,radius*2);
+    });
+    ctx.strokeStyle="rgba(225,248,166,.24)"; ctx.lineCap="round"; ctx.lineWidth=Math.max(1,width/900);
+    [[.12,.24,.08,.035],[.68,.26,.09,-.025],[.88,.66,.06,.045]].forEach(([x,y,dx,dy])=>{
+      ctx.beginPath(); ctx.moveTo(width*x,height*y); ctx.quadraticCurveTo(width*(x+dx*.55),height*(y-dy*.8),width*(x+dx),height*(y+dy)); ctx.stroke();
+    });
+  } else if (effect === "paper-tape") {
+    const unit=width/1200;
+    ctx.strokeStyle="rgba(91,73,55,.16)"; ctx.lineWidth=Math.max(1,unit*1.3); ctx.setLineDash([unit*10,unit*9]);
+    ctx.strokeRect(width*.055,height*.06,width*.89,height*.88); ctx.setLineDash([]);
+    const tape=(x,y,w,h,rot,color)=>{ctx.save();ctx.translate(width*x,height*y);ctx.rotate(rot);ctx.fillStyle=color;ctx.fillRect(-width*w/2,-height*h/2,width*w,height*h);ctx.strokeStyle="rgba(116,92,66,.08)";ctx.lineWidth=Math.max(1,unit);for(let i=-2;i<=2;i++){ctx.beginPath();ctx.moveTo(-width*w/2,height*h*i/10);ctx.lineTo(width*w/2,height*h*(i/10+.06));ctx.stroke();}ctx.restore();};
+    tape(.18,.095,.2,.055,-.09,"rgba(215,178,136,.32)");
+    tape(.82,.91,.18,.05,.08,"rgba(188,164,127,.26)");
+    ctx.fillStyle="rgba(139,102,78,.18)";
+    [[.88,.15,.012],[.12,.82,.009],[.86,.77,.008]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(width*x,height*y,width*r,0,Math.PI*2);ctx.fill();});
   } else if (effect === "dawn-fog") {
     [[.16,.72,.42,"rgba(255,255,255,.22)"],[.76,.24,.34,"rgba(205,222,233,.18)"],[.55,.54,.5,"rgba(255,255,255,.12)"]].forEach(([x,y,r,c])=>{const g=ctx.createRadialGradient(width*x,height*y,0,width*x,height*y,width*r);g.addColorStop(0,c);g.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=g;ctx.fillRect(0,0,width,height);});
   }
