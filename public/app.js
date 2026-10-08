@@ -11268,8 +11268,28 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     ctx.strokeStyle="rgba(49,74,106,.13)"; ctx.lineWidth=Math.max(1,width/1400);
     ctx.beginPath(); ctx.moveTo(width*.1,height*.78); ctx.bezierCurveTo(width*.32,height*.7,width*.48,height*.88,width*.7,height*.76); ctx.bezierCurveTo(width*.82,height*.69,width*.9,height*.74,width*.96,height*.68); ctx.stroke();
   } else if (effect === "aurora-weave") {
-    const ribbons=[[.18,.18,.78,.42,"rgba(88,234,202,.15)"],[.1,.48,.86,.22,"rgba(155,107,255,.14)"],[.22,.64,.72,.28,"rgba(87,169,255,.10)"]];
-    ribbons.forEach(([sx,sy,ex,amp,color])=>{ctx.strokeStyle=color;ctx.lineWidth=width*.07;ctx.beginPath();ctx.moveTo(width*sx,height*sy);ctx.bezierCurveTo(width*.36,height*(sy+amp),width*.64,height*(sy-amp*.5),width*ex,height*(sy+.08));ctx.stroke();});
+    const veils = [
+      [.18, .24, .34, .28, [[0, "rgba(70,238,200,.26)"], [.42, "rgba(70,238,200,.12)"], [1, "rgba(70,238,200,0)"]]],
+      [.78, .34, .38, .32, [[0, "rgba(157,101,255,.25)"], [.45, "rgba(157,101,255,.11)"], [1, "rgba(157,101,255,0)"]]],
+      [.44, .78, .54, .22, [[0, "rgba(65,134,255,.10)"], [.5, "rgba(65,134,255,.05)"], [1, "rgba(65,134,255,0)"]]],
+      [.52, .48, .46, .38, [[0, "rgba(255,255,255,.04)"], [.4, "rgba(255,255,255,.02)"], [1, "rgba(255,255,255,0)"]]],
+    ];
+    veils.forEach(([x, y, rx, ry, stops]) => {
+      ctx.save();
+      ctx.translate(width * x, height * y);
+      ctx.scale(width * rx, height * ry);
+      const glow = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+      stops.forEach(([offset, color]) => glow.addColorStop(offset, color));
+      ctx.fillStyle = glow;
+      ctx.fillRect(-1.25, -1.25, 2.5, 2.5);
+      ctx.restore();
+    });
+    const softSweep = ctx.createLinearGradient(width * .06, height * .12, width * .94, height * .84);
+    softSweep.addColorStop(0, "rgba(70,238,200,.04)");
+    softSweep.addColorStop(.5, "rgba(141,146,255,.02)");
+    softSweep.addColorStop(1, "rgba(157,101,255,.04)");
+    ctx.fillStyle = softSweep;
+    ctx.fillRect(0, 0, width, height);
   } else if (effect === "sunset-layers") {
     const bands=[[.64,"rgba(255,255,255,.18)"],[.72,"rgba(255,225,204,.17)"],[.8,"rgba(183,151,222,.12)"]];
     bands.forEach(([y,c],idx)=>{ctx.fillStyle=c;ctx.beginPath();ctx.moveTo(0,height*y);ctx.bezierCurveTo(width*.28,height*(y-.05+idx*.01),width*.58,height*(y+.05),width,height*(y-.01));ctx.lineTo(width,height);ctx.lineTo(0,height);ctx.closePath();ctx.fill();});
