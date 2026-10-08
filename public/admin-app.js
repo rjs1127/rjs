@@ -504,14 +504,68 @@ async function loadOpsAutomation(force = false) {
   opsAutomationLoaded = true;
 }
 
+function ensureQuotePresetFinalPreviewElements() {
+  const popupStage = document.querySelector('.quote-preset-stage-popup');
+  const outputStage = document.querySelector('.quote-preset-stage-output');
+  const inspectorHeadCopy = document.querySelector('.quote-image-admin-head .muted');
+  const note = document.querySelector('.quote-preset-note');
+
+  if (inspectorHeadCopy) {
+    inspectorHeadCopy.textContent = '사용자 목록 썸네일과 실제 저장·복사 최종 PNG를 확인한 뒤 노출 Y/N을 결정합니다.';
+  }
+  if (note) {
+    note.textContent = '프리셋을 선택하면 사용자 목록 썸네일과 실제 저장·복사에 쓰이는 최종 PNG만 확인합니다. 팝업 안에서도 같은 결과 이미지를 그대로 보여 주도록 맞췄습니다.';
+  }
+  if (popupStage) {
+    popupStage.classList.add('is-final-only');
+    const head = popupStage.querySelector('.quote-preset-stage-head');
+    if (head) {
+      const number = head.querySelector('span');
+      const title = head.querySelector('strong');
+      const desc = head.querySelector('small');
+      if (number) number.textContent = '2';
+      if (title) title.textContent = '최종 생성 이미지';
+      if (desc) desc.textContent = '팝업 미리보기 · 저장 · 복사에 동일하게 쓰이는 PNG';
+    }
+  }
+  if (outputStage) {
+    outputStage.hidden = true;
+    outputStage.classList.add('quote-preset-stage-hidden');
+  }
+  if (els.quotePresetPopupImage && !els.quotePresetPopupImage.querySelector('.quote-preset-popup-final-image')) {
+    els.quotePresetPopupImage.innerHTML = '<img class="quote-preset-popup-final-image" alt="최종 생성 이미지 미리보기" hidden /><div class="quote-preset-popup-loading">최종 PNG 렌더링 중…</div>';
+  }
+}
+
+function getQuotePresetFinalPreviewImage() {
+  ensureQuotePresetFinalPreviewElements();
+  return els.quotePresetPopupImage?.querySelector('.quote-preset-popup-final-image') || null;
+}
+
+function getQuotePresetFinalPreviewLoading() {
+  ensureQuotePresetFinalPreviewElements();
+  return els.quotePresetPopupImage?.querySelector('.quote-preset-popup-loading') || null;
+}
+
 function getSelectedQuotePresetAdmin() {
   return quotePresetAdminData.find((preset) => preset.key === quotePresetSelectedKey) || null;
 }
 
 function resetQuotePresetOutputPreview() {
+  ensureQuotePresetFinalPreviewElements();
   if (quotePresetOutputUrl) {
     URL.revokeObjectURL(quotePresetOutputUrl);
     quotePresetOutputUrl = "";
+  }
+  const finalPreviewImage = getQuotePresetFinalPreviewImage();
+  const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
+  if (finalPreviewImage) {
+    finalPreviewImage.hidden = true;
+    finalPreviewImage.removeAttribute("src");
+  }
+  if (finalPreviewLoading) finalPreviewLoading.hidden = false;
+  if (els.quotePresetPopupImage) {
+    els.quotePresetPopupImage.classList.add("is-loading");
   }
   if (els.quotePresetOutputImage) {
     els.quotePresetOutputImage.hidden = true;
@@ -525,6 +579,7 @@ function resetQuotePresetOutputPreview() {
 }
 
 function renderQuotePresetInspector() {
+  ensureQuotePresetFinalPreviewElements();
   const preset = getSelectedQuotePresetAdmin();
   if (!els.quotePresetInspector) return;
   els.quotePresetInspector.hidden = !preset;
@@ -556,6 +611,8 @@ function selectQuotePresetAdmin(key, { reloadFrame = true } = {}) {
     els.quotePresetPopupImage.style.background = "var(--sy-surface-subtle)";
     els.quotePresetPopupImage.classList.add("is-loading");
   }
+  const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
+  if (finalPreviewLoading) finalPreviewLoading.hidden = false;
   els.quotePresetEditorFrame.src = `/?quote-test=${encodeURIComponent(preset.key)}&quote-embed=1`;
 }
 
@@ -589,6 +646,7 @@ function renderQuotePresetAdmin() {
 }
 
 async function loadQuotePresetAdmin(force = false) {
+  ensureQuotePresetFinalPreviewElements();
   if (quotePresetAdminLoaded && !force) return;
   if (els.quotePresetMessage) { els.quotePresetMessage.hidden = true; els.quotePresetMessage.textContent = ""; }
   const data = await api("/api/admin/quote-image-presets", { method: "GET" });
@@ -6638,11 +6696,7 @@ window.addEventListener("message", (event) => {
       els.quotePresetThumbName.style.color = String(data.textColor || "#fff");
     }
     if (els.quotePresetPopupImage) {
-      els.quotePresetPopupImage.classList.remove("is-loading");
       els.quotePresetPopupImage.style.background = String(data.background || "var(--sy-surface-subtle)");
-      els.quotePresetPopupImage.style.color = String(data.textColor || "#fff");
-      const popupMeta = els.quotePresetPopupImage.querySelector(".quote-preset-popup-meta");
-      if (popupMeta) popupMeta.style.color = String(data.textColor || "#fff");
     }
     return;
   }
@@ -6650,6 +6704,16 @@ window.addEventListener("message", (event) => {
     if (String(data.key || "") !== quotePresetSelectedKey || !(data.blob instanceof Blob)) return;
     if (quotePresetOutputUrl) URL.revokeObjectURL(quotePresetOutputUrl);
     quotePresetOutputUrl = URL.createObjectURL(data.blob);
+    const finalPreviewImage = getQuotePresetFinalPreviewImage();
+    const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
+    if (els.quotePresetPopupImage) {
+      els.quotePresetPopupImage.classList.remove("is-loading");
+    }
+    if (finalPreviewImage) {
+      finalPreviewImage.src = quotePresetOutputUrl;
+      finalPreviewImage.hidden = false;
+    }
+    if (finalPreviewLoading) finalPreviewLoading.hidden = true;
     if (els.quotePresetOutputImage) {
       els.quotePresetOutputImage.src = quotePresetOutputUrl;
       els.quotePresetOutputImage.hidden = false;
