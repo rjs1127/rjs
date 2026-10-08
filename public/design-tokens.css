@@ -1,0 +1,121 @@
+/*
+ * Syungbook design foundation v1
+ * Shared tokens only. Admin consumes these first; reader/user surfaces can opt in later.
+ */
+:root,
+html.theme-light {
+  color-scheme: light;
+
+  --sy-page: #f4f7fb;
+  --sy-surface: #ffffff;
+  --sy-surface-subtle: #f8fafc;
+  --sy-surface-muted: #eef3f8;
+  --sy-surface-elevated: #ffffff;
+
+  --sy-text: #172033;
+  --sy-text-secondary: #647084;
+  --sy-text-tertiary: #8a96a8;
+  --sy-text-disabled: #aab3c0;
+
+  --sy-line: #dce4ee;
+  --sy-line-strong: #cbd6e3;
+  --sy-line-soft: #e9eef4;
+
+  --sy-accent: #356fd6;
+  --sy-accent-hover: #2d61bd;
+  --sy-accent-soft: #edf4ff;
+  --sy-accent-line: #cfe0fb;
+  --sy-accent-text: #2758ac;
+
+  --sy-success: #1f7a55;
+  --sy-success-soft: #edf8f3;
+  --sy-warning: #9a6817;
+  --sy-warning-soft: #fff7e8;
+  --sy-danger: #b64550;
+  --sy-danger-soft: #fff1f2;
+  --sy-info: #356fd6;
+  --sy-info-soft: #edf4ff;
+
+  --sy-overlay: rgba(14, 23, 38, .48);
+  --sy-focus: rgba(53, 111, 214, .18);
+
+  --sy-radius-xs: 6px;
+  --sy-radius-sm: 8px;
+  --sy-radius-md: 10px;
+  --sy-radius-lg: 12px;
+
+  --sy-shadow-sm: 0 1px 2px rgba(18, 32, 54, .04);
+  --sy-shadow-modal: 0 24px 64px rgba(18, 32, 54, .16);
+
+  --sy-space-1: 4px;
+  --sy-space-2: 8px;
+  --sy-space-3: 12px;
+  --sy-space-4: 16px;
+  --sy-space-5: 20px;
+  --sy-space-6: 24px;
+  --sy-space-8: 32px;
+
+  --sy-control-sm: 34px;
+  --sy-control-md: 40px;
+  --sy-control-lg: 44px;
+
+  --sy-fast: 140ms ease;
+  --sy-normal: 200ms ease;
+
+  /* Compatibility aliases for the current admin CSS. */
+  --bg: var(--sy-page);
+  --panel: var(--sy-surface);
+  --ink: var(--sy-text);
+  --muted: var(--sy-text-secondary);
+  --line: var(--sy-line);
+  --accent: var(--sy-accent);
+  --warn: var(--sy-warning);
+}
+
+html.theme-dark {
+  color-scheme: dark;
+
+  --sy-page: #0f141d;
+  --sy-surface: #161d28;
+  --sy-surface-subtle: #1b2431;
+  --sy-surface-muted: #212b39;
+  --sy-surface-elevated: #1a2230;
+
+  --sy-text: #edf2f8;
+  --sy-text-secondary: #a8b3c2;
+  --sy-text-tertiary: #7f8b9b;
+  --sy-text-disabled: #647080;
+
+  --sy-line: #2b3747;
+  --sy-line-strong: #3a485b;
+  --sy-line-soft: #232e3d;
+
+  --sy-accent: #79a8ff;
+  --sy-accent-hover: #91b8ff;
+  --sy-accent-soft: #172845;
+  --sy-accent-line: #294b7c;
+  --sy-accent-text: #a8c8ff;
+
+  --sy-success: #68c59b;
+  --sy-success-soft: #143126;
+  --sy-warning: #e6b45d;
+  --sy-warning-soft: #342914;
+  --sy-danger: #f08a94;
+  --sy-danger-soft: #391d22;
+  --sy-info: #79a8ff;
+  --sy-info-soft: #172845;
+
+  --sy-overlay: rgba(3, 7, 13, .72);
+  --sy-focus: rgba(121, 168, 255, .22);
+
+  --sy-shadow-sm: 0 1px 2px rgba(0, 0, 0, .2);
+  --sy-shadow-modal: 0 28px 72px rgba(0, 0, 0, .42);
+
+  --bg: var(--sy-page);
+  --panel: var(--sy-surface);
+  --ink: var(--sy-text);
+  --muted: var(--sy-text-secondary);
+  --line: var(--sy-line);
+  --accent: var(--sy-accent);
+  --warn: var(--sy-warning);
+}

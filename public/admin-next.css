@@ -1,0 +1,718 @@
+/*
+ * Admin design preview v1
+ * Visual layer only. Loaded after legacy admin.css so it can be removed cleanly.
+ */
+
+.admin-next-page {
+  margin: 0;
+  background: var(--sy-page);
+  color: var(--sy-text);
+  font-family: Pretendard, "Noto Sans KR", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.admin-next-page .admin-shell {
+  width: min(1320px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 34px 0 88px;
+}
+
+.admin-next-page .admin-header {
+  align-items: flex-end;
+  margin: 0 0 26px;
+  padding: 0 0 22px;
+  border-bottom: 1px solid var(--sy-line);
+}
+
+.admin-next-page .admin-header h1 {
+  margin: 0;
+  color: var(--sy-text);
+  font-size: clamp(27px, 3vw, 34px);
+  font-weight: 760;
+  letter-spacing: -.045em;
+}
+
+.admin-next-page .eyebrow {
+  margin-bottom: 7px;
+  color: var(--sy-accent-text);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.admin-next-page .sub,
+.admin-next-page .muted,
+.admin-next-page .meta,
+.admin-next-page .admin-version {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .sub {
+  margin: 9px 0 0;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.admin-next-page .admin-header-account {
+  gap: 8px;
+}
+
+.admin-next-page .admin-header-links {
+  gap: 7px;
+}
+
+.admin-next-page .back-link,
+.admin-next-page .secondary-admin-button,
+.admin-next-page .deploy-status-refresh,
+.admin-next-page .prompt-library-copy,
+.admin-next-page .prompt-library-close,
+.admin-next-page .user-action-button,
+.admin-next-page .postype-library-date-fetch,
+.admin-next-page .postype-bulk-meta,
+.admin-next-page .history-modal-version-button {
+  border: 1px solid var(--sy-line);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+  box-shadow: none;
+  transition: background var(--sy-fast), border-color var(--sy-fast), color var(--sy-fast);
+}
+
+.admin-next-page .back-link:hover,
+.admin-next-page .secondary-admin-button:hover,
+.admin-next-page .deploy-status-refresh:hover,
+.admin-next-page .prompt-library-copy:hover,
+.admin-next-page .prompt-library-close:hover,
+.admin-next-page .user-action-button:hover,
+.admin-next-page .postype-library-date-fetch:hover,
+.admin-next-page .postype-bulk-meta:hover,
+.admin-next-page .history-modal-version-button:hover {
+  border-color: var(--sy-line-strong);
+  background: var(--sy-surface-subtle);
+}
+
+.admin-next-page button.primary,
+.admin-next-page #loginForm button,
+.admin-next-page .postype-admin-actions button.primary,
+.admin-next-page .review-form button {
+  border: 1px solid var(--sy-accent);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-accent);
+  color: #fff;
+  box-shadow: none;
+}
+
+.admin-next-page button.primary:hover,
+.admin-next-page .postype-admin-actions button.primary:hover,
+.admin-next-page .review-form button:hover {
+  border-color: var(--sy-accent-hover);
+  background: var(--sy-accent-hover);
+}
+
+.admin-next-page button:focus-visible,
+.admin-next-page a:focus-visible,
+.admin-next-page input:focus-visible,
+.admin-next-page select:focus-visible,
+.admin-next-page textarea:focus-visible {
+  outline: 3px solid var(--sy-focus);
+  outline-offset: 1px;
+}
+
+/* Two-column shell: quiet navigation + content. */
+.admin-next-page #adminContent {
+  display: grid;
+  grid-template-columns: 178px minmax(0, 1fr);
+  column-gap: 28px;
+  align-items: start;
+}
+
+.admin-next-page .admin-tabs {
+  grid-column: 1;
+  grid-row: 1 / span 4;
+  position: sticky;
+  top: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 2px;
+  margin: 0;
+  padding: 4px 16px 4px 0;
+  border-right: 1px solid var(--sy-line);
+}
+
+.admin-next-page .admin-tab {
+  min-height: 36px;
+  width: 100%;
+  border: 0;
+  border-radius: var(--sy-radius-sm);
+  background: transparent;
+  color: var(--sy-text-secondary);
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-align: left;
+  transition: background var(--sy-fast), color var(--sy-fast);
+}
+
+.admin-next-page .admin-tab:hover {
+  background: var(--sy-surface-muted);
+  color: var(--sy-text);
+}
+
+.admin-next-page .admin-tab.active {
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .admin-tab-badge {
+  margin-left: 5px;
+  border-radius: 999px;
+  background: var(--sy-danger);
+  color: #fff;
+}
+
+.admin-next-page .source-overview-grid,
+.admin-next-page .tab-panel {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.admin-next-page .source-overview-grid {
+  gap: 10px;
+  margin: 0 0 16px;
+}
+
+.admin-next-page .source-overview-card,
+.admin-next-page .panel,
+.admin-next-page .stat,
+.admin-next-page .dashboard-summary-card,
+.admin-next-page .status-mini-card,
+.admin-next-page .diagnostic-card,
+.admin-next-page .auto-sync-card,
+.admin-next-page .ops-automation-card,
+.admin-next-page .resource-overview-card,
+.admin-next-page .resource-summary-card,
+.admin-next-page .resource-analytics-card,
+.admin-next-page .resource-d1-health-card,
+.admin-next-page .history-summary-card,
+.admin-next-page .history-activity-card,
+.admin-next-page .feedback-admin-card,
+.admin-next-page .review-item,
+.admin-next-page .deploy-status-card,
+.admin-next-page .prompt-library-item {
+  border: 1px solid var(--sy-line);
+  border-radius: var(--sy-radius-md);
+  background: var(--sy-surface);
+  box-shadow: var(--sy-shadow-sm);
+  color: var(--sy-text);
+}
+
+.admin-next-page .panel {
+  margin-top: 0;
+  padding: 22px;
+}
+
+.admin-next-page .tab-panel + .tab-panel,
+.admin-next-page .tab-panel[hidden] {
+  margin: 0;
+}
+
+.admin-next-page .panel h2 {
+  color: var(--sy-text);
+  font-size: 20px;
+  font-weight: 730;
+  letter-spacing: -.035em;
+}
+
+.admin-next-page .panel-head {
+  gap: 16px;
+}
+
+.admin-next-page .source-overview-card {
+  padding: 17px 18px;
+}
+
+.admin-next-page .source-overview-badge {
+  border-radius: 7px;
+  border: 1px solid var(--sy-accent-line);
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .source-overview-badge.postype {
+  border-color: #d8dff0;
+  background: #f1f3f9;
+  color: #566079;
+}
+
+html.theme-dark .admin-next-page .source-overview-badge.postype {
+  border-color: #39465a;
+  background: #202a38;
+  color: #b5c0d0;
+}
+
+.admin-next-page .source-overview-link {
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .source-overview-metrics {
+  border-top-color: var(--sy-line-soft);
+}
+
+.admin-next-page .source-overview-metrics em,
+.admin-next-page .source-overview-sync,
+.admin-next-page .source-overview-name {
+  color: var(--sy-text-secondary);
+}
+
+/* Controls */
+.admin-next-page input,
+.admin-next-page textarea,
+.admin-next-page select,
+.admin-next-page .postype-register-form input,
+.admin-next-page .postype-register-form select,
+.admin-next-page .postype-library-table input[type="date"],
+.admin-next-page .postype-bulk-common input,
+.admin-next-page .postype-bulk-common select,
+.admin-next-page .postype-bulk-table input,
+.admin-next-page .postype-bulk-table select {
+  border: 1px solid var(--sy-line);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+  box-shadow: none;
+}
+
+.admin-next-page input::placeholder,
+.admin-next-page textarea::placeholder {
+  color: var(--sy-text-tertiary);
+}
+
+.admin-next-page input:focus,
+.admin-next-page textarea:focus,
+.admin-next-page select:focus,
+.admin-next-page .postype-register-form input:focus,
+.admin-next-page .postype-register-form select:focus {
+  border-color: var(--sy-accent);
+  outline: 0;
+  box-shadow: 0 0 0 3px var(--sy-focus);
+}
+
+.admin-next-page .field-label,
+.admin-next-page .settings-form label span,
+.admin-next-page .postype-register-form label > span,
+.admin-next-page .postype-bulk-common label > span {
+  color: var(--sy-text-secondary);
+}
+
+/* Data surfaces */
+.admin-next-page table {
+  color: var(--sy-text);
+}
+
+.admin-next-page .user-table-wrap,
+.admin-next-page .postype-library-table-wrap,
+.admin-next-page .resource-operation-table-wrap,
+.admin-next-page .file-list,
+.admin-next-page .postype-bulk-table-wrap {
+  border-color: var(--sy-line);
+  border-radius: var(--sy-radius-md);
+  background: var(--sy-surface);
+}
+
+.admin-next-page :is(.user-table,.postype-library-table,.postype-bulk-table,.resource-operation-table) th {
+  border-bottom-color: var(--sy-line);
+  background: var(--sy-surface-subtle);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page :is(.user-table,.postype-library-table,.postype-bulk-table,.resource-operation-table) td {
+  border-bottom-color: var(--sy-line-soft);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+}
+
+.admin-next-page :is(.user-table,.postype-library-table,.postype-bulk-table,.resource-operation-table) tbody tr:hover td {
+  background: var(--sy-surface-subtle);
+}
+
+.admin-next-page .postype-library-row-dirty td {
+  background: var(--sy-warning-soft) !important;
+}
+
+.admin-next-page .dashboard-daily-row,
+.admin-next-page .file-list,
+.admin-next-page .file-list li,
+.admin-next-page .postype-library-summary span,
+.admin-next-page .resource-cloudflare-note,
+.admin-next-page .resource-notice,
+.admin-next-page .resource-analytics-notice,
+.admin-next-page .feedback-admin-account-summary,
+.admin-next-page .prompt-library-detail {
+  border-color: var(--sy-line);
+  background: var(--sy-surface-subtle);
+  color: var(--sy-text);
+}
+
+.admin-next-page .file-list li {
+  border-bottom-color: var(--sy-line-soft);
+}
+
+.admin-next-page .file-list.blocked li,
+.admin-next-page .diagnostic-error,
+.admin-next-page .feedback-admin-account-warning {
+  background: var(--sy-danger-soft);
+  color: var(--sy-danger);
+}
+
+.admin-next-page .message {
+  border: 1px solid var(--sy-line);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-surface-muted);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .error {
+  color: var(--sy-danger);
+}
+
+.admin-next-page .count-badge,
+.admin-next-page .diagnostic-type,
+.admin-next-page .postype-library-summary span {
+  background: var(--sy-surface-muted);
+  color: var(--sy-text-secondary);
+}
+
+/* Stats remain restrained: border and typography do the work. */
+.admin-next-page .dashboard-summary-grid,
+.admin-next-page .stats-grid,
+.admin-next-page .status-summary-grid,
+.admin-next-page .visit-kpi-grid,
+.admin-next-page .history-summary-grid,
+.admin-next-page .resource-summary-grid,
+.admin-next-page .resource-overview-grid {
+  gap: 10px;
+}
+
+.admin-next-page .dashboard-summary-card,
+.admin-next-page .stat,
+.admin-next-page .status-mini-card,
+.admin-next-page .history-summary-card {
+  padding: 16px;
+}
+
+.admin-next-page :is(.dashboard-summary-card,.stat,.status-mini-card,.history-summary-card) span,
+.admin-next-page :is(.dashboard-summary-card,.stat,.status-mini-card,.history-summary-card) small {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page :is(.dashboard-summary-card,.stat,.status-mini-card,.history-summary-card) strong {
+  color: var(--sy-text);
+}
+
+/* Deploy */
+.admin-next-page .drop-zone {
+  border-color: var(--sy-line-strong);
+  border-radius: var(--sy-radius-md);
+  background: var(--sy-surface-subtle);
+}
+
+.admin-next-page .drop-zone:hover,
+.admin-next-page .drop-zone.dragover {
+  border-color: var(--sy-accent);
+  background: var(--sy-accent-soft);
+}
+
+.admin-next-page .deploy-panel code {
+  background: var(--sy-surface-muted);
+  color: var(--sy-text);
+}
+
+.admin-next-page .deploy-status-item {
+  border-color: var(--sy-line);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-surface-subtle);
+}
+
+.admin-next-page .deploy-status-label,
+.admin-next-page .deploy-status-meta {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .deploy-status-value {
+  color: var(--sy-text);
+}
+
+/* Prompt library: document list rather than stacked cards. */
+.admin-next-page .prompt-library-list {
+  gap: 0;
+  border-top: 1px solid var(--sy-line);
+}
+
+.admin-next-page .prompt-library-item {
+  border-width: 0 0 1px;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.admin-next-page .prompt-library-row {
+  padding: 10px 4px;
+}
+
+.admin-next-page .prompt-library-detail {
+  border-top-color: var(--sy-line-soft);
+  padding: 14px 16px;
+}
+
+.admin-next-page .prompt-library-title {
+  color: var(--sy-text);
+}
+
+.admin-next-page .prompt-library-arrow {
+  color: var(--sy-text-tertiary);
+}
+
+/* History and modals */
+.admin-next-page .history-activity-card,
+.admin-next-page .history-day-card {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+  box-shadow: none;
+}
+
+.admin-next-page .history-activity-modes,
+.admin-next-page .resource-period-tabs {
+  border-color: var(--sy-line);
+  background: var(--sy-surface-subtle);
+}
+
+.admin-next-page .history-activity-modes button,
+.admin-next-page .resource-period-button {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .history-activity-modes button.is-active,
+.admin-next-page .resource-period-button.active,
+.admin-next-page .resource-period-button.is-active {
+  background: var(--sy-surface);
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .history-modal-backdrop,
+.admin-next-page .admin-password-modal-backdrop {
+  background: var(--sy-overlay);
+  backdrop-filter: none;
+}
+
+.admin-next-page .history-modal-dialog,
+.admin-next-page .admin-password-modal-dialog {
+  border: 1px solid var(--sy-line);
+  border-radius: var(--sy-radius-lg);
+  background: var(--sy-surface-elevated);
+  color: var(--sy-text);
+  box-shadow: var(--sy-shadow-modal);
+}
+
+.admin-next-page .history-modal-head {
+  border-bottom-color: var(--sy-line);
+  background: var(--sy-surface);
+}
+
+.admin-next-page .history-modal-head h3,
+.admin-next-page .history-modal-entry p,
+.admin-next-page .admin-password-modal-dialog h3 {
+  color: var(--sy-text);
+}
+
+.admin-next-page .history-modal-head span,
+.admin-next-page .history-modal-head p,
+.admin-next-page .history-modal-entry time,
+.admin-next-page .admin-password-modal-dialog > span,
+.admin-next-page .admin-password-modal-user,
+.admin-next-page .admin-password-modal-note {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .history-modal-entry {
+  border-bottom-color: var(--sy-line-soft);
+}
+
+.admin-next-page .history-modal-close,
+.admin-next-page .admin-password-modal-close,
+.admin-next-page .admin-password-value-row button {
+  border-color: var(--sy-line);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-surface);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .admin-password-modal-done {
+  border-color: var(--sy-accent);
+  border-radius: var(--sy-radius-sm);
+  background: var(--sy-accent);
+  color: #fff;
+}
+
+/* Resource panels: neutralize the older warm/purple cards while preserving statuses. */
+.admin-next-page .resource-section,
+.admin-next-page .resource-limit-dashboard,
+.admin-next-page .resource-pages-deployments,
+.admin-next-page .resource-operation-section,
+.admin-next-page .resource-breakdown,
+.admin-next-page .resource-d1-health {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+}
+
+.admin-next-page .resource-section-kicker,
+.admin-next-page .resource-summary-label,
+.admin-next-page .resource-overview-label,
+.admin-next-page .resource-quota-name,
+.admin-next-page .resource-breakdown-row span,
+.admin-next-page .resource-analytics-cost-row span,
+.admin-next-page .resource-pages-deployments-head span,
+.admin-next-page .resource-panel-subtitle {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .resource-quota-track {
+  background: var(--sy-surface-muted);
+}
+
+.admin-next-page .resource-quota-track > span {
+  background: var(--sy-accent);
+}
+
+/* Compact charts avoid decorative gradients. */
+.admin-next-page .dashboard-bar,
+.admin-next-page .history-activity-column > i {
+  background: var(--sy-accent);
+}
+
+/* Responsive: sidebar becomes a calm horizontal rail, preserving every tab. */
+@media (max-width: 900px) {
+  .admin-next-page .admin-shell {
+    width: min(100% - 28px, 1120px);
+    padding-top: 24px;
+  }
+
+  .admin-next-page #adminContent {
+    display: block;
+  }
+
+  .admin-next-page .admin-tabs {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    margin: 0 0 16px;
+    padding: 4px 0 10px;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--sy-line);
+    scrollbar-width: thin;
+  }
+
+  .admin-next-page .admin-tab {
+    width: auto;
+    min-width: max-content;
+    padding: 8px 10px;
+    text-align: center;
+  }
+
+  .admin-next-page .source-overview-grid {
+    margin-bottom: 14px;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-next-page .admin-shell {
+    width: calc(100% - 22px);
+    padding: 18px 0 64px;
+  }
+
+  .admin-next-page .admin-header {
+    margin-bottom: 18px;
+    padding-bottom: 17px;
+  }
+
+  .admin-next-page .admin-header h1 {
+    font-size: 26px;
+  }
+
+  .admin-next-page .admin-header-account {
+    margin-top: 14px;
+  }
+
+  .admin-next-page .admin-header-links {
+    width: 100%;
+  }
+
+  .admin-next-page .admin-header-links .back-link {
+    flex: 1 1 0;
+  }
+
+  .admin-next-page .panel {
+    padding: 17px;
+    border-radius: var(--sy-radius-md);
+  }
+
+  .admin-next-page .source-overview-card {
+    padding: 15px;
+  }
+
+  .admin-next-page .prompt-library-row {
+    padding: 9px 2px;
+  }
+
+  .admin-next-page .history-modal-dialog,
+  .admin-next-page .admin-password-modal-dialog {
+    border-radius: var(--sy-radius-lg) var(--sy-radius-lg) var(--sy-radius-sm) var(--sy-radius-sm);
+  }
+}
+
+/* Admin login reuses the same visual language without changing login behavior. */
+.admin-next-login {
+  background: var(--sy-page) !important;
+  color: var(--sy-text) !important;
+}
+
+.admin-next-login .login {
+  border: 1px solid var(--sy-line) !important;
+  border-radius: var(--sy-radius-lg) !important;
+  background: var(--sy-surface) !important;
+  box-shadow: var(--sy-shadow-modal) !important;
+}
+
+.admin-next-login .eyebrow,
+.admin-next-login p,
+.admin-next-login a {
+  color: var(--sy-text-secondary) !important;
+}
+
+.admin-next-login .eyebrow {
+  color: var(--sy-accent-text) !important;
+}
+
+.admin-next-login input {
+  border-color: var(--sy-line) !important;
+  border-radius: var(--sy-radius-sm) !important;
+  background: var(--sy-surface) !important;
+  color: var(--sy-text) !important;
+}
+
+.admin-next-login input:focus {
+  border-color: var(--sy-accent) !important;
+  box-shadow: 0 0 0 3px var(--sy-focus) !important;
+}
+
+.admin-next-login button {
+  border-radius: var(--sy-radius-sm) !important;
+  background: var(--sy-accent) !important;
+}
+
+.admin-next-login .error {
+  color: var(--sy-danger) !important;
+}

@@ -277,6 +277,7 @@
 - Cloudflare KV/D1/R2/API 호출을 불필요하게 늘리지 않는다.
 - 관리자 리소스 탭의 D1 운영 데이터 요약은 `/api/admin/resources` 한 응답으로 사용자 수·`user_items`·저장문장·공유문장·DB 용량·오늘 Rows Written을 표시한다. D1 DB 용량은 실환경에서 비어 있을 수 있는 파일 PRAGMA 대신 Cloudflare `d1StorageAdaptiveGroups.databaseSizeBytes`를 사용하며, 이 저장용량 조회 외에 요약 UI만을 위한 별도 API나 중복 D1 조회는 만들지 않는다.
 - 메인 정적 리소스(`app.js`, `style.css`, `theme.css`)의 쿼리 캐시 버전은 사이트 버전과 함께 갱신해 새 배포 후 구버전 JS/CSS가 브라우저 캐시에 남지 않게 한다.
+- 공통 디자인 시스템은 `public/design-tokens.css`의 `--sy-*` 토큰을 기준으로 확장한다. 관리자 1차 시각 레이어는 `public/admin-next.css`에 두며 기존 `admin.css` 기능 구조를 덮어쓰지 않는다. 사용자 페이지/뷰어로 확장할 때도 같은 토큰을 재사용하되 화면별 밀도와 레이아웃은 별도 스타일에서 조정한다. 라이트/다크는 동일 토큰명에 값만 교체한다.
 - 메인 화면의 공개 버전 표시는 `index.html` 배포 버전을 직접 사용한다. 페이지 진입마다 `version.json`을 `no-store`로 다시 요청하지 않는다. `version.json`은 배포/관리용 버전 기준 파일로 유지한다.
 - 관리자 첫 화면에서 서로 의존하지 않는 `/api/admin/data`와 `/api/archive`는 병렬로 시작하되, `/api/archive` 실패가 관리자 기본 데이터 로딩을 막지 않도록 실패 격리 구조를 유지한다.
 - `/api/archive`는 공개 인덱스 최신성이 우선이므로 실제 리소스 병목이 확인되기 전에는 단순 TTL 브라우저/엣지 캐시를 추가하지 않는다. 정상 경로의 KV 1회 읽기 구조를 우선 유지한다.
