@@ -3453,11 +3453,16 @@ body.admin-password-modal-open{overflow:hidden}
 .quote-preset-thumb-preview{position:relative;width:100%;height:64px;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(15,23,42,.08);transition:opacity .15s ease}
 .quote-preset-thumb-preview.is-loading{opacity:.45}
 .quote-preset-thumb-preview span{position:absolute;left:7px;right:7px;bottom:6px;color:#fff;font-size:10px;font-weight:900;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.35)}
-.quote-preset-stage-editor,.quote-preset-stage-output{display:flex;flex-direction:column;gap:10px}
-.quote-preset-frame-shell{min-height:640px;height:min(690px,72vh);border:1px solid var(--sy-line);border-radius:13px;overflow:hidden;background:var(--sy-page)}
-.quote-preset-frame-shell iframe{display:block;width:100%;height:100%;border:0;background:var(--sy-page)}
+.quote-preset-stage-popup,.quote-preset-stage-output{display:flex;flex-direction:column;gap:10px}
+.quote-preset-popup-shell{position:relative;display:grid;place-items:center;min-height:420px;flex:1;border:1px dashed var(--sy-line);border-radius:13px;background:var(--sy-page);padding:12px;overflow:auto}
+.quote-preset-popup-image{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;width:min(100%,420px);aspect-ratio:4/5;border-radius:12px;overflow:hidden;padding:15% 10% 11%;text-align:center;box-shadow:0 10px 30px rgba(15,23,42,.12);transition:opacity .15s ease}
+.quote-preset-popup-image.is-loading{opacity:.45}
+.quote-preset-popup-brand{position:absolute;left:7%;top:5.8%;font-size:11px;font-weight:800;opacity:.58}
+.quote-preset-popup-quote{font-size:clamp(18px,2.2vw,27px);font-weight:500;line-height:1.75;letter-spacing:-.02em;white-space:pre-wrap;word-break:keep-all}
+.quote-preset-popup-meta{position:absolute;left:7%;right:7%;bottom:6%;font-size:10px;line-height:1.4;opacity:.7}
+.quote-preset-render-bridge{position:absolute!important;width:1px!important;height:1px!important;left:-10000px!important;top:0!important;border:0!important;opacity:0!important;pointer-events:none!important}
 .quote-preset-output-shell{position:relative;display:grid;place-items:center;min-height:420px;flex:1;border:1px dashed var(--sy-line);border-radius:13px;background:var(--sy-page);padding:12px;overflow:auto}
 .quote-preset-output-shell img{display:block;max-width:100%;max-height:650px;width:auto;height:auto;border-radius:12px;box-shadow:0 10px 30px rgba(15,23,42,.12)}
 .quote-preset-output-loading{color:var(--sy-text-secondary);font-size:12px;text-align:center}
-@media(max-width:1100px){.quote-preset-lab{grid-template-columns:1fr}.quote-preset-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:360px}.quote-preset-stage-grid{grid-template-columns:1fr 1fr}.quote-preset-frame-shell{height:660px}}
-@media(max-width:760px){.quote-preset-list{grid-template-columns:1fr;max-height:340px}.quote-preset-item{flex-direction:row;align-items:center}.quote-preset-actions{width:auto;justify-content:flex-end}.quote-preset-main{width:auto}.quote-preset-main code{max-width:44vw}.quote-preset-stage-grid{grid-template-columns:1fr}.quote-preset-stage-thumb{grid-column:auto;grid-template-columns:1fr;gap:10px}.quote-preset-frame-shell{height:680px;min-height:560px}.quote-preset-output-shell{min-height:360px}.quote-preset-inspector{padding:10px}.quote-preset-stage{padding:10px}}
+@media(max-width:1100px){.quote-preset-lab{grid-template-columns:1fr}.quote-preset-list{grid-template-columns:repeat(2,minmax(0,1fr));max-height:360px}.quote-preset-stage-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:760px){.quote-preset-list{grid-template-columns:1fr;max-height:340px}.quote-preset-item{flex-direction:row;align-items:center}.quote-preset-actions{width:auto;justify-content:flex-end}.quote-preset-main{width:auto}.quote-preset-main code{max-width:44vw}.quote-preset-stage-grid{grid-template-columns:1fr}.quote-preset-stage-thumb{grid-column:auto;grid-template-columns:1fr;gap:10px}.quote-preset-popup-shell,.quote-preset-output-shell{min-height:360px}.quote-preset-inspector{padding:10px}.quote-preset-stage{padding:10px}}

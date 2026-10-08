@@ -261,6 +261,7 @@ const els = {
   quotePresetInspectorState: document.getElementById("quotePresetInspectorState"),
   quotePresetThumb: document.getElementById("quotePresetThumb"),
   quotePresetThumbName: document.getElementById("quotePresetThumbName"),
+  quotePresetPopupImage: document.getElementById("quotePresetPopupImage"),
   quotePresetEditorFrame: document.getElementById("quotePresetEditorFrame"),
   quotePresetOutputImage: document.getElementById("quotePresetOutputImage"),
   quotePresetOutputLoading: document.getElementById("quotePresetOutputLoading"),
@@ -550,6 +551,10 @@ function selectQuotePresetAdmin(key, { reloadFrame = true } = {}) {
   if (els.quotePresetThumb) {
     els.quotePresetThumb.style.background = "var(--sy-surface-subtle)";
     els.quotePresetThumb.classList.add("is-loading");
+  }
+  if (els.quotePresetPopupImage) {
+    els.quotePresetPopupImage.style.background = "var(--sy-surface-subtle)";
+    els.quotePresetPopupImage.classList.add("is-loading");
   }
   els.quotePresetEditorFrame.src = `/?quote-test=${encodeURIComponent(preset.key)}&quote-embed=1`;
 }
@@ -6631,6 +6636,13 @@ window.addEventListener("message", (event) => {
     if (els.quotePresetThumbName) {
       els.quotePresetThumbName.textContent = String(data.name || getSelectedQuotePresetAdmin()?.name || "-");
       els.quotePresetThumbName.style.color = String(data.textColor || "#fff");
+    }
+    if (els.quotePresetPopupImage) {
+      els.quotePresetPopupImage.classList.remove("is-loading");
+      els.quotePresetPopupImage.style.background = String(data.background || "var(--sy-surface-subtle)");
+      els.quotePresetPopupImage.style.color = String(data.textColor || "#fff");
+      const popupMeta = els.quotePresetPopupImage.querySelector(".quote-preset-popup-meta");
+      if (popupMeta) popupMeta.style.color = String(data.textColor || "#fff");
     }
     return;
   }
