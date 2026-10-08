@@ -255,6 +255,16 @@ const els = {
   quotePresetVisible: document.getElementById("quotePresetVisible"),
   quotePresetHidden: document.getElementById("quotePresetHidden"),
   quotePresetList: document.getElementById("quotePresetList"),
+  quotePresetInspector: document.getElementById("quotePresetInspector"),
+  quotePresetInspectorName: document.getElementById("quotePresetInspectorName"),
+  quotePresetInspectorKey: document.getElementById("quotePresetInspectorKey"),
+  quotePresetInspectorState: document.getElementById("quotePresetInspectorState"),
+  quotePresetThumb: document.getElementById("quotePresetThumb"),
+  quotePresetThumbName: document.getElementById("quotePresetThumbName"),
+  quotePresetEditorFrame: document.getElementById("quotePresetEditorFrame"),
+  quotePresetOutputImage: document.getElementById("quotePresetOutputImage"),
+  quotePresetOutputLoading: document.getElementById("quotePresetOutputLoading"),
+  quotePresetOutputMeta: document.getElementById("quotePresetOutputMeta"),
   quotePresetMessage: document.getElementById("quotePresetMessage"),
   historyRefreshButton: document.getElementById("historyRefreshButton"),
   historyFirstDate: document.getElementById("historyFirstDate"),
@@ -333,6 +343,8 @@ let resourceAnalyticsPeriod = "today";
 let resourcePagesVisibleLimit = 10;
 let quotePresetAdminLoaded = false;
 let quotePresetAdminData = [];
+let quotePresetSelectedKey = "";
+let quotePresetOutputUrl = "";
 let historyLoaded = false;
 let historyDays = [];
 let historyActivityMode = "hour";
@@ -491,6 +503,57 @@ async function loadOpsAutomation(force = false) {
   opsAutomationLoaded = true;
 }
 
+function getSelectedQuotePresetAdmin() {
+  return quotePresetAdminData.find((preset) => preset.key === quotePresetSelectedKey) || null;
+}
+
+function resetQuotePresetOutputPreview() {
+  if (quotePresetOutputUrl) {
+    URL.revokeObjectURL(quotePresetOutputUrl);
+    quotePresetOutputUrl = "";
+  }
+  if (els.quotePresetOutputImage) {
+    els.quotePresetOutputImage.hidden = true;
+    els.quotePresetOutputImage.removeAttribute("src");
+  }
+  if (els.quotePresetOutputLoading) {
+    els.quotePresetOutputLoading.hidden = false;
+    els.quotePresetOutputLoading.textContent = "최종 PNG 렌더링 중…";
+  }
+  if (els.quotePresetOutputMeta) els.quotePresetOutputMeta.textContent = "실제 Canvas PNG를 준비합니다.";
+}
+
+function renderQuotePresetInspector() {
+  const preset = getSelectedQuotePresetAdmin();
+  if (!els.quotePresetInspector) return;
+  els.quotePresetInspector.hidden = !preset;
+  if (!preset) return;
+
+  if (els.quotePresetInspectorName) els.quotePresetInspectorName.textContent = preset.name || "프리셋 검수";
+  if (els.quotePresetInspectorKey) els.quotePresetInspectorKey.textContent = preset.key || "";
+  if (els.quotePresetInspectorState) {
+    els.quotePresetInspectorState.textContent = preset.visible ? "노출 Y" : "노출 N";
+    els.quotePresetInspectorState.classList.toggle("is-y", Boolean(preset.visible));
+    els.quotePresetInspectorState.classList.toggle("is-n", !preset.visible);
+  }
+  if (els.quotePresetThumbName) els.quotePresetThumbName.textContent = preset.name || "-";
+}
+
+function selectQuotePresetAdmin(key, { reloadFrame = true } = {}) {
+  const preset = quotePresetAdminData.find((entry) => entry.key === key);
+  if (!preset) return;
+  quotePresetSelectedKey = preset.key;
+  renderQuotePresetAdmin();
+  renderQuotePresetInspector();
+  if (!reloadFrame || !els.quotePresetEditorFrame) return;
+  resetQuotePresetOutputPreview();
+  if (els.quotePresetThumb) {
+    els.quotePresetThumb.style.background = "var(--sy-surface-subtle)";
+    els.quotePresetThumb.classList.add("is-loading");
+  }
+  els.quotePresetEditorFrame.src = `/?quote-test=${encodeURIComponent(preset.key)}&quote-embed=1`;
+}
+
 function renderQuotePresetAdmin() {
   const presets = Array.isArray(quotePresetAdminData) ? quotePresetAdminData : [];
   const visibleCount = presets.filter((preset) => preset.visible).length;
@@ -503,18 +566,21 @@ function renderQuotePresetAdmin() {
     return;
   }
   els.quotePresetList.innerHTML = presets.map((preset) => `
-    <article class="quote-preset-item${preset.visible ? " is-visible" : " is-hidden"}" data-quote-preset="${escapeHtml(preset.key)}">
-      <div class="quote-preset-main">
-        <div><strong>${escapeHtml(preset.name)}</strong><code>${escapeHtml(preset.key)}</code></div>
-        <span class="quote-preset-state ${preset.visible ? "is-y" : "is-n"}">${preset.visible ? "노출 Y" : "노출 N"}</span>
-      </div>
+    <article class="quote-preset-item${preset.visible ? " is-visible" : " is-hidden"}${preset.key === quotePresetSelectedKey ? " is-selected" : ""}" data-quote-preset="${escapeHtml(preset.key)}">
+      <button type="button" class="quote-preset-select" data-quote-preset-select="${escapeHtml(preset.key)}">
+        <div class="quote-preset-main">
+          <div><strong>${escapeHtml(preset.name)}</strong><code>${escapeHtml(preset.key)}</code></div>
+          <span class="quote-preset-state ${preset.visible ? "is-y" : "is-n"}">${preset.visible ? "노출 Y" : "노출 N"}</span>
+        </div>
+        <span class="quote-preset-open">검수 →</span>
+      </button>
       <div class="quote-preset-actions">
-        <button type="button" class="secondary-admin-button" data-quote-preset-test="${escapeHtml(preset.key)}">실제 편집기 테스트</button>
         <button type="button" class="quote-preset-toggle ${preset.visible ? "is-on" : ""}" role="switch" aria-checked="${preset.visible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(preset.key)}">
           <span>${preset.visible ? "Y" : "N"}</span><i aria-hidden="true"></i>
         </button>
       </div>
     </article>`).join("");
+  renderQuotePresetInspector();
 }
 
 async function loadQuotePresetAdmin(force = false) {
@@ -523,7 +589,13 @@ async function loadQuotePresetAdmin(force = false) {
   const data = await api("/api/admin/quote-image-presets", { method: "GET" });
   quotePresetAdminData = Array.isArray(data?.presets) ? data.presets : [];
   quotePresetAdminLoaded = true;
+  if (!quotePresetAdminData.some((preset) => preset.key === quotePresetSelectedKey)) {
+    quotePresetSelectedKey = quotePresetAdminData[0]?.key || "";
+  }
   renderQuotePresetAdmin();
+  if (quotePresetSelectedKey && els.quotePresetEditorFrame && (!els.quotePresetEditorFrame.getAttribute("src") || force)) {
+    selectQuotePresetAdmin(quotePresetSelectedKey, { reloadFrame: true });
+  }
 }
 
 async function setQuotePresetVisibility(key, visible, button) {
@@ -6532,18 +6604,52 @@ els.quotePresetRefreshButton?.addEventListener("click", async () => {
 });
 
 els.quotePresetList?.addEventListener("click", (event) => {
-  const testButton = event.target.closest("[data-quote-preset-test]");
-  if (testButton) {
-    const key = String(testButton.dataset.quotePresetTest || "");
-    if (key) window.open(`/?quote-test=${encodeURIComponent(key)}`, "_blank", "noopener");
+  const toggle = event.target.closest("[data-quote-preset-toggle]");
+  if (toggle) {
+    const key = String(toggle.dataset.quotePresetToggle || "");
+    const current = toggle.getAttribute("aria-checked") === "true";
+    if (key) void setQuotePresetVisibility(key, !current, toggle);
     return;
   }
 
-  const toggle = event.target.closest("[data-quote-preset-toggle]");
-  if (!toggle) return;
-  const key = String(toggle.dataset.quotePresetToggle || "");
-  const current = toggle.getAttribute("aria-checked") === "true";
-  if (key) void setQuotePresetVisibility(key, !current, toggle);
+  const selectButton = event.target.closest("[data-quote-preset-select]");
+  if (!selectButton) return;
+  const key = String(selectButton.dataset.quotePresetSelect || "");
+  if (key) selectQuotePresetAdmin(key, { reloadFrame: true });
+});
+
+window.addEventListener("message", (event) => {
+  if (event.origin !== window.location.origin) return;
+  if (!els.quotePresetEditorFrame || event.source !== els.quotePresetEditorFrame.contentWindow) return;
+  const data = event.data || {};
+  if (data.type === "rjs-quote-admin-preview") {
+    if (String(data.key || "") !== quotePresetSelectedKey) return;
+    if (els.quotePresetThumb) {
+      els.quotePresetThumb.classList.remove("is-loading");
+      els.quotePresetThumb.style.background = String(data.background || "var(--sy-surface-subtle)");
+    }
+    if (els.quotePresetThumbName) {
+      els.quotePresetThumbName.textContent = String(data.name || getSelectedQuotePresetAdmin()?.name || "-");
+      els.quotePresetThumbName.style.color = String(data.textColor || "#fff");
+    }
+    return;
+  }
+  if (data.type === "rjs-quote-admin-output") {
+    if (String(data.key || "") !== quotePresetSelectedKey || !(data.blob instanceof Blob)) return;
+    if (quotePresetOutputUrl) URL.revokeObjectURL(quotePresetOutputUrl);
+    quotePresetOutputUrl = URL.createObjectURL(data.blob);
+    if (els.quotePresetOutputImage) {
+      els.quotePresetOutputImage.src = quotePresetOutputUrl;
+      els.quotePresetOutputImage.hidden = false;
+    }
+    if (els.quotePresetOutputLoading) els.quotePresetOutputLoading.hidden = true;
+    if (els.quotePresetOutputMeta) {
+      const bytes = Number(data.size || data.blob.size || 0);
+      const sizeText = bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+      const dims = data.width && data.height ? `${data.width}×${data.height}` : "Canvas PNG";
+      els.quotePresetOutputMeta.textContent = `${dims} · ${sizeText} · 저장/복사와 동일한 렌더`;
+    }
+  }
 });
 
 els.adminLogoutButton?.addEventListener("click", async () => {

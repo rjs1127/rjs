@@ -10527,6 +10527,9 @@ function getReaderShareBrandName() {
 let readerSharePresetVisibility = null;
 let readerSharePresetVisibilityPromise = null;
 let readerShareAdminPreviewKey = "";
+const READER_SHARE_ADMIN_EMBED_MODE = new URLSearchParams(window.location.search).get("quote-embed") === "1";
+let readerShareAdminOutputTimer = 0;
+let readerShareAdminOutputGeneration = 0;
 
 function getReaderShareBackgroundKey(background) {
   return String(background?.key || background?.effect || background?.name || "");
@@ -10685,6 +10688,13 @@ function ensureReaderShareUi() {
       .reader-share-card[data-ratio="2:3"] { width:min(30vw,250px); }
       .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
+    html.quote-admin-embed, html.quote-admin-embed body { min-height:100%; height:100%; background:var(--bg,#f4f7fb); overflow:hidden; }
+    html.quote-admin-embed body > :not(.reader-share-backdrop):not(.reader-selection-actions) { display:none !important; }
+    html.quote-admin-embed .reader-selection-actions { display:none !important; }
+    html.quote-admin-embed .reader-share-backdrop { position:fixed; inset:0; z-index:1; background:transparent; display:block !important; }
+    html.quote-admin-embed .reader-share-sheet { bottom:50%; width:min(calc(100% - 16px),560px); max-height:calc(100dvh - 12px); transform:translate(-50%,50%); border-radius:20px; box-shadow:0 10px 34px rgba(15,23,42,.12); }
+    html.quote-admin-embed .reader-share-sheet-scroll { max-height:calc(100dvh - 12px); }
+    html.quote-admin-embed .reader-share-close { display:none; }
   `;
   document.head.appendChild(style);
 
@@ -11857,6 +11867,47 @@ async function handleReaderShareExport(mode) {
 // and auto margins collapse to 0 when it is taller than the box, naturally
 // anchoring the first line at the top without timing/font-load races.
 
+function postReaderShareAdminPreview(background) {
+  if (!READER_SHARE_ADMIN_EMBED_MODE || window.parent === window) return;
+  try {
+    window.parent.postMessage({
+      type: "rjs-quote-admin-preview",
+      key: readerShareAdminPreviewKey || getReaderShareBackgroundKey(background),
+      name: String(background?.name || ""),
+      background: String(background?.background || ""),
+      textColor: String(background?.text || "#fff"),
+      ratio: state.readerShareRatio,
+      font: state.readerShareFont,
+    }, window.location.origin);
+  } catch (_) {}
+}
+
+function scheduleReaderShareAdminOutput() {
+  if (!READER_SHARE_ADMIN_EMBED_MODE || window.parent === window) return;
+  window.clearTimeout(readerShareAdminOutputTimer);
+  const generation = ++readerShareAdminOutputGeneration;
+  readerShareAdminOutputTimer = window.setTimeout(async () => {
+    try {
+      const canvas = await renderReaderShareCanvas();
+      if (generation !== readerShareAdminOutputGeneration) return;
+      const blob = await new Promise((resolve, reject) => {
+        canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
+      });
+      if (generation !== readerShareAdminOutputGeneration) return;
+      window.parent.postMessage({
+        type: "rjs-quote-admin-output",
+        key: readerShareAdminPreviewKey,
+        blob,
+        size: blob.size,
+        width: canvas.width,
+        height: canvas.height,
+      }, window.location.origin);
+    } catch (error) {
+      console.warn("관리자 문장 이미지 최종 렌더 미리보기 실패", error);
+    }
+  }, 220);
+}
+
 function updateReaderSharePreview() {
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
@@ -11919,6 +11970,8 @@ function updateReaderSharePreview() {
   });
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
+  postReaderShareAdminPreview(background);
+  scheduleReaderShareAdminOutput();
   scheduleReaderShareBlobPreparation(120);
   updateReaderShareActionLabel();
 }
@@ -11994,6 +12047,7 @@ async function maybeOpenAdminReaderSharePreview() {
     readerShareAdminPreviewKey = key;
     readerSharePresetVisibility = map;
     state.readerShareBackground = index;
+    if (READER_SHARE_ADMIN_EMBED_MODE) document.documentElement.classList.add("quote-admin-embed");
     await openReaderShareSheet({
       allowEmpty: true,
       presetText: "마음에 남은 문장을 이곳에서 미리 확인해 보세요.",
@@ -12382,36 +12436,43 @@ if (history.state?.rjsReaderOpen) {
 }
 state.readerHistoryActive = false;
 
-initAnalyticsSession();
-window.addEventListener("load", recordAnalyticsPageLoad, { once: true });
-document.addEventListener("visibilitychange", () => {
-  accrueAnalyticsVisibleTime();
-  persistAnalyticsSession();
-});
-window.addEventListener("pagehide", () => {
-  flushAnalyticsSession({ beacon: true, keepalive: true });
-});
+if (READER_SHARE_ADMIN_EMBED_MODE) {
+  document.documentElement.classList.add("quote-admin-embed");
+  applyUserPreferences();
+  loadPublicVersion();
+  void maybeOpenAdminReaderSharePreview();
+} else {
+  initAnalyticsSession();
+  window.addEventListener("load", recordAnalyticsPageLoad, { once: true });
+  document.addEventListener("visibilitychange", () => {
+    accrueAnalyticsVisibleTime();
+    persistAnalyticsSession();
+  });
+  window.addEventListener("pagehide", () => {
+    flushAnalyticsSession({ beacon: true, keepalive: true });
+  });
 
-initReaderShareSelection();
-applyUserPreferences();
-loadPublicVersion();
-updateNetworkStatus();
-syncAppInstallHelpVisibility();
-window.addEventListener("online", () => {
+  initReaderShareSelection();
+  applyUserPreferences();
+  loadPublicVersion();
   updateNetworkStatus();
-  if (state.authRestoreRetryNeeded) {
-    state.authRestoreRetryCount = 0;
-    restoreAuth();
-  }
-});
-window.addEventListener("offline", updateNetworkStatus);
-updatePageScrollTopButton();
-updateCompactHeader();
-syncViewButtons();
-syncQuickFilterButtons();
-// 저장된 로그인 토큰이 있으면 bootstrap 복원이 끝날 때까지 비로그인 UI를 노출하지 않는다.
-// updateAccountUi()는 auth-session-pending을 해제하므로 토큰이 없는 경우에만 초기 호출한다.
-if (!getAuthToken()) updateAccountUi();
-loadArchive();
-restoreAuth();
-void maybeOpenAdminReaderSharePreview();
+  syncAppInstallHelpVisibility();
+  window.addEventListener("online", () => {
+    updateNetworkStatus();
+    if (state.authRestoreRetryNeeded) {
+      state.authRestoreRetryCount = 0;
+      restoreAuth();
+    }
+  });
+  window.addEventListener("offline", updateNetworkStatus);
+  updatePageScrollTopButton();
+  updateCompactHeader();
+  syncViewButtons();
+  syncQuickFilterButtons();
+  // 저장된 로그인 토큰이 있으면 bootstrap 복원이 끝날 때까지 비로그인 UI를 노출하지 않는다.
+  // updateAccountUi()는 auth-session-pending을 해제하므로 토큰이 없는 경우에만 초기 호출한다.
+  if (!getAuthToken()) updateAccountUi();
+  loadArchive();
+  restoreAuth();
+  void maybeOpenAdminReaderSharePreview();
+}
