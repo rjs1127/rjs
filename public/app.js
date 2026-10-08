@@ -11313,13 +11313,16 @@ function ensureReaderShareUi() {
   floatButton.addEventListener("click", (event) => {
     event.preventDefault();
     event.stopPropagation();
+    const selected = getReaderTextSelection({ includeLocation: true });
+    if (selected?.text) state.readerShareText = selected.text;
+    state.readerShareLocation = selected?.location || null;
     openReaderShareSheet();
   });
 
 
   memoButton.addEventListener("click", () => {
     if (!state.user) { openAuthModal("login", "메모를 저장하려면 로그인해 주세요."); return; }
-    const selected=getReaderTextSelection();
+    const selected=getReaderTextSelection({ includeLocation: true });
     const text=selected?.text || state.readerShareText; const location=selected?.location || state.readerShareLocation;
     if(!text || !location) return;
     selectionActions.hidden=true;
@@ -13137,7 +13140,7 @@ function getReaderSelectionLocation(range) {
   };
 }
 
-function getReaderTextSelection() {
+function getReaderTextSelection(options = {}) {
   if (els.readerOverlay?.hidden || !state.activeReaderItem) return null;
   const selection = window.getSelection?.();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
@@ -13159,7 +13162,10 @@ function getReaderTextSelection() {
   return {
     text,
     rect,
-    location: getReaderSelectionLocation(range),
+    // Computing TXT offsets walks/serializes DOM text and is much heavier than
+    // the native selection geometry. Keep drag feedback lightweight and only
+    // resolve offsets when the user actually chooses share/memo.
+    location: options.includeLocation ? getReaderSelectionLocation(range) : null,
   };
 }
 
@@ -13179,7 +13185,7 @@ function syncReaderShareSelection() {
     }
 
     state.readerShareText = selected.text;
-    state.readerShareLocation = selected.location;
+    state.readerShareLocation = null;
     // Selection dragging must stay lightweight. The full 1200px Canvas PNG is
     // prepared only after the user actually opens the 문장 이미지 editor.
     const margin = 24;
@@ -13220,15 +13226,42 @@ function syncReaderShareSelection() {
 
 function initReaderShareSelection() {
   ensureReaderShareUi();
-  document.addEventListener("selectionchange", () => {
-    if (els.readerOverlay?.hidden) return;
+  const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+
+  const hideSelectionActions = () => {
+    window.clearTimeout(readerShareSelectionTimer);
+    if (!readerShareUi) return;
+    readerShareUi.floatButton.hidden = true;
+    if (readerShareUi.selectionActions) readerShareUi.selectionActions.hidden = true;
+  };
+
+  // Mobile selection handles already emit touch/pointer completion events.
+  // Running DOM Range geometry work from every selectionchange competes with
+  // the browser's native handle drag and can make selection feel sticky.
+  // On coarse pointers, wait until the gesture ends. Keep selectionchange only
+  // for mouse/keyboard selection on fine pointers.
+  if (!coarsePointer) {
+    document.addEventListener("selectionchange", () => {
+      if (els.readerOverlay?.hidden) return;
+      syncReaderShareSelection();
+    });
+  }
+
+  els.readerPanel?.addEventListener("pointerdown", hideSelectionActions, { passive: true });
+  els.readerPanel?.addEventListener("pointerup", () => {
+    if (coarsePointer) {
+      window.clearTimeout(readerShareSelectionTimer);
+      readerShareSelectionTimer = window.setTimeout(syncReaderShareSelection, 90);
+      return;
+    }
     syncReaderShareSelection();
-  });
-  els.readerPanel?.addEventListener("pointerup", syncReaderShareSelection);
-  els.readerPanel?.addEventListener("touchend", syncReaderShareSelection, { passive: true });
-  els.readerPanel?.addEventListener("scroll", () => {
-    if (readerShareUi) { readerShareUi.floatButton.hidden = true; if (readerShareUi.selectionActions) readerShareUi.selectionActions.hidden = true; }
   }, { passive: true });
+  els.readerPanel?.addEventListener("touchend", () => {
+    if (!coarsePointer) return;
+    window.clearTimeout(readerShareSelectionTimer);
+    readerShareSelectionTimer = window.setTimeout(syncReaderShareSelection, 120);
+  }, { passive: true });
+  els.readerPanel?.addEventListener("scroll", hideSelectionActions, { passive: true });
 }
 
 
@@ -13397,15 +13430,25 @@ const capacitorAppPlugin = window.Capacitor?.Plugins?.App;
 
 if (capacitorAppPlugin?.addListener) {
   capacitorAppPlugin.addListener("backButton", () => {
-    const hasInAppHistory = Boolean(
-      history.state?.rjsReaderOpen ||
-      history.state?.rjsSimpleModal ||
-      history.state?.rjsProfilePage ||
-      history.state?.rjsQuoteFeedPage ||
-      history.state?.rjsReaderShare
-    );
+    // Close the top-most in-reader UI first. Reader-share/simple-modal states
+    // can carry rjsReaderOpen as well because they are pushed on top of it.
+    if (history.state?.rjsReaderShare || history.state?.rjsSimpleModal) {
+      history.back();
+      return;
+    }
 
-    if (hasInAppHistory) {
+    // A reader close is visually expected to be immediate. Waiting for the
+    // asynchronous history pop can feel like the Android back press was lost,
+    // especially while native text-selection handles are active. Finalize the
+    // reader first, then pop its history entry. The subsequent popstate sees
+    // an already-closed reader and is therefore a no-op.
+    if (history.state?.rjsReaderOpen && !els.readerOverlay?.hidden && state.activeReaderItem) {
+      finalizeReaderClose();
+      history.back();
+      return;
+    }
+
+    if (history.state?.rjsProfilePage || history.state?.rjsQuoteFeedPage) {
       history.back();
       return;
     }
