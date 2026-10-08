@@ -62,7 +62,7 @@
   <link rel="manifest" href="/manifest.webmanifest?v=935" />
   <link rel="stylesheet" href="/style.css?v=963" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=967" />
+  <link rel="stylesheet" href="/theme.css?v=968" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
     @font-face { font-family:'ChosunIlboMyungjo'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_one@1.0/Chosunilbo_myungjo.woff') format('woff'); font-weight:400; font-style:normal; font-display:swap; }
@@ -474,7 +474,17 @@
           <button type="button" data-profile-library-mode="offline" aria-pressed="false">오프라인 저장 <span id="profileOfflineCount">0</span></button>
         </div>
         <div id="profileOfflineActions" class="profile-offline-actions" hidden>
-          <span class="profile-offline-actions-note">이 기기에 저장된 본문만 관리합니다.</span>
+          <div class="profile-offline-storage">
+            <div class="profile-offline-storage-head">
+              <span class="profile-offline-actions-note">이 기기의 오프라인 저장</span>
+              <button id="profileOfflineHelpButton" class="profile-offline-help-button" type="button" aria-label="오프라인 저장 안내" aria-expanded="false">?</button>
+            </div>
+            <div id="profileOfflineUsageBar" class="profile-offline-usage-bar" role="progressbar" aria-label="오프라인 저장공간 사용량" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <span id="profileOfflineUsageFill"></span>
+            </div>
+            <span id="profileOfflineUsageText" class="profile-offline-usage-text">0 MB / 32 MB</span>
+            <div id="profileOfflineHelpToast" class="profile-offline-help-toast" role="status" hidden>온라인에서 연 TXT 본문을 이 브라우저에 임시 저장해요. 최대 40개·32MB까지 보관하며, 한도를 넘으면 오래 사용하지 않은 작품부터 자동 정리됩니다. 브라우저 데이터 삭제나 저장공간 정리 시 사라질 수 있으며 영구 다운로드는 아니에요.</div>
+          </div>
           <div class="profile-offline-actions-buttons">
             <button id="profileOfflineSelectButton" class="profile-secondary-button" type="button">선택</button>
             <button id="profileOfflineDeleteSelectedButton" class="profile-secondary-button danger" type="button" hidden disabled>선택 삭제</button>
@@ -494,7 +504,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.67</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v9.68</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -903,7 +913,7 @@
         <section><h3>9. 문의 · 오류 · 계정 문의</h3><p><strong>? 도움말 → 익명 의견</strong>에서 로그인 없이 문의·오류·기능 제안을 보낼 수 있어요. 비밀번호를 잊었다면 로그인 화면의 <strong>비밀번호를 잊으셨나요?</strong>를 눌러 계정 문의를 열고 계정 아이디와 답변 받을 연락수단을 남겨 주세요. 관리자가 계정 아이디와 문의 내용의 최근 열람·북마크 등 이용 기록을 대조해 본인 확인이 가능한 경우에만 비밀번호를 초기화해 임시 비밀번호를 전달합니다. 연락수단만으로는 본인 확인하지 않습니다. 일반 의견은 계정 정보를 요구하지 않으며, 계정 문의에만 사용자가 직접 입력한 계정 아이디와 연락수단이 저장됩니다. 오류라면 하단의 <strong>문제 신고 정보 복사</strong>로 진단정보를 함께 전달할 수 있으며 비밀번호나 인증 토큰 값 자체는 포함하지 않습니다.</p></section>
         <section><h3>10. 개인정보 · 기록 삭제</h3><p>계정과 독서 기록, 이용 통계 등 처리 항목은 화면 하단 <strong>개인정보 안내</strong>에서 확인할 수 있어요. 계정·관련 기록 삭제가 필요하면 운영자에게 요청해 주세요.</p></section>
         <section><h3>11. 화면이 이상하거나 최신 내용이 안 보일 때</h3><p>먼저 새로고침하고 필터·정렬 상태를 확인해 주세요. 문제가 계속되면 익명 의견으로 증상과 재현 방법을 보내 주세요.</p></section>
-        <section id="appInstallHelpSection" class="app-install-help"><h3>12. 홈 화면에 앱처럼 추가하기</h3><p>지원 브라우저에서는 브라우저 메뉴의 <strong>앱 설치</strong> 또는 <strong>홈 화면에 추가</strong>를 이용해 셩냥책을 홈 화면에서 바로 열 수 있어요. Android에서는 Chrome·삼성 인터넷의 설치/홈 화면 추가 메뉴를, iPhone·iPad에서는 공유 메뉴의 홈 화면 추가를 이용하세요. 별도의 설치 안내 팝업은 표시하지 않으며, 설치하지 않아도 기존 웹 이용 방식은 그대로입니다. 지원 브라우저에서 온라인으로 열어본 TXT 본문은 자동 저장되어, 이미 열린 사이트 화면에서 연결이 끊겨도 다시 읽을 수 있어요. 저장된 작품은 메인 목록·카드와 <strong>내 정보 → 내 서재 → 오프라인 저장</strong>에서 확인할 수 있으며, 개별·선택·전체 삭제로 이 기기의 저장 본문만 정리할 수 있습니다. 사이트 새로 열기·목록 갱신·계정 동기화에는 연결이 필요합니다. 최근 사용한 최대 40개·총 32MiB를 보관하며 8MiB를 넘는 본문이나 저장공간 부족 시에는 저장되지 않을 수 있어요. 서버의 삭제 응답 또는 최신 목록에서 사라진 작품은 저장 본문과 화면 표시를 함께 정리합니다.</p></section>
+        <section id="appInstallHelpSection" class="app-install-help"><h3>12. 홈 화면에 앱처럼 추가하기</h3><p>지원 브라우저에서는 브라우저 메뉴의 <strong>앱 설치</strong> 또는 <strong>홈 화면에 추가</strong>를 이용해 셩냥책을 홈 화면에서 바로 열 수 있어요. Android에서는 Chrome·삼성 인터넷의 설치/홈 화면 추가 메뉴를, iPhone·iPad에서는 공유 메뉴의 홈 화면 추가를 이용하세요. 별도의 설치 안내 팝업은 표시하지 않으며, 설치하지 않아도 기존 웹 이용 방식은 그대로입니다. 지원 브라우저에서 온라인으로 열어본 TXT 본문은 자동 저장되어, 이미 열린 사이트 화면에서 연결이 끊겨도 다시 읽을 수 있어요. 저장된 작품은 메인 목록·카드와 <strong>내 정보 → 내 서재 → 오프라인 저장</strong>에서 확인할 수 있으며, 개별·선택·전체 삭제로 이 기기의 저장 본문만 정리할 수 있습니다. 사이트 새로 열기·목록 갱신·계정 동기화에는 연결이 필요합니다. 오프라인 저장 화면에서는 현재 사용량을 간단한 막대로 확인할 수 있고, ? 버튼에서 임시 저장·자동 정리 안내를 볼 수 있어요. 최근 사용한 최대 40개·총 32MiB를 보관하며 8MiB를 넘는 본문이나 저장공간 부족 시에는 저장되지 않을 수 있어요. 서버의 삭제 응답 또는 최신 목록에서 사라진 작품은 저장 본문과 화면 표시를 함께 정리합니다.</p></section>
       </div>
       <button id="detailedHelpCloseButton" class="modal-primary-button" type="button">확인</button>
     </section>
@@ -1087,6 +1097,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=966" defer></script>
+  <script src="/app.js?v=968" defer></script>
 </body>
 </html>

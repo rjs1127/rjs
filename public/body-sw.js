@@ -21,20 +21,25 @@ function bodyKey(id) {
   return new Request(`${self.location.origin}/api/content?id=${encodeURIComponent(id)}&raw=1`);
 }
 
-async function getCachedBodyIds() {
+async function getCachedBodyStats() {
   const cache = await caches.open(BODY_CACHE);
   const ids = [];
+  let bytes = 0;
   for (const request of await cache.keys()) {
     const id = new URL(request.url).searchParams.get('id');
-    if (id) ids.push(id);
+    if (!id) continue;
+    ids.push(id);
+    const stored = await cache.match(request);
+    bytes += Math.max(0, Number(stored?.headers.get('x-content-bytes')) || 0);
   }
-  return ids;
+  return { ids, bytes, maxBytes: MAX_BYTES, maxItems: MAX_ITEMS };
 }
 
+
 async function notifyClients() {
-  const ids = await getCachedBodyIds();
+  const stats = await getCachedBodyStats();
   const clients = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
-  for (const client of clients) client.postMessage({ type: 'offline-bodies-changed', ids });
+  for (const client of clients) client.postMessage({ type: 'offline-bodies-changed', ...stats });
 }
 
 async function pruneArchive(response) {
@@ -190,7 +195,7 @@ self.addEventListener('message', event => {
         });
         await notifyClients();
       }
-      port.postMessage({ ids: await getCachedBodyIds() });
+      port.postMessage(await getCachedBodyStats());
     } catch (error) {
       port.postMessage({ ids: [], error: error?.message || '오프라인 저장을 처리하지 못했습니다.' });
     }

@@ -32,19 +32,19 @@ function getOfflineArchiveItems() {
   return state.items.filter((item) => item.source !== "postype" && hasOfflineBody(item));
 }
 
-function applyOfflineBodyIds(ids, { rerender = true } = {}) {
+function applyOfflineBodyIds(ids, { rerender = true, bytes = state.offlineBodyBytes, maxBytes = state.offlineBodyMaxBytes, maxItems = state.offlineBodyMaxItems } = {}) {
   const next = new Set((Array.isArray(ids) ? ids : []).map(String).filter(Boolean));
+  state.offlineBodyBytes = Math.max(0, Number(bytes) || 0);
+  state.offlineBodyMaxBytes = Math.max(1, Number(maxBytes) || (32 * 1024 * 1024));
+  state.offlineBodyMaxItems = Math.max(1, Number(maxItems) || 40);
+  if (typeof updateOfflineStorageUsage === "function") updateOfflineStorageUsage();
   const previous = state.offlineBodyIds;
-  if (
-    previous.size === next.size &&
-    [...next].every((id) => previous.has(id))
-  ) return false;
-
-  state.offlineBodyIds = next;
+  const idsChanged = !(previous.size === next.size && [...next].every((id) => previous.has(id)));
+  if (idsChanged) state.offlineBodyIds = next;
   const readerOpen = Boolean(els.readerOverlay && !els.readerOverlay.hidden);
-  if (rerender && state.items.length && !readerOpen) render();
+  if (rerender && idsChanged && state.items.length && !readerOpen) render();
   else if (rerender && state.profileOpen && !readerOpen) renderProfilePage();
-  return true;
+  return idsChanged;
 }
 
 async function requestOfflineBodyIds() {
@@ -59,7 +59,7 @@ async function requestOfflineBodyIds() {
     channel.port1.onmessage = (event) => {
       window.clearTimeout(timer);
       const ids = Array.isArray(event.data?.ids) ? event.data.ids : [];
-      applyOfflineBodyIds(ids);
+      applyOfflineBodyIds(ids, { bytes: event.data?.bytes, maxBytes: event.data?.maxBytes, maxItems: event.data?.maxItems });
       resolve(ids);
     };
     try {
@@ -90,7 +90,7 @@ async function deleteOfflineBodies(ids = [], { all = false } = {}) {
         return;
       }
       const nextIds = Array.isArray(event.data?.ids) ? event.data.ids : [];
-      applyOfflineBodyIds(nextIds);
+      applyOfflineBodyIds(nextIds, { bytes: event.data?.bytes, maxBytes: event.data?.maxBytes, maxItems: event.data?.maxItems });
       resolve(nextIds);
     };
     try {
@@ -108,7 +108,7 @@ async function deleteOfflineBodies(ids = [], { all = false } = {}) {
 if (isOfflineBodySupported()) {
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data?.type !== "offline-bodies-changed") return;
-    applyOfflineBodyIds(event.data.ids);
+    applyOfflineBodyIds(event.data.ids, { bytes: event.data?.bytes, maxBytes: event.data?.maxBytes, maxItems: event.data?.maxItems });
   });
   offlineBodyReady.then(() => requestOfflineBodyIds()).catch(() => {});
 }
@@ -166,6 +166,9 @@ const state = {
   myLibraryDetailTab: "all",
   profileLibraryMode: "records",
   offlineBodyIds: new Set(),
+  offlineBodyBytes: 0,
+  offlineBodyMaxBytes: 32 * 1024 * 1024,
+  offlineBodyMaxItems: 40,
   offlineDeleteMode: false,
   offlineDeleteSelection: new Set(),
   readerReturnToMyLibrary: false,
@@ -1220,6 +1223,11 @@ const els = {
   profileLibraryModeTabs: document.getElementById("profileLibraryModeTabs"),
   profileOfflineCount: document.getElementById("profileOfflineCount"),
   profileOfflineActions: document.getElementById("profileOfflineActions"),
+  profileOfflineUsageBar: document.getElementById("profileOfflineUsageBar"),
+  profileOfflineUsageFill: document.getElementById("profileOfflineUsageFill"),
+  profileOfflineUsageText: document.getElementById("profileOfflineUsageText"),
+  profileOfflineHelpButton: document.getElementById("profileOfflineHelpButton"),
+  profileOfflineHelpToast: document.getElementById("profileOfflineHelpToast"),
   profileOfflineSelectButton: document.getElementById("profileOfflineSelectButton"),
   profileOfflineDeleteSelectedButton: document.getElementById("profileOfflineDeleteSelectedButton"),
   profileOfflineCancelButton: document.getElementById("profileOfflineCancelButton"),
@@ -2143,6 +2151,21 @@ function renderMyLibraryModal() {
   }).join(""):'<div class="profile-empty">아직 남긴 기록이 없습니다.</div>';
 }
 
+function formatOfflineStorageBytes(bytes) {
+  const mb = Math.max(0, Number(bytes) || 0) / (1024 * 1024);
+  if (mb === 0) return "0 MB";
+  return `${mb < 10 ? mb.toFixed(1) : Math.round(mb)} MB`;
+}
+
+function updateOfflineStorageUsage() {
+  const bytes = Math.max(0, Number(state.offlineBodyBytes) || 0);
+  const maxBytes = Math.max(1, Number(state.offlineBodyMaxBytes) || (32 * 1024 * 1024));
+  const percent = Math.max(0, Math.min(100, (bytes / maxBytes) * 100));
+  if (els.profileOfflineUsageFill) els.profileOfflineUsageFill.style.width = `${percent}%`;
+  if (els.profileOfflineUsageBar) els.profileOfflineUsageBar.setAttribute("aria-valuenow", String(Math.round(percent)));
+  if (els.profileOfflineUsageText) els.profileOfflineUsageText.textContent = `${formatOfflineStorageBytes(bytes)} / ${formatOfflineStorageBytes(maxBytes)}`;
+}
+
 function renderProfilePage() {
   if (!els.profilePage || !state.user) return;
   const q = normalizeSearchText(state.profileSearch);
@@ -2195,6 +2218,11 @@ function renderProfilePage() {
     state.offlineDeleteSelection.clear();
   }
   if (els.profileOfflineActions) els.profileOfflineActions.hidden = !offlineViewActive;
+  if (offlineViewActive) updateOfflineStorageUsage();
+  if (!offlineViewActive && els.profileOfflineHelpToast) {
+    els.profileOfflineHelpToast.hidden = true;
+    els.profileOfflineHelpButton?.setAttribute("aria-expanded", "false");
+  }
   if (els.profileOfflineSelectButton) els.profileOfflineSelectButton.hidden = !offlineViewActive || state.offlineDeleteMode || offlineCount === 0;
   if (els.profileOfflineDeleteSelectedButton) {
     const selectedCount = state.offlineDeleteSelection.size;
@@ -8843,6 +8871,35 @@ els.profileLibraryModeTabs?.addEventListener("click", (event) => {
   renderProfilePage();
   if (state.profileLibraryMode === "records" && !state.myLibraryLoaded) loadMyLibrary();
   if (state.profileLibraryMode === "offline") requestOfflineBodyIds();
+});
+
+let offlineHelpToastTimer = 0;
+function hideOfflineHelpToast() {
+  window.clearTimeout(offlineHelpToastTimer);
+  if (els.profileOfflineHelpToast) els.profileOfflineHelpToast.hidden = true;
+  els.profileOfflineHelpButton?.setAttribute("aria-expanded", "false");
+}
+
+els.profileOfflineHelpButton?.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (!els.profileOfflineHelpToast) return;
+  const willShow = els.profileOfflineHelpToast.hidden;
+  hideOfflineHelpToast();
+  if (!willShow) return;
+  els.profileOfflineHelpToast.hidden = false;
+  els.profileOfflineHelpButton.setAttribute("aria-expanded", "true");
+  offlineHelpToastTimer = window.setTimeout(hideOfflineHelpToast, 7000);
+});
+
+document.addEventListener("click", (event) => {
+  if (els.profileOfflineHelpToast?.hidden) return;
+  if (event.target.closest("#profileOfflineHelpToast, #profileOfflineHelpButton")) return;
+  hideOfflineHelpToast();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && els.profileOfflineHelpToast && !els.profileOfflineHelpToast.hidden) hideOfflineHelpToast();
 });
 
 els.profileOfflineSelectButton?.addEventListener("click", () => {
