@@ -35,6 +35,16 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "forest-haze", name: "새벽숲", defaultVisible: false },
   { key: "film-leak", name: "필름누광", defaultVisible: false },
   { key: "star-chart", name: "별자리지도", defaultVisible: false },
+  { key: "firefly", name: "루미", defaultVisible: false },
+  { key: "riso-dots", name: "리소", defaultVisible: false },
+  { key: "cyan-plan", name: "시안", defaultVisible: false },
+  { key: "dot-note", name: "도트", defaultVisible: false },
+  { key: "velvet-drape", name: "커튼", defaultVisible: false },
+  { key: "postage", name: "스탬프", defaultVisible: false },
+  { key: "terrazzo", name: "테라조", defaultVisible: false },
+  { key: "neon-edge", name: "네온", defaultVisible: false },
+  { key: "gingham", name: "깅엄", defaultVisible: false },
+  { key: "stitch", name: "스티치", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
