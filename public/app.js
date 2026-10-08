@@ -10243,6 +10243,7 @@ els.readerScrollTop?.addEventListener("click", () => {
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
+    key: "beige",
     background: "linear-gradient(145deg, #fffdf9 0%, #f6f3ee 100%)",
     text: "#191816",
     meta: "#77716a",
@@ -10250,6 +10251,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "다크",
+    key: "dark",
     background: "linear-gradient(145deg, #211f1c 0%, #171614 100%)",
     text: "#f2ede6",
     meta: "#aaa39a",
@@ -10257,6 +10259,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "그레이",
+    key: "gray",
     background: "linear-gradient(145deg, #ebe6df 0%, #ddd7ce 100%)",
     text: "#2a2724",
     meta: "#77716a",
@@ -10264,6 +10267,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "모카",
+    key: "mocha",
     background: "linear-gradient(145deg, #38342f 0%, #2a2724 100%)",
     text: "#eee8df",
     meta: "#aaa39a",
@@ -10271,6 +10275,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "샌드",
+    key: "sand",
     background: "linear-gradient(145deg, #f3eee7 0%, #aaa39a 100%)",
     text: "#191816",
     meta: "#4d4841",
@@ -10278,6 +10283,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "로지",
+    key: "rosy-blush",
     background: "radial-gradient(circle at 18% 18%, rgba(255,255,255,.82) 0 18%, rgba(255,255,255,0) 38%), radial-gradient(circle at 82% 78%, rgba(218,137,149,.12) 0 18%, rgba(218,137,149,0) 42%), linear-gradient(138deg, #fff9fa 0%, #f7e7e9 48%, #f0dadd 100%)",
     text: "#b45b63",
     meta: "#c58a92",
@@ -10286,6 +10292,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "스카이",
+    key: "sky-sparkle",
     background: "radial-gradient(circle at 20% 24%, rgba(255,255,255,.96) 0 1.2%, rgba(255,255,255,0) 2.8%), radial-gradient(circle at 74% 18%, rgba(255,255,255,.92) 0 1%, rgba(255,255,255,0) 2.5%), radial-gradient(circle at 84% 72%, rgba(255,255,255,.80) 0 1.1%, rgba(255,255,255,0) 2.6%), linear-gradient(155deg, #f4f9ff 0%, #e5f1ff 52%, #d8e8fb 100%)",
     text: "#4b78c2",
     meta: "#86a5d9",
@@ -10294,6 +10301,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "라벤더",
+    key: "lavender-mist",
     background: "radial-gradient(ellipse at 14% 24%, rgba(240,213,235,.72) 0 16%, rgba(240,213,235,0) 45%), radial-gradient(ellipse at 84% 72%, rgba(205,224,251,.72) 0 18%, rgba(205,224,251,0) 48%), linear-gradient(145deg, #fbf8ff 0%, #eee8ff 54%, #e5dcf8 100%)",
     text: "#7652b8",
     meta: "#a28ecf",
@@ -10302,6 +10310,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "로즈쿼츠",
+    key: "rose-quartz-glow",
     background: "radial-gradient(circle at 18% 18%, rgba(255,255,255,.96) 0 14%, rgba(255,255,255,0) 34%), radial-gradient(circle at 80% 78%, rgba(255,255,255,.72) 0 7%, rgba(255,255,255,0) 20%), linear-gradient(148deg, #fffdfd 0%, #fdf4f6 34%, #f4e0e4 62%, #ece8ee 100%)",
     text: "#b77b88",
     meta: "#c4a2ab",
@@ -10310,6 +10319,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "세레니티",
+    key: "serenity-breeze",
     background: "linear-gradient(150deg, #fbfdff 0%, #eef5ff 48%, #deebfb 100%)",
     text: "#5378bf",
     meta: "#87a1cf",
@@ -10318,6 +10328,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "오팔",
+    key: "opal-shimmer",
     background: "linear-gradient(150deg, #fffcfb 0%, #f5f8f7 28%, #eef0ff 58%, #f9f0f7 100%)",
     text: "#6e64a3",
     meta: "#9c93c0",
@@ -10326,6 +10337,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "미스트",
+    key: "mist-layers",
     background: "radial-gradient(ellipse at 18% 24%, rgba(255,255,255,.76) 0 12%, rgba(255,255,255,0) 42%), radial-gradient(ellipse at 82% 70%, rgba(184,203,221,.30) 0 14%, rgba(184,203,221,0) 46%), radial-gradient(ellipse at 54% 44%, rgba(218,226,236,.30) 0 16%, rgba(218,226,236,0) 50%), linear-gradient(145deg, #f6f8fb 0%, #e8edf3 48%, #dce4ec 100%)",
     text: "#425468",
     meta: "#7a8999",
@@ -10334,6 +10346,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "청자유약",
+    key: "celadon-glaze",
     background: "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 120 120%22%3E%3Cpath d=%22M8 16 32 34 25 58 48 78M94 8 78 31 89 52 70 76 82 108M52 0 61 24 54 45 68 66 60 94%22 fill=%22none%22 stroke=%236f9188 stroke-opacity=%22.18%22 stroke-width=%22.7%22/%3E%3C/svg%3E'), linear-gradient(145deg, #eef6f0 0%, #d7e8df 52%, #c4d9d0 100%)",
     text: "#31564d",
     meta: "#6f9188",
@@ -10342,6 +10355,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "잉크잔향",
+    key: "ink-echo",
     background: "radial-gradient(ellipse at 18% 20%, rgba(34,53,78,.18) 0 5%, rgba(34,53,78,0) 24%), radial-gradient(ellipse at 82% 76%, rgba(72,90,111,.13) 0 7%, rgba(72,90,111,0) 30%), linear-gradient(145deg, #faf8f1 0%, #f0eee7 55%, #e6e5df 100%)",
     text: "#243248",
     meta: "#727b87",
@@ -10350,6 +10364,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "오로라결",
+    key: "aurora-weave",
     background: "radial-gradient(ellipse at 18% 24%, rgba(70,238,200,.24) 0 10%, rgba(70,238,200,0) 40%), radial-gradient(ellipse at 78% 34%, rgba(157,101,255,.24) 0 12%, rgba(157,101,255,0) 44%), linear-gradient(155deg, #101a2a 0%, #17253a 48%, #111827 100%)",
     text: "#f2f8ff",
     meta: "#a8bdd1",
@@ -10358,6 +10373,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "석양층운",
+    key: "sunset-layers",
     background: "radial-gradient(ellipse at 18% 78%, rgba(255,193,145,.34) 0 16%, rgba(255,193,145,0) 46%), radial-gradient(ellipse at 84% 24%, rgba(183,151,222,.22) 0 16%, rgba(183,151,222,0) 46%), linear-gradient(155deg, #fff4e8 0%, #f4d8c4 45%, #d7c9dc 100%)",
     text: "#704f55",
     meta: "#9b7d83",
@@ -10366,6 +10382,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "유성궤적",
+    key: "meteor-trails",
     background: "radial-gradient(circle at 18% 22%, rgba(255,255,255,.62) 0 1px, rgba(255,255,255,0) 2px), radial-gradient(circle at 78% 30%, rgba(255,255,255,.48) 0 1px, rgba(255,255,255,0) 2px), linear-gradient(150deg, #11162b 0%, #232a49 52%, #15182a 100%)",
     text: "#f5f4ff",
     meta: "#a9acd0",
@@ -10374,6 +10391,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "바람결",
+    key: "wind-contours",
     background: "repeating-radial-gradient(ellipse at 8% 18%, rgba(92,134,164,.10) 0 1px, rgba(92,134,164,0) 2px 18px), linear-gradient(145deg, #fbfcfa 0%, #edf4f3 48%, #e3edf0 100%)",
     text: "#405968",
     meta: "#7a909a",
@@ -10382,6 +10400,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "유리온실",
+    key: "glasshouse",
     background: "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 140 140%22%3E%3Cg fill=%22none%22 stroke=%234f806b stroke-opacity=%22.12%22 stroke-width=%221%22%3E%3Cpath d=%22M12 134C38 104 40 65 24 24M24 66c20-10 29-25 33-45M24 82C43 76 57 80 70 96M118 138c-14-34-10-72 12-110M119 72c-20-8-31-22-38-39%22/%3E%3C/g%3E%3C/svg%3E'), linear-gradient(145deg, #f5fbf7 0%, #deeee5 50%, #d0e4d9 100%)",
     text: "#355c4c",
     meta: "#739486",
@@ -10390,6 +10409,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "흑연결",
+    key: "graphite-grain",
     background: "repeating-linear-gradient(8deg, rgba(44,48,53,.055) 0 1px, rgba(44,48,53,0) 1px 5px), repeating-linear-gradient(98deg, rgba(44,48,53,.028) 0 1px, rgba(44,48,53,0) 1px 8px), linear-gradient(145deg, #f2f2ef 0%, #dfdfdc 100%)",
     text: "#303238",
     meta: "#6e7178",
@@ -10398,6 +10418,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "페탈",
+    key: "petal-flow",
     background: "radial-gradient(ellipse at 12% 18%, rgba(255,255,255,.86) 0 10%, rgba(255,255,255,0) 34%), radial-gradient(ellipse at 84% 76%, rgba(238,173,185,.18) 0 14%, rgba(238,173,185,0) 40%), linear-gradient(145deg, #fffafb 0%, #faeef1 50%, #f3e2e7 100%)",
     text: "#8f5964",
     meta: "#b38a92",
@@ -10406,6 +10427,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "글로우",
+    key: "soft-glow",
     background: "radial-gradient(circle at 18% 26%, rgba(218,255,178,.17) 0 3%, rgba(218,255,178,0) 18%), radial-gradient(circle at 78% 20%, rgba(255,232,132,.16) 0 2%, rgba(255,232,132,0) 16%), radial-gradient(circle at 82% 76%, rgba(190,255,198,.12) 0 3%, rgba(190,255,198,0) 18%), linear-gradient(150deg, #101a19 0%, #172822 52%, #0e1716 100%)",
     text: "#eef7ef",
     meta: "#9eb7a8",
@@ -10414,6 +10436,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "테이프",
+    key: "paper-tape",
     background: "linear-gradient(11deg, transparent 0 80%, rgba(214,191,150,.12) 80% 84%, transparent 84%), repeating-linear-gradient(0deg, rgba(104,88,69,.028) 0 1px, transparent 1px 6px), linear-gradient(145deg, #fbf7ef 0%, #f2eadc 100%)",
     text: "#4d4338",
     meta: "#8c7e6f",
@@ -10422,6 +10445,7 @@ const READER_SHARE_BACKGROUNDS = [
   },
   {
     name: "새벽안개",
+    key: "dawn-fog",
     background: "radial-gradient(ellipse at 20% 72%, rgba(255,255,255,.52) 0 20%, rgba(255,255,255,0) 52%), radial-gradient(ellipse at 78% 24%, rgba(203,221,232,.38) 0 18%, rgba(203,221,232,0) 50%), linear-gradient(145deg, #f4f7f8 0%, #e3ebef 48%, #cfdde4 100%)",
     text: "#425968",
     meta: "#7f939f",
@@ -10498,6 +10522,63 @@ function getReaderShareBrandName() {
     document.title ||
     "셩냥책"
   ).trim() || "셩냥책";
+}
+
+let readerSharePresetVisibility = null;
+let readerSharePresetVisibilityPromise = null;
+let readerShareAdminPreviewKey = "";
+
+function getReaderShareBackgroundKey(background) {
+  return String(background?.key || background?.effect || background?.name || "");
+}
+
+function getReaderShareDefaultVisibility(background) {
+  return background?.defaultVisible !== false;
+}
+
+async function loadReaderSharePresetVisibility({ admin = false, force = false } = {}) {
+  if (!admin && readerSharePresetVisibility && !force) return readerSharePresetVisibility;
+  if (!admin && readerSharePresetVisibilityPromise && !force) return readerSharePresetVisibilityPromise;
+  const endpoint = admin ? "/api/admin/quote-image-presets" : "/api/quote-image-presets";
+  const task = (async () => {
+    try {
+      const response = await fetch(endpoint, { credentials: "same-origin", cache: admin ? "no-store" : "default" });
+      if (!response.ok) throw new Error(`preset_visibility_${response.status}`);
+      const data = await response.json();
+      const map = new Map();
+      for (const preset of Array.isArray(data?.presets) ? data.presets : []) {
+        if (preset && typeof preset.key === "string" && typeof preset.visible === "boolean") map.set(preset.key, preset.visible);
+      }
+      if (!admin) readerSharePresetVisibility = map;
+      return map;
+    } catch (error) {
+      if (admin) throw error;
+      console.warn("문장 이미지 프리셋 노출 설정 로드 실패, 기본값 사용", error);
+      const fallback = new Map(READER_SHARE_BACKGROUNDS.map((background) => [getReaderShareBackgroundKey(background), getReaderShareDefaultVisibility(background)]));
+      readerSharePresetVisibility = fallback;
+      return fallback;
+    } finally {
+      if (!admin) readerSharePresetVisibilityPromise = null;
+    }
+  })();
+  if (!admin) readerSharePresetVisibilityPromise = task;
+  return task;
+}
+
+function getVisibleReaderShareBackgroundEntries() {
+  const map = readerSharePresetVisibility;
+  return READER_SHARE_BACKGROUNDS.map((background, index) => ({ background, index }))
+    .filter(({ background }) => {
+      if (readerShareAdminPreviewKey) return true;
+      const key = getReaderShareBackgroundKey(background);
+      return map?.has(key) ? map.get(key) === true : getReaderShareDefaultVisibility(background);
+    });
+}
+
+function renderReaderShareBackgroundThumbs(thumbs) {
+  if (!thumbs) return;
+  thumbs.innerHTML = getVisibleReaderShareBackgroundEntries().map(({ background, index }) => `
+    <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
 }
 
 function ensureReaderShareUi() {
@@ -10753,8 +10834,7 @@ function ensureReaderShareUi() {
   const publicToggle = backdrop.querySelector("[data-share-public-toggle]");
   let lastSavedQuote = null;
 
-  thumbs.innerHTML = READER_SHARE_BACKGROUNDS.map((background, index) => `
-    <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
+  renderReaderShareBackgroundThumbs(thumbs);
 
   fonts.innerHTML = READER_SHARE_FONTS.map((font) => `
     <button type="button" class="reader-share-chip" data-share-font="${font.key}">${font.label}</button>`).join("");
@@ -11855,7 +11935,7 @@ function getHistoryStateWithoutReaderShare() {
   return next;
 }
 
-function openReaderShareSheet(options = {}) {
+async function openReaderShareSheet(options = {}) {
   const { allowEmpty = false, presetText = null, sourceItem = null } = options || {};
   if (typeof presetText === "string") state.readerShareText = presetText;
   state.readerShareSourceItem = sourceItem || state.activeReaderItem || state.readerShareSourceItem || null;
@@ -11866,7 +11946,13 @@ function openReaderShareSheet(options = {}) {
   // A newly opened editor always starts from the agreed baseline.
   resetReaderShareEditorOptions();
   ensureReaderShareState();
+  await loadReaderSharePresetVisibility({ admin: Boolean(readerShareAdminPreviewKey) });
+  const visibleEntries = getVisibleReaderShareBackgroundEntries();
+  if (!visibleEntries.some(({ index }) => index === state.readerShareBackground)) {
+    state.readerShareBackground = visibleEntries[0]?.index ?? 0;
+  }
   const ui = ensureReaderShareUi();
+  renderReaderShareBackgroundThumbs(ui.thumbs);
   ui.floatButton.hidden = true;
   if (ui.selectionActions) ui.selectionActions.hidden = true;
   try {
@@ -11895,6 +11981,26 @@ function openReaderShareSheet(options = {}) {
         ui.input.setSelectionRange(end, end);
       } catch (_) {}
     });
+  }
+}
+
+async function maybeOpenAdminReaderSharePreview() {
+  const key = String(new URLSearchParams(window.location.search).get("quote-test") || "").trim();
+  if (!key) return;
+  try {
+    const map = await loadReaderSharePresetVisibility({ admin: true, force: true });
+    const index = READER_SHARE_BACKGROUNDS.findIndex((background) => getReaderShareBackgroundKey(background) === key);
+    if (index < 0 || !map.has(key)) return;
+    readerShareAdminPreviewKey = key;
+    readerSharePresetVisibility = map;
+    state.readerShareBackground = index;
+    await openReaderShareSheet({
+      allowEmpty: true,
+      presetText: "마음에 남은 문장을 이곳에서 미리 확인해 보세요.",
+      sourceItem: { id: "admin-quote-preview", source: "postype", title: "문장 이미지 테스트", author: "관리자 미리보기" },
+    });
+  } catch (error) {
+    console.warn("관리자 문장 이미지 테스트를 열지 못했습니다.", error);
   }
 }
 
@@ -12308,3 +12414,4 @@ syncQuickFilterButtons();
 if (!getAuthToken()) updateAccountUi();
 loadArchive();
 restoreAuth();
+void maybeOpenAdminReaderSharePreview();
