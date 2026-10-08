@@ -700,15 +700,15 @@ let readerWakeLockSentinel = null;
 let readerWakeLockPending = false;
 let readerWakeLockLastError = "";
 const READER_FONT_FAMILIES = {
-  default: 'Pretendard, "Pretendard Variable", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
+  default: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif',
   paperlogy: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif',
   ridibatang: 'Ridibatang, "Noto Serif KR", "Nanum Myeongjo", serif',
   chosunilbo: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
   inkliquid: 'InkLiquid, cursive',
   kopubbatang: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
-  pretendard: '"Pretendard Variable", Pretendard, "Noto Sans KR", sans-serif',
-  suit: 'SUIT, Pretendard, "Noto Sans KR", sans-serif',
-  gowundodum: '"Gowun Dodum", "Noto Sans KR", sans-serif',
+  suit: '"SUIT Variable", SUIT, Pretendard, "Noto Sans KR", sans-serif',
+  bookkmyungjo: 'BookkMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
+  mapoflower: 'MapoFlowerIsland, "Noto Serif KR", "Nanum Myeongjo", serif',
   gowunbatang: '"Gowun Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
   maruburi: '"Maru Buri", "Noto Serif KR", "Nanum Myeongjo", serif',
   galmuri: 'Galmuri11, Pretendard, "Noto Sans KR", sans-serif',
@@ -787,20 +787,25 @@ function ensureKopubFont() {
 
 
 const READER_LAZY_FONT_CONFIG = {
-  pretendard: {
+  default: {
     id: "readerFontPretendard",
     href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css",
     test: '400 32px "Pretendard Variable"',
   },
   suit: {
     id: "readerFontSuit",
-    href: "https://cdn.jsdelivr.net/gh/fonts-archive/SUIT/SUIT.css",
-    test: '400 32px "SUIT"',
+    href: "https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css",
+    test: '400 32px "SUIT Variable"',
   },
-  gowundodum: {
-    id: "readerFontGowunDodum",
-    href: "https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap",
-    test: '400 32px "Gowun Dodum"',
+  bookkmyungjo: {
+    id: "readerFontBookkMyungjo",
+    href: "/reader-font-bookkmyungjo.css?v=978",
+    test: '400 32px "BookkMyungjo"',
+  },
+  mapoflower: {
+    id: "readerFontMapoFlowerIsland",
+    href: "/reader-font-mapoflower.css?v=978",
+    test: '400 32px "MapoFlowerIsland"',
   },
   gowunbatang: {
     id: "readerFontGowunBatang",
@@ -852,7 +857,10 @@ function ensureReaderLazyFont(fontKey) {
     const finish = async () => {
       try {
         if (link) link.dataset.loaded = "1";
-        if (document.fonts?.load) await document.fonts.load(config.test);
+        if (document.fonts?.load) {
+          const faces = await document.fonts.load(config.test);
+          if (!faces || faces.length === 0) throw new Error("reader_font_face_missing");
+        }
         settle(true);
       } catch (_) {
         fail();
@@ -881,16 +889,28 @@ function ensureReaderLazyFont(fontKey) {
   return promise;
 }
 
-function isExtraReaderFont(fontKey) {
+function isLazyReaderFont(fontKey) {
   return Object.prototype.hasOwnProperty.call(READER_LAZY_FONT_CONFIG, fontKey);
 }
 
-function setViewerFontExtraExpanded(expanded) {
+function isExtraReaderFont(fontKey) {
+  return fontKey !== "default" && isLazyReaderFont(fontKey);
+}
+
+function preloadViewerFontChoices() {
+  for (const fontKey of Object.keys(READER_LAZY_FONT_CONFIG)) {
+    if (fontKey === "default") continue;
+    void ensureReaderLazyFont(fontKey);
+  }
+}
+
+function setViewerFontExtraExpanded(expanded, { preload = false } = {}) {
   if (!els.viewerFontExtraOptions || !els.viewerFontMoreButton) return;
   els.viewerFontExtraOptions.hidden = !expanded;
   els.viewerFontMoreButton.setAttribute("aria-expanded", expanded ? "true" : "false");
   const label = els.viewerFontMoreButton.querySelector("span");
   if (label) label.textContent = expanded ? "접기" : "더보기";
+  if (expanded && preload) preloadViewerFontChoices();
 }
 
 function getViewerPreferenceStorage() {
@@ -922,6 +942,8 @@ function getSavedReaderFontSize() {
 
 function getSavedReaderFontFamily() {
   const value = getViewerPreferenceStorage().getItem(READER_FONT_FAMILY_KEY);
+  if (value === "pretendard") return "default";
+  if (value === "gowundodum") return "default";
   return Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, value)
     ? value
     : "ridibatang";
@@ -1081,8 +1103,11 @@ function applyUserPreferences() {
     // KoPub is intentionally excluded from the render-blocking <head>.
     // Only users who actually selected it pay the external stylesheet/font cost.
     void ensureKopubFont();
+  } else if (fontFamily === "default") {
+    // "프리텐다드"는 기존 default 키를 유지해 저장값 호환성을 보존하며, 처음 필요할 때만 실제 웹폰트를 준비한다.
+    void ensureReaderLazyFont("default");
   } else if (isExtraReaderFont(fontFamily)) {
-    // Additional fonts are also loaded only for users who actually selected them.
+    // Additional fonts are loaded when selected or when the user opens the font preview.
     void ensureReaderLazyFont(fontFamily);
     setViewerFontExtraExpanded(true);
   }
@@ -8353,9 +8378,11 @@ els.readerFontFamilyButtons?.forEach((button) => {
     const fontFamily = button.dataset.readerFontFamily;
     if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
     if (fontFamily === "kopubbatang") {
-      await ensureKopubFont();
-    } else if (isExtraReaderFont(fontFamily)) {
-      await ensureReaderLazyFont(fontFamily);
+      const ready = await ensureKopubFont();
+      if (!ready) return;
+    } else if (isLazyReaderFont(fontFamily)) {
+      const ready = await ensureReaderLazyFont(fontFamily);
+      if (!ready) return;
     }
     setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
     applyUserPreferences();
@@ -8364,7 +8391,7 @@ els.readerFontFamilyButtons?.forEach((button) => {
 
 els.viewerFontMoreButton?.addEventListener("click", () => {
   const expanded = els.viewerFontMoreButton.getAttribute("aria-expanded") === "true";
-  setViewerFontExtraExpanded(!expanded);
+  setViewerFontExtraExpanded(!expanded, { preload: !expanded });
 });
 
 els.viewerSettingsButton?.addEventListener("click", () => {
@@ -10928,7 +10955,7 @@ function ensureReaderShareUi() {
     openReaderShareSheet();
   });
 
-  
+
   memoButton.addEventListener("click", () => {
     if (!state.user) { openAuthModal("login", "메모를 저장하려면 로그인해 주세요."); return; }
     const selected=getReaderTextSelection();

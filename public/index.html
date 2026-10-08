@@ -107,9 +107,10 @@
     .viewer-font-option[data-reader-font-family="chosunilbo"] { font-family:'ChosunIlboMyungjo',serif; }
     .viewer-font-option[data-reader-font-family="inkliquid"] { font-family:'InkLiquid',cursive; }
     html[data-kopub="ready"] .viewer-font-option[data-reader-font-family="kopubbatang"] { font-family:'KoPub Batang',serif; }
-    html[data-reader-font-ready~="pretendard"] .viewer-font-option[data-reader-font-family="pretendard"] { font-family:'Pretendard Variable','Pretendard',sans-serif; }
-    html[data-reader-font-ready~="suit"] .viewer-font-option[data-reader-font-family="suit"] { font-family:'SUIT',sans-serif; }
-    html[data-reader-font-ready~="gowundodum"] .viewer-font-option[data-reader-font-family="gowundodum"] { font-family:'Gowun Dodum',sans-serif; }
+    html[data-reader-font-ready~="default"] .viewer-font-option[data-reader-font-family="default"] { font-family:'Pretendard Variable','Pretendard',sans-serif; }
+    html[data-reader-font-ready~="suit"] .viewer-font-option[data-reader-font-family="suit"] { font-family:'SUIT Variable','SUIT',sans-serif; }
+        html[data-reader-font-ready~="bookkmyungjo"] .viewer-font-option[data-reader-font-family="bookkmyungjo"] { font-family:'BookkMyungjo',serif; }
+    html[data-reader-font-ready~="mapoflower"] .viewer-font-option[data-reader-font-family="mapoflower"] { font-family:'MapoFlowerIsland',serif; }
     html[data-reader-font-ready~="gowunbatang"] .viewer-font-option[data-reader-font-family="gowunbatang"] { font-family:'Gowun Batang',serif; }
     html[data-reader-font-ready~="maruburi"] .viewer-font-option[data-reader-font-family="maruburi"] { font-family:'Maru Buri',serif; }
     html[data-reader-font-ready~="galmuri"] .viewer-font-option[data-reader-font-family="galmuri"] { font-family:'Galmuri11',sans-serif; }
@@ -1056,15 +1057,15 @@
               <button type="button" class="viewer-font-option" data-reader-font-family="chosunilbo">조선일보명조</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="inkliquid">잉크립퀴드</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="kopubbatang">KoPub 바탕</button>
-              <button type="button" class="viewer-font-option" data-reader-font-family="default">기본</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="default">프리텐다드</button>
             </div>
             <button id="viewerFontMoreButton" class="viewer-font-more" type="button" aria-expanded="false" aria-controls="viewerFontExtraOptions">
               <span>더보기</span><span class="viewer-font-more-arrow" aria-hidden="true">⌄</span>
             </button>
             <div id="viewerFontExtraOptions" class="viewer-font-options viewer-font-options-extra" role="group" aria-label="추가 뷰어 글꼴" hidden>
-              <button type="button" class="viewer-font-option" data-reader-font-family="pretendard">프리텐다드</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="suit">SUIT</button>
-              <button type="button" class="viewer-font-option" data-reader-font-family="gowundodum">고운돋움</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="bookkmyungjo">부크크명조</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="mapoflower">마포꽃섬</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="gowunbatang">고운바탕</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="maruburi">마루 부리</button>
               <button type="button" class="viewer-font-option" data-reader-font-family="galmuri">갈무리</button>
@@ -1138,6 +1139,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=976" defer></script>
+  <script src="/app.js?v=978" defer></script>
 </body>
 </html>
