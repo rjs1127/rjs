@@ -12714,9 +12714,139 @@ function drawQuoteGingham(ctx, w, h) {
   ctx.fillRect(0, h - bandH - 7 * u, w, 10 * u);
 }
 
+// 지정 프리셋은 사용자 목록 썸네일의 CSS background를 Canvas에서도 같은 구성으로 재현한다.
+// 목록 썸네일의 CSS px 단위는 편집기 기준 폭(380px)에 맞춰 최종 1200px Canvas로 비례 확대한다.
+function drawReaderShareThumbnailStyle(ctx, effect, w, h) {
+  const keys = new Set([
+    "rosy-blush", "sky-sparkle", "lavender-mist", "rose-quartz-glow",
+    "opal-shimmer", "mist-layers", "graphite-grain", "gingham",
+    "ripple-pool", "graph-paper", "soft-polka", "lace-grid",
+  ]);
+  if (!keys.has(effect)) return false;
+
+  const s = w / 380;
+  const fillLinear = (angleDeg, stops) => {
+    const angle = angleDeg * Math.PI / 180;
+    const dx = Math.sin(angle);
+    const dy = -Math.cos(angle);
+    const span = Math.abs(w * dx) + Math.abs(h * dy);
+    const cx = w / 2;
+    const cy = h / 2;
+    const g = ctx.createLinearGradient(cx - dx * span / 2, cy - dy * span / 2, cx + dx * span / 2, cy + dy * span / 2);
+    stops.forEach(([offset, color]) => g.addColorStop(offset, color));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  };
+  const fillRadial = (x, y, rx, ry, stops) => {
+    ctx.save();
+    ctx.translate(w * x, h * y);
+    ctx.scale(w * rx, h * ry);
+    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, 1);
+    stops.forEach(([offset, color]) => g.addColorStop(offset, color));
+    ctx.fillStyle = g;
+    ctx.fillRect(-1.05, -1.05, 2.1, 2.1);
+    ctx.restore();
+  };
+  const drawGrid = (spacingPx, color, linePx = 1) => {
+    const spacing = spacingPx * s;
+    const line = Math.max(1, linePx * s);
+    ctx.fillStyle = color;
+    for (let x = 0; x < w; x += spacing) ctx.fillRect(x, 0, line, h);
+    for (let y = 0; y < h; y += spacing) ctx.fillRect(0, y, w, line);
+  };
+  const drawRepeatingLines = (angleDeg, spacingPx, linePx, color) => {
+    const spacing = spacingPx * s;
+    const line = Math.max(1, linePx * s);
+    const diag = Math.hypot(w, h) * 1.5;
+    ctx.save();
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate((angleDeg - 90) * Math.PI / 180);
+    ctx.fillStyle = color;
+    for (let y = -diag; y <= diag; y += spacing) ctx.fillRect(-diag, y, diag * 2, line);
+    ctx.restore();
+  };
+
+  if (effect === "rosy-blush") {
+    fillLinear(138, [[0, "#fff9fa"], [.48, "#f7e7e9"], [1, "#f0dadd"]]);
+    fillRadial(.82, .78, .42, .42, [[0, "rgba(218,137,149,.12)"], [.43, "rgba(218,137,149,.12)"], [1, "rgba(218,137,149,0)"]]);
+    fillRadial(.18, .18, .38, .38, [[0, "rgba(255,255,255,.82)"], [.47, "rgba(255,255,255,.82)"], [1, "rgba(255,255,255,0)"]]);
+  } else if (effect === "sky-sparkle") {
+    fillLinear(155, [[0, "#f4f9ff"], [.52, "#e5f1ff"], [1, "#d8e8fb"]]);
+    [[.20,.24,.028,.96,.43],[.74,.18,.025,.92,.40],[.84,.72,.026,.80,.42]].forEach(([x,y,r,a,solid]) => {
+      fillRadial(x, y, r, r, [[0, `rgba(255,255,255,${a})`], [solid, `rgba(255,255,255,${a})`], [1, "rgba(255,255,255,0)"]]);
+    });
+  } else if (effect === "lavender-mist") {
+    fillLinear(145, [[0, "#fbf8ff"], [.54, "#eee8ff"], [1, "#e5dcf8"]]);
+    fillRadial(.84, .72, .48, .34, [[0, "rgba(205,224,251,.72)"], [.38, "rgba(205,224,251,.72)"], [1, "rgba(205,224,251,0)"]]);
+    fillRadial(.14, .24, .45, .32, [[0, "rgba(240,213,235,.72)"], [.36, "rgba(240,213,235,.72)"], [1, "rgba(240,213,235,0)"]]);
+  } else if (effect === "rose-quartz-glow") {
+    fillLinear(148, [[0, "#fffdfd"], [.34, "#fdf4f6"], [.62, "#f4e0e4"], [1, "#ece8ee"]]);
+    fillRadial(.80, .78, .20, .20, [[0, "rgba(255,255,255,.72)"], [.35, "rgba(255,255,255,.72)"], [1, "rgba(255,255,255,0)"]]);
+    fillRadial(.18, .18, .34, .34, [[0, "rgba(255,255,255,.96)"], [.41, "rgba(255,255,255,.96)"], [1, "rgba(255,255,255,0)"]]);
+  } else if (effect === "opal-shimmer") {
+    fillLinear(150, [[0, "#fffcfb"], [.28, "#f5f8f7"], [.58, "#eef0ff"], [1, "#f9f0f7"]]);
+  } else if (effect === "mist-layers") {
+    fillLinear(145, [[0, "#f6f8fb"], [.48, "#e8edf3"], [1, "#dce4ec"]]);
+    fillRadial(.54, .44, .50, .34, [[0, "rgba(218,226,236,.30)"], [.32, "rgba(218,226,236,.30)"], [1, "rgba(218,226,236,0)"]]);
+    fillRadial(.82, .70, .46, .32, [[0, "rgba(184,203,221,.30)"], [.30, "rgba(184,203,221,.30)"], [1, "rgba(184,203,221,0)"]]);
+    fillRadial(.18, .24, .42, .30, [[0, "rgba(255,255,255,.76)"], [.29, "rgba(255,255,255,.76)"], [1, "rgba(255,255,255,0)"]]);
+  } else if (effect === "graphite-grain") {
+    fillLinear(145, [[0, "#f2f2ef"], [1, "#dfdfdc"]]);
+    drawRepeatingLines(98, 8, 1, "rgba(44,48,53,.028)");
+    drawRepeatingLines(8, 5, 1, "rgba(44,48,53,.055)");
+  } else if (effect === "gingham") {
+    fillLinear(135, [[0, "#faefef"], [1, "#f5e5e5"]]);
+    const cell = 18 * s;
+    ctx.fillStyle = "rgba(233,180,189,.55)";
+    for (let x = 0; x < w; x += cell * 2) ctx.fillRect(x, 0, cell, h);
+    ctx.fillStyle = "rgba(248,223,228,.55)";
+    for (let x = cell; x < w; x += cell * 2) ctx.fillRect(x, 0, cell, h);
+    ctx.fillStyle = "rgba(233,180,189,.45)";
+    for (let y = 0; y < h; y += cell * 2) ctx.fillRect(0, y, w, cell);
+    ctx.fillStyle = "rgba(248,223,228,.45)";
+    for (let y = cell; y < h; y += cell * 2) ctx.fillRect(0, y, w, cell);
+  } else if (effect === "ripple-pool") {
+    fillLinear(150, [[0, "#bfe8e4"], [1, "#e9f5ee"]]);
+    fillRadial(.14, .10, .24, .24, [[0, "rgba(255,190,150,.4)"], [1, "rgba(255,190,150,0)"]]);
+    const cx = w * .82;
+    const cy = h * .88;
+    const far = Math.max(Math.hypot(cx, cy), Math.hypot(w - cx, cy), Math.hypot(cx, h - cy), Math.hypot(w - cx, h - cy));
+    [[.07,.01,"rgba(255,255,255,.4)"],[.155,.01,"rgba(255,255,255,.3)"]].forEach(([r, lw, color]) => {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = Math.max(1, far * lw);
+      ctx.beginPath();
+      ctx.arc(cx, cy, far * r, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+  } else if (effect === "graph-paper") {
+    fillLinear(135, [[0, "#ffffff"], [1, "#f4f5f7"]]);
+    drawGrid(22, "rgba(130,138,150,.28)");
+  } else if (effect === "soft-polka") {
+    fillLinear(135, [[0, "#f2f9fd"], [1, "#e3f1fa"]]);
+    const tile = 34 * s;
+    const inner = 5 * s;
+    const outer = 9 * s;
+    for (let y = tile / 2; y < h + tile / 2; y += tile) {
+      for (let x = tile / 2; x < w + tile / 2; x += tile) {
+        const g = ctx.createRadialGradient(x, y, 0, x, y, outer);
+        g.addColorStop(0, "rgba(150,205,235,.35)");
+        g.addColorStop(Math.min(.99, inner / outer), "rgba(150,205,235,.35)");
+        g.addColorStop(1, "rgba(150,205,235,0)");
+        ctx.fillStyle = g;
+        ctx.fillRect(x - outer, y - outer, outer * 2, outer * 2);
+      }
+    }
+  } else if (effect === "lace-grid") {
+    fillLinear(160, [[0, "#fff1f4"], [1, "#ffe3ea"]]);
+    drawGrid(24, "rgba(240,150,170,.22)");
+  }
+  return true;
+}
+
 function drawReaderShareThemeEffect(ctx, background, width, height) {
   const effect = String(background?.effect || "");
   if (!effect) return;
+  if (drawReaderShareThumbnailStyle(ctx, effect, width, height)) return;
 
   ctx.save();
   if (effect === "rosy-blush") {
