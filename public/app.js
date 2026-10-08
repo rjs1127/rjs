@@ -10502,6 +10502,56 @@ const READER_SHARE_BACKGROUNDS = [
     accent: "#8f86e8",
     effect: "prism-foil",
   },
+  {
+    name: "서리유리",
+    key: "frost-window",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 4% 96%, rgba(255,255,255,.85) 0 8%, rgba(255,255,255,0) 40%), linear-gradient(150deg, #eef6fb 0%, #d3e4f0 100%)",
+    text: "#1f3347",
+    meta: "#6f8aa0",
+    accent: "#7fb4d6",
+    effect: "frost-window",
+  },
+  {
+    name: "해변물결",
+    key: "tide-lines",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 50% 64%, rgba(255,214,170,.6) 0 8%, rgba(255,214,170,0) 46%), linear-gradient(180deg, #fde7d4 0%, #cfe8ee 100%)",
+    text: "#3b2f33",
+    meta: "#4f6068",
+    accent: "#f0a982",
+    effect: "tide-lines",
+  },
+  {
+    name: "새벽숲",
+    key: "forest-haze",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 28% 8%, rgba(214,255,206,.45) 0 6%, rgba(214,255,206,0) 40%), linear-gradient(180deg, #1f3f37 0%, #0b1a18 100%)",
+    text: "#eaf5e6",
+    meta: "#9db8ac",
+    accent: "#d6ffce",
+    effect: "forest-haze",
+  },
+  {
+    name: "필름누광",
+    key: "film-leak",
+    defaultVisible: false,
+    background: "linear-gradient(90deg, rgba(255,96,40,.75) 0 4%, rgba(255,96,40,0) 34%), linear-gradient(150deg, #2d2220 0%, #130f0e 100%)",
+    text: "#f7e9d8",
+    meta: "#b79f8c",
+    accent: "#ff6028",
+    effect: "film-leak",
+  },
+  {
+    name: "별자리지도",
+    key: "star-chart",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 80% 24%, rgba(255,226,160,.30) 0 4%, rgba(255,226,160,0) 30%), linear-gradient(150deg, #10303a 0%, #07161c 100%)",
+    text: "#e6f4f2",
+    meta: "#8fb3b4",
+    accent: "#ffe2a0",
+    effect: "star-chart",
+  },
 ];
 
 const READER_SHARE_FONTS = [
@@ -11698,6 +11748,366 @@ function drawQuotePrismFoil(ctx, w, h) {
   quoteTestFourPointStar(ctx, w * 0.9, h * 0.52, 6 * u, "rgba(255,255,255,.9)");
 }
 
+function drawQuoteFrostWindow(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(5521);
+
+  // 모서리 김서림
+  [[0, 1, 0.55, 0.6], [1, 0, 0.42, 0.5]].forEach(([x, y, k, a]) => {
+    const g = ctx.createRadialGradient(w * x, h * y, 0, w * x, h * y, w * k);
+    g.addColorStop(0, "rgba(255,255,255," + a + ")");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+
+  // 맺힌 물방울
+  for (let i = 0; i < 38; i++) {
+    const x = r() * w;
+    const y = r() * h;
+    const rad = (5 + r() * r() * 24) * u;
+    ctx.fillStyle = "rgba(255,255,255,.13)";
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.lineWidth = 1.2 * u;
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.85)";
+    ctx.lineWidth = 1.6 * u;
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 0.62, Math.PI * 1.1, Math.PI * 1.45);
+    ctx.stroke();
+  }
+
+  // 서리 결정: 재귀 가지
+  ctx.lineCap = "round";
+  const branch = (x, y, a, len, depth, lw) => {
+    if (depth <= 0 || len < 4 * u) return;
+    const x2 = x + Math.cos(a) * len;
+    const y2 = y + Math.sin(a) * len;
+    ctx.strokeStyle = "rgba(255,255,255,.10)";
+    ctx.lineWidth = lw * 3.2;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.80)";
+    ctx.lineWidth = lw;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+    branch(x2, y2, a + (r() - 0.5) * 0.25, len * 0.72, depth - 1, lw * 0.82);
+    const mx = x + Math.cos(a) * len * 0.5;
+    const my = y + Math.sin(a) * len * 0.5;
+    branch(mx, my, a + 0.75, len * 0.5, depth - 1, lw * 0.75);
+    branch(mx, my, a - 0.75, len * 0.5, depth - 1, lw * 0.75);
+  };
+  [-1.32, -1.02, -0.72, -0.42, -0.14].forEach((a) => {
+    branch(0, h, a, w * (0.15 + r() * 0.08), 4, 2.4 * u);
+  });
+  [1.72, 2.05, 2.4, 2.8].forEach((a) => {
+    branch(w, 0, a, w * (0.12 + r() * 0.07), 4, 2.2 * u);
+  });
+
+  quoteTestFourPointStar(ctx, w * 0.84, h * 0.58, 8 * u, "rgba(255,255,255,.9)");
+  quoteTestFourPointStar(ctx, w * 0.16, h * 0.33, 6 * u, "rgba(255,255,255,.85)");
+}
+
+/* ---------- 2. 해변물결 ---------- */
+// 석양빛 하늘, 낮게 뜬 해, 거품선이 겹친 파도, 갈매기
+function drawQuoteTideLines(ctx, w, h) {
+  const u = w / 1200;
+
+  let g = ctx.createRadialGradient(w * 0.5, h * 0.64, 0, w * 0.5, h * 0.64, w * 0.5);
+  g.addColorStop(0, "rgba(255,214,170,.55)");
+  g.addColorStop(0.45, "rgba(255,214,170,.16)");
+  g.addColorStop(1, "rgba(255,214,170,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  const wave = (base, amp, freq, phase) => {
+    ctx.beginPath();
+    const steps = 80;
+    for (let i = 0; i <= steps; i++) {
+      const x = (w * i) / steps;
+      const y = h * base + h * amp * Math.sin((x / w) * freq * 6.2832 + phase);
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+  };
+  for (let k = 0; k < 9; k++) {
+    const base = 0.66 + k * 0.03;
+    wave(base, 0.006 + k * 0.0016, 1.6 + k * 0.15, k * 1.3);
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fillStyle = "rgba(60,140,160,.055)";
+    ctx.fill();
+    wave(base, 0.006 + k * 0.0016, 1.6 + k * 0.15, k * 1.3);
+    ctx.strokeStyle = "rgba(255,255,255," + Math.max(0.2, 0.66 - k * 0.05).toFixed(2) + ")";
+    ctx.lineWidth = (1.6 + k * 0.25) * u;
+    ctx.stroke();
+  }
+
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  [[0.72, 0.17, 26], [0.82, 0.12, 18], [0.64, 0.1, 14]].forEach(([x, y, s]) => {
+    const sx = s * u * 1.6;
+    ctx.strokeStyle = "rgba(80,70,90,.42)";
+    ctx.lineWidth = 2.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(w * x - sx, h * y);
+    ctx.quadraticCurveTo(w * x - sx / 2, h * y - sx * 0.55, w * x, h * y);
+    ctx.quadraticCurveTo(w * x + sx / 2, h * y - sx * 0.55, w * x + sx, h * y);
+    ctx.stroke();
+  });
+}
+
+/* ---------- 3. 새벽숲 ---------- */
+// 안개 낀 침엽수 3겹, 틈새로 들어오는 빛살, 반딧불
+function drawQuoteForestHaze(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(3307);
+
+  let g = ctx.createRadialGradient(w * 0.28, h * 0.08, 0, w * 0.28, h * 0.08, w * 0.6);
+  g.addColorStop(0, "rgba(214,255,206,.28)");
+  g.addColorStop(1, "rgba(214,255,206,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  // 빛살
+  const tipX = w * 0.28;
+  const tipY = -h * 0.04;
+  for (let i = 0; i < 4; i++) {
+    const ex = w * (0.08 + i * 0.22);
+    const grad = ctx.createLinearGradient(tipX, tipY, ex, h * 0.9);
+    grad.addColorStop(0, "rgba(220,255,214,.11)");
+    grad.addColorStop(1, "rgba(220,255,214,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.moveTo(tipX - 6 * u, tipY);
+    ctx.lineTo(tipX + 6 * u, tipY);
+    ctx.lineTo(ex + w * 0.045, h * 0.9);
+    ctx.lineTo(ex - w * 0.045, h * 0.9);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  const pine = (x, baseY, ph, pw, color) => {
+    ctx.fillStyle = color;
+    for (let t = 0; t < 3; t++) {
+      const apexY = baseY - ph + t * ph * 0.28;
+      const botY = apexY + ph * 0.46;
+      const half = pw * (0.42 + t * 0.22);
+      ctx.beginPath();
+      ctx.moveTo(x, apexY);
+      ctx.lineTo(x + half, botY);
+      ctx.lineTo(x - half, botY);
+      ctx.closePath();
+      ctx.fill();
+    }
+  };
+  const row = (baseRatio, minH, maxH, step, color) => {
+    for (let x = -step; x < w + step; x += step * (0.7 + r() * 0.6)) {
+      const ph = (minH + r() * (maxH - minH)) * u;
+      pine(x, h * baseRatio, ph, ph * 0.5, color);
+    }
+    ctx.fillRect(0, h * baseRatio, w, h);
+  };
+  row(0.9, 110, 170, 46 * u, "rgba(34,72,62,.72)");
+  g = ctx.createLinearGradient(0, h * 0.8, 0, h * 0.95);
+  g.addColorStop(0, "rgba(190,230,210,0)");
+  g.addColorStop(0.55, "rgba(190,230,210,.12)");
+  g.addColorStop(1, "rgba(190,230,210,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, h * 0.8, w, h * 0.15);
+  ctx.fillStyle = "rgba(22,52,46,.82)";
+  row(0.96, 140, 210, 56 * u, "rgba(22,52,46,.82)");
+  row(1.02, 170, 260, 70 * u, "rgba(8,22,20,.96)");
+
+  // 반딧불
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 26; i++) {
+    // 본문 가독성: 70%는 좌우 가장자리, 나머지는 아래쪽 숲 근처에만 둔다
+    const edge = r() < 0.7;
+    const x = edge ? (r() < 0.5 ? w * r() * 0.2 : w * (0.8 + r() * 0.2)) : w * (0.2 + r() * 0.6);
+    const y = edge ? h * (0.35 + r() * 0.5) : h * (0.7 + r() * 0.18);
+    const rad = (2 + r() * 2.6) * u;
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, rad * 7);
+    glow.addColorStop(0, "rgba(226,255,150,.5)");
+    glow.addColorStop(1, "rgba(226,255,150,0)");
+    ctx.fillStyle = glow;
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "rgba(246,255,200,.9)";
+    ctx.beginPath();
+    ctx.arc(x, y, rad * 0.7, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- 4. 필름누광 ---------- */
+// 오래된 필름 가장자리로 새어 든 주황·마젠타 빛, 필름 입자, 스프로킷 구멍
+function drawQuoteFilmLeak(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(8801);
+
+  ctx.globalCompositeOperation = "screen";
+  let g = ctx.createLinearGradient(0, 0, w * 0.36, 0);
+  g.addColorStop(0, "rgba(255,96,40,.62)");
+  g.addColorStop(0.35, "rgba(255,150,50,.26)");
+  g.addColorStop(1, "rgba(255,150,50,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  g = ctx.createRadialGradient(w * 0.02, h * 0.3, 0, w * 0.02, h * 0.3, w * 0.5);
+  g.addColorStop(0, "rgba(255,50,120,.42)");
+  g.addColorStop(1, "rgba(255,50,120,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  g = ctx.createRadialGradient(w * 0.98, 0, 0, w * 0.98, 0, w * 0.4);
+  g.addColorStop(0, "rgba(255,170,60,.38)");
+  g.addColorStop(1, "rgba(255,170,60,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  g = ctx.createRadialGradient(w * 0.9, h * 1.0, 0, w * 0.9, h * 1.0, w * 0.35);
+  g.addColorStop(0, "rgba(255,90,60,.22)");
+  g.addColorStop(1, "rgba(255,90,60,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.globalCompositeOperation = "source-over";
+
+  // 필름 입자
+  for (let i = 0; i < 900; i++) {
+    const light = r() < 0.55;
+    ctx.fillStyle = light
+      ? "rgba(255,240,225," + (0.04 + r() * 0.08).toFixed(3) + ")"
+      : "rgba(0,0,0," + (0.08 + r() * 0.12).toFixed(3) + ")";
+    const s = (1 + r() * 1.8) * u;
+    ctx.fillRect(r() * w, r() * h, s, s);
+  }
+
+  // 스프로킷 구멍(위·아래)
+  const holeW = 22 * u;
+  const holeH = 14 * u;
+  const step = 46 * u;
+  ctx.fillStyle = "rgba(255,240,225,.08)";
+  for (let x = step * 0.5; x < w; x += step) {
+    ctx.beginPath();
+    ctx.roundRect
+      ? ctx.roundRect(x, 20 * u, holeW, holeH, 3 * u)
+      : ctx.rect(x, 20 * u, holeW, holeH);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.roundRect
+      ? ctx.roundRect(x, h - 20 * u - holeH, holeW, holeH, 3 * u)
+      : ctx.rect(x, h - 20 * u - holeH, holeW, holeH);
+    ctx.fill();
+  }
+
+  // 가는 필름 가장자리선
+  ctx.strokeStyle = "rgba(255,240,225,.10)";
+  ctx.lineWidth = 1.2 * u;
+  ctx.beginPath();
+  ctx.moveTo(0, 54 * u);
+  ctx.lineTo(w, 54 * u);
+  ctx.moveTo(0, h - 54 * u);
+  ctx.lineTo(w, h - 54 * u);
+  ctx.stroke();
+}
+
+/* ---------- 5. 별자리지도 ---------- */
+// 성도(星圖): 동심원 궤도, 눈금, 금빛 별자리 선, 별가루
+function drawQuoteStarChart(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(2603);
+
+  // 별가루
+  for (let i = 0; i < 100; i++) {
+    ctx.fillStyle = "rgba(220,244,244," + (0.12 + r() * 0.4).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.arc(r() * w, r() * h, (0.6 + r() * r() * 1.8) * u, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 동심원 + 눈금
+  const cx = w * 0.2;
+  const cy = h * 0.8;
+  ctx.strokeStyle = "rgba(170,225,230,.13)";
+  ctx.lineWidth = 1.4 * u;
+  [0.14, 0.26, 0.4, 0.56].forEach((k) => {
+    ctx.beginPath();
+    ctx.arc(cx, cy, w * k, 0, Math.PI * 2);
+    ctx.stroke();
+  });
+  const outer = w * 0.56;
+  ctx.strokeStyle = "rgba(170,225,230,.2)";
+  for (let d = 0; d < 360; d += 6) {
+    const a = (d * Math.PI) / 180;
+    const len = (d % 30 === 0 ? 20 : 10) * u;
+    ctx.beginPath();
+    ctx.moveTo(cx + Math.cos(a) * outer, cy + Math.sin(a) * outer);
+    ctx.lineTo(cx + Math.cos(a) * (outer - len), cy + Math.sin(a) * (outer - len));
+    ctx.stroke();
+  }
+
+  // 자오선(점선)
+  ctx.save();
+  ctx.setLineDash([4 * u, 12 * u]);
+  ctx.strokeStyle = "rgba(170,225,230,.18)";
+  ctx.lineWidth = 1.4 * u;
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.62);
+  ctx.lineTo(w, h * 0.18);
+  ctx.stroke();
+  ctx.restore();
+
+  // 별자리
+  const constellations = [
+    [[0.62, 0.14], [0.72, 0.2], [0.8, 0.13], [0.87, 0.24], [0.78, 0.33]],
+    [[0.66, 0.7], [0.76, 0.64], [0.86, 0.72], [0.82, 0.84]],
+  ];
+  constellations.forEach((pts) => {
+    ctx.strokeStyle = "rgba(255,226,160,.4)";
+    ctx.lineWidth = 1.5 * u;
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => {
+      if (i) ctx.lineTo(w * x, h * y);
+      else ctx.moveTo(w * x, h * y);
+    });
+    ctx.stroke();
+    pts.forEach(([x, y], i) => {
+      const px = w * x;
+      const py = h * y;
+      const glow = ctx.createRadialGradient(px, py, 0, px, py, 22 * u);
+      glow.addColorStop(0, "rgba(255,226,160,.38)");
+      glow.addColorStop(1, "rgba(255,226,160,0)");
+      ctx.fillStyle = glow;
+      ctx.beginPath();
+      ctx.arc(px, py, 22 * u, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "rgba(255,226,160,.26)";
+      ctx.lineWidth = 1.2 * u;
+      ctx.beginPath();
+      ctx.arc(px, py, 10 * u, 0, Math.PI * 2);
+      ctx.stroke();
+      if (i % 2 === 0) quoteTestFourPointStar(ctx, px, py, 9 * u, "rgba(255,244,214,.95)");
+      else {
+        ctx.fillStyle = "rgba(255,244,214,.95)";
+        ctx.beginPath();
+        ctx.arc(px, py, 3.4 * u, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  });
+}
+
 function drawReaderShareThemeEffect(ctx, background, width, height) {
   const effect = String(background?.effect || "");
   if (!effect) return;
@@ -11942,6 +12352,16 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     drawQuoteMoonRidge(ctx, width, height);
   } else if (effect === "prism-foil") {
     drawQuotePrismFoil(ctx, width, height);
+  } else if (effect === "frost-window") {
+    drawQuoteFrostWindow(ctx, width, height);
+  } else if (effect === "tide-lines") {
+    drawQuoteTideLines(ctx, width, height);
+  } else if (effect === "forest-haze") {
+    drawQuoteForestHaze(ctx, width, height);
+  } else if (effect === "film-leak") {
+    drawQuoteFilmLeak(ctx, width, height);
+  } else if (effect === "star-chart") {
+    drawQuoteStarChart(ctx, width, height);
   }
   ctx.restore();
 }

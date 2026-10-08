@@ -30,6 +30,11 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "watercolor-bleed", name: "워터컬러", defaultVisible: false },
   { key: "moon-ridge", name: "문라이트", defaultVisible: false },
   { key: "prism-foil", name: "프리즘", defaultVisible: false },
+  { key: "frost-window", name: "서리유리", defaultVisible: false },
+  { key: "tide-lines", name: "해변물결", defaultVisible: false },
+  { key: "forest-haze", name: "새벽숲", defaultVisible: false },
+  { key: "film-leak", name: "필름누광", defaultVisible: false },
+  { key: "star-chart", name: "별자리지도", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
