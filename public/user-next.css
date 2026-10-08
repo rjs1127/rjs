@@ -1,0 +1,321 @@
+/*
+ * Syungbook user theme preview v1 (v9.74)
+ * Preview only: activated by html.user-design-next.
+ * Shared foundation comes from design-tokens.css.
+ * Reader layout/content styling is intentionally excluded in this phase.
+ */
+
+html.user-design-next,
+html.user-design-next body {
+  background: var(--sy-page) !important;
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next body {
+  transition: background-color var(--sy-normal), color var(--sy-normal);
+}
+
+html.user-design-next .app-shell {
+  color: var(--sy-text);
+}
+
+html.user-design-next .site-header {
+  background: color-mix(in srgb, var(--sy-surface) 96%, transparent) !important;
+  border-color: var(--sy-line) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .site-header::before,
+html.user-design-next .site-header.compact-mode::before {
+  background: color-mix(in srgb, var(--sy-page) 95%, transparent) !important;
+  border-color: var(--sy-line) !important;
+}
+
+html.user-design-next .brand,
+html.user-design-next .brand-text,
+html.user-design-next .header-text-button,
+html.user-design-next .header-account-button,
+html.user-design-next .header-icon-button {
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next .brand-mark {
+  color: var(--sy-accent) !important;
+}
+
+html.user-design-next .header-icon-button,
+html.user-design-next .header-text-button,
+html.user-design-next .header-account-button,
+html.user-design-next .ghost-button,
+html.user-design-next .quick-filter-button,
+html.user-design-next .resume-shortcut-button,
+html.user-design-next .view-button,
+html.user-design-next .mobile-filter-toggle,
+html.user-design-next .quote-feed-entry-button,
+html.user-design-next .quote-feed-sort-button,
+html.user-design-next .profile-library-mode-tab,
+html.user-design-next .profile-toolbar button,
+html.user-design-next .library-more-button,
+html.user-design-next .empty-reset-button,
+html.user-design-next .modal-secondary-button,
+html.user-design-next .simple-modal-close,
+html.user-design-next .library-clear-button,
+html.user-design-next .preference-segmented button {
+  background: var(--sy-button-bg) !important;
+  border-color: var(--sy-button-border) !important;
+  color: var(--sy-button-text) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .header-icon-button:hover,
+html.user-design-next .header-text-button:hover,
+html.user-design-next .header-account-button:hover,
+html.user-design-next .ghost-button:hover,
+html.user-design-next .quick-filter-button:hover,
+html.user-design-next .resume-shortcut-button:hover,
+html.user-design-next .view-button:hover,
+html.user-design-next .mobile-filter-toggle:hover,
+html.user-design-next .quote-feed-entry-button:hover,
+html.user-design-next .quote-feed-sort-button:hover,
+html.user-design-next .profile-toolbar button:hover,
+html.user-design-next .library-more-button:hover,
+html.user-design-next .empty-reset-button:hover,
+html.user-design-next .modal-secondary-button:hover,
+html.user-design-next .simple-modal-close:hover,
+html.user-design-next .library-clear-button:hover,
+html.user-design-next .preference-segmented button:hover {
+  background: var(--sy-button-hover) !important;
+  border-color: var(--sy-line-strong) !important;
+}
+
+html.user-design-next .quick-filter-button.active,
+html.user-design-next .view-button.active,
+html.user-design-next .quote-feed-sort-button.is-active,
+html.user-design-next .profile-library-mode-tab.active,
+html.user-design-next .preference-segmented button.active,
+html.user-design-next .auth-tab.active,
+html.user-design-next .chip.active {
+  background: var(--sy-button-active-bg) !important;
+  border-color: var(--sy-accent-line) !important;
+  color: var(--sy-button-active-text) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .modal-primary-button,
+html.user-design-next .reader-search-button,
+html.user-design-next .signup-primary-button,
+html.user-design-next .profile-primary-button {
+  background: var(--sy-accent) !important;
+  border-color: var(--sy-accent) !important;
+  color: var(--sy-on-accent) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .modal-primary-button:hover,
+html.user-design-next .reader-search-button:hover,
+html.user-design-next .signup-primary-button:hover,
+html.user-design-next .profile-primary-button:hover {
+  background: var(--sy-accent-hover) !important;
+  border-color: var(--sy-accent-hover) !important;
+}
+
+html.user-design-next .search-box,
+html.user-design-next .compact-header-search,
+html.user-design-next input,
+html.user-design-next select,
+html.user-design-next textarea,
+html.user-design-next .library-search,
+html.user-design-next .sort-control select,
+html.user-design-next .mobile-sort-options select {
+  background: var(--sy-field-bg) !important;
+  color: var(--sy-field-text) !important;
+  border-color: var(--sy-field-border) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next input::placeholder,
+html.user-design-next textarea::placeholder,
+html.user-design-next .compact-header-search input::placeholder {
+  color: var(--sy-field-placeholder) !important;
+}
+
+html.user-design-next :is(input, select, textarea, button, [tabindex]):focus-visible {
+  outline: 3px solid var(--sy-focus) !important;
+  outline-offset: 2px;
+}
+
+html.user-design-next .hero {
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next .hero::before,
+html.user-design-next .hero::after {
+  opacity: 0 !important;
+}
+
+html.user-design-next .hero .eyebrow,
+html.user-design-next .hero p,
+html.user-design-next .hero-description,
+html.user-design-next .filter-label,
+html.user-design-next .filter-summary,
+html.user-design-next .content-list-topline,
+html.user-design-next .quote-feed-description,
+html.user-design-next .quote-feed-meta,
+html.user-design-next .simple-modal-description,
+html.user-design-next .simple-modal-kicker {
+  color: var(--sy-text-secondary) !important;
+}
+
+html.user-design-next .controls,
+html.user-design-next .control-card,
+html.user-design-next .content-card,
+html.user-design-next .content-list-wrap,
+html.user-design-next .status-card,
+html.user-design-next .quote-feed-page,
+html.user-design-next .quote-feed-card,
+html.user-design-next .profile-card,
+html.user-design-next .profile-library-card,
+html.user-design-next .library-modal,
+html.user-design-next .simple-modal,
+html.user-design-next .mobile-filter-sheet {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text) !important;
+  box-shadow: var(--sy-shadow-sm) !important;
+}
+
+html.user-design-next .control-card,
+html.user-design-next .content-card,
+html.user-design-next .status-card,
+html.user-design-next .simple-modal,
+html.user-design-next .profile-card,
+html.user-design-next .profile-library-card {
+  border-radius: var(--sy-radius-lg) !important;
+}
+
+html.user-design-next .content-card:hover,
+html.user-design-next .content-list tbody tr:hover,
+html.user-design-next .quote-feed-card:hover,
+html.user-design-next .profile-library-card:hover {
+  background: var(--sy-row-hover) !important;
+}
+
+html.user-design-next .content-list th,
+html.user-design-next .quote-feed-table-head,
+html.user-design-next .reader-search-table-head {
+  background: var(--sy-table-head) !important;
+  color: var(--sy-text-secondary) !important;
+  border-color: var(--sy-line) !important;
+}
+
+html.user-design-next .content-list td,
+html.user-design-next .content-list th,
+html.user-design-next .content-list-wrap,
+html.user-design-next .quote-feed-card,
+html.user-design-next .profile-library-card {
+  border-color: var(--sy-line-soft) !important;
+}
+
+html.user-design-next .chip,
+html.user-design-next .card-tag,
+html.user-design-next .reader-tag,
+html.user-design-next .profile-offline-badge,
+html.user-design-next .offline-badge {
+  background: var(--sy-chip) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-neutral-badge-text) !important;
+}
+
+html.user-design-next .card-title,
+html.user-design-next .list-title,
+html.user-design-next .simple-modal h2,
+html.user-design-next .quote-feed-head h2,
+html.user-design-next .profile-page h2,
+html.user-design-next .profile-page h3 {
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next .card-author,
+html.user-design-next .list-author,
+html.user-design-next .card-meta,
+html.user-design-next .profile-muted,
+html.user-design-next .library-item-meta {
+  color: var(--sy-text-secondary) !important;
+}
+
+html.user-design-next .simple-modal-overlay,
+html.user-design-next .mobile-filter-backdrop {
+  background: var(--sy-overlay) !important;
+}
+
+html.user-design-next .simple-modal {
+  background: var(--sy-modal-bg) !important;
+  box-shadow: var(--sy-shadow-modal) !important;
+}
+
+html.user-design-next .modal-message {
+  background: var(--sy-info-soft) !important;
+  color: var(--sy-info) !important;
+  border-color: var(--sy-accent-line) !important;
+}
+
+html.user-design-next .modal-message.error,
+html.user-design-next .status-card.error {
+  background: var(--sy-danger-soft) !important;
+  color: var(--sy-danger) !important;
+  border-color: color-mix(in srgb, var(--sy-danger) 32%, var(--sy-line)) !important;
+}
+
+html.user-design-next .network-status-banner,
+html.user-design-next .profile-offline-help-toast,
+html.user-design-next .toast,
+html.user-design-next [role="status"].toast {
+  background: var(--sy-toast-bg) !important;
+  color: var(--sy-toast-text) !important;
+  border-color: transparent !important;
+  box-shadow: var(--sy-shadow-modal) !important;
+}
+
+html.user-design-next .profile-offline-progress,
+html.user-design-next progress {
+  background: var(--sy-progress-track) !important;
+}
+
+html.user-design-next .profile-offline-progress > span,
+html.user-design-next progress::-webkit-progress-value {
+  background: var(--sy-progress-fill) !important;
+}
+
+html.user-design-next ::-webkit-scrollbar-thumb {
+  background: var(--sy-scroll-thumb);
+}
+
+/* Phase 1 intentionally leaves the actual reader surface unchanged. */
+html.user-design-next .reader-overlay,
+html.user-design-next .reader,
+html.user-design-next .reader * {
+  --sy-user-preview-reader-guard: 1;
+}
+
+@media (max-width: 840px) {
+  html.user-design-next .site-header {
+    border-radius: 0 !important;
+  }
+
+  html.user-design-next .controls {
+    background: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+  }
+
+  html.user-design-next .mobile-filter-toggle,
+  html.user-design-next .quick-filter-button,
+  html.user-design-next .resume-shortcut-button {
+    min-height: var(--sy-control-md) !important;
+    border-radius: var(--sy-radius-md) !important;
+  }
+
+  html.user-design-next .mobile-filter-sheet {
+    border-radius: var(--sy-radius-lg) var(--sy-radius-lg) 0 0 !important;
+  }
+}
