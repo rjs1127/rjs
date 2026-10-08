@@ -493,10 +493,32 @@ html.user-design-next :is(.source-badge.postype, .list-source-badge.postype) {
   color: var(--sy-source-postype-text) !important;
   border-color: color-mix(in srgb, var(--sy-source-postype-text) 18%, var(--sy-line)) !important;
 }
-html.user-design-next :is(.offline-card-badge, .offline-list-badge, .profile-offline-badge, .offline-badge, .offline-profile-entry) {
+html.user-design-next :is(.offline-card-badge, .offline-list-badge, .profile-offline-badge, .offline-badge) {
   background: var(--sy-offline-bg) !important;
   color: var(--sy-offline-text) !important;
   border-color: color-mix(in srgb, var(--sy-offline-text) 22%, var(--sy-line)) !important;
+}
+
+/* Keep offline-library rows in the same neutral surface family as other library rows.
+ * Only the compact offline badge/icon carries the semantic saved/offline accent. */
+html.user-design-next .offline-profile-entry {
+  background: var(--sy-surface) !important;
+  color: var(--sy-text) !important;
+  border-color: var(--sy-line-soft) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .offline-profile-entry:hover {
+  background: var(--sy-row-hover) !important;
+  border-color: var(--sy-line) !important;
+}
+
+html.user-design-next .offline-profile-entry :is(.offline-entry-title, .library-item-title, strong) {
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next .offline-profile-entry :is(.offline-entry-meta, .library-item-meta, small) {
+  color: var(--sy-text-secondary) !important;
 }
 html.user-design-next :is(.recent-postype-bolt) {
   color: var(--sy-warning) !important;
