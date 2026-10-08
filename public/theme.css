@@ -4961,14 +4961,27 @@ body.reader-open .network-status-banner {
 
 .profile-offline-help-toast {
   position: absolute;
-  z-index: 20;
-  top: 29px;
-  left: 0;
-  width: min(340px, calc(100vw - 44px));
+  z-index: 40;
+  top: 34px;
+  right: 0;
+  left: auto;
+  width: min(320px, calc(100vw - 32px));
   max-width: 100%;
   margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--theme-line);
+  border-radius: 12px;
+  background: var(--theme-secondary-bg);
+  color: var(--theme-text);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .14);
   font-size: 11px;
   line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+.profile-offline-help-toast[hidden] {
+  display: none !important;
 }
 
 @media (max-width: 640px) {
@@ -4981,6 +4994,8 @@ body.reader-open .network-status-banner {
   }
 
   .profile-offline-help-toast {
-    width: min(320px, calc(100vw - 32px));
+    top: 32px;
+    right: 0;
+    width: min(300px, calc(100vw - 24px));
   }
 }

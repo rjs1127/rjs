@@ -869,14 +869,27 @@ html.user-design-next .profile-offline-actions-buttons {
 
 html.user-design-next .profile-offline-help-toast {
   position: absolute;
-  z-index: 20;
-  top: 29px;
-  left: 0;
-  width: min(340px, calc(100vw - 44px));
+  z-index: 40;
+  top: 34px;
+  right: 0;
+  left: auto;
+  width: min(320px, calc(100vw - 32px));
   max-width: 100%;
   margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--sy-line) !important;
+  border-radius: 12px;
+  background: var(--sy-toast-bg) !important;
+  color: var(--sy-toast-text) !important;
+  box-shadow: var(--sy-shadow-modal) !important;
   font-size: 11px;
   line-height: 1.55;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+html.user-design-next .profile-offline-help-toast[hidden] {
+  display: none !important;
 }
 
 @media (max-width: 640px) {
@@ -889,6 +902,8 @@ html.user-design-next .profile-offline-help-toast {
   }
 
   html.user-design-next .profile-offline-help-toast {
-    width: min(320px, calc(100vw - 32px));
+    top: 32px;
+    right: 0;
+    width: min(300px, calc(100vw - 24px));
   }
 }
