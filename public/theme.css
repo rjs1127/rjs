@@ -4915,3 +4915,72 @@ body.reader-open .network-status-banner {
     justify-content: flex-end;
   }
 }
+
+/* v9.87 - offline storage meter / actions alignment (base + ?ui=next)
+   Keep storage information full-width, make the filled amount visible,
+   and render help as an anchored popover instead of an in-flow block. */
+.profile-offline-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  margin: 10px 0 12px;
+  padding: 12px 0 2px;
+}
+
+.profile-offline-storage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+.profile-offline-storage-head {
+  margin-bottom: 8px;
+}
+
+.profile-offline-usage-bar {
+  width: 100%;
+  height: 6px;
+}
+
+.profile-offline-usage-bar > span {
+  background: var(--theme-primary-bg);
+  opacity: 1;
+}
+
+.profile-offline-usage-text {
+  margin-top: 6px;
+}
+
+.profile-offline-actions-buttons {
+  width: 100%;
+  justify-content: flex-end;
+  margin-top: 1px;
+}
+
+.profile-offline-help-toast {
+  position: absolute;
+  z-index: 20;
+  top: 29px;
+  left: 0;
+  width: min(340px, calc(100vw - 44px));
+  max-width: 100%;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  .profile-offline-actions {
+    gap: 8px;
+  }
+
+  .profile-offline-actions-buttons {
+    justify-content: flex-end;
+  }
+
+  .profile-offline-help-toast {
+    width: min(320px, calc(100vw - 32px));
+  }
+}

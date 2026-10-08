@@ -837,3 +837,58 @@ html.user-design-next .profile-offline-actions-buttons .profile-secondary-button
     justify-content: flex-end;
   }
 }
+
+/* v9.87 - keep next-theme offline storage layout identical to the base layout;
+   only colors remain theme-specific. */
+html.user-design-next .profile-offline-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+  margin: 10px 0 12px;
+  padding: 12px 0 2px;
+}
+
+html.user-design-next .profile-offline-storage {
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+}
+
+html.user-design-next .profile-offline-usage-bar {
+  width: 100%;
+  height: 6px;
+}
+
+html.user-design-next .profile-offline-actions-buttons {
+  width: 100%;
+  justify-content: flex-end;
+  margin-top: 1px;
+}
+
+html.user-design-next .profile-offline-help-toast {
+  position: absolute;
+  z-index: 20;
+  top: 29px;
+  left: 0;
+  width: min(340px, calc(100vw - 44px));
+  max-width: 100%;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+@media (max-width: 640px) {
+  html.user-design-next .profile-offline-actions {
+    gap: 8px;
+  }
+
+  html.user-design-next .profile-offline-actions-buttons {
+    justify-content: flex-end;
+  }
+
+  html.user-design-next .profile-offline-help-toast {
+    width: min(320px, calc(100vw - 32px));
+  }
+}
