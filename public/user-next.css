@@ -319,3 +319,216 @@ html.user-design-next .reader * {
     border-radius: var(--sy-radius-lg) var(--sy-radius-lg) 0 0 !important;
   }
 }
+
+/* =========================================================
+   v9.75 preview hardening: make the whole user shell consume
+   the shared semantic palette instead of legacy beige/purple.
+   Reader body typography/background remains intentionally out.
+   ========================================================= */
+html.user-design-next {
+  /* Legacy variable bridge for style.css/theme.css while preview is active. */
+  --bg: var(--sy-page);
+  --surface: var(--sy-surface);
+  --surface-strong: var(--sy-surface-elevated);
+  --ink: var(--sy-text);
+  --muted: var(--sy-text-secondary);
+  --line: var(--sy-line);
+  --line-soft: var(--sy-line-soft);
+  --accent: var(--sy-accent);
+  --chip: var(--sy-chip);
+  --shadow: var(--sy-shadow-sm);
+  --radius-md: var(--sy-radius-lg);
+  --radius-lg: 16px;
+
+  --theme-page: var(--sy-page);
+  --theme-surface: var(--sy-surface);
+  --theme-surface-strong: var(--sy-surface-elevated);
+  --theme-surface-soft: var(--sy-surface-subtle);
+  --theme-text: var(--sy-text);
+  --theme-muted: var(--sy-text-secondary);
+  --theme-line: var(--sy-line);
+  --theme-line-soft: var(--sy-line-soft);
+  --theme-secondary-bg: var(--sy-control);
+  --theme-secondary-hover: var(--sy-control-hover);
+}
+
+/* Neutral utility surfaces: remove warm legacy tints. */
+html.user-design-next :is(
+  .view-switch,
+  .auth-tabs,
+  .signup-benefits > div,
+  .help-points > div,
+  .library-entry,
+  .account-preference-row,
+  .detailed-help-sections section,
+  .feedback-account-fields,
+  .my-library-detail-card,
+  .quote-feed-sort-group,
+  .reader-share-saved-panel
+) {
+  background: var(--sy-surface-subtle) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next :is(
+  .clear-search,
+  .card-arrow,
+  .empty-symbol,
+  .reader-filename,
+  .my-library-counts,
+  .my-library-modal-meta,
+  .my-library-detail-kind
+) {
+  color: var(--sy-text-tertiary) !important;
+}
+
+html.user-design-next .spinner,
+html.user-design-next .reader-pending-spinner {
+  border-color: var(--sy-line-strong) !important;
+  border-top-color: var(--sy-accent) !important;
+}
+
+/* State colors: consistent in light and dark. */
+html.user-design-next :is(.signup-warning, .reader-tag.warning, .recent-postype-new-badge) {
+  background: var(--sy-warning-soft) !important;
+  border-color: color-mix(in srgb, var(--sy-warning) 28%, var(--sy-line)) !important;
+  color: var(--sy-warning) !important;
+}
+html.user-design-next .signup-warning :is(strong, p) {
+  color: var(--sy-warning) !important;
+}
+html.user-design-next :is(.feedback-message.is-error, .feedback-turnstile-wrap > small.is-error, .reader-error, .profile-secondary-button.danger, .offline-entry-delete) {
+  color: var(--sy-danger) !important;
+}
+html.user-design-next :is(.reading-state-badge.read, .preference-toggle.active, .signup-complete-icon) {
+  background: var(--sy-accent) !important;
+  border-color: var(--sy-accent) !important;
+  color: var(--sy-on-accent) !important;
+}
+html.user-design-next .reading-state-badge:not(.read),
+html.user-design-next .list-status,
+html.user-design-next .card-status {
+  background: var(--sy-neutral-badge-bg) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-neutral-badge-text) !important;
+}
+
+/* Source/tag palette: cool, deliberate accents instead of old beige/purple. */
+html.user-design-next :is(.source-badge.drive, .list-source-badge.drive) {
+  background: var(--sy-source-drive-bg) !important;
+  color: var(--sy-source-drive-text) !important;
+  border-color: color-mix(in srgb, var(--sy-source-drive-text) 18%, var(--sy-line)) !important;
+}
+html.user-design-next :is(.source-badge.postype, .list-source-badge.postype) {
+  background: var(--sy-source-postype-bg) !important;
+  color: var(--sy-source-postype-text) !important;
+  border-color: color-mix(in srgb, var(--sy-source-postype-text) 18%, var(--sy-line)) !important;
+}
+html.user-design-next :is(.offline-card-badge, .offline-list-badge, .profile-offline-badge, .offline-badge, .offline-profile-entry) {
+  background: var(--sy-offline-bg) !important;
+  color: var(--sy-offline-text) !important;
+  border-color: color-mix(in srgb, var(--sy-offline-text) 22%, var(--sy-line)) !important;
+}
+html.user-design-next :is(.recent-postype-bolt) {
+  color: var(--sy-warning) !important;
+}
+html.user-design-next :is(.card-tag.card-cp-tag) {
+  background: var(--sy-chip) !important;
+  color: var(--sy-neutral-badge-text) !important;
+}
+
+/* Auth, profile and library controls. */
+html.user-design-next :is(.auth-form input, .reader-memo-input) {
+  background: var(--sy-field-bg) !important;
+  border-color: var(--sy-field-border) !important;
+  color: var(--sy-field-text) !important;
+}
+html.user-design-next :is(.my-library-modal-tabs button, .my-library-detail-actions button, .reader-memo-actions button) {
+  background: var(--sy-button-bg) !important;
+  border-color: var(--sy-button-border) !important;
+  color: var(--sy-button-text) !important;
+}
+html.user-design-next .my-library-modal-tabs button.active,
+html.user-design-next .my-library-modal-tabs button[aria-selected="true"] {
+  background: var(--sy-button-active-bg) !important;
+  border-color: var(--sy-accent-line) !important;
+  color: var(--sy-button-active-text) !important;
+}
+html.user-design-next .library-entry-open:hover,
+html.user-design-next .library-entry-remove:hover {
+  background: var(--sy-row-hover) !important;
+}
+html.user-design-next .library-entry-remove {
+  color: var(--sy-text-tertiary) !important;
+  border-color: var(--sy-line-soft) !important;
+}
+
+/* Likes/share/public-state UI. */
+html.user-design-next :is(.item-like-button.active, .reader-like-button.active, .reader-header-actions > .reader-like-button.active) {
+  background: var(--sy-like-bg) !important;
+  border-color: color-mix(in srgb, var(--sy-like-text) 28%, var(--sy-line)) !important;
+  color: var(--sy-like-text) !important;
+}
+html.user-design-next :is(.reader-share-action.saved, .profile-quote-share-button[aria-pressed="true"]) {
+  background: var(--sy-success-soft) !important;
+  border-color: color-mix(in srgb, var(--sy-success) 25%, var(--sy-line)) !important;
+  color: var(--sy-success) !important;
+}
+html.user-design-next :is(.reader-share-saved-head, .reader-share-public-copy strong) {
+  color: var(--sy-text) !important;
+}
+html.user-design-next :is(.reader-share-public-toggle, .profile-quote-share-toggle-track) {
+  background: var(--sy-surface-muted) !important;
+}
+html.user-design-next .profile-quote-share-toggle[aria-checked="true"] .profile-quote-share-toggle-track,
+html.user-design-next .reader-share-public-toggle[aria-checked="true"] {
+  background: var(--sy-accent) !important;
+}
+
+/* Quote feed/list chrome: no warm translucent leftovers. */
+html.user-design-next :is(
+  .quote-feed-entry-button,
+  .content-list-meta-bar .quote-feed-entry-button,
+  .content-section .section-head-actions .quote-feed-entry-button,
+  .quote-feed-like-button,
+  .quote-feed-detail-date
+) {
+  background: var(--sy-control) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text-secondary) !important;
+  box-shadow: none !important;
+}
+
+/* Scroll-to-top and compact icon affordances. */
+html.user-design-next .page-scroll-top {
+  background: var(--sy-surface-elevated) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text) !important;
+  box-shadow: var(--sy-shadow-modal) !important;
+}
+html.user-design-next .page-scroll-top:hover {
+  background: var(--sy-control-hover) !important;
+}
+html.user-design-next :is(.cat-mark, .account-avatar, .resume-shortcut-icon) {
+  background: var(--sy-accent) !important;
+  color: var(--sy-on-accent) !important;
+}
+
+/* Preview theme owns user-shell scrollbars too. */
+html.user-design-next {
+  scrollbar-color: var(--sy-scroll-thumb) transparent;
+}
+
+/* Mobile density: keep the new palette calm rather than card-heavy. */
+@media (max-width: 640px) {
+  html.user-design-next :is(.content-card, .profile-library-card, .quote-feed-card) {
+    border-radius: var(--sy-radius-md) !important;
+    box-shadow: none !important;
+  }
+
+  html.user-design-next :is(.source-badge, .list-source-badge, .reading-state-badge, .offline-badge, .offline-list-badge) {
+    box-shadow: none !important;
+  }
+}

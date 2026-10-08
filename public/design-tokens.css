@@ -29,8 +29,8 @@ html.theme-light {
 
   --sy-success: #1f7a55;
   --sy-success-soft: #edf8f3;
-  --sy-warning: #9a6817;
-  --sy-warning-soft: #fff7e8;
+  --sy-warning: #8a640d;
+  --sy-warning-soft: #fff9df;
   --sy-danger: #b64550;
   --sy-danger-soft: #fff1f2;
   --sy-info: #356fd6;
@@ -63,6 +63,14 @@ html.theme-light {
 
   --sy-neutral-badge-bg: #eef3f8;
   --sy-neutral-badge-text: #56657a;
+  --sy-source-drive-bg: #edf4ff;
+  --sy-source-drive-text: #2f5fae;
+  --sy-source-postype-bg: #f1efff;
+  --sy-source-postype-text: #6555ad;
+  --sy-offline-bg: #eef7f3;
+  --sy-offline-text: #39725c;
+  --sy-like-bg: #fff1f4;
+  --sy-like-text: #a84d62;
 
   --sy-control: #ffffff;
   --sy-control-hover: #f7f9fc;
@@ -126,8 +134,8 @@ html.theme-dark {
 
   --sy-success: #68c59b;
   --sy-success-soft: #143126;
-  --sy-warning: #e6b45d;
-  --sy-warning-soft: #342914;
+  --sy-warning: #e8bf62;
+  --sy-warning-soft: #2b2718;
   --sy-danger: #f08a94;
   --sy-danger-soft: #391d22;
   --sy-info: #79a8ff;
@@ -159,6 +167,14 @@ html.theme-dark {
 
   --sy-neutral-badge-bg: #212b39;
   --sy-neutral-badge-text: #b5c0d0;
+  --sy-source-drive-bg: #172845;
+  --sy-source-drive-text: #a8c8ff;
+  --sy-source-postype-bg: #24223d;
+  --sy-source-postype-text: #c9c2ff;
+  --sy-offline-bg: #173128;
+  --sy-offline-text: #8ed1b3;
+  --sy-like-bg: #361f2a;
+  --sy-like-text: #f0a4b3;
 
   --sy-control: #161d28;
   --sy-control-hover: #1b2431;

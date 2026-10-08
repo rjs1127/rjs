@@ -504,3 +504,8 @@
 - 사용자 화면도 색상 source of truth는 `public/design-tokens.css`의 `--sy-*` 토큰을 사용한다. 새 adapter에 베이지/보라/검정 하드코딩 팔레트를 추가하지 않는다.
 - 1차 전환 범위는 헤더·버튼·입력·필터·목록/카드·모달·토스트·배지 같은 공통 UI로 제한하며 reader 본문/페이지 모드/이어보기/검색/저장 시맨틱은 변경하지 않는다.
 - 미리보기 승인 전에는 `user-design-next`를 기본 활성화하거나 기존 `theme.css`를 삭제·치환하지 않는다. 이후 단계도 목록/카드 보정 → 뷰어 순으로 진행한다.
+
+### v9.75 사용자 테마 미리보기 규칙
+- `html.user-design-next`는 기존 `style.css`/`theme.css`의 레거시 색상 변수(`--bg`, `--surface`, `--ink`, `--theme-*`)를 `--sy-*` 의미 토큰으로 연결한다.
+- 새 사용자 테마에서는 베이지/보라 등 직접 색상을 컴포넌트별로 추가하지 말고 `neutral/info/success/warning/danger`, source, offline, like 의미 토큰을 사용한다.
+- 사용자 테마 전환은 shell/components부터 진행하고 실제 reader body는 별도 단계에서 적용한다.
