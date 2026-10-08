@@ -10745,9 +10745,12 @@ function ensureReaderShareUi() {
     .reader-share-preview-wrap { display:flex; justify-content:center; padding:2px 0 10px; }
     .reader-share-card { position:relative; width:min(82vw, 380px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease,opacity .16s ease; }
     .reader-share-card.is-render-loading { opacity:.92; background:var(--surface,#f3f4f6) !important; }
-    .reader-share-card.is-render-loading > :not(.reader-share-card-render) { visibility:hidden; }
+    .reader-share-card.is-render-loading > :not(.reader-share-card-render):not(.reader-share-render-loading) { visibility:hidden; }
     .reader-share-card-render { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; z-index:3; background:transparent; }
     .reader-share-card-render[hidden] { display:none !important; }
+    .reader-share-render-loading { position:absolute; inset:0; z-index:5; display:grid; place-items:center; pointer-events:none; }
+    .reader-share-render-loading[hidden] { display:none !important; }
+    .reader-share-render-loading .spinner { width:64px; height:6px; }
     .reader-share-card[data-ratio="2:3"] { aspect-ratio:2/3; width:min(68vw, 300px); }
     .reader-share-card[data-ratio="4:5"] { aspect-ratio:4/5; width:min(72vw, 340px); }
     .reader-share-card::before { content:""; position:absolute; inset:0; background:rgba(0,0,0,.02); pointer-events:none; }
@@ -10852,6 +10855,7 @@ function ensureReaderShareUi() {
         <div class="reader-share-preview-wrap">
           <div class="reader-share-card" data-ratio="1:1">
             <img class="reader-share-card-render" alt="문장 이미지 미리보기" hidden />
+            <div class="reader-share-render-loading" aria-label="문장 이미지 생성 중"><span class="spinner" aria-hidden="true"></span></div>
             <div class="reader-share-card-brand">
               <svg viewBox="0 0 32 32" aria-hidden="true">
                 <path d="M8.3 11.6 6.7 6.8l5.1 2.7A11.7 11.7 0 0 1 16 8.7c1.5 0 2.9.3 4.2.8l5.1-2.7-1.6 4.8a9.2 9.2 0 0 1 2 5.7c0 5.2-4.3 9-9.7 9s-9.7-3.8-9.7-9c0-2.2.7-4.1 2-5.7Z" fill="currentColor"></path>
@@ -10946,6 +10950,7 @@ function ensureReaderShareUi() {
   const input = backdrop.querySelector(".reader-share-input");
   const card = backdrop.querySelector(".reader-share-card");
   const renderImage = backdrop.querySelector(".reader-share-card-render");
+  const renderLoading = backdrop.querySelector(".reader-share-render-loading");
   const quote = backdrop.querySelector(".reader-share-card-quote");
   const quoteText = backdrop.querySelector(".reader-share-card-quote-text");
   const meta = backdrop.querySelector(".reader-share-card-meta");
@@ -10988,6 +10993,7 @@ function ensureReaderShareUi() {
       renderImage.hidden = true;
       renderImage.removeAttribute("src");
     }
+    if (renderLoading) renderLoading.hidden = true;
     card?.classList.remove("is-render-loading");
     lastSavedQuote = null;
     state.readerShareText = "";
@@ -11324,7 +11330,7 @@ function ensureReaderShareUi() {
     bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
-readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -12706,6 +12712,7 @@ function showReaderShareRenderedBlob(blob, key) {
     readerSharePreviewKey = key;
     readerShareUi.renderImage.src = nextUrl;
     readerShareUi.renderImage.hidden = false;
+    if (readerShareUi.renderLoading) readerShareUi.renderLoading.hidden = true;
     readerShareUi.card?.classList.remove("is-render-loading");
   }
   postReaderShareAdminOutputBlob(blob);
@@ -12724,6 +12731,7 @@ function scheduleReaderShareUnifiedRender(delay = 280) {
       showReaderShareRenderedBlob(readerSharePreparedBlob, key);
     } else {
       readerShareUi?.card?.classList.remove("is-render-loading");
+      if (readerShareUi?.renderLoading) readerShareUi.renderLoading.hidden = true;
       if (readerShareUi?.renderImage) readerShareUi.renderImage.hidden = false;
       postReaderShareAdminOutputBlob(readerSharePreparedBlob);
     }
@@ -12751,6 +12759,7 @@ function scheduleReaderShareUnifiedRender(delay = 280) {
       console.warn("reader share image pre-render failed", error);
       if (generation !== readerSharePreviewGeneration) return;
       readerShareUi?.card?.classList.remove("is-render-loading");
+      if (readerShareUi?.renderLoading) readerShareUi.renderLoading.hidden = true;
       if (readerShareUi?.renderImage) readerShareUi.renderImage.hidden = true;
     }).finally(() => {
       if (readerSharePreparePromise === promise) {
@@ -12951,6 +12960,7 @@ function updateReaderSharePreview() {
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
   if (ui.card) ui.card.classList.add("is-render-loading");
   if (ui.renderImage) ui.renderImage.hidden = true;
+  if (ui.renderLoading) ui.renderLoading.hidden = false;
   postReaderShareAdminPreview(background);
   scheduleReaderShareUnifiedRender(READER_SHARE_ADMIN_EMBED_MODE ? 300 : 280);
   updateReaderShareActionLabel();
@@ -13170,7 +13180,8 @@ function syncReaderShareSelection() {
 
     state.readerShareText = selected.text;
     state.readerShareLocation = selected.location;
-    scheduleReaderShareBlobPreparation(0);
+    // Selection dragging must stay lightweight. The full 1200px Canvas PNG is
+    // prepared only after the user actually opens the 문장 이미지 editor.
     const margin = 24;
     const buttonSize = 38;
     let x;
