@@ -706,7 +706,7 @@ const READER_FONT_FAMILIES = {
   chosunilbo: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
   inkliquid: 'InkLiquid, cursive',
   kopubbatang: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
-  suit: '"SUIT Variable", SUIT, Pretendard, "Noto Sans KR", sans-serif',
+  nanumneo: '"NanumSquareNeo", Pretendard, "Noto Sans KR", sans-serif',
   bookkmyungjo: 'BookkMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
   mapoflower: 'MapoFlowerIsland, "Noto Serif KR", "Nanum Myeongjo", serif',
   gowunbatang: '"Gowun Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
@@ -792,10 +792,10 @@ const READER_LAZY_FONT_CONFIG = {
     href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css",
     test: '400 32px "Pretendard Variable"',
   },
-  suit: {
-    id: "readerFontSuit",
-    href: "https://cdn.jsdelivr.net/gh/sun-typeface/SUIT@2/fonts/variable/woff2/SUIT-Variable.css",
-    test: '400 32px "SUIT Variable"',
+  nanumneo: {
+    id: "readerFontNanumSquareNeo",
+    href: "/reader-font-nanumsquareneo.css?v=980",
+    test: '400 32px "NanumSquareNeo"',
   },
   bookkmyungjo: {
     id: "readerFontBookkMyungjo",
@@ -944,6 +944,7 @@ function getSavedReaderFontFamily() {
   const value = getViewerPreferenceStorage().getItem(READER_FONT_FAMILY_KEY);
   if (value === "pretendard") return "default";
   if (value === "gowundodum") return "default";
+  if (value === "suit") return "nanumneo";
   return Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, value)
     ? value
     : "ridibatang";
@@ -10325,7 +10326,7 @@ const READER_SHARE_FONTS = [
   { key: "inkliquid", label: "잉크립퀴드", css: READER_FONT_FAMILIES.inkliquid, weight: 400 },
   { key: "kopubbatang", label: "KoPub 바탕", css: READER_FONT_FAMILIES.kopubbatang, weight: 400 },
   { key: "default", label: "프리텐다드", css: READER_FONT_FAMILIES.default, weight: 400 },
-  { key: "suit", label: "SUIT", css: READER_FONT_FAMILIES.suit, weight: 400 },
+  { key: "nanumneo", label: "나눔네오", css: READER_FONT_FAMILIES.nanumneo, weight: 400 },
   { key: "bookkmyungjo", label: "부크크명조", css: READER_FONT_FAMILIES.bookkmyungjo, weight: 400 },
   { key: "mapoflower", label: "마포꽃섬", css: READER_FONT_FAMILIES.mapoflower, weight: 400 },
   { key: "gowunbatang", label: "고운바탕", css: READER_FONT_FAMILIES.gowunbatang, weight: 400 },
@@ -10372,6 +10373,7 @@ function ensureReaderShareState() {
   if (!Number.isInteger(state.readerShareBackground)) state.readerShareBackground = 0;
   if (!["1:1", "4:5", "2:3"].includes(state.readerShareRatio)) state.readerShareRatio = "1:1";
   if (!state.readerShareFont) state.readerShareFont = "paperlogy";
+  if (state.readerShareFont === "suit") state.readerShareFont = "nanumneo";
   if (!READER_SHARE_SIZES[state.readerShareSize]) state.readerShareSize = "xs";
   if (state.readerShareWeight === "semibold") state.readerShareWeight = "regular";
   if (!["light", "regular", "bold"].includes(state.readerShareWeight)) state.readerShareWeight = "regular";
@@ -10460,6 +10462,9 @@ function ensureReaderShareUi() {
     .reader-share-action.secondary { background:rgba(255,255,255,.64); color:inherit; }
     .reader-share-action:disabled { opacity:.56; cursor:wait; }
     .reader-share-options { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+    .reader-share-fonts { display:grid; grid-template-rows:repeat(2,max-content); grid-auto-flow:column; grid-auto-columns:max-content; gap:7px; overflow-x:auto; overflow-y:hidden; max-width:100%; padding:1px 1px 4px; overscroll-behavior-inline:contain; scroll-snap-type:x proximity; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+    .reader-share-fonts::-webkit-scrollbar { display:none; }
+    .reader-share-fonts .reader-share-chip { white-space:nowrap; scroll-snap-align:start; }
     .reader-share-chip { border:1px solid rgba(91,75,99,.17); background:rgba(255,255,255,.56); color:inherit; border-radius:10px; min-height:34px; padding:7px 10px; font-size:12px; font-weight:700; cursor:pointer; }
     .reader-share-chip.active { border-color:#5a4e45; color:#3f372f; background:rgba(90,78,69,.1); box-shadow:0 0 0 1px rgba(90,78,69,.06); }
     .reader-share-chip:disabled { opacity:.38; cursor:not-allowed; box-shadow:none; }
