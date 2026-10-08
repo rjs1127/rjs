@@ -1178,6 +1178,8 @@ const els = {
   quoteFeedStatus: document.getElementById("quoteFeedStatus"),
   quoteFeedMoreWrap: document.getElementById("quoteFeedMoreWrap"),
   quoteFeedMoreButton: document.getElementById("quoteFeedMoreButton"),
+  quoteFeedMoreLabel: document.getElementById("quoteFeedMoreLabel"),
+  quoteFeedMoreProgress: document.getElementById("quoteFeedMoreProgress"),
   quoteFeedModal: document.getElementById("quoteFeedModal"),
   quoteFeedModalPreview: document.getElementById("quoteFeedModalPreview"),
   quoteFeedModalText: document.getElementById("quoteFeedModalText"),
@@ -2651,7 +2653,12 @@ function renderQuoteFeed() {
   }
   if (els.quoteFeedMoreButton) {
     els.quoteFeedMoreButton.disabled = state.quoteFeedLoading;
-    els.quoteFeedMoreButton.textContent = state.quoteFeedLoading ? "불러오는 중…" : "문장 더보기";
+  }
+  if (els.quoteFeedMoreLabel) {
+    els.quoteFeedMoreLabel.textContent = state.quoteFeedLoading ? "불러오는 중…" : "더보기 18개";
+  }
+  if (els.quoteFeedMoreProgress) {
+    els.quoteFeedMoreProgress.textContent = items.length ? `${items.length.toLocaleString("ko-KR")}개 표시 중` : "";
   }
 }
 
