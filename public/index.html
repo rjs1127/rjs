@@ -94,11 +94,25 @@
     .viewer-font-options { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
     .viewer-font-option { min-width:0; min-height:32px; padding:5px 6px; border:1px solid var(--theme-line,#ddd7ce); border-radius:9px; background:var(--theme-surface-strong,#fff); color:var(--theme-text,#191816); font-size:11px; line-height:1.2; cursor:pointer; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .viewer-font-option.active { background:var(--theme-primary-bg,#191816); color:var(--theme-primary-text,#fff); border-color:var(--theme-primary-bg,#191816); }
+    .viewer-font-picker { min-width:0; }
+    .viewer-font-more { margin:5px 1px 0 auto; padding:1px 2px; border:0; background:transparent; color:var(--theme-muted,#77716a); display:flex; align-items:center; gap:3px; min-height:20px; font:inherit; font-size:10px; line-height:1; cursor:pointer; }
+    .viewer-font-more:hover { color:var(--theme-text,#191816); }
+    .viewer-font-more:focus-visible { outline:2px solid var(--theme-accent,#4f7edc); outline-offset:2px; border-radius:4px; }
+    .viewer-font-more-arrow { display:inline-block; font-size:9px; line-height:1; transition:transform .16s ease; transform:translateY(-1px); }
+    .viewer-font-more[aria-expanded="true"] .viewer-font-more-arrow { transform:translateY(1px) rotate(180deg); }
+    .viewer-font-options-extra { margin-top:5px; }
+    .viewer-font-options-extra[hidden] { display:none !important; }
     .viewer-font-option[data-reader-font-family="paperlogy"] { font-family:'Paperozi',sans-serif; font-weight:500; }
     .viewer-font-option[data-reader-font-family="ridibatang"] { font-family:'Ridibatang',serif; }
     .viewer-font-option[data-reader-font-family="chosunilbo"] { font-family:'ChosunIlboMyungjo',serif; }
     .viewer-font-option[data-reader-font-family="inkliquid"] { font-family:'InkLiquid',cursive; }
     html[data-kopub="ready"] .viewer-font-option[data-reader-font-family="kopubbatang"] { font-family:'KoPub Batang',serif; }
+    html[data-reader-font-ready~="pretendard"] .viewer-font-option[data-reader-font-family="pretendard"] { font-family:'Pretendard Variable','Pretendard',sans-serif; }
+    html[data-reader-font-ready~="suit"] .viewer-font-option[data-reader-font-family="suit"] { font-family:'SUIT',sans-serif; }
+    html[data-reader-font-ready~="gowundodum"] .viewer-font-option[data-reader-font-family="gowundodum"] { font-family:'Gowun Dodum',sans-serif; }
+    html[data-reader-font-ready~="gowunbatang"] .viewer-font-option[data-reader-font-family="gowunbatang"] { font-family:'Gowun Batang',serif; }
+    html[data-reader-font-ready~="maruburi"] .viewer-font-option[data-reader-font-family="maruburi"] { font-family:'Maru Buri',serif; }
+    html[data-reader-font-ready~="galmuri"] .viewer-font-option[data-reader-font-family="galmuri"] { font-family:'Galmuri11',sans-serif; }
     .library-more-wrap { padding-top:7px !important; }
     .library-more-button { min-height:32px !important; padding:5px 10px !important; border-radius:9px !important; font-size:11px !important; gap:6px !important; }
     .library-more-button small { font-size:9px !important; opacity:.7; }
@@ -1035,13 +1049,26 @@
             <strong>뷰어 글꼴</strong>
             <span>본문에 사용할 글꼴을 선택합니다.</span>
           </div>
-          <div class="viewer-font-options" role="group" aria-label="뷰어 글꼴">
-            <button type="button" class="viewer-font-option" data-reader-font-family="ridibatang">리디바탕</button>
-            <button type="button" class="viewer-font-option" data-reader-font-family="paperlogy">페이퍼로지</button>
-            <button type="button" class="viewer-font-option" data-reader-font-family="chosunilbo">조선일보명조</button>
-            <button type="button" class="viewer-font-option" data-reader-font-family="inkliquid">잉크립퀴드</button>
-            <button type="button" class="viewer-font-option" data-reader-font-family="kopubbatang">KoPub 바탕</button>
-            <button type="button" class="viewer-font-option" data-reader-font-family="default">기본</button>
+          <div class="viewer-font-picker">
+            <div class="viewer-font-options" role="group" aria-label="뷰어 글꼴">
+              <button type="button" class="viewer-font-option" data-reader-font-family="ridibatang">리디바탕</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="paperlogy">페이퍼로지</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="chosunilbo">조선일보명조</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="inkliquid">잉크립퀴드</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="kopubbatang">KoPub 바탕</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="default">기본</button>
+            </div>
+            <button id="viewerFontMoreButton" class="viewer-font-more" type="button" aria-expanded="false" aria-controls="viewerFontExtraOptions">
+              <span>더보기</span><span class="viewer-font-more-arrow" aria-hidden="true">⌄</span>
+            </button>
+            <div id="viewerFontExtraOptions" class="viewer-font-options viewer-font-options-extra" role="group" aria-label="추가 뷰어 글꼴" hidden>
+              <button type="button" class="viewer-font-option" data-reader-font-family="pretendard">프리텐다드</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="suit">SUIT</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="gowundodum">고운돋움</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="gowunbatang">고운바탕</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="maruburi">마루 부리</button>
+              <button type="button" class="viewer-font-option" data-reader-font-family="galmuri">갈무리</button>
+            </div>
           </div>
         </div>
 
@@ -1111,6 +1138,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=968" defer></script>
+  <script src="/app.js?v=976" defer></script>
 </body>
 </html>

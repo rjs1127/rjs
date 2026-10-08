@@ -706,6 +706,12 @@ const READER_FONT_FAMILIES = {
   chosunilbo: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif',
   inkliquid: 'InkLiquid, cursive',
   kopubbatang: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
+  pretendard: '"Pretendard Variable", Pretendard, "Noto Sans KR", sans-serif',
+  suit: 'SUIT, Pretendard, "Noto Sans KR", sans-serif',
+  gowundodum: '"Gowun Dodum", "Noto Sans KR", sans-serif',
+  gowunbatang: '"Gowun Batang", "Noto Serif KR", "Nanum Myeongjo", serif',
+  maruburi: '"Maru Buri", "Noto Serif KR", "Nanum Myeongjo", serif',
+  galmuri: 'Galmuri11, Pretendard, "Noto Sans KR", sans-serif',
 };
 
 const KOPUB_FONT_STYLESHEET_ID = "kopubFontStylesheet";
@@ -777,6 +783,114 @@ function ensureKopubFont() {
   });
 
   return kopubFontReadyPromise;
+}
+
+
+const READER_LAZY_FONT_CONFIG = {
+  pretendard: {
+    id: "readerFontPretendard",
+    href: "https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css",
+    test: '400 32px "Pretendard Variable"',
+  },
+  suit: {
+    id: "readerFontSuit",
+    href: "https://cdn.jsdelivr.net/gh/fonts-archive/SUIT/SUIT.css",
+    test: '400 32px "SUIT"',
+  },
+  gowundodum: {
+    id: "readerFontGowunDodum",
+    href: "https://fonts.googleapis.com/css2?family=Gowun+Dodum&display=swap",
+    test: '400 32px "Gowun Dodum"',
+  },
+  gowunbatang: {
+    id: "readerFontGowunBatang",
+    href: "https://fonts.googleapis.com/css2?family=Gowun+Batang&display=swap",
+    test: '400 32px "Gowun Batang"',
+  },
+  maruburi: {
+    id: "readerFontMaruBuri",
+    href: "https://cdn.jsdelivr.net/gh/fonts-archive/MaruBuri/MaruBuri.css",
+    test: '400 32px "Maru Buri"',
+  },
+  galmuri: {
+    id: "readerFontGalmuri",
+    href: "https://cdn.jsdelivr.net/gh/fonts-archive/Galmuri11/subsets/Galmuri11-dynamic-subset.css",
+    test: '400 32px "Galmuri11"',
+  },
+};
+const readerLazyFontPromises = new Map();
+
+function markReaderFontReady(fontKey) {
+  const root = document.documentElement;
+  const ready = new Set((root.dataset.readerFontReady || "").split(/\s+/).filter(Boolean));
+  ready.add(fontKey);
+  root.dataset.readerFontReady = Array.from(ready).join(" ");
+}
+
+function ensureReaderLazyFont(fontKey) {
+  const config = READER_LAZY_FONT_CONFIG[fontKey];
+  if (!config) return Promise.resolve(true);
+  if (readerLazyFontPromises.has(fontKey)) return readerLazyFontPromises.get(fontKey);
+
+  const promise = new Promise((resolve) => {
+    let link = document.getElementById(config.id);
+    let settled = false;
+    let timeoutId = 0;
+
+    const settle = (ready) => {
+      if (settled) return;
+      settled = true;
+      if (timeoutId) window.clearTimeout(timeoutId);
+      if (ready) markReaderFontReady(fontKey);
+      resolve(ready);
+    };
+    const fail = () => {
+      if (link?.dataset.dynamicReaderFont === "1") link.remove();
+      readerLazyFontPromises.delete(fontKey);
+      settle(false);
+    };
+    const finish = async () => {
+      try {
+        if (link) link.dataset.loaded = "1";
+        if (document.fonts?.load) await document.fonts.load(config.test);
+        settle(true);
+      } catch (_) {
+        fail();
+      }
+    };
+
+    timeoutId = window.setTimeout(fail, 5000);
+    if (link?.dataset.loaded === "1" || link?.sheet) {
+      void finish();
+      return;
+    }
+    if (!link) {
+      link = document.createElement("link");
+      link.id = config.id;
+      link.rel = "stylesheet";
+      link.href = config.href;
+      link.crossOrigin = "anonymous";
+      link.dataset.dynamicReaderFont = "1";
+      document.head.appendChild(link);
+    }
+    link.addEventListener("load", () => { void finish(); }, { once: true });
+    link.addEventListener("error", fail, { once: true });
+  });
+
+  readerLazyFontPromises.set(fontKey, promise);
+  return promise;
+}
+
+function isExtraReaderFont(fontKey) {
+  return Object.prototype.hasOwnProperty.call(READER_LAZY_FONT_CONFIG, fontKey);
+}
+
+function setViewerFontExtraExpanded(expanded) {
+  if (!els.viewerFontExtraOptions || !els.viewerFontMoreButton) return;
+  els.viewerFontExtraOptions.hidden = !expanded;
+  els.viewerFontMoreButton.setAttribute("aria-expanded", expanded ? "true" : "false");
+  const label = els.viewerFontMoreButton.querySelector("span");
+  if (label) label.textContent = expanded ? "접기" : "더보기";
 }
 
 function getViewerPreferenceStorage() {
@@ -967,6 +1081,10 @@ function applyUserPreferences() {
     // KoPub is intentionally excluded from the render-blocking <head>.
     // Only users who actually selected it pay the external stylesheet/font cost.
     void ensureKopubFont();
+  } else if (isExtraReaderFont(fontFamily)) {
+    // Additional fonts are also loaded only for users who actually selected them.
+    void ensureReaderLazyFont(fontFamily);
+    setViewerFontExtraExpanded(true);
   }
 
   if (els.darkModeToggle) {
@@ -1242,6 +1360,8 @@ const els = {
   profileBackButton: document.getElementById("profileBackButton"),
   profileLogoutButton: document.getElementById("profileLogoutButton"),
   viewerSettingsModal: document.getElementById("viewerSettingsModal"),
+  viewerFontMoreButton: document.getElementById("viewerFontMoreButton"),
+  viewerFontExtraOptions: document.getElementById("viewerFontExtraOptions"),
   viewerSettingsScopeText: document.getElementById("viewerSettingsScopeText"),
   accountModal: document.getElementById("accountModal"),
   accountModalUser: document.getElementById("accountModalUser"),
@@ -8234,13 +8354,22 @@ els.readerFontFamilyButtons?.forEach((button) => {
     if (!Object.prototype.hasOwnProperty.call(READER_FONT_FAMILIES, fontFamily)) return;
     if (fontFamily === "kopubbatang") {
       await ensureKopubFont();
+    } else if (isExtraReaderFont(fontFamily)) {
+      await ensureReaderLazyFont(fontFamily);
     }
     setViewerPreference(READER_FONT_FAMILY_KEY, fontFamily);
     applyUserPreferences();
   });
 });
 
+els.viewerFontMoreButton?.addEventListener("click", () => {
+  const expanded = els.viewerFontMoreButton.getAttribute("aria-expanded") === "true";
+  setViewerFontExtraExpanded(!expanded);
+});
+
 els.viewerSettingsButton?.addEventListener("click", () => {
+  const selectedFont = getSavedReaderFontFamily();
+  setViewerFontExtraExpanded(isExtraReaderFont(selectedFont));
   applyUserPreferences();
   openModal(els.viewerSettingsModal);
 });
