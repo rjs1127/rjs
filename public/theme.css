@@ -4819,3 +4819,99 @@ body.reader-open .network-status-banner {
     bottom: max(66px, calc(env(safe-area-inset-bottom) + 54px));
   }
 }
+
+/* v9.86 - shared offline storage toolbar layout (base + ?ui=next)
+   Layout is common to both themes; each theme keeps its own color tokens. */
+.profile-offline-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px 16px;
+  margin: 10px 0 12px;
+  padding: 12px 0 2px;
+}
+
+.profile-offline-storage {
+  min-width: 0;
+}
+
+.profile-offline-storage-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+.profile-offline-actions-note {
+  color: var(--theme-muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.profile-offline-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--theme-line);
+  border-radius: 50%;
+  background: var(--theme-secondary-bg);
+  color: var(--theme-muted);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.profile-offline-usage-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0;
+  border-radius: 999px;
+  background: var(--theme-line-soft);
+}
+
+.profile-offline-usage-bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--theme-primary-text);
+  transition: width .18s ease;
+}
+
+.profile-offline-usage-text {
+  display: block;
+  margin-top: 5px;
+  color: var(--theme-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.profile-offline-actions-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.profile-offline-actions-buttons .profile-secondary-button {
+  min-height: 34px;
+  padding: 7px 10px;
+}
+
+@media (max-width: 640px) {
+  .profile-offline-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .profile-offline-actions-buttons {
+    justify-content: flex-end;
+  }
+}

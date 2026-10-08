@@ -702,3 +702,138 @@ html.user-design-next .quote-feed-card-text {
     Pretendard, "Pretendard Variable", -apple-system, BlinkMacSystemFont,
     "Segoe UI", "Noto Sans KR", Arial, sans-serif !important;
 }
+
+/* v9.86 - profile navigation selection + offline storage toolbar polish */
+html.user-design-next .profile-tabs button {
+  border: 1px solid transparent !important;
+}
+
+html.user-design-next .profile-tabs button.active,
+html.user-design-next .profile-tabs button[aria-selected="true"] {
+  background: var(--sy-button-active-bg) !important;
+  border-color: var(--sy-accent-line) !important;
+  color: var(--sy-button-active-text) !important;
+  box-shadow: inset 0 -2px 0 var(--sy-accent) !important;
+}
+
+html.user-design-next .profile-library-mode-tabs button.active,
+html.user-design-next .profile-library-mode-tabs button[aria-pressed="true"] {
+  background: var(--sy-button-active-bg) !important;
+  border-color: var(--sy-accent-line) !important;
+  color: var(--sy-button-active-text) !important;
+  box-shadow: inset 0 -2px 0 var(--sy-accent) !important;
+}
+
+html.user-design-next .profile-offline-actions {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px 16px;
+  margin: 10px 0 12px;
+  padding: 12px 0 2px;
+}
+
+html.user-design-next .profile-offline-storage {
+  min-width: 0;
+}
+
+html.user-design-next .profile-offline-storage-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+
+html.user-design-next .profile-offline-actions-note {
+  color: var(--sy-text-secondary) !important;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+html.user-design-next .profile-offline-help-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--sy-line) !important;
+  border-radius: 50%;
+  background: var(--sy-button-bg) !important;
+  color: var(--sy-text-secondary) !important;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+html.user-design-next .profile-offline-usage-bar {
+  position: relative;
+  width: 100%;
+  height: 6px;
+  overflow: hidden;
+  border: 0 !important;
+  border-radius: 999px;
+  background: var(--sy-progress-track) !important;
+}
+
+html.user-design-next .profile-offline-usage-bar > span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--sy-progress-fill) !important;
+  transition: width var(--sy-normal);
+}
+
+html.user-design-next .profile-offline-usage-text {
+  display: block;
+  margin-top: 5px;
+  color: var(--sy-text-tertiary) !important;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+html.user-design-next .profile-offline-actions-buttons {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+html.user-design-next .profile-offline-actions-buttons .profile-secondary-button {
+  min-height: 34px;
+  padding: 7px 10px;
+  border: 1px solid var(--sy-button-border) !important;
+  background: var(--sy-button-bg) !important;
+  color: var(--sy-button-text) !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .profile-offline-actions-buttons .profile-secondary-button:hover {
+  background: var(--sy-button-hover) !important;
+  border-color: var(--sy-line-strong) !important;
+}
+
+html.user-design-next .profile-offline-actions-buttons .profile-secondary-button.danger {
+  background: transparent !important;
+  border-color: color-mix(in srgb, var(--sy-danger) 24%, var(--sy-line)) !important;
+  color: var(--sy-danger) !important;
+}
+
+html.user-design-next .profile-offline-actions-buttons .profile-secondary-button.danger:hover {
+  background: var(--sy-danger-soft) !important;
+  border-color: color-mix(in srgb, var(--sy-danger) 38%, var(--sy-line)) !important;
+}
+
+@media (max-width: 640px) {
+  html.user-design-next .profile-offline-actions {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  html.user-design-next .profile-offline-actions-buttons {
+    justify-content: flex-end;
+  }
+}
