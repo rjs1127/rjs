@@ -13970,45 +13970,62 @@ function syncReaderShareSelection() {
 
     if (ui.selectionActions) { ui.selectionActions.style.left = `${x}px`; ui.selectionActions.style.top = `${y}px`; ui.selectionActions.hidden = false; }
     ui.floatButton.hidden = false;
-  }, isTouchLike ? 220 : 55);
+  }, isTouchLike ? 150 : 55);
 }
 
 function initReaderShareSelection() {
   ensureReaderShareUi();
   const coarsePointer = window.matchMedia?.("(pointer: coarse)")?.matches;
+  let mobileGestureActive = false;
+  let mobileSelectionSettledTimer = 0;
 
   const hideSelectionActions = () => {
     window.clearTimeout(readerShareSelectionTimer);
+    window.clearTimeout(mobileSelectionSettledTimer);
     if (!readerShareUi) return;
     readerShareUi.floatButton.hidden = true;
     if (readerShareUi.selectionActions) readerShareUi.selectionActions.hidden = true;
   };
 
-  // Mobile selection handles already emit touch/pointer completion events.
-  // Running DOM Range geometry work from every selectionchange competes with
-  // the browser's native handle drag and can make selection feel sticky.
-  // On coarse pointers, wait until the gesture ends. Keep selectionchange only
-  // for mouse/keyboard selection on fine pointers.
-  if (!coarsePointer) {
-    document.addEventListener("selectionchange", () => {
-      if (els.readerOverlay?.hidden) return;
+  // Native handles are owned by the browser/WebView. Avoid Range geometry
+  // reads while a finger is down, but recover if the platform finishes its
+  // Selection update after touchend/pointerup (common with long-press selection).
+  document.addEventListener("selectionchange", () => {
+    if (els.readerOverlay?.hidden) return;
+    if (!coarsePointer) {
       syncReaderShareSelection();
-    });
-  }
-
-  els.readerPanel?.addEventListener("pointerdown", hideSelectionActions, { passive: true });
-  els.readerPanel?.addEventListener("pointerup", () => {
-    if (coarsePointer) {
-      window.clearTimeout(readerShareSelectionTimer);
-      readerShareSelectionTimer = window.setTimeout(syncReaderShareSelection, 90);
       return;
     }
-    syncReaderShareSelection();
-  }, { passive: true });
-  els.readerPanel?.addEventListener("touchend", () => {
-    if (!coarsePointer) return;
+    window.clearTimeout(mobileSelectionSettledTimer);
+    if (mobileGestureActive) return;
+    mobileSelectionSettledTimer = window.setTimeout(() => {
+      mobileSelectionSettledTimer = 0;
+      if (!mobileGestureActive && !els.readerOverlay?.hidden) syncReaderShareSelection();
+    }, 80);
+  });
+
+  const startMobileSelectionGesture = () => {
+    if (coarsePointer) mobileGestureActive = true;
+    hideSelectionActions();
+  };
+  els.readerPanel?.addEventListener("pointerdown", startMobileSelectionGesture, { passive: true });
+  // Some WebViews deliver legacy touch events without PointerEvents.
+  els.readerPanel?.addEventListener("touchstart", startMobileSelectionGesture, { passive: true });
+
+  const finishMobileSelectionGesture = () => {
+    if (!mobileGestureActive || !coarsePointer) return;
+    mobileGestureActive = false;
     window.clearTimeout(readerShareSelectionTimer);
-    readerShareSelectionTimer = window.setTimeout(syncReaderShareSelection, 120);
+    readerShareSelectionTimer = window.setTimeout(syncReaderShareSelection, 65);
+  };
+
+  // Native selection-handle drags can finish outside the reader element.
+  document.addEventListener("pointerup", finishMobileSelectionGesture, { passive: true });
+  document.addEventListener("pointercancel", finishMobileSelectionGesture, { passive: true });
+  els.readerPanel?.addEventListener("touchend", finishMobileSelectionGesture, { passive: true });
+  els.readerPanel?.addEventListener("touchcancel", finishMobileSelectionGesture, { passive: true });
+  els.readerPanel?.addEventListener("pointerup", () => {
+    if (!coarsePointer) syncReaderShareSelection();
   }, { passive: true });
   els.readerPanel?.addEventListener("scroll", hideSelectionActions, { passive: true });
 }

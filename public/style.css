@@ -4609,3 +4609,13 @@ html.theme-dark .offline-list-badge {
     background: rgba(171, 193, 157, .08);
   }
 }
+
+
+/* v10.05: keep native mobile text selection available in the reading surface.
+   Browser/WebView draws the blue highlight and handles, not the share UI. */
+body:not(.simple-modal-open) #readerContent,
+body:not(.simple-modal-open) #readerPageText {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
