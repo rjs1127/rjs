@@ -325,7 +325,7 @@ let driveAdminFilter = "all";
 let feedbackAdminLoaded = false;
 let feedbackAdminFilter = "all";
 let sharedQuoteAdminLoaded = false;
-let sharedQuoteAdminData = { count: 0, items: [] };
+let sharedQuoteAdminData = { count: 0, items: [], page: 1, pageSize: 20 };
 let deployInProgress = false;
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
@@ -567,11 +567,13 @@ function setActiveTab(name) {
     });
   }
 
-
   if (name === "quote-images") {
     loadQuotePresetAdmin().catch((error) => {
       console.error(error);
-      if (els.quotePresetMessage) { els.quotePresetMessage.hidden = false; els.quotePresetMessage.textContent = error.message || "문장 이미지 프리셋을 불러오지 못했습니다."; }
+      if (els.quotePresetMessage) {
+        els.quotePresetMessage.hidden = false;
+        els.quotePresetMessage.textContent = error.message || "문장 이미지 프리셋을 불러오지 못했습니다.";
+      }
     });
   }
 
@@ -638,7 +640,6 @@ function setActiveTab(name) {
   }
 
   if (name === "feedback") {
-    ensureSharedQuoteModerationPanel();
     if (!feedbackAdminLoaded) {
       loadFeedbackAdmin().catch((error) => {
         console.error(error);
@@ -648,11 +649,15 @@ function setActiveTab(name) {
         }
       });
     }
+  }
+
+  if (name === "overview") {
+    ensureSharedQuoteModerationPanel();
     if (!sharedQuoteAdminLoaded) {
       loadSharedQuoteAdmin().catch((error) => {
         console.error(error);
         const message = document.getElementById("sharedQuoteAdminMessage");
-        if (message) message.textContent = error.message || "공개 문장 목록을 불러오지 못했습니다.";
+        if (message) { message.hidden = false; message.textContent = error.message || "공개 문장 목록을 불러오지 못했습니다."; }
       });
     }
   }
@@ -747,12 +752,12 @@ async function loadFeedbackAdmin() {
 
 function ensureSharedQuoteModerationPanel() {
   if (document.getElementById("sharedQuoteModerationPanel")) return;
-  const feedbackPanel = document.querySelector('[data-tab-panel="feedback"] .panel');
-  if (!feedbackPanel) return;
+  const operationsPanel = document.querySelector('[data-tab-panel="overview"]');
+  if (!operationsPanel) return;
 
   const section = document.createElement("section");
   section.id = "sharedQuoteModerationPanel";
-  section.className = "shared-quote-admin-panel";
+  section.className = "panel shared-quote-admin-panel";
   section.innerHTML = `
     <div class="shared-quote-admin-head">
       <div>
@@ -764,12 +769,36 @@ function ensureSharedQuoteModerationPanel() {
     </div>
     <div class="shared-quote-admin-summary">전체 공개 <strong id="sharedQuoteAdminCount">-</strong></div>
     <div id="sharedQuoteAdminList" class="shared-quote-admin-list"></div>
+    <div id="sharedQuoteAdminPager" class="shared-quote-admin-pager" hidden>
+      <button type="button" id="sharedQuoteAdminPrev">이전</button>
+      <span id="sharedQuoteAdminPage">1 / 1</span>
+      <button type="button" id="sharedQuoteAdminNext">다음</button>
+    </div>
     <p id="sharedQuoteAdminMessage" class="message" hidden></p>`;
-  feedbackPanel.appendChild(section);
+  operationsPanel.appendChild(section);
 
   section.querySelector("#sharedQuoteAdminRefresh")?.addEventListener("click", () => {
     sharedQuoteAdminLoaded = false;
     loadSharedQuoteAdmin().catch((error) => {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
+    });
+  });
+
+  section.querySelector("#sharedQuoteAdminPrev")?.addEventListener("click", () => {
+    if (Number(sharedQuoteAdminData.page || 1) <= 1) return;
+    loadSharedQuoteAdmin(Number(sharedQuoteAdminData.page || 1) - 1).catch((error) => {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
+    });
+  });
+
+  section.querySelector("#sharedQuoteAdminNext")?.addEventListener("click", () => {
+    const page = Number(sharedQuoteAdminData.page || 1);
+    const pageSize = Number(sharedQuoteAdminData.pageSize || 20);
+    const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+    if (page >= totalPages) return;
+    loadSharedQuoteAdmin(page + 1).catch((error) => {
       const message = document.getElementById("sharedQuoteAdminMessage");
       if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
     });
@@ -783,9 +812,11 @@ function ensureSharedQuoteModerationPanel() {
     button.disabled = true;
     try {
       await api("/api/admin/shared-quotes", { method: "DELETE", body: JSON.stringify({ quoteId }) });
-      sharedQuoteAdminData.items = (sharedQuoteAdminData.items || []).filter((item) => Number(item.quote_id || 0) !== quoteId);
       sharedQuoteAdminData.count = Math.max(0, Number(sharedQuoteAdminData.count || 0) - 1);
-      renderSharedQuoteAdmin();
+      const pageSize = Number(sharedQuoteAdminData.pageSize || 20);
+      const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+      const nextPage = Math.min(Number(sharedQuoteAdminData.page || 1), totalPages);
+      await loadSharedQuoteAdmin(nextPage);
       const message = document.getElementById("sharedQuoteAdminMessage");
       if (message) { message.hidden = false; message.textContent = "공개 피드에서 문장을 내렸습니다."; }
     } catch (error) {
@@ -802,6 +833,17 @@ function renderSharedQuoteAdmin() {
   const list = document.getElementById("sharedQuoteAdminList");
   if (count) count.textContent = Number(sharedQuoteAdminData.count || 0).toLocaleString("ko-KR");
   if (!list) return;
+  const page = Math.max(1, Number(sharedQuoteAdminData.page || 1));
+  const pageSize = Math.max(1, Number(sharedQuoteAdminData.pageSize || 20));
+  const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+  const pager = document.getElementById("sharedQuoteAdminPager");
+  const pageLabel = document.getElementById("sharedQuoteAdminPage");
+  const prev = document.getElementById("sharedQuoteAdminPrev");
+  const next = document.getElementById("sharedQuoteAdminNext");
+  if (pager) pager.hidden = Number(sharedQuoteAdminData.count || 0) <= pageSize;
+  if (pageLabel) pageLabel.textContent = `${page.toLocaleString("ko-KR")} / ${totalPages.toLocaleString("ko-KR")}`;
+  if (prev) prev.disabled = page <= 1;
+  if (next) next.disabled = page >= totalPages;
   const items = Array.isArray(sharedQuoteAdminData.items) ? sharedQuoteAdminData.items : [];
   list.innerHTML = items.length ? items.map((item) => `
     <article class="shared-quote-admin-card">
@@ -812,12 +854,19 @@ function renderSharedQuoteAdmin() {
     </article>`).join("") : '<div class="shared-quote-admin-empty">현재 공개된 문장이 없습니다.</div>';
 }
 
-async function loadSharedQuoteAdmin() {
+async function loadSharedQuoteAdmin(page = sharedQuoteAdminData.page || 1) {
   ensureSharedQuoteModerationPanel();
   const message = document.getElementById("sharedQuoteAdminMessage");
   if (message) message.hidden = true;
-  const data = await api("/api/admin/shared-quotes?limit=100", { method: "GET" });
-  sharedQuoteAdminData = { count: Number(data.count || 0), items: data.items || [] };
+  const pageSize = 20;
+  const safePage = Math.max(1, Number(page || 1));
+  const data = await api(`/api/admin/shared-quotes?limit=${pageSize}&page=${safePage}`, { method: "GET" });
+  sharedQuoteAdminData = {
+    count: Number(data.count || 0),
+    items: data.items || [],
+    page: Math.max(1, Number(data.page || safePage)),
+    pageSize: Math.max(1, Number(data.limit || pageSize)),
+  };
   sharedQuoteAdminLoaded = true;
   renderSharedQuoteAdmin();
 }
@@ -3705,9 +3754,9 @@ function ensureMobileReleasePanel() {
     .mobile-release-panel{
       margin-top:22px;
       padding:20px;
-      border:1px solid #ded7ce;
-      border-radius:18px;
-      background:#faf8f4
+      border:1px solid var(--sy-line);
+      border-radius:var(--sy-radius-lg);
+      background:var(--sy-surface)
     }
     .mobile-release-head{
       display:flex;
@@ -3720,7 +3769,7 @@ function ensureMobileReleasePanel() {
       font-size:10px;
       font-weight:900;
       letter-spacing:.12em;
-      color:#777069
+      color:var(--sy-text-secondary)
     }
     .mobile-release-current{
       display:flex;
@@ -3730,9 +3779,10 @@ function ensureMobileReleasePanel() {
     }
     .mobile-release-chip{
       padding:7px 9px;
-      border:1px solid #ded7ce;
+      border:1px solid var(--sy-line);
       border-radius:999px;
-      background:#fff;
+      background:var(--sy-surface);
+      color:var(--sy-text);
       font-size:11px;
       font-weight:850
     }
@@ -3751,14 +3801,15 @@ function ensureMobileReleasePanel() {
     .mobile-release-message-field>span{
       font-size:11px;
       font-weight:850;
-      color:#5f5953
+      color:var(--sy-text-secondary)
     }
     .mobile-release-grid input,
     .mobile-release-message-field textarea{
       width:100%;
-      border:1px solid #ded7ce;
-      border-radius:11px;
-      background:#fff;
+      border:1px solid var(--sy-line);
+      border-radius:var(--sy-radius-sm);
+      background:var(--sy-control);
+      color:var(--sy-text);
       padding:10px 11px;
       font:inherit
     }
@@ -3766,14 +3817,14 @@ function ensureMobileReleasePanel() {
     .mobile-release-apk{
       margin-top:12px;
       padding:13px;
-      border:1px dashed #cfc6bb;
-      border-radius:13px;
-      background:#fff
+      border:1px dashed var(--sy-line-strong);
+      border-radius:var(--sy-radius-md);
+      background:var(--sy-surface)
     }
     .mobile-release-apk input{width:100%}
     .mobile-release-apk-meta{
       margin-top:7px;
-      color:#777069;
+      color:var(--sy-text-secondary);
       font-size:11px;
       line-height:1.55
     }
@@ -3786,33 +3837,33 @@ function ensureMobileReleasePanel() {
     }
     .mobile-release-actions .primary{
       border:0;
-      background:#1d1c1a;
-      color:#fff;
-      border-radius:11px;
+      background:var(--sy-accent);
+      color:var(--sy-on-accent);
+      border-radius:var(--sy-radius-sm);
       padding:11px 14px;
       font-weight:850
     }
     .mobile-release-note{
       font-size:11px;
-      color:#777069;
+      color:var(--sy-text-secondary);
       line-height:1.6
     }
     .mobile-release-status{
       margin-top:12px;
       padding:10px 12px;
       border-radius:10px;
-      background:#f1ede7;
-      color:#5d574f;
+      background:var(--sy-surface-muted);
+      color:var(--sy-text-secondary);
       font-size:12px;
       line-height:1.6
     }
     .mobile-release-status.is-error{
-      background:#fff2f2;
-      color:#9d3434
+      background:var(--sy-danger-soft);
+      color:var(--sy-danger)
     }
     .mobile-release-status.is-success{
-      background:#eef8f1;
-      color:#2d7549
+      background:var(--sy-success-soft);
+      color:var(--sy-success)
     }
     @media(max-width:760px){
       .mobile-release-head{display:block}
@@ -4677,39 +4728,18 @@ els.opsAutomationRunButton?.addEventListener("click", async () => {
   }
 });
 
-els.quotePresetRefreshButton?.addEventListener("click", async () => {
-  els.quotePresetRefreshButton.disabled = true;
-  try {
-    quotePresetAdminLoaded = false;
-    await loadQuotePresetAdmin(true);
-  } catch (error) {
-    console.error(error);
-    if (els.quotePresetMessage) {
-      els.quotePresetMessage.hidden = false;
-      els.quotePresetMessage.textContent = error.message || "프리셋을 새로고침하지 못했습니다.";
-    }
-  } finally {
-    els.quotePresetRefreshButton.disabled = false;
-  }
-});
-
-els.quotePresetList?.addEventListener("click", (event) => {
-  const testButton = event.target.closest("[data-quote-preset-test]");
-  if (testButton) {
-    const key = String(testButton.dataset.quotePresetTest || "");
-    if (key) window.open(`/?quote-test=${encodeURIComponent(key)}`, "_blank", "noopener");
-    return;
-  }
-
-  const toggle = event.target.closest("[data-quote-preset-toggle]");
-  if (!toggle) return;
-  const key = String(toggle.dataset.quotePresetToggle || "");
-  const current = toggle.getAttribute("aria-checked") === "true";
-  if (key) void setQuotePresetVisibility(key, !current, toggle);
-});
-
 els.tabs.forEach((tab) => {
-  tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
+  tab.addEventListener("click", () => {
+    setActiveTab(tab.dataset.tabTarget);
+    if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+      const nav = tab.closest(".admin-tabs");
+      if (nav) {
+        const targetLeft = Math.max(0, tab.offsetLeft - ((nav.clientWidth - tab.offsetWidth) / 2));
+        nav.scrollTo({ left: targetLeft, behavior: "smooth" });
+      }
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  });
 });
 
 
@@ -6485,6 +6515,37 @@ document.addEventListener("click", (event) => {
   });
 });
 
+els.quotePresetRefreshButton?.addEventListener("click", async () => {
+  els.quotePresetRefreshButton.disabled = true;
+  try {
+    quotePresetAdminLoaded = false;
+    await loadQuotePresetAdmin(true);
+  } catch (error) {
+    console.error(error);
+    if (els.quotePresetMessage) {
+      els.quotePresetMessage.hidden = false;
+      els.quotePresetMessage.textContent = error.message || "프리셋을 새로고침하지 못했습니다.";
+    }
+  } finally {
+    els.quotePresetRefreshButton.disabled = false;
+  }
+});
+
+els.quotePresetList?.addEventListener("click", (event) => {
+  const testButton = event.target.closest("[data-quote-preset-test]");
+  if (testButton) {
+    const key = String(testButton.dataset.quotePresetTest || "");
+    if (key) window.open(`/?quote-test=${encodeURIComponent(key)}`, "_blank", "noopener");
+    return;
+  }
+
+  const toggle = event.target.closest("[data-quote-preset-toggle]");
+  if (!toggle) return;
+  const key = String(toggle.dataset.quotePresetToggle || "");
+  const current = toggle.getAttribute("aria-checked") === "true";
+  if (key) void setQuotePresetVisibility(key, !current, toggle);
+});
+
 els.adminLogoutButton?.addEventListener("click", async () => {
   try {
     await fetch("/api/admin/session", {
@@ -6513,6 +6574,133 @@ document.addEventListener("click", (event) => {
   setActiveTab(button.dataset.sourceJump);
   window.scrollTo({ top: 0, behavior: "smooth" });
 });
+
+
+const ADMIN_PROMPT_LIBRARY = [
+  {
+    title: "기본 개발 작업",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [작업내용]만 최소 수정해줘.
+관련 범위만 확인하고 localhost에서 직접 영향 범위만 테스트해줘.
+
+운영 KV/D1/Secret과 기존 Android 변경은 건드리지 마.
+이상 없으면 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+전체 감사·불필요한 리팩터링은 하지 마.`
+  },
+  {
+    title: "작은 UI · 정렬 · 문구 수정",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [수정 요청]만 최소 수정해줘.
+기존 디자인·반응형·다크모드·정상 기능은 그대로 유지해.
+관련 파일만 확인하고 불필요한 구조 변경이나 리팩터링은 하지 마.
+
+변경 JS/CJS 문법 검사와 git diff --check, 직접 영향 범위의 localhost 확인만 해줘.
+이상 없으면 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+운영 KV/D1/Secret과 기존 Android 변경은 건드리지 마.`
+  },
+  {
+    title: "위험 작업 · 인증 · D1 · 동기화",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 따라 작업해줘.
+
+현재 최신 main 기준으로 [작업내용]의 실제 흐름과 원인을 먼저 확인해줘.
+인증, D1 write, 동기화, 삭제, 이어보기 등 기존 정상 기능의 회귀 방지를 최우선으로 해.
+추측 복원이나 관련 없는 리팩터링은 하지 말고 최소 수정해줘.
+
+운영 KV/D1/Secret에는 직접 쓰지 말고 로컬 D1/합성 데이터로 정상·실패·경계 상황을 확인해줘.
+우선 수정과 테스트 결과를 확인한 뒤 이상 없을 때만 프로젝트 규칙에 따라 버전 반영 후 이번 작업 파일만 commit/push해줘.
+기존 Android 변경은 건드리지 마.`
+  },
+  {
+    title: "감사만 · 수정 금지",
+    text: `현재 최신 main 기준으로 [점검 대상]만 독립적으로 감사해줘.
+
+코드 수정, 테스트용 소스 변경, 서버 실행, 배포, commit/push는 하지 마.
+관련 파일과 실제 호출 흐름만 확인하고 추측하지 마.
+
+각 항목을 해결됨 / 미해결 / 판단불가로 짧게 판정하고,
+미해결인 경우에만 실제 근거·영향·최소 수정 방향을 알려줘.
+이미 정상인 영역을 다시 설계하거나 새 기능을 제안하지 마.`
+  },
+  {
+    title: "버그 원인 분석만",
+    text: `AGENTS.md와 DEVELOPMENT_GUIDE.md를 참고해서 현재 최신 main 기준으로 [증상]의 원인만 분석해줘.
+
+아직 코드는 수정하지 마.
+관련 UI → API → 저장소/상태 흐름을 필요한 범위까지만 따라가고,
+재현 가능한 원인과 영향 범위를 먼저 특정해줘.
+
+결과는 원인 / 영향 파일 / 최소 수정안 / 회귀 위험 순서로 짧게 보고해줘.`
+  },
+  {
+    title: "사용량 절약 · 빠른 마무리",
+    text: `사용량이 얼마 남지 않았으니 현재 작업 범위 밖의 추가 감사·리팩터링·문서 확장은 하지 말고,
+필수 구현과 직접 관련 테스트만 마무리해서 commit/push까지 끝내줘.
+결과 보고도 아주 짧게 해줘.`
+  }
+];
+
+function renderPromptLibrary() {
+  const root = document.getElementById("promptLibraryList");
+  if (!root) return;
+  root.innerHTML = ADMIN_PROMPT_LIBRARY.map((item, index) => `
+    <article class="prompt-library-item" data-prompt-index="${index}">
+      <div class="prompt-library-row">
+        <button class="prompt-library-title" type="button" data-prompt-toggle="${index}" aria-expanded="false">
+          <span>${escapeHtml(item.title)}</span><span class="prompt-library-arrow" aria-hidden="true">▾</span>
+        </button>
+        <button class="prompt-library-copy" type="button" data-prompt-copy="${index}">복사</button>
+      </div>
+      <div class="prompt-library-detail" data-prompt-detail="${index}" hidden>
+        <pre>${escapeHtml(item.text)}</pre>
+        <button class="prompt-library-close" type="button" data-prompt-close="${index}">닫기</button>
+      </div>
+    </article>`).join("");
+}
+
+async function copyPromptText(index, button) {
+  const item = ADMIN_PROMPT_LIBRARY[index];
+  if (!item) return;
+  const original = button.textContent;
+  const copied = await copyAdminText(item.text);
+  button.textContent = copied ? "복사됨" : "복사 실패";
+  window.setTimeout(() => { button.textContent = original; }, 1200);
+}
+
+document.addEventListener("click", (event) => {
+  const copyButton = event.target.closest("[data-prompt-copy]");
+  if (copyButton) {
+    copyPromptText(Number(copyButton.dataset.promptCopy), copyButton);
+    return;
+  }
+  const closeButton = event.target.closest("[data-prompt-close]");
+  if (closeButton) {
+    const index = closeButton.dataset.promptClose;
+    const detail = document.querySelector(`[data-prompt-detail="${index}"]`);
+    const toggle = document.querySelector(`[data-prompt-toggle="${index}"]`);
+    if (detail) detail.hidden = true;
+    if (toggle) {
+      toggle.setAttribute("aria-expanded", "false");
+      const arrow = toggle.querySelector(".prompt-library-arrow");
+      if (arrow) arrow.textContent = "▾";
+      toggle.focus();
+    }
+    return;
+  }
+  const toggleButton = event.target.closest("[data-prompt-toggle]");
+  if (!toggleButton) return;
+  const index = toggleButton.dataset.promptToggle;
+  const detail = document.querySelector(`[data-prompt-detail="${index}"]`);
+  if (!detail) return;
+  const opening = detail.hidden;
+  detail.hidden = !opening;
+  toggleButton.setAttribute("aria-expanded", opening ? "true" : "false");
+  const arrow = toggleButton.querySelector(".prompt-library-arrow");
+  if (arrow) arrow.textContent = opening ? "▴" : "▾";
+});
+
+renderPromptLibrary();
 
 loadVersionMetadata();
 
