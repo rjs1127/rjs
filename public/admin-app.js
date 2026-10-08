@@ -319,7 +319,7 @@ let driveAdminFilter = "all";
 let feedbackAdminLoaded = false;
 let feedbackAdminFilter = "all";
 let sharedQuoteAdminLoaded = false;
-let sharedQuoteAdminData = { count: 0, items: [] };
+let sharedQuoteAdminData = { count: 0, items: [], page: 1, pageSize: 20 };
 let deployInProgress = false;
 let resourceUsageLoaded = false;
 let resourceUsageData = null;
@@ -698,12 +698,36 @@ function ensureSharedQuoteModerationPanel() {
     </div>
     <div class="shared-quote-admin-summary">전체 공개 <strong id="sharedQuoteAdminCount">-</strong></div>
     <div id="sharedQuoteAdminList" class="shared-quote-admin-list"></div>
+    <div id="sharedQuoteAdminPager" class="shared-quote-admin-pager" hidden>
+      <button type="button" id="sharedQuoteAdminPrev">이전</button>
+      <span id="sharedQuoteAdminPage">1 / 1</span>
+      <button type="button" id="sharedQuoteAdminNext">다음</button>
+    </div>
     <p id="sharedQuoteAdminMessage" class="message" hidden></p>`;
   operationsPanel.appendChild(section);
 
   section.querySelector("#sharedQuoteAdminRefresh")?.addEventListener("click", () => {
     sharedQuoteAdminLoaded = false;
     loadSharedQuoteAdmin().catch((error) => {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
+    });
+  });
+
+  section.querySelector("#sharedQuoteAdminPrev")?.addEventListener("click", () => {
+    if (Number(sharedQuoteAdminData.page || 1) <= 1) return;
+    loadSharedQuoteAdmin(Number(sharedQuoteAdminData.page || 1) - 1).catch((error) => {
+      const message = document.getElementById("sharedQuoteAdminMessage");
+      if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
+    });
+  });
+
+  section.querySelector("#sharedQuoteAdminNext")?.addEventListener("click", () => {
+    const page = Number(sharedQuoteAdminData.page || 1);
+    const pageSize = Number(sharedQuoteAdminData.pageSize || 20);
+    const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+    if (page >= totalPages) return;
+    loadSharedQuoteAdmin(page + 1).catch((error) => {
       const message = document.getElementById("sharedQuoteAdminMessage");
       if (message) { message.hidden = false; message.textContent = error.message || "공개 문장을 불러오지 못했습니다."; }
     });
@@ -717,9 +741,11 @@ function ensureSharedQuoteModerationPanel() {
     button.disabled = true;
     try {
       await api("/api/admin/shared-quotes", { method: "DELETE", body: JSON.stringify({ quoteId }) });
-      sharedQuoteAdminData.items = (sharedQuoteAdminData.items || []).filter((item) => Number(item.quote_id || 0) !== quoteId);
       sharedQuoteAdminData.count = Math.max(0, Number(sharedQuoteAdminData.count || 0) - 1);
-      renderSharedQuoteAdmin();
+      const pageSize = Number(sharedQuoteAdminData.pageSize || 20);
+      const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+      const nextPage = Math.min(Number(sharedQuoteAdminData.page || 1), totalPages);
+      await loadSharedQuoteAdmin(nextPage);
       const message = document.getElementById("sharedQuoteAdminMessage");
       if (message) { message.hidden = false; message.textContent = "공개 피드에서 문장을 내렸습니다."; }
     } catch (error) {
@@ -736,6 +762,17 @@ function renderSharedQuoteAdmin() {
   const list = document.getElementById("sharedQuoteAdminList");
   if (count) count.textContent = Number(sharedQuoteAdminData.count || 0).toLocaleString("ko-KR");
   if (!list) return;
+  const page = Math.max(1, Number(sharedQuoteAdminData.page || 1));
+  const pageSize = Math.max(1, Number(sharedQuoteAdminData.pageSize || 20));
+  const totalPages = Math.max(1, Math.ceil(Number(sharedQuoteAdminData.count || 0) / pageSize));
+  const pager = document.getElementById("sharedQuoteAdminPager");
+  const pageLabel = document.getElementById("sharedQuoteAdminPage");
+  const prev = document.getElementById("sharedQuoteAdminPrev");
+  const next = document.getElementById("sharedQuoteAdminNext");
+  if (pager) pager.hidden = Number(sharedQuoteAdminData.count || 0) <= pageSize;
+  if (pageLabel) pageLabel.textContent = `${page.toLocaleString("ko-KR")} / ${totalPages.toLocaleString("ko-KR")}`;
+  if (prev) prev.disabled = page <= 1;
+  if (next) next.disabled = page >= totalPages;
   const items = Array.isArray(sharedQuoteAdminData.items) ? sharedQuoteAdminData.items : [];
   list.innerHTML = items.length ? items.map((item) => `
     <article class="shared-quote-admin-card">
@@ -746,12 +783,19 @@ function renderSharedQuoteAdmin() {
     </article>`).join("") : '<div class="shared-quote-admin-empty">현재 공개된 문장이 없습니다.</div>';
 }
 
-async function loadSharedQuoteAdmin() {
+async function loadSharedQuoteAdmin(page = sharedQuoteAdminData.page || 1) {
   ensureSharedQuoteModerationPanel();
   const message = document.getElementById("sharedQuoteAdminMessage");
   if (message) message.hidden = true;
-  const data = await api("/api/admin/shared-quotes?limit=100", { method: "GET" });
-  sharedQuoteAdminData = { count: Number(data.count || 0), items: data.items || [] };
+  const pageSize = 20;
+  const safePage = Math.max(1, Number(page || 1));
+  const data = await api(`/api/admin/shared-quotes?limit=${pageSize}&page=${safePage}`, { method: "GET" });
+  sharedQuoteAdminData = {
+    count: Number(data.count || 0),
+    items: data.items || [],
+    page: Math.max(1, Number(data.page || safePage)),
+    pageSize: Math.max(1, Number(data.limit || pageSize)),
+  };
   sharedQuoteAdminLoaded = true;
   renderSharedQuoteAdmin();
 }
@@ -4614,7 +4658,17 @@ els.opsAutomationRunButton?.addEventListener("click", async () => {
 });
 
 els.tabs.forEach((tab) => {
-  tab.addEventListener("click", () => setActiveTab(tab.dataset.tabTarget));
+  tab.addEventListener("click", () => {
+    setActiveTab(tab.dataset.tabTarget);
+    if (window.matchMedia?.("(max-width: 900px)")?.matches) {
+      const nav = tab.closest(".admin-tabs");
+      if (nav) {
+        const targetLeft = Math.max(0, tab.offsetLeft - ((nav.clientWidth - tab.offsetWidth) / 2));
+        nav.scrollTo({ left: targetLeft, behavior: "smooth" });
+      }
+      window.scrollTo({ top: 0, behavior: "auto" });
+    }
+  });
 });
 
 

@@ -1814,3 +1814,42 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
     font-size: 11px;
   }
 }
+
+
+/* v9.72: compact quote moderation paging */
+.admin-next-page .shared-quote-admin-pager {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  margin-top:12px;
+  padding-top:12px;
+  border-top:1px solid var(--sy-line);
+}
+.admin-next-page .shared-quote-admin-pager[hidden] { display:none !important; }
+.admin-next-page .shared-quote-admin-pager button {
+  min-height:34px;
+  padding:7px 12px;
+  border:1px solid var(--sy-line);
+  border-radius:var(--sy-radius-control,10px);
+  background:var(--sy-control);
+  color:var(--sy-text-primary);
+  font:inherit;
+  font-size:11px;
+  font-weight:800;
+  cursor:pointer;
+}
+.admin-next-page .shared-quote-admin-pager button:hover:not(:disabled) { background:var(--sy-control-hover); }
+.admin-next-page .shared-quote-admin-pager button:disabled { opacity:.42; cursor:default; }
+.admin-next-page .shared-quote-admin-pager span {
+  min-width:54px;
+  color:var(--sy-text-secondary);
+  font-size:11px;
+  font-weight:800;
+  text-align:center;
+}
+@media(max-width:900px) {
+  .admin-next-page .shared-quote-admin-list { gap:8px; }
+  .admin-next-page .shared-quote-admin-card { padding:12px; }
+  .admin-next-page .shared-quote-admin-pager { position:sticky; bottom:8px; z-index:2; width:max-content; max-width:100%; margin:12px auto 0; padding:7px; border:1px solid var(--sy-line); border-radius:14px; background:color-mix(in srgb,var(--sy-surface) 94%,transparent); box-shadow:0 8px 24px rgba(15,23,42,.08); backdrop-filter:blur(8px); }
+}
