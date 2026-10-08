@@ -621,3 +621,62 @@ html.user-design-next {
     box-shadow: none !important;
   }
 }
+
+/* v9.83 - restore information-tag identity while keeping the preview theme shell cool.
+ * These badges encode content metadata, so their established palette is preserved
+ * across light/dark modes instead of being flattened into the generic theme chip. */
+html.user-design-next .reader-tag:not(.subtle):not(.warning):not(.edited) {
+  background: var(--sy-text) !important;
+  border-color: transparent !important;
+  color: var(--sy-surface) !important;
+}
+html.user-design-next .reader-tag.subtle {
+  background: var(--sy-chip) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text-secondary) !important;
+}
+
+/* Card metadata keeps the pre-preview semantic palette: CP / type / status. */
+html.user-design-next .card-tag.card-cp-tag {
+  background: #f5eee3 !important;
+  border-color: transparent !important;
+  color: #8c6943 !important;
+}
+html.user-design-next .card-tag.card-publish-tag {
+  background: #edf3ff !important;
+  border-color: transparent !important;
+  color: #4d69b4 !important;
+}
+html.user-design-next .card-tag.card-status-tag.status-serial {
+  background: #e9f8ee !important;
+  border-color: transparent !important;
+  color: #2e8950 !important;
+}
+html.user-design-next .card-tag.card-status-tag.status-complete {
+  background: #f2ebff !important;
+  border-color: transparent !important;
+  color: #7753b2 !important;
+}
+html.theme-dark.user-design-next .card-tag.card-cp-tag {
+  background: rgba(157,124,76,.18) !important;
+  color: #e8d0ae !important;
+}
+html.theme-dark.user-design-next .card-tag.card-publish-tag {
+  background: rgba(92,123,195,.18) !important;
+  color: #bdd0ff !important;
+}
+html.theme-dark.user-design-next .card-tag.card-status-tag.status-serial {
+  background: rgba(66,146,91,.18) !important;
+  color: #bde9c9 !important;
+}
+html.theme-dark.user-design-next .card-tag.card-status-tag.status-complete {
+  background: rgba(123,95,182,.22) !important;
+  color: #d6c6ff !important;
+}
+
+/* Reader-search match is an interaction highlight, not a warm metadata tag. */
+html.user-design-next .reader-search-row-context mark {
+  background: var(--sy-accent-soft) !important;
+  color: var(--sy-accent-text) !important;
+  box-shadow: inset 0 0 0 1px var(--sy-accent-line) !important;
+}
