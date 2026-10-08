@@ -3767,7 +3767,7 @@ function ensureMobileReleasePanel() {
     .mobile-release-actions .primary{
       border:0;
       background:var(--sy-accent);
-      color:#fff;
+      color:var(--sy-on-accent);
       border-radius:var(--sy-radius-sm);
       padding:11px 14px;
       font-weight:850

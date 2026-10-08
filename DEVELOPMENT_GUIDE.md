@@ -487,3 +487,13 @@
 - v9.71: 관리자 디자인 시스템 정합성 보강. 레거시 베이지/보라 팔레트를 공통 `--sy-*` 토큰으로 정리하고, 모바일 헤더·탭·버튼·패널 헤더 밀도를 낮췄으며 공개 문장 관리는 의견함에서 운영 탭으로 분리했습니다.
 
 - v9.72: 모바일 관리자 탭 전환 시 화면을 상단으로 복귀시키고 선택 탭을 가로 메뉴 중앙에 맞춥니다. 운영 탭의 공개 문장 관리는 20개 단위 페이지 조회로 바꿔 100개 이상이어도 긴 단일 스크롤이 생기지 않도록 했습니다.
+
+
+## v9.73 공통 디자인 시스템 전환 규칙
+
+- 색상 source of truth는 `public/design-tokens.css`의 `--sy-*` 변수다. 관리자 화면의 새/수정 CSS와 동적 삽입 UI에는 개별 베이지·보라·검정 HEX/RGB 값을 다시 추가하지 않는다. 상태색도 `--sy-success`, `--sy-warning`, `--sy-danger`, `--sy-info` 및 soft/on-* 토큰을 사용한다.
+- 선택 내비게이션은 `--sy-nav-active-bg/text/line`, 입력은 `--sy-field-*`, 모달·토스트·progress·neutral badge는 각각 전용 semantic token을 사용한다. `--bg`, `--panel`, `--ink`, `--muted`, `--line`, `--accent`, `--card`, `--text`는 `admin.css` 내부에만 남기는 레거시 호환 alias다. 공통 `design-tokens.css`에는 비접두사 alias를 두지 않아 사용자/뷰어에서 로드해도 기존 변수와 충돌하지 않게 한다.
+- `admin.css`는 기능/구조 레이어, `admin-next.css`는 관리자 시각 adapter, `design-tokens.css`는 관리자·사용자·뷰어가 공유할 foundation으로 취급한다. 사용자 화면으로 확장할 때 `admin-next.css`를 재사용하지 말고 `design-tokens.css`만 먼저 로드한 뒤 사용자/뷰어 전용 adapter를 별도로 만든다.
+- 사용자 페이지 테마 전환은 한 번에 기존 `style.css/theme.css`를 치환하지 않는다. (1) 토큰만 로드해 무변경 확인 → (2) 버튼·입력·모달·토스트 같은 공통 요소부터 adapter 적용 → (3) 목록/카드 → (4) 뷰어 순으로 단계적으로 전환하고 각 단계에서 light/dark/mobile을 확인한다.
+- 공통 토큰은 관리자 화면을 위해 임의로 이름이나 의미를 바꾸지 않는다. 값 변경은 가능하지만 semantic name의 의미는 유지해 사용자/뷰어와 같은 계약을 공유한다.
+- 관리자 테마 정합성 점검 시 `admin.css`, `admin-next.css`, 동적 `admin-app.js` 스타일에 구 팔레트 직접 색상값이 다시 생기지 않았는지, 사용 중인 `--sy-*` 변수가 `design-tokens.css`에 모두 정의되어 있는지 확인한다.

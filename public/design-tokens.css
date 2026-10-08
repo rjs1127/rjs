@@ -1,5 +1,5 @@
 /*
- * Syungbook design foundation v1
+ * Syungbook design foundation v3
  * Shared tokens only. Admin consumes these first; reader/user surfaces can opt in later.
  */
 :root,
@@ -39,6 +39,31 @@ html.theme-light {
   --sy-overlay: rgba(14, 23, 38, .48);
   --sy-focus: rgba(53, 111, 214, .18);
 
+
+  /* Stable semantic/component tokens. Keep these names when reader/user adopts the theme. */
+  --sy-on-accent: #ffffff;
+  --sy-on-success: #ffffff;
+  --sy-on-warning: #172033;
+  --sy-on-danger: #ffffff;
+
+  --sy-nav-active-bg: #e7f0ff;
+  --sy-nav-active-text: #1f55ad;
+  --sy-nav-active-line: #356fd6;
+
+  --sy-field-bg: #ffffff;
+  --sy-field-text: #172033;
+  --sy-field-placeholder: #8a96a8;
+  --sy-field-border: #dce4ee;
+
+  --sy-modal-bg: #ffffff;
+  --sy-toast-bg: #172033;
+  --sy-toast-text: #ffffff;
+  --sy-progress-track: #e9eef4;
+  --sy-progress-fill: #356fd6;
+
+  --sy-neutral-badge-bg: #eef3f8;
+  --sy-neutral-badge-text: #56657a;
+
   --sy-control: #ffffff;
   --sy-control-hover: #f7f9fc;
   --sy-selected: #edf4ff;
@@ -71,14 +96,8 @@ html.theme-light {
   --sy-fast: 140ms ease;
   --sy-normal: 200ms ease;
 
-  /* Compatibility aliases for the current admin CSS. */
-  --bg: var(--sy-page);
-  --panel: var(--sy-surface);
-  --ink: var(--sy-text);
-  --muted: var(--sy-text-secondary);
-  --line: var(--sy-line);
-  --accent: var(--sy-accent);
-  --warn: var(--sy-warning);
+  --sy-text-primary: var(--sy-text);
+  --sy-radius-control: var(--sy-radius-md);
 }
 
 html.theme-dark {
@@ -117,6 +136,30 @@ html.theme-dark {
   --sy-overlay: rgba(3, 7, 13, .72);
   --sy-focus: rgba(121, 168, 255, .22);
 
+
+  --sy-on-accent: #0b1524;
+  --sy-on-success: #081b13;
+  --sy-on-warning: #171006;
+  --sy-on-danger: #220b0e;
+
+  --sy-nav-active-bg: #172845;
+  --sy-nav-active-text: #b8d2ff;
+  --sy-nav-active-line: #79a8ff;
+
+  --sy-field-bg: #161d28;
+  --sy-field-text: #edf2f8;
+  --sy-field-placeholder: #7f8b9b;
+  --sy-field-border: #2b3747;
+
+  --sy-modal-bg: #1a2230;
+  --sy-toast-bg: #edf2f8;
+  --sy-toast-text: #0f141d;
+  --sy-progress-track: #2b3747;
+  --sy-progress-fill: #79a8ff;
+
+  --sy-neutral-badge-bg: #212b39;
+  --sy-neutral-badge-text: #b5c0d0;
+
   --sy-control: #161d28;
   --sy-control-hover: #1b2431;
   --sy-selected: #172845;
@@ -129,16 +172,11 @@ html.theme-dark {
   --sy-shadow-sm: 0 1px 2px rgba(0, 0, 0, .2);
   --sy-shadow-modal: 0 28px 72px rgba(0, 0, 0, .42);
 
-  --bg: var(--sy-page);
-  --panel: var(--sy-surface);
-  --ink: var(--sy-text);
-  --muted: var(--sy-text-secondary);
-  --line: var(--sy-line);
-  --accent: var(--sy-accent);
-  --warn: var(--sy-warning);
+  --sy-text-primary: var(--sy-text);
+  --sy-radius-control: var(--sy-radius-md);
 }
 
-/* v2 component-level tokens: shared by admin first, reader/user later. */
+/* v3 component-level tokens: shared by admin first, reader/user later. */
 :root,
 html.theme-light {
   --sy-button-bg: var(--sy-control);

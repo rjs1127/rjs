@@ -98,7 +98,7 @@
   border: 1px solid var(--sy-accent);
   border-radius: var(--sy-radius-sm);
   background: var(--sy-accent);
-  color: #fff;
+  color: var(--sy-on-accent);
   box-shadow: none;
 }
 
@@ -161,15 +161,16 @@
 }
 
 .admin-next-page .admin-tab.active {
-  background: var(--sy-accent-soft);
-  color: var(--sy-accent-text);
+  background: var(--sy-nav-active-bg);
+  color: var(--sy-nav-active-text);
+  box-shadow: inset 3px 0 0 var(--sy-nav-active-line);
 }
 
 .admin-next-page .admin-tab-badge {
   margin-left: 5px;
   border-radius: 999px;
   background: var(--sy-danger);
-  color: #fff;
+  color: var(--sy-on-accent);
 }
 
 .admin-next-page .source-overview-grid,
@@ -241,15 +242,15 @@
 }
 
 .admin-next-page .source-overview-badge.postype {
-  border-color: #d8dff0;
-  background: #f1f3f9;
-  color: #566079;
+  border-color: var(--sy-line);
+  background: var(--sy-neutral-badge-bg);
+  color: var(--sy-neutral-badge-text);
 }
 
 html.theme-dark .admin-next-page .source-overview-badge.postype {
-  border-color: #39465a;
-  background: #202a38;
-  color: #b5c0d0;
+  border-color: var(--sy-line);
+  background: var(--sy-neutral-badge-bg);
+  color: var(--sy-neutral-badge-text);
 }
 
 .admin-next-page .source-overview-link {
@@ -551,7 +552,7 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
   border-color: var(--sy-accent);
   border-radius: var(--sy-radius-sm);
   background: var(--sy-accent);
-  color: #fff;
+  color: var(--sy-on-accent);
 }
 
 /* Resource panels: neutralize the older warm/purple cards while preserving statuses. */
@@ -963,7 +964,7 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
 ) {
   border-color: var(--sy-accent) !important;
   background: var(--sy-accent) !important;
-  color: #fff !important;
+  color: var(--sy-on-accent) !important;
   box-shadow: none !important;
 }
 
@@ -1037,7 +1038,7 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
 .admin-next-page .feedback-admin-actions button.is-active {
   border-color: var(--sy-accent) !important;
   background: var(--sy-accent) !important;
-  color: #fff !important;
+  color: var(--sy-on-accent) !important;
 }
 
 /* Analytics / charts. */
@@ -1129,7 +1130,7 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
 .admin-next-page .drive-summary-filter.active {
   border-color: var(--sy-accent) !important;
   background: var(--sy-accent) !important;
-  color: #fff !important;
+  color: var(--sy-on-accent) !important;
 }
 
 .admin-next-page .drive-summary-icon,
@@ -1331,8 +1332,9 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
   }
 
   .admin-next-page .admin-tab.active {
-    background: var(--sy-accent);
-    color: #fff;
+    background: var(--sy-nav-active-bg);
+    color: var(--sy-nav-active-text);
+    box-shadow: inset 0 -2px 0 var(--sy-nav-active-line);
   }
 
   .admin-next-page .panel {
@@ -1567,23 +1569,31 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
   border-color: var(--sy-line-strong) !important;
 }
 
-/* Primary descendants must stay readable. */
-.admin-next-page :is(
-  button.primary,.drive-summary-filter.active,.admin-tab.active
-),
-.admin-next-page :is(
-  button.primary,.drive-summary-filter.active,.admin-tab.active
-) :is(span,strong,small,b,em) {
-  color: #fff !important;
+/* Primary descendants stay readable, while navigation keeps its own selected-state contrast. */
+.admin-next-page button.primary,
+.admin-next-page button.primary :is(span,strong,small,b,em),
+.admin-next-page .drive-summary-filter.active,
+.admin-next-page .drive-summary-filter.active :is(span,strong,small,b,em) {
+  color: var(--sy-on-accent) !important;
 }
 
 .admin-next-page .drive-summary-filter.active :is(.drive-summary-icon,.drive-summary-copy,.drive-summary-copy > span,.drive-summary-copy strong) {
   background: transparent !important;
-  color: #fff !important;
+  color: var(--sy-on-accent) !important;
 }
 
 .admin-next-page .drive-summary-filter.active .drive-summary-icon {
-  background: rgba(255,255,255,.14) !important;
+  background: color-mix(in srgb, var(--sy-on-accent) 14%, transparent) !important;
+}
+
+/* Desktop/tablet tab selection: quiet blue surface + strong blue text/indicator. */
+.admin-next-page .admin-tab.active {
+  background: var(--sy-nav-active-bg) !important;
+  color: var(--sy-nav-active-text) !important;
+  box-shadow: inset 3px 0 0 var(--sy-nav-active-line) !important;
+}
+.admin-next-page .admin-tab.active :is(span,strong,small,b,em) {
+  color: var(--sy-nav-active-text) !important;
 }
 
 /* Tables / status cards: no warm leftovers. */
@@ -1715,12 +1725,12 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
     font-weight: 700;
   }
   .admin-next-page .admin-tab.active {
-    background: var(--sy-button-active-bg) !important;
-    color: var(--sy-button-active-text) !important;
-    box-shadow: inset 0 -2px 0 var(--sy-accent);
+    background: var(--sy-nav-active-bg) !important;
+    color: var(--sy-nav-active-text) !important;
+    box-shadow: inset 0 -2px 0 var(--sy-nav-active-line) !important;
   }
   .admin-next-page .admin-tab.active :is(span,strong,small,b,em) {
-    color: var(--sy-button-active-text) !important;
+    color: var(--sy-nav-active-text) !important;
   }
 
   .admin-next-page .panel {
@@ -1851,5 +1861,5 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
 @media(max-width:900px) {
   .admin-next-page .shared-quote-admin-list { gap:8px; }
   .admin-next-page .shared-quote-admin-card { padding:12px; }
-  .admin-next-page .shared-quote-admin-pager { position:sticky; bottom:8px; z-index:2; width:max-content; max-width:100%; margin:12px auto 0; padding:7px; border:1px solid var(--sy-line); border-radius:14px; background:color-mix(in srgb,var(--sy-surface) 94%,transparent); box-shadow:0 8px 24px rgba(15,23,42,.08); backdrop-filter:blur(8px); }
+  .admin-next-page .shared-quote-admin-pager { position:sticky; bottom:8px; z-index:2; width:max-content; max-width:100%; margin:12px auto 0; padding:7px; border:1px solid var(--sy-line); border-radius:14px; background:color-mix(in srgb,var(--sy-surface) 94%,transparent); box-shadow:0 8px 24px color-mix(in srgb,var(--sy-text) 8%,transparent); backdrop-filter:blur(8px); }
 }
