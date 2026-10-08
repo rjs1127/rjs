@@ -10553,104 +10553,114 @@ const READER_SHARE_BACKGROUNDS = [
     effect: "star-chart",
   },
   {
-    name: "루미",
-    key: "firefly",
+    name: "폴카",
+    key: "soft-polka",
     defaultVisible: false,
-    background: "radial-gradient(circle at 20% 90%, rgba(214,255,120,.35), transparent 7%), radial-gradient(circle at 82% 78%, rgba(214,255,120,.28), transparent 6%), linear-gradient(160deg, #0F1F1A 0%, #1C3A2E 100%)",
-    text: "#F1F7E4",
-    meta: "#B8CDB7",
-    accent: "#D6FF78",
-    effect: "firefly",
+    background: "radial-gradient(circle, rgba(150,205,235,.35) 0 5px, transparent 9px) 0 0/34px 34px, linear-gradient(135deg, #f2f9fd 0%, #e3f1fa 100%)",
+    text: "#36556e",
+    meta: "#6f8ca4",
+    accent: "#4f89b3",
+    effect: "soft-polka",
   },
   {
-    name: "리소",
-    key: "riso-dots",
+    name: "레이스",
+    key: "lace-grid",
     defaultVisible: false,
-    background: "radial-gradient(circle at 100% 0, rgba(255,72,122,.30), transparent 26%), radial-gradient(circle at 0 100%, rgba(0,120,190,.26), transparent 26%), linear-gradient(135deg, #F6EFE2 0%, #EEE4D2 100%)",
-    text: "#1F2A44",
-    meta: "#6B6870",
-    accent: "#FF487A",
-    effect: "riso-dots",
+    background: "linear-gradient(rgba(240,150,170,.22) 1px, transparent 1px) 0 0/24px 24px, linear-gradient(90deg, rgba(240,150,170,.22) 1px, transparent 1px) 0 0/24px 24px, linear-gradient(160deg, #fff1f4 0%, #ffe3ea 100%)",
+    text: "#7a3b4e",
+    meta: "#b06c7e",
+    accent: "#f08faa",
+    effect: "lace-grid",
   },
   {
-    name: "시안",
-    key: "cyan-plan",
+    name: "레트로",
+    key: "retro-window",
     defaultVisible: false,
-    background: "linear-gradient(rgba(255,255,255,.07) 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(90deg, rgba(255,255,255,.07) 1px, transparent 1px) 0 0 / 22px 22px, linear-gradient(145deg, #0E3A66 0%, #145A8C 100%)",
-    text: "#EAF4FF",
-    meta: "#A8C9E5",
-    accent: "#D7ECFF",
-    effect: "cyan-plan",
+    background: "linear-gradient(90deg, rgba(10,42,140,.9), rgba(45,111,208,.9)) 0 0/100% 7% no-repeat, linear-gradient(145deg, #c9cdd3 0%, #bdc2ca 100%)",
+    text: "#23262e",
+    meta: "#4a5f8e",
+    accent: "#0a2a8c",
+    effect: "retro-window",
   },
   {
-    name: "도트",
-    key: "dot-note",
+    name: "마커",
+    key: "marker-plaid",
     defaultVisible: false,
-    background: "radial-gradient(circle, rgba(80,70,60,.30) 1.2px, transparent 1.6px) 0 0 / 14px 14px, linear-gradient(135deg, #FBF8F1 0%, #F1ECE0 100%)",
-    text: "#2B2A27",
-    meta: "#7A746A",
-    accent: "#625B52",
-    effect: "dot-note",
+    background: "repeating-linear-gradient(90deg, rgba(130,200,245,.5) 0 5px, transparent 5px 62px), repeating-linear-gradient(0deg, rgba(130,200,245,.5) 0 5px, transparent 5px 74px), repeating-linear-gradient(90deg, rgba(255,236,140,.55) 0 7px, transparent 7px 118px) 30px 0, linear-gradient(135deg, #ffffff 0%, #f5faff 100%)",
+    text: "#2e4b66",
+    meta: "#6c87a1",
+    accent: "#5ab3e8",
+    effect: "marker-plaid",
   },
   {
-    name: "커튼",
-    key: "velvet-drape",
+    name: "그래프",
+    key: "graph-paper",
     defaultVisible: false,
-    background: "linear-gradient(90deg, rgba(0,0,0,.35) 0 2%, rgba(255,120,140,.12) 3% 5%, rgba(0,0,0,.3) 6% 8%, transparent 12% 88%, rgba(0,0,0,.3) 92% 94%, rgba(255,120,140,.12) 95% 97%, rgba(0,0,0,.35) 98%), linear-gradient(160deg, #3A0F1E 0%, #5A1A2E 100%)",
-    text: "#FBE9D8",
-    meta: "#D5B4AC",
-    accent: "#F4B6A7",
-    effect: "velvet-drape",
+    background: "linear-gradient(rgba(130,138,150,.28) 1px, transparent 1px) 0 0/22px 22px, linear-gradient(90deg, rgba(130,138,150,.28) 1px, transparent 1px) 0 0/22px 22px, linear-gradient(135deg, #ffffff 0%, #f4f5f7 100%)",
+    text: "#2f3440",
+    meta: "#7c838f",
+    accent: "#9aa2ad",
+    effect: "graph-paper",
   },
   {
-    name: "스탬프",
-    key: "postage",
+    name: "클라우드",
+    key: "cumulus",
     defaultVisible: false,
-    background: "radial-gradient(circle at 86% 7%, transparent 4%, rgba(150,40,40,.28) 4.6%, transparent 5.4%), linear-gradient(135deg, #F4ECDD 0%, #EADFC8 100%)",
-    text: "#3B2B22",
-    meta: "#7E6858",
-    accent: "#963232",
-    effect: "postage",
+    background: "radial-gradient(ellipse at 24% 100%, rgba(255,255,255,.95) 0 14%, transparent 30%), radial-gradient(ellipse at 84% 96%, rgba(255,255,255,.9) 0 12%, transparent 26%), linear-gradient(180deg, #8ec6f5 0%, #d7ecfb 100%)",
+    text: "#1b3f6e",
+    meta: "#5f7fa9",
+    accent: "#7cb6f0",
+    effect: "cumulus",
   },
   {
-    name: "테라조",
-    key: "terrazzo",
+    name: "리플",
+    key: "ripple-pool",
     defaultVisible: false,
-    background: "radial-gradient(circle at 8% 10%, rgba(214,122,106,.45), transparent 2%), radial-gradient(circle at 90% 18%, rgba(92,128,118,.40), transparent 2.4%), radial-gradient(circle at 14% 92%, rgba(232,190,96,.50), transparent 2.2%), linear-gradient(135deg, #F2EEE8 0%, #E9E3DA 100%)",
-    text: "#2E2A26",
-    meta: "#746E68",
-    accent: "#D67A6A",
-    effect: "terrazzo",
+    background: "radial-gradient(circle at 82% 88%, transparent 0 6%, rgba(255,255,255,.4) 7% 8%, transparent 9% 14%, rgba(255,255,255,.3) 15% 16%, transparent 17%), radial-gradient(circle at 14% 10%, rgba(255,190,150,.4), transparent 24%), linear-gradient(150deg, #bfe8e4 0%, #e9f5ee 100%)",
+    text: "#2d5a5e",
+    meta: "#6f9597",
+    accent: "#67b9bb",
+    effect: "ripple-pool",
   },
   {
-    name: "네온",
-    key: "neon-edge",
+    name: "크래프트",
+    key: "kraft",
     defaultVisible: false,
-    background: "radial-gradient(circle at 0 0, rgba(255,60,200,.30), transparent 14%), radial-gradient(circle at 100% 100%, rgba(60,230,255,.28), transparent 14%), linear-gradient(150deg, #0B0B1A 0%, #1A1030 100%)",
-    text: "#FFF4FB",
-    meta: "#CDB8D9",
-    accent: "#FF3CC8",
-    effect: "neon-edge",
+    background: "radial-gradient(rgba(90,60,30,.12) 1px, transparent 1.5px) 0 0/9px 9px, linear-gradient(135deg, #cba77c 0%, #b8946a 100%)",
+    text: "#2b1d10",
+    meta: "#6d5138",
+    accent: "#8c5f36",
+    effect: "kraft",
+  },
+  {
+    name: "벨럼",
+    key: "vellum",
+    defaultVisible: false,
+    background: "linear-gradient(115deg, transparent 48%, rgba(120,130,140,.18) 49% 50%, transparent 51%), linear-gradient(135deg, #f4f2ef 0%, #e5e8ea 100%)",
+    text: "#2f3338",
+    meta: "#6f767d",
+    accent: "#939aa3",
+    effect: "vellum",
+  },
+  {
+    name: "크럼플",
+    key: "crumple",
+    defaultVisible: false,
+    background: "linear-gradient(120deg, rgba(0,0,0,.05) 0 18%, transparent 18% 40%, rgba(255,255,255,.5) 40% 58%, transparent 58% 78%, rgba(0,0,0,.04) 78%), linear-gradient(135deg, #f7f6f3 0%, #eceae5 100%)",
+    text: "#2b2a27",
+    meta: "#726f69",
+    accent: "#8d887e",
+    effect: "crumple",
   },
   {
     name: "깅엄",
     key: "gingham",
     defaultVisible: false,
-    background: "repeating-linear-gradient(0deg, rgba(214,72,96,.16) 0 9px, transparent 9px 18px), repeating-linear-gradient(90deg, rgba(214,72,96,.16) 0 9px, transparent 9px 18px), linear-gradient(135deg, #FFF4EC 0%, #FCE6E0 100%)",
-    text: "#5A2A33",
-    meta: "#986A72",
-    accent: "#D64860",
+    background: "repeating-linear-gradient(90deg, rgba(233,180,189,.55) 0 18px, rgba(248,223,228,.55) 18px 36px), repeating-linear-gradient(0deg, rgba(233,180,189,.45) 0 18px, rgba(248,223,228,.45) 18px 36px), linear-gradient(135deg, #faefef 0%, #f5e5e5 100%)",
+    text: "#7b4e58",
+    meta: "#b48890",
+    accent: "#e4aeb9",
     effect: "gingham",
-  },
-  {
-    name: "스티치",
-    key: "stitch",
-    defaultVisible: false,
-    background: "repeating-linear-gradient(45deg, rgba(255,255,255,.04) 0 1px, transparent 1px 6px), linear-gradient(145deg, #2F4A6B 0%, #3C5D83 100%)",
-    text: "#FFF3DF",
-    meta: "#D4C5AE",
-    accent: "#FFECC8",
-    effect: "stitch",
   },
 ];
 
@@ -11490,6 +11500,29 @@ function quoteTestFourPointStar(ctx, cx, cy, s, fill) {
   ctx.fill();
 }
 
+function quoteTestIsProtectedArea(x, y, w, h, pad = 0) {
+  return x >= w * 0.07 - pad && x <= w * 0.93 + pad && y >= h * 0.13 - pad && y <= h * 0.85 + pad;
+}
+
+function quoteTestProtectedAlpha(x, y, w, h, alpha, innerScale = 0.5) {
+  return quoteTestIsProtectedArea(x, y, w, h) ? alpha * innerScale : alpha;
+}
+
+function quoteTestRoundRectPath(ctx, x, y, w, h, r) {
+  const rr = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(x, y, w, h, rr);
+    return;
+  }
+  ctx.moveTo(x + rr, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rr);
+  ctx.arcTo(x + w, y + h, x, y + h, rr);
+  ctx.arcTo(x, y + h, x, y, rr);
+  ctx.arcTo(x, y, x + w, y, rr);
+  ctx.closePath();
+}
+
 /* ---------- 1. 금박한지 ---------- */
 // 한지 섬유 질감 + 모서리에 흩뿌린 금박 조각 + 가는 이중 금테
 function drawQuoteHanjiGilt(ctx, w, h) {
@@ -12217,314 +12250,468 @@ function drawQuoteStarChart(ctx, w, h) {
   });
 }
 
-/* ---------- 추가 프리셋 10종 ---------- */
-function drawQuoteFirefly(ctx, w, h) {
+
+/* ---------- 6. 폴카 ---------- */
+function drawQuoteSoftPolka(ctx, w, h) {
   const u = w / 1200;
-  const r = quoteTestRng(9143);
-
-  const baseY = h * 0.965;
-  ctx.lineCap = "round";
-  ctx.strokeStyle = "rgba(8,18,14,.72)";
-  ctx.lineWidth = 2.2 * u;
-  for (let i = 0; i < 40; i++) {
-    const x = (i / 39) * w + (r() - 0.5) * 20 * u;
-    const bladeH = h * (0.03 + r() * 0.06);
-    const bend = (r() - 0.5) * 30 * u;
-    ctx.beginPath();
-    ctx.moveTo(x, baseY);
-    ctx.quadraticCurveTo(x + bend * 0.45, baseY - bladeH * 0.55, x + bend, baseY - bladeH);
-    ctx.stroke();
-  }
-
-  ctx.globalCompositeOperation = "lighter";
-  for (let i = 0; i < 28; i++) {
-    const edge = r() < 0.62;
-    const x = edge
-      ? (r() < 0.5 ? w * (0.025 + r() * 0.1) : w * (0.875 + r() * 0.1))
-      : w * (0.14 + r() * 0.72);
-    const y = edge ? h * (0.7 + r() * 0.25) : h * (0.78 + r() * 0.17);
-    const rad = (10 + r() * 16) * u;
-    const g = ctx.createRadialGradient(x, y, 0, x, y, rad);
-    g.addColorStop(0, "rgba(214,255,120,.85)");
-    g.addColorStop(0.18, "rgba(214,255,120,.34)");
-    g.addColorStop(1, "rgba(214,255,120,0)");
-    ctx.fillStyle = g;
-    ctx.beginPath();
-    ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "rgba(244,255,188,.92)";
-    ctx.beginPath();
-    ctx.arc(x, y, Math.max(1.1 * u, rad * 0.08), 0, Math.PI * 2);
-    ctx.fill();
-  }
-  ctx.globalCompositeOperation = "source-over";
-
-  ctx.strokeStyle = "rgba(214,255,120,.26)";
-  ctx.lineWidth = 1.5 * u;
-  for (let i = 0; i < 12; i++) {
-    const side = r() < 0.5 ? 1 : -1;
-    const x = side > 0 ? w * (0.02 + r() * 0.12) : w * (0.86 + r() * 0.12);
-    const y = h * (0.74 + r() * 0.2);
-    const len = (40 + r() * 50) * u;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.quadraticCurveTo(x + side * len * 0.45, y - len * 0.35, x + side * len, y - len * 0.08);
-    ctx.stroke();
-  }
-}
-
-function drawQuoteRisoDots(ctx, w, h) {
-  const u = w / 1200;
-  const step = 18 * u;
-  const R = w * 0.22;
-  const corners = [
-    { cx: w, cy: 0, sx: -1, sy: 1 },
-    { cx: 0, cy: h, sx: 1, sy: -1 },
-  ];
-  ctx.globalCompositeOperation = "multiply";
-  corners.forEach(({ cx, cy, sx, sy }) => {
-    for (let dx = step * 0.5; dx <= R; dx += step) {
-      for (let dy = step * 0.5; dy <= R; dy += step) {
-        const d = Math.hypot(dx, dy);
-        if (d > R) continue;
-        const dotR = 7 * u * Math.pow(Math.max(0, 1 - d / R), 1.3);
-        if (dotR < 0.35 * u) continue;
-        const x = cx + sx * dx;
-        const y = cy + sy * dy;
-        ctx.fillStyle = "rgba(255,72,122,.55)";
-        ctx.beginPath(); ctx.arc(x, y, dotR, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "rgba(0,120,190,.50)";
-        ctx.beginPath(); ctx.arc(x + 6 * u, y + 4 * u, dotR, 0, Math.PI * 2); ctx.fill();
-      }
+  const spacing = 56 * u;
+  const offset = spacing * 0.5;
+  for (let row = -1, y = spacing * 0.5; y < h + spacing; row += 1, y += spacing) {
+    for (let x = -spacing; x < w + spacing; x += spacing) {
+      const px = x + (row % 2 ? offset : 0);
+      const radius = (14 + ((row + Math.floor(px / spacing)) % 3) * 3) * u;
+      const alpha = quoteTestProtectedAlpha(px, y, w, h, 0.22, 0.5);
+      const g = ctx.createRadialGradient(px, y, 0, px, y, radius);
+      g.addColorStop(0, `rgba(150,205,235,${alpha.toFixed(3)})`);
+      g.addColorStop(1, "rgba(150,205,235,0)");
+      ctx.fillStyle = g;
+      ctx.fillRect(px - radius, y - radius, radius * 2, radius * 2);
     }
-  });
-  ctx.globalCompositeOperation = "source-over";
+  }
 }
 
-function drawQuoteCyanPlan(ctx, w, h) {
+/* ---------- 7. 레이스 ---------- */
+function drawQuoteLaceGrid(ctx, w, h) {
   const u = w / 1200;
-  const step = 60 * u;
-  for (let x = 0, ix = 0; x <= w; x += step, ix++) {
-    ctx.strokeStyle = ix % 5 === 0 ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.05)";
-    ctx.lineWidth = 1 * u;
+  const grid = 40 * u;
+  ctx.strokeStyle = "rgba(240,150,170,.20)";
+  ctx.lineWidth = 1 * u;
+  for (let x = 0; x <= w; x += grid) {
+    ctx.globalAlpha = quoteTestIsProtectedArea(x, h * 0.5, w, h) ? 0.55 : 1;
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, h);
+    ctx.stroke();
+  }
+  for (let y = 0; y <= h; y += grid) {
+    ctx.globalAlpha = y >= h * 0.13 && y <= h * 0.85 ? 0.55 : 1;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(w, y);
+    ctx.stroke();
+  }
+  ctx.globalAlpha = 1;
+
+  const scallopR = 30 * u;
+  const scallopStep = 56 * u;
+  ctx.fillStyle = "rgba(255,255,255,.95)";
+  ctx.strokeStyle = "rgba(236,130,155,.70)";
+  ctx.lineWidth = 2 * u;
+  for (let x = -scallopR; x < w + scallopR; x += scallopStep) {
+    ctx.beginPath();
+    ctx.arc(x + scallopR, 18 * u, scallopR, Math.PI, 0);
+    ctx.lineTo(x + scallopStep, 0);
+    ctx.lineTo(x, 0);
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+    for (let dotX = x + 10 * u; dotX < x + scallopStep - 8 * u; dotX += 14 * u) {
+      ctx.fillStyle = "rgba(236,130,155,.65)";
+      ctx.beginPath();
+      ctx.arc(dotX, 19 * u, 2.5 * u, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = "rgba(255,255,255,.95)";
+  }
+
+  const drawHeart = (cx, cy, size, stroke, fill) => {
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.scale(size, size);
+    ctx.beginPath();
+    ctx.moveTo(0, 0.35);
+    ctx.bezierCurveTo(0.62, -0.2, 1.05, -0.72, 0.45, -1.1);
+    ctx.bezierCurveTo(0.05, -1.36, -0.18, -1.05, 0, -0.74);
+    ctx.bezierCurveTo(-0.18, -1.05, -0.4, -1.36, -0.82, -1.1);
+    ctx.bezierCurveTo(-1.42, -0.72, -0.98, -0.2, 0, 0.35);
+    if (fill) {
+      ctx.fillStyle = fill;
+      ctx.fill();
+    }
+    if (stroke) {
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 0.11;
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+  drawHeart(w * 0.05, h * 0.4, 18 * u, "rgba(90,58,68,.70)", "rgba(255,255,255,.3)");
+  drawHeart(w * 0.95, h * 0.62, 18 * u, "rgba(255,150,175,.76)", "rgba(255,150,175,.60)");
+}
+
+/* ---------- 8. 레트로 ---------- */
+function drawQuoteRetroWindow(ctx, w, h) {
+  const u = w / 1200;
+  const inset = 6 * u;
+  ctx.fillStyle = "rgba(255,255,255,.24)";
+  ctx.fillRect(0, 0, w, 44 * u + inset * 2);
+  const bar = ctx.createLinearGradient(0, 0, w, 0);
+  bar.addColorStop(0, "#0A2A8C");
+  bar.addColorStop(1, "#2D6FD0");
+  ctx.fillStyle = bar;
+  ctx.fillRect(inset, inset, w - inset * 2, 44 * u);
+  ctx.fillStyle = "rgba(255,255,255,.92)";
+  ctx.fillRect(18 * u, 20 * u, 16 * u, 16 * u);
+  const buttonY = 16 * u;
+  const buttonW = 26 * u;
+  [0, 1, 2].forEach((i) => {
+    const x = w - (18 + (3 - i) * 30) * u;
+    ctx.fillStyle = "#C9CDD3";
+    ctx.fillRect(x, buttonY, buttonW, buttonW);
+    ctx.strokeStyle = "rgba(255,255,255,.86)";
+    ctx.lineWidth = 1.4 * u;
+    ctx.beginPath();
+    ctx.moveTo(x, buttonY + buttonW);
+    ctx.lineTo(x, buttonY);
+    ctx.lineTo(x + buttonW, buttonY);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(70,74,84,.55)";
+    ctx.beginPath();
+    ctx.moveTo(x + buttonW, buttonY);
+    ctx.lineTo(x + buttonW, buttonY + buttonW);
+    ctx.lineTo(x, buttonY + buttonW);
+    ctx.stroke();
+  });
+
+  ctx.strokeStyle = "rgba(255,255,255,.88)";
+  ctx.lineWidth = 6 * u;
+  ctx.strokeRect(3 * u, 3 * u, w - 6 * u, h - 6 * u);
+  ctx.strokeStyle = "rgba(70,74,84,.55)";
+  ctx.beginPath();
+  ctx.moveTo(w - 3 * u, 3 * u);
+  ctx.lineTo(w - 3 * u, h - 3 * u);
+  ctx.lineTo(3 * u, h - 3 * u);
+  ctx.stroke();
+
+  const paw = (cx, cy) => {
+    const s = 8 * u;
+    ctx.fillStyle = "rgba(70,74,84,.48)";
+    [[0, 0], [-1.1, -1.35], [-0.35, -1.95], [0.35, -1.95], [1.1, -1.35]].forEach(([dx, dy], idx) => {
+      const r = idx === 0 ? s * 0.95 : s * 0.4;
+      ctx.beginPath();
+      ctx.arc(cx + dx * s, cy + dy * s, r, 0, Math.PI * 2);
+      ctx.fill();
+    });
+  };
+  paw(60 * u, h - 58 * u);
+  paw(w - 60 * u, h - 58 * u);
+}
+
+/* ---------- 9. 마커 ---------- */
+function drawQuoteMarkerPlaid(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(4119);
+  const drawWobbleLine = (points, widthPx, color) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = widthPx;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.beginPath();
+    points.forEach(([x, y], idx) => {
+      if (idx === 0) ctx.moveTo(x, y);
+      else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+  };
+  const makeVertical = (xBase) => {
+    const pts = [];
+    for (let i = 0; i <= 24; i++) pts.push([xBase + (r() - 0.5) * 10 * u, (h / 24) * i]);
+    return pts;
+  };
+  const makeHorizontal = (yBase) => {
+    const pts = [];
+    for (let i = 0; i <= 24; i++) pts.push([(w / 24) * i, yBase + (r() - 0.5) * 10 * u]);
+    return pts;
+  };
+  for (let i = 0; i < 7; i++) drawWobbleLine(makeVertical((90 + i * 150) * u), 12 * u, "rgba(130,200,245,.55)");
+  for (let i = 0; i < 9; i++) drawWobbleLine(makeHorizontal((110 + i * 125) * u), 12 * u, "rgba(130,200,245,.55)");
+  for (let i = 0; i < 4; i++) drawWobbleLine(makeVertical((160 + i * 260) * u), 15 * u, "rgba(255,236,140,.65)");
+  for (let i = 0; i < 5; i++) drawWobbleLine(makeHorizontal((180 + i * 220) * u), 15 * u, "rgba(255,236,140,.62)");
+  for (let i = 0; i < 6; i++) {
+    const y = (70 + i * 150) * u;
+    const g = ctx.createLinearGradient(0, y, 0, y + 40 * u);
+    g.addColorStop(0, "rgba(130,200,245,.12)");
+    g.addColorStop(1, "rgba(130,200,245,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, y, w, 40 * u);
+  }
+  const wash = ctx.createRadialGradient(w * 0.5, h * 0.48, 0, w * 0.5, h * 0.48, w * 0.48);
+  wash.addColorStop(0, "rgba(255,255,255,.60)");
+  wash.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = wash;
+  ctx.fillRect(w * 0.1, h * 0.15, w * 0.8, h * 0.68);
+}
+
+/* ---------- 10. 그래프 ---------- */
+function drawQuoteGraphPaper(ctx, w, h) {
+  const u = w / 1200;
+  const grid = 36 * u;
+  ctx.strokeStyle = "rgba(130,138,150,.26)";
+  ctx.lineWidth = 1 * u;
+  for (let x = 0; x <= w; x += grid) {
+    ctx.globalAlpha = quoteTestIsProtectedArea(x, h * 0.5, w, h) ? 0.5 : 1;
     ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
   }
-  for (let y = 0, iy = 0; y <= h; y += step, iy++) {
-    ctx.strokeStyle = iy % 5 === 0 ? "rgba(255,255,255,.09)" : "rgba(255,255,255,.05)";
-    ctx.lineWidth = 1 * u;
+  for (let y = 0; y <= h; y += grid) {
+    ctx.globalAlpha = y >= h * 0.13 && y <= h * 0.85 ? 0.5 : 1;
     ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
   }
-
-  const insetX = w * 0.04, insetY = h * 0.04, arm = 50 * u;
-  ctx.strokeStyle = "rgba(255,255,255,.50)";
-  ctx.lineWidth = 2 * u;
-  [[insetX,insetY,1,1],[w-insetX,insetY,-1,1],[insetX,h-insetY,1,-1],[w-insetX,h-insetY,-1,-1]].forEach(([x,y,sx,sy]) => {
-    ctx.beginPath(); ctx.moveTo(x + sx * arm, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * arm); ctx.stroke();
-  });
-
-  const y = h * 0.04;
-  ctx.strokeStyle = "rgba(255,255,255,.42)";
-  for (let i = 0; i < 24; i++) {
-    const x = w * (0.6 + (0.33 * i) / 23);
-    const len = (i % 2 ? 8 : 14) * u;
-    ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + len); ctx.stroke();
-  }
-  [[0.88,0.86],[0.92,0.9],[0.84,0.92]].forEach(([x,y]) => {
-    const s = 9 * u;
-    ctx.beginPath(); ctx.moveTo(w*x-s,h*y); ctx.lineTo(w*x+s,h*y); ctx.moveTo(w*x,h*y-s); ctx.lineTo(w*x,h*y+s); ctx.stroke();
-  });
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = "rgba(220,110,120,.35)";
+  ctx.beginPath(); ctx.moveTo(w * 0.04, 0); ctx.lineTo(w * 0.04, h); ctx.stroke();
+  const size = 120 * u;
+  const x0 = w - size;
+  const y0 = h - size;
+  const fold = ctx.createLinearGradient(x0, y0, w, h);
+  fold.addColorStop(0, "#E9EBEF");
+  fold.addColorStop(1, "#FFFFFF");
+  ctx.fillStyle = "rgba(0,0,0,.08)";
+  ctx.beginPath(); ctx.moveTo(x0 + 8 * u, h); ctx.lineTo(w, y0 + 8 * u); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = fold;
+  ctx.beginPath(); ctx.moveTo(x0, h); ctx.lineTo(w, y0); ctx.lineTo(w, h); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = "rgba(170,176,186,.55)";
+  ctx.beginPath(); ctx.moveTo(x0, h); ctx.lineTo(w, y0); ctx.stroke();
 }
 
-function drawQuoteDotNote(ctx, w, h) {
+/* ---------- 11. 클라우드 ---------- */
+function drawQuoteCumulus(ctx, w, h) {
   const u = w / 1200;
-  const step = 40 * u;
-  for (let y = step * 0.5; y < h; y += step) {
-    for (let x = step * 0.5; x < w; x += step) {
-      const inBody = x > w * 0.07 && x < w * 0.93 && y > h * 0.13 && y < h * 0.85;
-      ctx.fillStyle = inBody ? "rgba(80,70,60,.10)" : "rgba(80,70,60,.28)";
-      ctx.beginPath(); ctx.arc(x, y, 1.8 * u, 0, Math.PI * 2); ctx.fill();
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, "rgba(142,198,245,.20)");
+  sky.addColorStop(1, "rgba(215,236,251,.04)");
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, w, h);
+  const drawCloud = (cx, cy, size) => {
+    for (let i = 0; i < 22; i++) {
+      const angle = (i / 22) * Math.PI * 2;
+      const rr = size * (0.38 + ((i * 7) % 5) * 0.08);
+      const x = cx + Math.cos(angle) * size * 0.55;
+      const y = cy + Math.sin(angle) * size * 0.18;
+      ctx.fillStyle = "rgba(255,255,255,.92)";
+      ctx.beginPath();
+      ctx.arc(x, y, rr, 0, Math.PI * 2);
+      ctx.fill();
     }
-  }
-  const hx = w * 0.032;
-  for (let i = 0; i < 10; i++) {
-    const y = h * (0.08 + (0.84 * i) / 9);
-    ctx.fillStyle = "rgba(0,0,0,.10)";
-    ctx.beginPath(); ctx.arc(hx, y, 9 * u, 0, Math.PI * 2); ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.70)";
-    ctx.lineWidth = 1.3 * u;
-    ctx.beginPath(); ctx.arc(hx, y, 7.2 * u, Math.PI * 1.06, Math.PI * 1.9); ctx.stroke();
-  }
-}
-
-function drawQuoteVelvetDrape(ctx, w, h) {
-  const u = w / 1200;
-  const sideWidth = w * 0.09;
-  for (const right of [false, true]) {
-    for (let i = 0; i < 6; i++) {
-      const x0 = right ? w - sideWidth + (sideWidth * i) / 6 : (sideWidth * i) / 6;
-      const x1 = right ? w - sideWidth + (sideWidth * (i + 1)) / 6 : (sideWidth * (i + 1)) / 6;
-      const outerFactor = right ? i / 5 : (5 - i) / 5;
-      const g = ctx.createLinearGradient(x0, 0, x1, 0);
-      g.addColorStop(0, `rgba(0,0,0,${(0.20 + outerFactor * 0.15).toFixed(3)})`);
-      g.addColorStop(0.55, `rgba(255,120,140,${(0.08 + outerFactor * 0.06).toFixed(3)})`);
-      g.addColorStop(1, "rgba(0,0,0,.22)");
-      ctx.fillStyle = g;
-      ctx.fillRect(x0, 0, x1 - x0 + 1, h);
-    }
-  }
-  const glow = ctx.createRadialGradient(w * 0.5, h, 0, w * 0.5, h, w * 0.5);
-  glow.addColorStop(0, "rgba(255,200,150,.16)");
-  glow.addColorStop(1, "rgba(255,200,150,0)");
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, h * 0.55, w, h * 0.45);
-  ctx.strokeStyle = "rgba(255,210,180,.16)";
-  ctx.lineWidth = 1.2 * u;
-  ctx.beginPath(); ctx.moveTo(w*.09,0); ctx.lineTo(w*.09,h); ctx.moveTo(w*.91,0); ctx.lineTo(w*.91,h); ctx.stroke();
-}
-
-function drawQuotePostage(ctx, w, h) {
-  const u = w / 1200;
-  const notch = 7 * u;
-  const step = 28 * u;
-  ctx.fillStyle = "#D8CBB0";
-  for (let x = step * 0.5; x < w; x += step) {
-    ctx.beginPath(); ctx.arc(x, 0, notch, 0, Math.PI); ctx.fill();
-    ctx.beginPath(); ctx.arc(x, h, notch, Math.PI, Math.PI * 2); ctx.fill();
-  }
-  for (let y = step * 0.5; y < h; y += step) {
-    ctx.beginPath(); ctx.arc(0, y, notch, -Math.PI / 2, Math.PI / 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(w, y, notch, Math.PI / 2, Math.PI * 1.5); ctx.fill();
-  }
-  ctx.strokeStyle = "rgba(60,40,30,.35)";
-  ctx.lineWidth = 2 * u;
-  ctx.strokeRect(w * 0.034, h * 0.034, w * 0.932, h * 0.932);
-
-  const cx = w * 0.86, cy = h * 0.07;
-  ctx.strokeStyle = "rgba(150,40,40,.35)";
-  ctx.lineWidth = 2.5 * u;
-  [62,52].forEach((r) => { ctx.beginPath(); ctx.arc(cx, cy, r * u, 0, Math.PI * 2); ctx.stroke(); });
-  ctx.lineWidth = 1.8 * u;
-  for (let row = 0; row < 4; row++) {
+    const shadow = ctx.createLinearGradient(cx, cy - size * 0.35, cx, cy + size * 0.5);
+    shadow.addColorStop(0, "rgba(140,185,230,0)");
+    shadow.addColorStop(1, "rgba(140,185,230,.34)");
+    ctx.fillStyle = shadow;
     ctx.beginPath();
-    const x0 = w * 0.4, x1 = w * 0.8, base = h * (0.05 + row * 0.013);
-    for (let i = 0; i <= 48; i++) {
-      const t = i / 48;
-      const x = x0 + (x1 - x0) * t;
-      const y = base + Math.sin(t * Math.PI * 6 + row * 0.8) * 3 * u;
-      if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-    }
+    ctx.ellipse(cx, cy + size * 0.14, size * 1.25, size * 0.38, 0, 0, Math.PI * 2);
+    ctx.fill();
+  };
+  drawCloud(w * 0.22, h * 0.96, 78 * u);
+  drawCloud(w * 0.86, h * 0.92, 72 * u);
+  ctx.strokeStyle = "rgba(60,90,140,.35)";
+  ctx.lineWidth = 1.5 * u;
+  ctx.beginPath();
+  ctx.moveTo(w, 0);
+  ctx.quadraticCurveTo(w * 0.96, h * 0.12, w * 0.88, h * 0.3);
+  ctx.stroke();
+  ctx.lineCap = "round";
+  ctx.strokeStyle = "rgba(255,255,255,.34)";
+  ctx.lineWidth = 5 * u;
+  [[0.78, 0.12, 0.12], [0.84, 0.18, 0.18], [0.72, 0.2, 0.16]].forEach(([x, y, len]) => {
+    ctx.beginPath();
+    ctx.moveTo(w * x, h * y);
+    ctx.quadraticCurveTo(w * (x + len * 0.4), h * (y - 0.018), w * (x + len), h * (y + 0.006));
+    ctx.stroke();
+  });
+}
+
+/* ---------- 12. 리플 ---------- */
+function drawQuoteRipplePool(ctx, w, h) {
+  const u = w / 1200;
+  [[0.14, 0.1, 0.30, "rgba(255,190,150,.28)"], [0.9, 0.6, 0.22, "rgba(255,230,120,.18)"], [0.1, 0.88, 0.24, "rgba(170,230,170,.18)"]].forEach(([x, y, r, c]) => {
+    const g = ctx.createRadialGradient(w * x, h * y, 0, w * x, h * y, w * r);
+    g.addColorStop(0, c);
+    g.addColorStop(1, c.replace(/0\.[0-9]+\)$/, "0)"));
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+  const cx = w * 0.82;
+  const cy = h * 0.88;
+  for (let radius = 60 * u, i = 0; radius < 760 * u; radius *= 1.03, i++) {
+    ctx.strokeStyle = i % 2 ? "rgba(60,150,160,.12)" : "rgba(255,255,255,.34)";
+    ctx.lineWidth = (2 + (i % 4)) * u;
+    ctx.globalAlpha = radius < w * 0.45 ? 0.85 : 1;
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, Math.PI * 0.95, Math.PI * 1.98);
     ctx.stroke();
   }
+  ctx.globalAlpha = 1;
 }
 
-function drawQuoteTerrazzo(ctx, w, h) {
+/* ---------- 13. 크래프트 ---------- */
+function drawQuoteKraft(ctx, w, h) {
   const u = w / 1200;
-  const r = quoteTestRng(6629);
-  const palette = ["rgba(214,122,106,.75)","rgba(92,128,118,.70)","rgba(232,190,96,.75)","rgba(60,70,92,.60)","rgba(250,250,246,.90)"];
-  for (let i = 0; i < 70; i++) {
-    let x, y;
-    if (r() < 0.5) {
-      x = r() < 0.5 ? w * (0.01 + r() * 0.1) : w * (0.89 + r() * 0.1);
-      y = h * r();
-    } else {
-      x = w * r();
-      y = r() < 0.5 ? h * (0.01 + r() * 0.1) : h * (0.89 + r() * 0.1);
-    }
-    const rad = (8 + r() * 18) * u;
-    const n = 5 + Math.floor(r() * 3);
+  const r = quoteTestRng(5123);
+  ctx.lineCap = "round";
+  for (let i = 0; i < 380; i++) {
+    const x = r() * w;
+    const y = r() * h;
+    const len = (8 + r() * 18) * u;
+    const a = r() * Math.PI * 2;
+    ctx.strokeStyle = r() < 0.56 ? `rgba(110,75,40,${(0.08 + r() * 0.06).toFixed(3)})` : `rgba(255,235,200,${(0.08 + r() * 0.08).toFixed(3)})`;
+    ctx.lineWidth = 1 * u;
     ctx.beginPath();
-    for (let k = 0; k < n; k++) {
-      const a = (k / n) * Math.PI * 2 + r() * 0.5;
-      const rr = rad * (0.6 + r() * 0.55);
-      const px = x + Math.cos(a) * rr;
-      const py = y + Math.sin(a) * rr;
-      if (k) ctx.lineTo(px, py); else ctx.moveTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fillStyle = palette[Math.floor(r() * palette.length)];
+    ctx.moveTo(x, y);
+    ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len);
+    ctx.stroke();
+  }
+  for (let i = 0; i < 250; i++) {
+    ctx.fillStyle = `rgba(70,45,20,${(0.08 + r() * 0.10).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.arc(r() * w, r() * h, (0.8 + r()) * u, 0, Math.PI * 2);
     ctx.fill();
   }
+  const vignette = ctx.createRadialGradient(w * 0.5, h * 0.5, w * 0.3, w * 0.5, h * 0.5, w * 0.8);
+  vignette.addColorStop(0, "rgba(60,35,15,0)");
+  vignette.addColorStop(1, "rgba(60,35,15,.14)");
+  ctx.fillStyle = vignette;
+  ctx.fillRect(0, 0, w, h);
 }
 
-function drawQuoteNeonEdge(ctx, w, h) {
+/* ---------- 14. 벨럼 ---------- */
+function drawQuoteVellum(ctx, w, h) {
   const u = w / 1200;
-  const inset = w * 0.028;
-  const arm = w * 0.10;
-  const corners = [
-    [inset, inset, 1, 1, "rgba(255,60,200,.9)"],
-    [w - inset, inset, -1, 1, "rgba(60,230,255,.9)"],
-    [inset, h - inset, 1, -1, "rgba(60,230,255,.9)"],
-    [w - inset, h - inset, -1, -1, "rgba(255,60,200,.9)"],
+  const lines = [
+    [0, 0.34, 1, 0.52],
+    [0.68, 0, 0.62, 1],
   ];
-  ctx.lineCap = "round";
-  corners.forEach(([x,y,sx,sy,color]) => {
-    ctx.save();
-    ctx.strokeStyle = color;
-    ctx.shadowColor = color;
-    ctx.shadowBlur = 28 * u;
-    ctx.lineWidth = 4 * u;
-    ctx.beginPath(); ctx.moveTo(x + sx * arm, y); ctx.lineTo(x, y); ctx.lineTo(x, y + sy * arm); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.strokeStyle = "rgba(255,255,255,.8)";
-    ctx.lineWidth = 1.6 * u;
+  lines.forEach(([x1, y1, x2, y2]) => {
+    ctx.strokeStyle = "rgba(120,130,140,.22)";
+    ctx.lineWidth = 1.5 * u;
+    ctx.beginPath();
+    ctx.moveTo(w * x1, h * y1);
+    ctx.lineTo(w * x2, h * y2);
     ctx.stroke();
-    ctx.restore();
+    ctx.strokeStyle = "rgba(255,255,255,.5)";
+    ctx.lineWidth = 3 * u;
+    ctx.beginPath();
+    ctx.moveTo(w * x1 + 2 * u, h * y1 + 2 * u);
+    ctx.lineTo(w * x2 + 2 * u, h * y2 + 2 * u);
+    ctx.stroke();
   });
-  const g = ctx.createRadialGradient(w * 0.5, h, 0, w * 0.5, h, w * 0.48);
-  g.addColorStop(0, "rgba(255,60,200,.10)");
-  g.addColorStop(1, "rgba(255,60,200,0)");
-  ctx.fillStyle = g;
-  ctx.fillRect(0, h * 0.58, w, h * 0.42);
+  for (let i = 0; i < 90; i++) {
+    const y = (h / 90) * i;
+    ctx.strokeStyle = "rgba(255,255,255,.03)";
+    ctx.lineWidth = 1 * u;
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y + (i % 2 ? 1 : 0) * u); ctx.stroke();
+  }
+  const size = 150 * u;
+  const x0 = w - size;
+  const fold = ctx.createLinearGradient(x0, 0, w, size);
+  fold.addColorStop(0, "#FFFFFF");
+  fold.addColorStop(1, "#E5E8EA");
+  ctx.fillStyle = fold;
+  ctx.beginPath(); ctx.moveTo(w - size, 0); ctx.lineTo(w, 0); ctx.lineTo(w, size); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "rgba(0,0,0,.08)";
+  ctx.beginPath(); ctx.moveTo(w - size, 0); ctx.lineTo(w - size * 0.55, size * 0.55); ctx.lineTo(w, size); ctx.closePath(); ctx.fill();
 }
 
+/* ---------- 15. 크럼플 ---------- */
+function drawQuoteCrumple(ctx, w, h) {
+  const u = w / 1200;
+  const cols = 7;
+  const rows = 7;
+  const jitter = 0.35;
+  const pts = [];
+  for (let iy = 0; iy <= rows; iy++) {
+    pts[iy] = [];
+    for (let ix = 0; ix <= cols; ix++) {
+      const baseX = (w / cols) * ix;
+      const baseY = (h / rows) * iy;
+      const jx = ix === 0 || ix === cols ? 0 : (Math.sin(ix * 12.37 + iy * 3.11) * 0.5 + 0.5) * 2 - 1;
+      const jy = ix === 0 || ix === cols || iy === 0 || iy === rows ? 0 : (Math.cos(ix * 4.91 + iy * 6.77) * 0.5 + 0.5) * 2 - 1;
+      pts[iy][ix] = [baseX + jx * (w / cols) * jitter * 0.5, baseY + jy * (h / rows) * jitter * 0.5];
+    }
+  }
+  const fillTri = (a, b, c, light) => {
+    const cx = (a[0] + b[0] + c[0]) / 3;
+    const cy = (a[1] + b[1] + c[1]) / 3;
+    const alpha = quoteTestIsProtectedArea(cx, cy, w, h) ? 0.022 : 0.05;
+    ctx.fillStyle = light ? `rgba(255,255,255,${alpha.toFixed(3)})` : `rgba(0,0,0,${alpha.toFixed(3)})`;
+    ctx.beginPath();
+    ctx.moveTo(a[0], a[1]);
+    ctx.lineTo(b[0], b[1]);
+    ctx.lineTo(c[0], c[1]);
+    ctx.closePath();
+    ctx.fill();
+    if (!quoteTestIsProtectedArea(cx, cy, w, h)) {
+      ctx.strokeStyle = "rgba(0,0,0,.03)";
+      ctx.lineWidth = 0.8 * u;
+      ctx.stroke();
+    }
+  };
+  for (let iy = 0; iy < rows; iy++) {
+    for (let ix = 0; ix < cols; ix++) {
+      const p00 = pts[iy][ix];
+      const p10 = pts[iy][ix + 1];
+      const p01 = pts[iy + 1][ix];
+      const p11 = pts[iy + 1][ix + 1];
+      const light = (ix + iy) % 2 === 0;
+      fillTri(p00, p10, p11, light);
+      fillTri(p00, p11, p01, !light);
+    }
+  }
+}
+
+
+/* ---------- 16. 깅엄 ---------- */
 function drawQuoteGingham(ctx, w, h) {
   const u = w / 1200;
-  const spacing = 18 * u;
-  const band = 9 * u;
-  const radius = w * 0.13;
-  const corner = (cx, cy, start, end) => {
-    ctx.save();
-    ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, radius, start, end); ctx.closePath(); ctx.clip();
-    ctx.fillStyle = "rgba(214,72,96,.16)";
-    for (let x = cx - radius; x < cx + radius; x += spacing) ctx.fillRect(x, cy - radius, band, radius * 2);
-    for (let y = cy - radius; y < cy + radius; y += spacing) ctx.fillRect(cx - radius, y, radius * 2, band);
-    ctx.restore();
-  };
-  corner(w, 0, Math.PI / 2, Math.PI);
-  corner(0, h, -Math.PI / 2, 0);
-}
+  const paper = ctx.createLinearGradient(0, 0, w, h);
+  paper.addColorStop(0, "rgba(250,239,239,.92)");
+  paper.addColorStop(1, "rgba(245,229,229,.92)");
+  ctx.fillStyle = paper;
+  ctx.fillRect(0, 0, w, h);
 
-function drawQuoteStitch(ctx, w, h) {
-  const u = w / 1200;
-  ctx.strokeStyle = "rgba(255,255,255,.035)";
-  ctx.lineWidth = 1 * u;
-  const step = 6 * u;
-  for (let x = -h; x < w + h; x += step) {
-    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x + h, h); ctx.stroke();
-  }
-  const strokeRounded = (inset, radius, dash, alpha, width) => {
+  const drawCheckBand = (x, y, width, height, alpha = 1) => {
+    const cell = 34 * u;
     ctx.save();
-    ctx.setLineDash(dash.map((v) => v * u));
-    ctx.lineCap = "round";
-    ctx.strokeStyle = `rgba(255,236,200,${alpha})`;
-    ctx.lineWidth = width * u;
     ctx.beginPath();
-    if (ctx.roundRect) ctx.roundRect(inset, inset, w - inset * 2, h - inset * 2, radius * u);
-    else ctx.rect(inset, inset, w - inset * 2, h - inset * 2);
-    ctx.stroke();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
+    for (let yy = y; yy < y + height + cell; yy += cell) {
+      for (let xx = x; xx < x + width + cell; xx += cell) {
+        const even = ((Math.round((xx - x) / cell) + Math.round((yy - y) / cell)) % 2) === 0;
+        ctx.fillStyle = even ? `rgba(236,188,198,${0.72 * alpha})` : `rgba(251,231,236,${0.92 * alpha})`;
+        ctx.fillRect(xx, yy, cell, cell);
+      }
+    }
+    ctx.fillStyle = `rgba(231,170,182,${0.26 * alpha})`;
+    for (let xx = x; xx < x + width + cell; xx += cell) ctx.fillRect(xx + cell * 0.42, y, cell * 0.18, height);
+    for (let yy = y; yy < y + height + cell; yy += cell) ctx.fillRect(x, yy + cell * 0.42, width, cell * 0.18);
     ctx.restore();
   };
-  strokeRounded(w * 0.036, 28, [16,10], .8, 3.5);
-  strokeRounded(w * 0.052, 22, [8,10], .35, 2.2);
-  ctx.strokeStyle = "rgba(255,236,200,.78)";
-  ctx.lineWidth = 2.5 * u;
-  [[0.075,0.925],[0.925,0.925]].forEach(([x,y]) => {
-    const arm = 10 * u;
+
+  const bandH = 108 * u;
+  drawCheckBand(0, 0, w, bandH, 1);
+  drawCheckBand(0, h - bandH, w, bandH, 1);
+
+  const drawQuarter = (corner) => {
+    const radius = 156 * u;
+    ctx.save();
     ctx.beginPath();
-    ctx.moveTo(w*x-arm,h*y-arm); ctx.lineTo(w*x+arm,h*y+arm);
-    ctx.moveTo(w*x+arm,h*y-arm); ctx.lineTo(w*x-arm,h*y+arm);
-    ctx.stroke();
-  });
+    if (corner === 'tr') {
+      ctx.moveTo(w, 0);
+      ctx.arc(w, 0, radius, Math.PI, Math.PI * 0.5, true);
+    } else {
+      ctx.moveTo(0, h);
+      ctx.arc(0, h, radius, 0, Math.PI * 1.5, true);
+    }
+    ctx.closePath();
+    ctx.clip();
+    drawCheckBand(corner === 'tr' ? w - radius : 0, corner === 'tr' ? 0 : h - radius, radius, radius, 0.95);
+    ctx.restore();
+  };
+  drawQuarter('tr');
+  drawQuarter('bl');
+
+  ctx.fillStyle = "rgba(255,255,255,.72)";
+  ctx.fillRect(0, bandH - 3 * u, w, 10 * u);
+  ctx.fillRect(0, h - bandH - 7 * u, w, 10 * u);
 }
 
 function drawReaderShareThemeEffect(ctx, background, width, height) {
@@ -12781,26 +12968,28 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     drawQuoteFilmLeak(ctx, width, height);
   } else if (effect === "star-chart") {
     drawQuoteStarChart(ctx, width, height);
-  } else if (effect === "firefly") {
-    drawQuoteFirefly(ctx, width, height);
-  } else if (effect === "riso-dots") {
-    drawQuoteRisoDots(ctx, width, height);
-  } else if (effect === "cyan-plan") {
-    drawQuoteCyanPlan(ctx, width, height);
-  } else if (effect === "dot-note") {
-    drawQuoteDotNote(ctx, width, height);
-  } else if (effect === "velvet-drape") {
-    drawQuoteVelvetDrape(ctx, width, height);
-  } else if (effect === "postage") {
-    drawQuotePostage(ctx, width, height);
-  } else if (effect === "terrazzo") {
-    drawQuoteTerrazzo(ctx, width, height);
-  } else if (effect === "neon-edge") {
-    drawQuoteNeonEdge(ctx, width, height);
+  } else if (effect === "soft-polka") {
+    drawQuoteSoftPolka(ctx, width, height);
+  } else if (effect === "lace-grid") {
+    drawQuoteLaceGrid(ctx, width, height);
+  } else if (effect === "retro-window") {
+    drawQuoteRetroWindow(ctx, width, height);
+  } else if (effect === "marker-plaid") {
+    drawQuoteMarkerPlaid(ctx, width, height);
+  } else if (effect === "graph-paper") {
+    drawQuoteGraphPaper(ctx, width, height);
+  } else if (effect === "cumulus") {
+    drawQuoteCumulus(ctx, width, height);
+  } else if (effect === "ripple-pool") {
+    drawQuoteRipplePool(ctx, width, height);
+  } else if (effect === "kraft") {
+    drawQuoteKraft(ctx, width, height);
+  } else if (effect === "vellum") {
+    drawQuoteVellum(ctx, width, height);
+  } else if (effect === "crumple") {
+    drawQuoteCrumple(ctx, width, height);
   } else if (effect === "gingham") {
     drawQuoteGingham(ctx, width, height);
-  } else if (effect === "stitch") {
-    drawQuoteStitch(ctx, width, height);
   }
   ctx.restore();
 }
