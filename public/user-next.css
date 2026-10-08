@@ -680,3 +680,25 @@ html.user-design-next .reader-search-row-context mark {
   color: var(--sy-accent-text) !important;
   box-shadow: inset 0 0 0 1px var(--sy-accent-line) !important;
 }
+
+/* v9.84 - quote feed is a content canvas, not a generic surface card.
+ * Keep the page transparent so it follows the light/dark page background,
+ * preserve each quote card's own generated background, and keep feed-list
+ * typography independent from the reader font preference. */
+html.user-design-next .quote-feed-page {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
+html.user-design-next .quote-feed-card,
+html.user-design-next .quote-feed-card:hover {
+  background: var(--quote-bg, #f3eee7) !important;
+  color: var(--quote-color, #2a2724) !important;
+}
+
+html.user-design-next .quote-feed-card-text {
+  font-family:
+    Pretendard, "Pretendard Variable", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", "Noto Sans KR", Arial, sans-serif !important;
+}
