@@ -10319,12 +10319,25 @@ const READER_SHARE_BACKGROUNDS = [
 ];
 
 const READER_SHARE_FONTS = [
-  { key: "paperlogy", label: "페이퍼로지", css: 'Paperozi, Pretendard, "Noto Sans KR", sans-serif', weight: 500 },
-  { key: "ridibatang", label: "리디바탕", css: 'Ridibatang, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
-  { key: "kopubbatang", label: "KoPub 바탕", css: '"KoPub Batang", "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
-  { key: "chosunilbo", label: "조선일보명조", css: 'ChosunIlboMyungjo, "Noto Serif KR", "Nanum Myeongjo", serif', weight: 400 },
-  { key: "inkliquid", label: "잉크립퀴드", css: 'InkLiquid, cursive', weight: 400 },
+  { key: "ridibatang", label: "리디바탕", css: READER_FONT_FAMILIES.ridibatang, weight: 400 },
+  { key: "paperlogy", label: "페이퍼로지", css: READER_FONT_FAMILIES.paperlogy, weight: 500 },
+  { key: "chosunilbo", label: "조선일보명조", css: READER_FONT_FAMILIES.chosunilbo, weight: 400 },
+  { key: "inkliquid", label: "잉크립퀴드", css: READER_FONT_FAMILIES.inkliquid, weight: 400 },
+  { key: "kopubbatang", label: "KoPub 바탕", css: READER_FONT_FAMILIES.kopubbatang, weight: 400 },
+  { key: "default", label: "프리텐다드", css: READER_FONT_FAMILIES.default, weight: 400 },
+  { key: "suit", label: "SUIT", css: READER_FONT_FAMILIES.suit, weight: 400 },
+  { key: "bookkmyungjo", label: "부크크명조", css: READER_FONT_FAMILIES.bookkmyungjo, weight: 400 },
+  { key: "mapoflower", label: "마포꽃섬", css: READER_FONT_FAMILIES.mapoflower, weight: 400 },
+  { key: "gowunbatang", label: "고운바탕", css: READER_FONT_FAMILIES.gowunbatang, weight: 400 },
+  { key: "maruburi", label: "마루 부리", css: READER_FONT_FAMILIES.maruburi, weight: 400 },
+  { key: "galmuri", label: "갈무리", css: READER_FONT_FAMILIES.galmuri, weight: 400 },
 ];
+
+function ensureReaderShareFont(fontKey) {
+  if (fontKey === "kopubbatang") return ensureKopubFont();
+  if (isLazyReaderFont(fontKey)) return ensureReaderLazyFont(fontKey);
+  return Promise.resolve(true);
+}
 
 const READER_SHARE_SIZES = {
   xxs: { button: "1", label: "더아주작게", px: 12 },
@@ -10727,6 +10740,10 @@ function ensureReaderShareUi() {
       state.readerShareFont = fontButton.dataset.shareFont || "paperlogy";
       normalizeReaderShareWeightForFont();
       updateReaderSharePreview();
+      const selectedFont = state.readerShareFont;
+      void ensureReaderShareFont(selectedFont).then((ready) => {
+        if (ready && state.readerShareFont === selectedFont) updateReaderSharePreview();
+      });
       return;
     }
     const weightButton = event.target.closest("[data-share-weight]");
@@ -11219,9 +11236,7 @@ async function renderReaderShareCanvas() {
   const width = 1200;
   const height = model.ratio === "2:3" ? 1800 : model.ratio === "4:5" ? 1500 : 1200;
   try {
-    if (model.font?.key === "kopubbatang") {
-      await ensureKopubFont();
-    }
+    await ensureReaderShareFont(model.font?.key);
     if (document.fonts?.load) {
       await document.fonts.load(`${model.fontWeight || model.font.weight || 400} 48px ${model.font.css}`);
       await document.fonts.ready;
