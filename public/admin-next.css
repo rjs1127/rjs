@@ -716,3 +716,779 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
 .admin-next-login .error {
   color: var(--sy-danger) !important;
 }
+
+/* =====================================================================
+   Admin design system v2 — consistency + mobile usability
+   ---------------------------------------------------------------------
+   This block intentionally lives in the preview layer so legacy admin.css
+   can remain functionally stable while every visible admin surface is moved
+   onto the shared --sy-* foundation.
+   ===================================================================== */
+
+.admin-next-page {
+  --admin-content-max: 1080px;
+  --admin-nav-width: 184px;
+}
+
+.admin-next-page * {
+  scrollbar-color: var(--sy-scroll-thumb) transparent;
+}
+
+.admin-next-page .admin-shell {
+  max-width: 1380px;
+}
+
+/* Header: quieter and shorter. */
+.admin-next-page .admin-header {
+  min-height: 0;
+}
+
+.admin-next-page .admin-header-account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.admin-next-page .admin-version {
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.admin-next-page .admin-header-links .back-link {
+  min-height: 36px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+}
+
+/* Shared panel language. */
+.admin-next-page :is(
+  .panel,
+  .source-overview-card,
+  .dashboard-summary-card,
+  .stat,
+  .status-mini-card,
+  .diagnostic-card,
+  .auto-sync-card,
+  .ops-automation-card,
+  .resource-overview-card,
+  .resource-summary-card,
+  .resource-analytics-card,
+  .resource-d1-health-card,
+  .history-summary-card,
+  .history-activity-card,
+  .history-day-card,
+  .feedback-admin-card,
+  .deploy-status-card,
+  .prompt-library-item,
+  .alias-editor-card,
+  .alias-row,
+  .visit-kpi-card,
+  .visit-signup-funnel,
+  .visit-signup-funnel-grid > div,
+  .visit-daily-row-new,
+  .visit-mini-metrics > div,
+  .visit-performance-grid > div,
+  .resource-section,
+  .resource-limit-dashboard,
+  .resource-pages-deployments,
+  .resource-operation-section,
+  .resource-breakdown
+) {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+  box-shadow: none;
+}
+
+.admin-next-page :is(
+  .panel,
+  .source-overview-card,
+  .dashboard-summary-card,
+  .stat,
+  .status-mini-card,
+  .diagnostic-card,
+  .auto-sync-card,
+  .ops-automation-card,
+  .resource-overview-card,
+  .resource-summary-card,
+  .resource-analytics-card,
+  .resource-d1-health-card,
+  .history-summary-card,
+  .history-activity-card,
+  .history-day-card,
+  .feedback-admin-card,
+  .deploy-status-card,
+  .alias-editor-card,
+  .alias-row,
+  .visit-kpi-card,
+  .visit-signup-funnel,
+  .visit-signup-funnel-grid > div
+) {
+  border-radius: var(--sy-radius-lg);
+}
+
+/* Remove leftover warm / purple decorative surfaces. */
+.admin-next-page :is(
+  .visit-kpi-card.is-primary,
+  .visit-signup-funnel-grid > div.is-accent,
+  .history-summary-card.is-start,
+  .history-summary-card.is-latest,
+  .history-activity-card,
+  .history-day.is-latest .history-day-card
+) {
+  background: var(--sy-surface) !important;
+  border-color: var(--sy-line) !important;
+}
+
+.admin-next-page .history-activity-card::after {
+  display: none;
+}
+
+.admin-next-page :is(
+  .history-activity-head span,
+  .history-activity-head small,
+  .history-entry > span,
+  .history-day-head > span,
+  .history-day-head time,
+  .history-entry p,
+  .history-modal-version-button,
+  .history-modal-versions > span,
+  .history-modal-versions b
+) {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .history-day-head b,
+.admin-next-page .history-modal-versions b {
+  background: var(--sy-chip);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .history-rail::before {
+  background: var(--sy-line);
+}
+
+.admin-next-page .history-rail span {
+  border-color: var(--sy-surface);
+  background: var(--sy-text-tertiary);
+  box-shadow: 0 0 0 1px var(--sy-line-strong);
+}
+
+.admin-next-page .history-day.is-latest .history-rail span {
+  background: var(--sy-accent);
+  box-shadow: 0 0 0 1px var(--sy-accent), 0 0 0 4px var(--sy-focus);
+}
+
+/* Controls: one rule set instead of page-specific palettes. */
+.admin-next-page :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select,
+  .alias-picker > input,
+  .alias-values-field > input,
+  .postype-register-form input,
+  .postype-register-form select,
+  .postype-bulk-common input,
+  .postype-bulk-common select,
+  .postype-bulk-table input,
+  .postype-bulk-table select
+) {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-control) !important;
+  color: var(--sy-text) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page :is(
+  input:not([type="checkbox"]):not([type="radio"]),
+  textarea,
+  select,
+  .alias-picker > input,
+  .alias-values-field > input
+):focus {
+  border-color: var(--sy-accent) !important;
+  outline: 0 !important;
+  box-shadow: 0 0 0 3px var(--sy-focus) !important;
+}
+
+.admin-next-page :is(
+  .secondary-admin-button,
+  .deploy-status-refresh,
+  .user-action-button,
+  .postype-library-date-fetch,
+  .postype-bulk-meta,
+  .postype-library-page-button,
+  .postype-bulk-url-add,
+  .postype-bulk-url-remove,
+  .auto-sync-setup-button,
+  .resource-pages-more-button,
+  .alias-row-actions button,
+  .feedback-admin-actions button,
+  .feedback-admin-account button
+) {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-control) !important;
+  color: var(--sy-text) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page :is(
+  .secondary-admin-button,
+  .deploy-status-refresh,
+  .user-action-button,
+  .postype-library-date-fetch,
+  .postype-bulk-meta,
+  .postype-library-page-button,
+  .postype-bulk-url-add,
+  .postype-bulk-url-remove,
+  .auto-sync-setup-button,
+  .resource-pages-more-button,
+  .alias-row-actions button,
+  .feedback-admin-actions button,
+  .feedback-admin-account button
+):hover:not(:disabled) {
+  border-color: var(--sy-line-strong) !important;
+  background: var(--sy-control-hover) !important;
+}
+
+.admin-next-page :is(
+  button.primary,
+  .alias-editor-actions .primary,
+  .postype-admin-actions button.primary,
+  .postype-register-actions button.primary,
+  .postype-bulk-actions button.primary
+) {
+  border-color: var(--sy-accent) !important;
+  background: var(--sy-accent) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+}
+
+/* Segmented controls / tabs. */
+.admin-next-page :is(.alias-type-tabs,.resource-period-tabs,.history-activity-modes) {
+  border: 1px solid var(--sy-line) !important;
+  background: var(--sy-surface-muted) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page :is(.alias-type-tabs button,.resource-period-button,.history-activity-modes button) {
+  background: transparent !important;
+  color: var(--sy-text-secondary) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page :is(.alias-type-tabs button.is-active,.resource-period-button.active,.resource-period-button.is-active,.history-activity-modes button.is-active) {
+  background: var(--sy-surface) !important;
+  color: var(--sy-accent-text) !important;
+  box-shadow: var(--sy-shadow-sm) !important;
+}
+
+/* Search aliases. */
+.admin-next-page .alias-editor-card,
+.admin-next-page .alias-row,
+.admin-next-page .alias-suggestions,
+.admin-next-page .alias-empty {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+}
+
+.admin-next-page .alias-suggestion:hover,
+.admin-next-page .alias-suggestion:focus {
+  background: var(--sy-row-hover);
+}
+
+.admin-next-page .alias-kind,
+.admin-next-page .alias-list-head small,
+.admin-next-page .alias-chips span {
+  border-color: var(--sy-line);
+  background: var(--sy-chip);
+  color: var(--sy-text-secondary);
+}
+
+/* Feedback. */
+.admin-next-page .feedback-admin-summary button {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .feedback-admin-summary button strong {
+  color: var(--sy-text);
+}
+
+.admin-next-page .feedback-admin-summary button.is-active {
+  border-color: var(--sy-accent-line);
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .feedback-admin-card-category,
+.admin-next-page .feedback-admin-account,
+.admin-next-page .feedback-admin-diagnostic,
+.admin-next-page .feedback-admin-account-summary {
+  border-color: var(--sy-line);
+  background: var(--sy-surface-subtle);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .feedback-admin-actions button.is-active {
+  border-color: var(--sy-accent) !important;
+  background: var(--sy-accent) !important;
+  color: #fff !important;
+}
+
+/* Analytics / charts. */
+.admin-next-page .visit-data-since,
+.admin-next-page .visit-trend-chart,
+.admin-next-page .dashboard-chart,
+.admin-next-page .visit-signup-funnel-grid > div,
+.admin-next-page .visit-mini-metrics > div,
+.admin-next-page .visit-performance-grid > div {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+}
+
+.admin-next-page .visit-chart-legend span::before,
+.admin-next-page .visit-trend-bars i,
+.admin-next-page .visit-level-row.active .visit-level-track i,
+.admin-next-page .visit-hourly-bar i {
+  background: var(--sy-accent);
+}
+
+.admin-next-page .visit-chart-legend .visitors::before,
+.admin-next-page .visit-trend-bars i.visitors,
+.admin-next-page .visit-level-row.reading .visit-level-track i {
+  background: color-mix(in srgb, var(--sy-accent) 48%, var(--sy-surface));
+}
+
+.admin-next-page .visit-level-track,
+.admin-next-page .resource-quota-track {
+  background: var(--sy-surface-muted);
+}
+
+/* Sync / operations. */
+.admin-next-page .auto-sync-card,
+.admin-next-page .ops-automation-card,
+.admin-next-page .auto-sync-meta span,
+.admin-next-page .auto-sync-failure-item,
+.admin-next-page .auto-sync-failures summary,
+.admin-next-page .auto-sync-failure-legacy {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+}
+
+.admin-next-page .auto-sync-kicker,
+.admin-next-page .ops-automation-card > small {
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .auto-sync-state.is-ready,
+.admin-next-page .ops-automation-card.is-normal {
+  border-color: color-mix(in srgb, var(--sy-success) 35%, var(--sy-line));
+  background: var(--sy-success-soft);
+  color: var(--sy-success);
+}
+
+.admin-next-page .auto-sync-state.is-warning,
+.admin-next-page .ops-automation-card.is-warning,
+.admin-next-page .auto-sync-failures summary {
+  border-color: color-mix(in srgb, var(--sy-warning) 35%, var(--sy-line));
+  background: var(--sy-warning-soft);
+  color: var(--sy-warning);
+}
+
+.admin-next-page .auto-sync-state.is-running {
+  border-color: var(--sy-accent-line);
+  background: var(--sy-accent-soft);
+  color: var(--sy-accent-text);
+}
+
+.admin-next-page .auto-sync-state.is-error,
+.admin-next-page .ops-automation-warnings span {
+  border-color: color-mix(in srgb, var(--sy-danger) 35%, var(--sy-line));
+  background: var(--sy-danger-soft);
+  color: var(--sy-danger);
+}
+
+/* Drive / POSTYPE summary cards and table language. */
+.admin-next-page .drive-summary-filter {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-surface) !important;
+  color: var(--sy-text) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page .drive-summary-filter:hover {
+  border-color: var(--sy-line-strong) !important;
+  background: var(--sy-row-hover) !important;
+}
+
+.admin-next-page .drive-summary-filter.active {
+  border-color: var(--sy-accent) !important;
+  background: var(--sy-accent) !important;
+  color: #fff !important;
+}
+
+.admin-next-page .drive-summary-icon,
+.admin-next-page .drive-auto-badge,
+.admin-next-page [data-tab-panel="postype"] .postype-library-summary > span {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-chip) !important;
+  color: var(--sy-text-secondary) !important;
+}
+
+.admin-next-page :is(
+  [data-tab-panel="drive-library"] .drive-library-table th,
+  [data-tab-panel="postype"] .postype-library-table th,
+  [data-tab-panel="postype-register"] .postype-bulk-table th
+) {
+  background: var(--sy-table-head) !important;
+  color: var(--sy-text-secondary) !important;
+  border-bottom-color: var(--sy-line) !important;
+}
+
+.admin-next-page :is(
+  [data-tab-panel="drive-library"] .drive-library-table td,
+  [data-tab-panel="postype"] .postype-library-table td,
+  [data-tab-panel="postype-register"] .postype-bulk-table td
+) {
+  background: var(--sy-surface) !important;
+  border-bottom-color: var(--sy-line-soft) !important;
+}
+
+.admin-next-page :is(
+  [data-tab-panel="drive-library"] .drive-library-table tbody tr:hover td,
+  [data-tab-panel="postype"] .postype-library-table tbody tr:hover td,
+  [data-tab-panel="postype-register"] .postype-bulk-table tbody tr:hover td
+) {
+  background: var(--sy-row-hover) !important;
+}
+
+.admin-next-page .postype-library-row-dirty td {
+  background: var(--sy-warning-soft) !important;
+}
+
+/* Resource section. */
+.admin-next-page .resource-analytics-section,
+.admin-next-page .resource-pages-build-summary article,
+.admin-next-page .resource-pages-deployment-row,
+.admin-next-page .resource-storage-chip,
+.admin-next-page .resource-notice,
+.admin-next-page .resource-cloudflare-note,
+.admin-next-page .resource-analytics-notice {
+  border-color: var(--sy-line);
+  background: var(--sy-surface);
+  color: var(--sy-text);
+}
+
+.admin-next-page .resource-pages-status,
+.admin-next-page .resource-pages-env,
+.admin-next-page .resource-storage-chip {
+  border-color: var(--sy-line);
+  background: var(--sy-chip);
+  color: var(--sy-text-secondary);
+}
+
+.admin-next-page .resource-pages-status.is-success {
+  background: var(--sy-success-soft);
+  color: var(--sy-success);
+}
+
+.admin-next-page .resource-pages-status.is-failure {
+  background: var(--sy-danger-soft);
+  color: var(--sy-danger);
+}
+
+/* Mobile / tablet: compact header + one-line swipeable tabs + one-height source strip. */
+@media (max-width: 900px) {
+  .admin-next-page .admin-shell {
+    width: calc(100% - 24px);
+    padding: 16px 0 56px;
+  }
+
+  .admin-next-page .admin-header {
+    display: grid;
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 8px 14px;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 12px;
+  }
+
+  .admin-next-page .admin-header .eyebrow {
+    display: none;
+  }
+
+  .admin-next-page .admin-header h1 {
+    font-size: 24px;
+    line-height: 1.15;
+  }
+
+  .admin-next-page .admin-header .sub {
+    margin-top: 5px;
+    max-width: 520px;
+    font-size: 10px;
+    line-height: 1.45;
+  }
+
+  .admin-next-page .admin-header-account {
+    margin: 0;
+    align-items: flex-end;
+    gap: 5px;
+  }
+
+  .admin-next-page .admin-header-links {
+    display: flex;
+    width: auto;
+    gap: 5px;
+  }
+
+  .admin-next-page .admin-header-links .back-link {
+    flex: 0 0 auto;
+    min-height: 32px;
+    padding: 0 9px;
+    border-radius: 7px;
+    font-size: 10px;
+  }
+
+  .admin-next-page #adminContent {
+    display: block;
+  }
+
+  .admin-next-page .source-overview-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(286px, 78vw);
+    grid-template-columns: none !important;
+    gap: 8px;
+    margin: 0 -2px 10px;
+    padding: 0 2px 4px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-inline: contain;
+  }
+
+  .admin-next-page .source-overview-card {
+    scroll-snap-align: start;
+    padding: 12px 13px;
+  }
+
+  .admin-next-page .source-overview-badge {
+    width: 30px;
+    height: 30px;
+    flex-basis: 30px;
+  }
+
+  .admin-next-page .source-overview-title strong {
+    font-size: 19px;
+  }
+
+  .admin-next-page .source-overview-metrics {
+    gap: 5px 8px;
+    margin-top: 9px;
+    padding-top: 8px;
+  }
+
+  .admin-next-page .admin-tabs {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap !important;
+    align-items: center;
+    gap: 3px;
+    width: auto;
+    margin: 0 -12px 14px;
+    padding: 7px 12px 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border: 0;
+    border-bottom: 1px solid var(--sy-line);
+    background: color-mix(in srgb, var(--sy-page) 94%, transparent);
+    backdrop-filter: blur(10px);
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-next-page .admin-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-next-page .admin-tab {
+    flex: 0 0 auto;
+    width: auto;
+    min-width: auto;
+    min-height: 32px;
+    padding: 7px 10px;
+    border-radius: 7px;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .admin-next-page .admin-tab.active {
+    background: var(--sy-accent);
+    color: #fff;
+  }
+
+  .admin-next-page .panel {
+    padding: 18px;
+  }
+
+  .admin-next-page .panel-head {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 640px) {
+  .admin-next-page .admin-shell {
+    width: calc(100% - 18px);
+    padding-top: 10px;
+  }
+
+  .admin-next-page .admin-header {
+    grid-template-columns: minmax(0,1fr) auto;
+    gap: 6px 10px;
+    margin-bottom: 8px;
+    padding: 6px 2px 10px;
+  }
+
+  .admin-next-page .admin-header h1 {
+    font-size: 21px;
+  }
+
+  .admin-next-page .admin-header .sub {
+    display: none;
+  }
+
+  .admin-next-page .admin-version {
+    font-size: 9px;
+  }
+
+  .admin-next-page .admin-header-links .back-link {
+    min-height: 30px;
+    padding: 0 8px;
+    font-size: 9px;
+  }
+
+  .admin-next-page .source-overview-grid {
+    grid-auto-columns: minmax(270px, 88vw);
+    margin-bottom: 8px;
+  }
+
+  .admin-next-page .source-overview-card {
+    min-height: 0;
+    padding: 11px 12px;
+  }
+
+  .admin-next-page .source-overview-sync {
+    font-size: 8px;
+  }
+
+  .admin-next-page .source-overview-metrics em {
+    font-size: 8px;
+  }
+
+  .admin-next-page .source-overview-metrics strong {
+    font-size: 10px;
+  }
+
+  .admin-next-page .admin-tabs {
+    margin-left: -9px;
+    margin-right: -9px;
+    padding-left: 9px;
+    padding-right: 9px;
+  }
+
+  .admin-next-page .panel {
+    padding: 15px;
+    border-radius: 10px;
+  }
+
+  .admin-next-page .panel h2 {
+    font-size: 19px;
+  }
+
+  .admin-next-page .panel .eyebrow {
+    font-size: 9px;
+  }
+
+  .admin-next-page .panel-head,
+  .admin-next-page .visit-analytics-head,
+  .admin-next-page .resource-panel-head {
+    gap: 10px;
+  }
+
+  .admin-next-page .visit-kpi-grid,
+  .admin-next-page .history-summary-grid,
+  .admin-next-page .resource-summary-grid,
+  .admin-next-page .feedback-admin-summary {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+    gap: 7px;
+  }
+
+  .admin-next-page .visit-kpi-card,
+  .admin-next-page .history-summary-card,
+  .admin-next-page .resource-summary-card,
+  .admin-next-page .feedback-admin-summary button {
+    min-height: 0;
+    padding: 12px;
+  }
+
+  .admin-next-page .visit-signup-funnel {
+    padding: 12px;
+  }
+
+  .admin-next-page .visit-signup-funnel-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-next-page .visit-signup-funnel-head small {
+    text-align: left;
+  }
+
+  .admin-next-page .visit-signup-funnel-grid {
+    grid-template-columns: repeat(2, minmax(0,1fr));
+  }
+
+  .admin-next-page .alias-editor-card {
+    padding: 13px;
+  }
+
+  .admin-next-page .alias-type-tabs {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+
+  .admin-next-page .feedback-admin-card {
+    padding: 13px;
+  }
+
+  .admin-next-page :is(.user-table-wrap,.postype-library-table-wrap,.postype-bulk-table-wrap,.resource-operation-table-wrap) {
+    border-radius: 9px;
+    overscroll-behavior-inline: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .admin-next-page .postype-bulk-actions,
+  .admin-next-page .postype-register-actions,
+  .admin-next-page .postype-admin-actions,
+  .admin-next-page .resource-actions,
+  .admin-next-page .visit-analytics-actions {
+    gap: 6px;
+  }
+
+  .admin-next-page .postype-bulk-actions button,
+  .admin-next-page .postype-register-actions button,
+  .admin-next-page .resource-actions > button,
+  .admin-next-page .visit-analytics-actions > button {
+    min-height: 36px;
+    padding: 0 10px;
+  }
+}

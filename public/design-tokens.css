@@ -39,6 +39,15 @@ html.theme-light {
   --sy-overlay: rgba(14, 23, 38, .48);
   --sy-focus: rgba(53, 111, 214, .18);
 
+  --sy-control: #ffffff;
+  --sy-control-hover: #f7f9fc;
+  --sy-selected: #edf4ff;
+  --sy-code-bg: #eef3f8;
+  --sy-table-head: #f7f9fc;
+  --sy-row-hover: #f8fafc;
+  --sy-chip: #eef3f8;
+  --sy-scroll-thumb: #c4cfdd;
+
   --sy-radius-xs: 6px;
   --sy-radius-sm: 8px;
   --sy-radius-md: 10px;
@@ -107,6 +116,15 @@ html.theme-dark {
 
   --sy-overlay: rgba(3, 7, 13, .72);
   --sy-focus: rgba(121, 168, 255, .22);
+
+  --sy-control: #161d28;
+  --sy-control-hover: #1b2431;
+  --sy-selected: #172845;
+  --sy-code-bg: #212b39;
+  --sy-table-head: #1b2431;
+  --sy-row-hover: #1b2431;
+  --sy-chip: #212b39;
+  --sy-scroll-thumb: #3b495b;
 
   --sy-shadow-sm: 0 1px 2px rgba(0, 0, 0, .2);
   --sy-shadow-modal: 0 28px 72px rgba(0, 0, 0, .42);

@@ -3636,9 +3636,9 @@ function ensureMobileReleasePanel() {
     .mobile-release-panel{
       margin-top:22px;
       padding:20px;
-      border:1px solid #ded7ce;
-      border-radius:18px;
-      background:#faf8f4
+      border:1px solid var(--sy-line);
+      border-radius:var(--sy-radius-lg);
+      background:var(--sy-surface)
     }
     .mobile-release-head{
       display:flex;
@@ -3651,7 +3651,7 @@ function ensureMobileReleasePanel() {
       font-size:10px;
       font-weight:900;
       letter-spacing:.12em;
-      color:#777069
+      color:var(--sy-text-secondary)
     }
     .mobile-release-current{
       display:flex;
@@ -3661,9 +3661,10 @@ function ensureMobileReleasePanel() {
     }
     .mobile-release-chip{
       padding:7px 9px;
-      border:1px solid #ded7ce;
+      border:1px solid var(--sy-line);
       border-radius:999px;
-      background:#fff;
+      background:var(--sy-surface);
+      color:var(--sy-text);
       font-size:11px;
       font-weight:850
     }
@@ -3682,14 +3683,15 @@ function ensureMobileReleasePanel() {
     .mobile-release-message-field>span{
       font-size:11px;
       font-weight:850;
-      color:#5f5953
+      color:var(--sy-text-secondary)
     }
     .mobile-release-grid input,
     .mobile-release-message-field textarea{
       width:100%;
-      border:1px solid #ded7ce;
-      border-radius:11px;
-      background:#fff;
+      border:1px solid var(--sy-line);
+      border-radius:var(--sy-radius-sm);
+      background:var(--sy-control);
+      color:var(--sy-text);
       padding:10px 11px;
       font:inherit
     }
@@ -3697,14 +3699,14 @@ function ensureMobileReleasePanel() {
     .mobile-release-apk{
       margin-top:12px;
       padding:13px;
-      border:1px dashed #cfc6bb;
-      border-radius:13px;
-      background:#fff
+      border:1px dashed var(--sy-line-strong);
+      border-radius:var(--sy-radius-md);
+      background:var(--sy-surface)
     }
     .mobile-release-apk input{width:100%}
     .mobile-release-apk-meta{
       margin-top:7px;
-      color:#777069;
+      color:var(--sy-text-secondary);
       font-size:11px;
       line-height:1.55
     }
@@ -3717,33 +3719,33 @@ function ensureMobileReleasePanel() {
     }
     .mobile-release-actions .primary{
       border:0;
-      background:#1d1c1a;
+      background:var(--sy-accent);
       color:#fff;
-      border-radius:11px;
+      border-radius:var(--sy-radius-sm);
       padding:11px 14px;
       font-weight:850
     }
     .mobile-release-note{
       font-size:11px;
-      color:#777069;
+      color:var(--sy-text-secondary);
       line-height:1.6
     }
     .mobile-release-status{
       margin-top:12px;
       padding:10px 12px;
       border-radius:10px;
-      background:#f1ede7;
-      color:#5d574f;
+      background:var(--sy-surface-muted);
+      color:var(--sy-text-secondary);
       font-size:12px;
       line-height:1.6
     }
     .mobile-release-status.is-error{
-      background:#fff2f2;
-      color:#9d3434
+      background:var(--sy-danger-soft);
+      color:var(--sy-danger)
     }
     .mobile-release-status.is-success{
-      background:#eef8f1;
-      color:#2d7549
+      background:var(--sy-success-soft);
+      color:var(--sy-success)
     }
     @media(max-width:760px){
       .mobile-release-head{display:block}
