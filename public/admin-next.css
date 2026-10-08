@@ -1492,3 +1492,325 @@ html.theme-dark .admin-next-page .source-overview-badge.postype {
     padding: 0 10px;
   }
 }
+
+/* =====================================================================
+   v9.71 consistency pass
+   Fixes remaining legacy palette, control sizing and mobile composition.
+   ===================================================================== */
+
+/* Global admin text/surface safety net. */
+.admin-next-page,
+.admin-next-page :is(.panel,.source-overview-card,.tab-panel) {
+  color: var(--sy-text);
+}
+
+.admin-next-page :is(
+  .muted,.meta,.sub,.field-label,.resource-panel-subtitle,
+  .source-overview-name,.source-overview-sync,.postype-library-sub,
+  .history-intro,.shared-quote-admin-head p,.shared-quote-admin-summary
+) {
+  color: var(--sy-text-secondary) !important;
+}
+
+.admin-next-page :is(
+  code,.message,.count-badge,.diagnostic-type,.drive-auto-badge,
+  .resource-storage-chip,.resource-pages-env,.resource-pages-status,
+  .feedback-admin-card-category,.shared-quote-admin-empty
+) {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-chip) !important;
+  color: var(--sy-text-secondary) !important;
+}
+
+/* Shared control geometry: stop page-specific buttons from drifting in size. */
+.admin-next-page :is(
+  button.primary,.secondary-admin-button,.back-link,.deploy-status-refresh,
+  .source-overview-link,.postype-library-date-fetch,.postype-bulk-meta,
+  .postype-library-page-button,.postype-bulk-url-add,.auto-sync-setup-button,
+  .resource-pages-more-button,.alias-row-actions button,.feedback-admin-actions button,
+  .feedback-admin-account button,.shared-quote-admin-head button,.shared-quote-admin-card button,
+  .prompt-library-copy,.prompt-library-close,.history-modal-version-button
+) {
+  min-height: 36px;
+  max-width: 100%;
+  padding: 0 12px;
+  border-radius: var(--sy-radius-sm) !important;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.admin-next-page :is(
+  .secondary-admin-button,.back-link,.deploy-status-refresh,
+  .postype-library-date-fetch,.postype-bulk-meta,.postype-library-page-button,
+  .postype-bulk-url-add,.auto-sync-setup-button,.resource-pages-more-button,
+  .alias-row-actions button,.feedback-admin-actions button,.feedback-admin-account button,
+  .shared-quote-admin-head button,.shared-quote-admin-card button,
+  .prompt-library-copy,.prompt-library-close,.history-modal-version-button
+) {
+  border: 1px solid var(--sy-button-border) !important;
+  background: var(--sy-button-bg) !important;
+  color: var(--sy-button-text) !important;
+  box-shadow: none !important;
+}
+
+.admin-next-page :is(
+  .secondary-admin-button,.back-link,.deploy-status-refresh,
+  .postype-library-date-fetch,.postype-bulk-meta,.postype-library-page-button,
+  .postype-bulk-url-add,.auto-sync-setup-button,.resource-pages-more-button,
+  .alias-row-actions button,.feedback-admin-actions button,.feedback-admin-account button,
+  .shared-quote-admin-head button,.shared-quote-admin-card button,
+  .prompt-library-copy,.prompt-library-close,.history-modal-version-button
+):hover:not(:disabled) {
+  background: var(--sy-button-hover) !important;
+  border-color: var(--sy-line-strong) !important;
+}
+
+/* Primary descendants must stay readable. */
+.admin-next-page :is(
+  button.primary,.drive-summary-filter.active,.admin-tab.active
+),
+.admin-next-page :is(
+  button.primary,.drive-summary-filter.active,.admin-tab.active
+) :is(span,strong,small,b,em) {
+  color: #fff !important;
+}
+
+.admin-next-page .drive-summary-filter.active :is(.drive-summary-icon,.drive-summary-copy,.drive-summary-copy > span,.drive-summary-copy strong) {
+  background: transparent !important;
+  color: #fff !important;
+}
+
+.admin-next-page .drive-summary-filter.active .drive-summary-icon {
+  background: rgba(255,255,255,.14) !important;
+}
+
+/* Tables / status cards: no warm leftovers. */
+.admin-next-page :is(
+  .postype-library-table-wrap,.postype-bulk-table-wrap,.user-table-wrap,
+  .resource-operation-table-wrap,.drive-library-table-wrap
+) {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-surface) !important;
+}
+
+.admin-next-page table th {
+  background: var(--sy-table-head) !important;
+  color: var(--sy-text-secondary) !important;
+  border-color: var(--sy-line) !important;
+}
+
+.admin-next-page table td {
+  color: var(--sy-text) !important;
+  border-color: var(--sy-line-soft) !important;
+}
+
+.admin-next-page :is(
+  .auto-sync-meta span,.auto-sync-failure-item,.resource-analytics-cost-row,
+  .resource-cloudflare-note,.resource-notice,.resource-analytics-notice,
+  .resource-pages-deployments,.resource-pages-deployment-row,
+  .feedback-admin-account,.feedback-admin-diagnostic,.feedback-admin-account-summary,
+  .shared-quote-admin-card,.shared-quote-admin-empty
+) {
+  border-color: var(--sy-line) !important;
+  background: var(--sy-note-bg) !important;
+  color: var(--sy-text-secondary) !important;
+}
+
+.admin-next-page :is(.feedback-admin-card-message,.shared-quote-admin-card > strong,.shared-quote-admin-card > p) {
+  color: var(--sy-text) !important;
+}
+
+.admin-next-page .feedback-admin-account-warning {
+  color: var(--sy-danger) !important;
+}
+
+/* Quote moderation belongs to Operations, not anonymous feedback. */
+.admin-next-page .shared-quote-admin-panel {
+  margin-top: 14px;
+  padding-top: 18px;
+  border-top: 0;
+}
+
+/* Compact typography hierarchy. */
+.admin-next-page .panel h2 {
+  font-size: 19px;
+  line-height: 1.25;
+}
+.admin-next-page .panel h3 { color: var(--sy-text); }
+.admin-next-page .panel .muted { font-size: 11px; line-height: 1.65; }
+.admin-next-page .panel .eyebrow { font-size: 9px; }
+
+/* Mobile: full-width headings first, compact action rows second. */
+@media (max-width: 640px) {
+  .admin-next-page .admin-shell {
+    width: calc(100% - 16px);
+    padding-top: 8px;
+  }
+
+  .admin-next-page .admin-header {
+    grid-template-columns: 1fr auto;
+    padding: 3px 0 8px;
+    margin-bottom: 6px;
+  }
+
+  .admin-next-page .admin-header h1 { font-size: 18px; }
+  .admin-next-page .admin-version { font-size: 8px; }
+  .admin-next-page .admin-header-links .back-link {
+    min-height: 28px;
+    padding: 0 7px;
+    font-size: 9px;
+  }
+
+  /* Two compact source cards instead of a tall swipe section. */
+  .admin-next-page .source-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(2,minmax(0,1fr)) !important;
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    gap: 6px;
+    margin: 0 0 6px;
+    padding: 0;
+    overflow: visible;
+  }
+  .admin-next-page .source-overview-card {
+    min-width: 0;
+    padding: 9px 10px;
+  }
+  .admin-next-page .source-overview-badge { display: none; }
+  .admin-next-page .source-overview-head { gap: 6px; }
+  .admin-next-page .source-overview-title { min-width: 0; }
+  .admin-next-page .source-overview-name {
+    font-size: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .admin-next-page .source-overview-title strong { font-size: 16px; }
+  .admin-next-page .source-overview-side { align-items: flex-end; }
+  .admin-next-page .source-overview-sync { display: none; }
+  .admin-next-page .source-overview-link {
+    min-height: 26px;
+    padding: 0;
+    border: 0 !important;
+    background: transparent !important;
+    font-size: 9px;
+  }
+  .admin-next-page .source-overview-metrics { display: none; }
+
+  /* Navigation is one short, swipeable row; active state no longer becomes a large block. */
+  .admin-next-page .admin-tabs {
+    margin: 0 -8px 10px;
+    padding: 5px 8px 6px;
+    gap: 2px;
+    background: var(--sy-nav-bg);
+    backdrop-filter: none;
+  }
+  .admin-next-page .admin-tab {
+    min-height: 28px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .admin-next-page .admin-tab.active {
+    background: var(--sy-button-active-bg) !important;
+    color: var(--sy-button-active-text) !important;
+    box-shadow: inset 0 -2px 0 var(--sy-accent);
+  }
+  .admin-next-page .admin-tab.active :is(span,strong,small,b,em) {
+    color: var(--sy-button-active-text) !important;
+  }
+
+  .admin-next-page .panel {
+    padding: 13px;
+    border-radius: var(--sy-radius-md);
+  }
+  .admin-next-page .panel h2 {
+    font-size: 17px;
+    line-height: 1.2;
+    overflow-wrap: normal;
+    word-break: keep-all;
+  }
+  .admin-next-page .panel .muted {
+    font-size: 10px;
+    line-height: 1.55;
+  }
+
+  .admin-next-page .panel-head,
+  .admin-next-page .visit-analytics-head,
+  .admin-next-page .resource-panel-head,
+  .admin-next-page .history-panel-head,
+  .admin-next-page .shared-quote-admin-head {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .admin-next-page .panel-head > div:first-child,
+  .admin-next-page .visit-analytics-head > div:first-child,
+  .admin-next-page .resource-panel-head > div:first-child {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-next-page :is(
+    .postype-admin-actions,.postype-register-actions,.postype-bulk-actions,
+    .resource-actions,.visit-analytics-actions,.history-activity-tools
+  ) {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .admin-next-page :is(
+    .postype-admin-actions,.postype-register-actions,.postype-bulk-actions,
+    .resource-actions,.visit-analytics-actions
+  ) > :is(button,label) {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .admin-next-page :is(
+    button.primary,.secondary-admin-button,.back-link,.deploy-status-refresh,
+    .postype-library-date-fetch,.postype-bulk-meta,.postype-library-page-button,
+    .postype-bulk-url-add,.auto-sync-setup-button,.resource-pages-more-button,
+    .alias-row-actions button,.feedback-admin-actions button,.feedback-admin-account button,
+    .shared-quote-admin-head button,.shared-quote-admin-card button,
+    .prompt-library-copy,.prompt-library-close,.history-modal-version-button
+  ) {
+    min-height: 32px;
+    padding: 0 9px;
+    font-size: 10px;
+  }
+
+  .admin-next-page .feedback-admin-summary,
+  .admin-next-page .visit-kpi-grid,
+  .admin-next-page .history-summary-grid,
+  .admin-next-page .resource-summary-grid {
+    gap: 6px;
+  }
+
+  .admin-next-page :is(
+    .feedback-admin-summary button,.visit-kpi-card,.history-summary-card,.resource-summary-card
+  ) {
+    padding: 10px;
+  }
+
+  .admin-next-page :is(.feedback-admin-summary button,.visit-kpi-card,.history-summary-card,.resource-summary-card) strong {
+    font-size: 18px;
+  }
+
+  .admin-next-page .settings-form { gap: 12px; margin-top: 14px; }
+  .admin-next-page .settings-form label > span { font-size: 10px; margin-bottom: 5px; }
+  .admin-next-page .settings-form small { font-size: 9px; line-height: 1.5; }
+
+  .admin-next-page :is(input:not([type="checkbox"]):not([type="radio"]),textarea,select) {
+    min-height: 38px;
+    padding: 9px 10px;
+    font-size: 11px;
+  }
+}

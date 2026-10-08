@@ -569,7 +569,6 @@ function setActiveTab(name) {
   }
 
   if (name === "feedback") {
-    ensureSharedQuoteModerationPanel();
     if (!feedbackAdminLoaded) {
       loadFeedbackAdmin().catch((error) => {
         console.error(error);
@@ -579,11 +578,15 @@ function setActiveTab(name) {
         }
       });
     }
+  }
+
+  if (name === "overview") {
+    ensureSharedQuoteModerationPanel();
     if (!sharedQuoteAdminLoaded) {
       loadSharedQuoteAdmin().catch((error) => {
         console.error(error);
         const message = document.getElementById("sharedQuoteAdminMessage");
-        if (message) message.textContent = error.message || "공개 문장 목록을 불러오지 못했습니다.";
+        if (message) { message.hidden = false; message.textContent = error.message || "공개 문장 목록을 불러오지 못했습니다."; }
       });
     }
   }
@@ -678,12 +681,12 @@ async function loadFeedbackAdmin() {
 
 function ensureSharedQuoteModerationPanel() {
   if (document.getElementById("sharedQuoteModerationPanel")) return;
-  const feedbackPanel = document.querySelector('[data-tab-panel="feedback"] .panel');
-  if (!feedbackPanel) return;
+  const operationsPanel = document.querySelector('[data-tab-panel="overview"]');
+  if (!operationsPanel) return;
 
   const section = document.createElement("section");
   section.id = "sharedQuoteModerationPanel";
-  section.className = "shared-quote-admin-panel";
+  section.className = "panel shared-quote-admin-panel";
   section.innerHTML = `
     <div class="shared-quote-admin-head">
       <div>
@@ -696,7 +699,7 @@ function ensureSharedQuoteModerationPanel() {
     <div class="shared-quote-admin-summary">전체 공개 <strong id="sharedQuoteAdminCount">-</strong></div>
     <div id="sharedQuoteAdminList" class="shared-quote-admin-list"></div>
     <p id="sharedQuoteAdminMessage" class="message" hidden></p>`;
-  feedbackPanel.appendChild(section);
+  operationsPanel.appendChild(section);
 
   section.querySelector("#sharedQuoteAdminRefresh")?.addEventListener("click", () => {
     sharedQuoteAdminLoaded = false;

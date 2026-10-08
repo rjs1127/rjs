@@ -137,3 +137,37 @@ html.theme-dark {
   --accent: var(--sy-accent);
   --warn: var(--sy-warning);
 }
+
+/* v2 component-level tokens: shared by admin first, reader/user later. */
+:root,
+html.theme-light {
+  --sy-button-bg: var(--sy-control);
+  --sy-button-hover: var(--sy-control-hover);
+  --sy-button-text: var(--sy-text);
+  --sy-button-border: var(--sy-line);
+  --sy-button-active-bg: var(--sy-accent-soft);
+  --sy-button-active-text: var(--sy-accent-text);
+  --sy-nav-bg: color-mix(in srgb, var(--sy-page) 96%, transparent);
+  --sy-note-bg: var(--sy-surface-subtle);
+  --sy-table-row: var(--sy-surface);
+  --sy-table-row-alt: var(--sy-surface-subtle);
+  --sy-status-border: var(--sy-line);
+  --sy-font-xs: 10px;
+  --sy-font-sm: 11px;
+  --sy-font-md: 12px;
+  --sy-font-lg: 18px;
+}
+
+html.theme-dark {
+  --sy-button-bg: var(--sy-control);
+  --sy-button-hover: var(--sy-control-hover);
+  --sy-button-text: var(--sy-text);
+  --sy-button-border: var(--sy-line);
+  --sy-button-active-bg: var(--sy-accent-soft);
+  --sy-button-active-text: var(--sy-accent-text);
+  --sy-nav-bg: color-mix(in srgb, var(--sy-page) 95%, transparent);
+  --sy-note-bg: var(--sy-surface-subtle);
+  --sy-table-row: var(--sy-surface);
+  --sy-table-row-alt: var(--sy-surface-subtle);
+  --sy-status-border: var(--sy-line);
+}
