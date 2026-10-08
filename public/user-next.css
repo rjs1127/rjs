@@ -56,6 +56,7 @@ html.user-design-next .quote-feed-sort-button,
 html.user-design-next .profile-library-mode-tab,
 html.user-design-next .profile-toolbar button,
 html.user-design-next .library-more-button,
+html.user-design-next .load-more-button,
 html.user-design-next .empty-reset-button,
 html.user-design-next .modal-secondary-button,
 html.user-design-next .simple-modal-close,
@@ -79,6 +80,7 @@ html.user-design-next .quote-feed-entry-button:hover,
 html.user-design-next .quote-feed-sort-button:hover,
 html.user-design-next .profile-toolbar button:hover,
 html.user-design-next .library-more-button:hover,
+html.user-design-next .load-more-button:hover,
 html.user-design-next .empty-reset-button:hover,
 html.user-design-next .modal-secondary-button:hover,
 html.user-design-next .simple-modal-close:hover,
@@ -350,6 +352,10 @@ html.user-design-next {
   --theme-line-soft: var(--sy-line-soft);
   --theme-secondary-bg: var(--sy-control);
   --theme-secondary-hover: var(--sy-control-hover);
+  --theme-secondary-text: var(--sy-text);
+  --theme-hover: var(--sy-control-hover);
+  --theme-overlay: var(--sy-overlay);
+  --theme-shadow: var(--sy-shadow-sm);
 }
 
 /* Neutral utility surfaces: remove warm legacy tints. */
@@ -388,6 +394,67 @@ html.user-design-next .spinner,
 html.user-design-next .reader-pending-spinner {
   border-color: var(--sy-line-strong) !important;
   border-top-color: var(--sy-accent) !important;
+}
+
+/* v9.81 - user preview legacy warm-state cleanup.
+ * Keep selection/hover states on the same cool semantic tokens without
+ * changing legacy theme.css outside ?ui=next. */
+html.user-design-next .viewer-font-option {
+  background: var(--sy-button-bg) !important;
+  border-color: var(--sy-button-border) !important;
+  color: var(--sy-button-text) !important;
+}
+html.user-design-next .viewer-font-option:hover {
+  background: var(--sy-button-hover) !important;
+  border-color: var(--sy-line-strong) !important;
+}
+html.user-design-next .viewer-font-option.active {
+  background: var(--sy-button-active-bg) !important;
+  border-color: var(--sy-accent-line) !important;
+  color: var(--sy-button-active-text) !important;
+}
+
+html.user-design-next .profile-library-mode-tabs {
+  background: var(--sy-surface-subtle) !important;
+  border-color: var(--sy-line) !important;
+}
+html.user-design-next .profile-library-mode-tabs button {
+  color: var(--sy-text-secondary) !important;
+}
+html.user-design-next .profile-library-mode-tabs button:hover {
+  background: var(--sy-button-hover) !important;
+  color: var(--sy-text) !important;
+}
+html.user-design-next .profile-library-mode-tabs button.active {
+  background: var(--sy-button-active-bg) !important;
+  color: var(--sy-button-active-text) !important;
+}
+
+html.user-design-next :is(
+  .content-list .list-title-actions .list-download-button.item-download-button,
+  .content-list .list-title-actions .list-quote-button.item-quote-button,
+  .content-list .list-title-actions .list-mobile-postype-quote.item-quote-button,
+  .content-card .card-actions > .card-download-button.item-download-button,
+  .content-card .card-actions > .card-quote-button.item-quote-button
+) {
+  background: var(--sy-control) !important;
+  border-color: var(--sy-line) !important;
+  color: var(--sy-text-secondary) !important;
+}
+html.user-design-next :is(
+  .content-list .list-title-actions .list-download-button.item-download-button,
+  .content-list .list-title-actions .list-quote-button.item-quote-button,
+  .content-list .list-title-actions .list-mobile-postype-quote.item-quote-button,
+  .content-card .card-actions > .card-download-button.item-download-button,
+  .content-card .card-actions > .card-quote-button.item-quote-button
+):hover {
+  background: var(--sy-control-hover) !important;
+  border-color: var(--sy-line-strong) !important;
+  color: var(--sy-text) !important;
+}
+
+html.user-design-next .viewer-font-more:hover {
+  color: var(--sy-accent-text) !important;
 }
 
 /* State colors: consistent in light and dark. */
