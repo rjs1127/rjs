@@ -4221,7 +4221,7 @@ function getItemReadingBadge(item) {
   const rawPercent = Number(entry.progressPercent || 0);
   if (rawPercent > 0) {
     const percent = getReaderProgressDisplayPercent(rawPercent);
-    return `<span class="reading-state-badge progress">${percent}%</span>`;
+    return `<span class="reading-state-badge progress" style="--p:${percent}">${percent}%</span>`;
   }
 
   return "";
