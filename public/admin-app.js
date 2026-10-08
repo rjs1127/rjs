@@ -263,9 +263,6 @@ const els = {
   quotePresetThumbName: document.getElementById("quotePresetThumbName"),
   quotePresetPopupImage: document.getElementById("quotePresetPopupImage"),
   quotePresetEditorFrame: document.getElementById("quotePresetEditorFrame"),
-  quotePresetOutputImage: document.getElementById("quotePresetOutputImage"),
-  quotePresetOutputLoading: document.getElementById("quotePresetOutputLoading"),
-  quotePresetOutputMeta: document.getElementById("quotePresetOutputMeta"),
   quotePresetMessage: document.getElementById("quotePresetMessage"),
   historyRefreshButton: document.getElementById("historyRefreshButton"),
   historyFirstDate: document.getElementById("historyFirstDate"),
@@ -505,33 +502,6 @@ async function loadOpsAutomation(force = false) {
 }
 
 function ensureQuotePresetFinalPreviewElements() {
-  const popupStage = document.querySelector('.quote-preset-stage-popup');
-  const outputStage = document.querySelector('.quote-preset-stage-output');
-  const inspectorHeadCopy = document.querySelector('.quote-image-admin-head .muted');
-  const note = document.querySelector('.quote-preset-note');
-
-  if (inspectorHeadCopy) {
-    inspectorHeadCopy.textContent = '사용자 목록 썸네일과 실제 저장·복사 최종 PNG를 확인한 뒤 노출 Y/N을 결정합니다.';
-  }
-  if (note) {
-    note.textContent = '프리셋을 선택하면 사용자 목록 썸네일과 실제 저장·복사에 쓰이는 최종 PNG만 확인합니다. 팝업 안에서도 같은 결과 이미지를 그대로 보여 주도록 맞췄습니다.';
-  }
-  if (popupStage) {
-    popupStage.classList.add('is-final-only');
-    const head = popupStage.querySelector('.quote-preset-stage-head');
-    if (head) {
-      const number = head.querySelector('span');
-      const title = head.querySelector('strong');
-      const desc = head.querySelector('small');
-      if (number) number.textContent = '2';
-      if (title) title.textContent = '최종 생성 이미지';
-      if (desc) desc.textContent = '팝업 미리보기 · 저장 · 복사에 동일하게 쓰이는 PNG';
-    }
-  }
-  if (outputStage) {
-    outputStage.hidden = true;
-    outputStage.classList.add('quote-preset-stage-hidden');
-  }
   if (els.quotePresetPopupImage && !els.quotePresetPopupImage.querySelector('.quote-preset-popup-final-image')) {
     els.quotePresetPopupImage.innerHTML = '<img class="quote-preset-popup-final-image" alt="최종 생성 이미지 미리보기" hidden /><div class="quote-preset-popup-loading">최종 PNG 렌더링 중…</div>';
   }
@@ -567,15 +537,6 @@ function resetQuotePresetOutputPreview() {
   if (els.quotePresetPopupImage) {
     els.quotePresetPopupImage.classList.add("is-loading");
   }
-  if (els.quotePresetOutputImage) {
-    els.quotePresetOutputImage.hidden = true;
-    els.quotePresetOutputImage.removeAttribute("src");
-  }
-  if (els.quotePresetOutputLoading) {
-    els.quotePresetOutputLoading.hidden = false;
-    els.quotePresetOutputLoading.textContent = "최종 PNG 렌더링 중…";
-  }
-  if (els.quotePresetOutputMeta) els.quotePresetOutputMeta.textContent = "실제 Canvas PNG를 준비합니다.";
 }
 
 function renderQuotePresetInspector() {
@@ -6714,17 +6675,6 @@ window.addEventListener("message", (event) => {
       finalPreviewImage.hidden = false;
     }
     if (finalPreviewLoading) finalPreviewLoading.hidden = true;
-    if (els.quotePresetOutputImage) {
-      els.quotePresetOutputImage.src = quotePresetOutputUrl;
-      els.quotePresetOutputImage.hidden = false;
-    }
-    if (els.quotePresetOutputLoading) els.quotePresetOutputLoading.hidden = true;
-    if (els.quotePresetOutputMeta) {
-      const bytes = Number(data.size || data.blob.size || 0);
-      const sizeText = bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(2)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
-      const dims = data.width && data.height ? `${data.width}×${data.height}` : "Canvas PNG";
-      els.quotePresetOutputMeta.textContent = `${dims} · ${sizeText} · 저장/복사와 동일한 렌더`;
-    }
   }
 });
 

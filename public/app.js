@@ -10452,6 +10452,56 @@ const READER_SHARE_BACKGROUNDS = [
     accent: "#5f7f91",
     effect: "dawn-fog",
   },
+  {
+    name: "골드",
+    key: "hanji-gilt",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 90% 8%, rgba(214,174,92,.55) 0 5%, rgba(214,174,92,0) 26%), radial-gradient(circle at 6% 94%, rgba(214,174,92,.40) 0 4%, rgba(214,174,92,0) 22%), linear-gradient(150deg, #fbf5e8 0%, #efe3c8 100%)",
+    text: "#33261a",
+    meta: "#8a7556",
+    accent: "#b8923f",
+    effect: "hanji-gilt",
+  },
+  {
+    name: "북샵",
+    key: "midnight-bookshop",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 84% 12%, rgba(255,190,104,.55) 0 6%, rgba(255,158,72,0) 48%), linear-gradient(150deg, #16233f 0%, #0a1020 100%)",
+    text: "#f6ead6",
+    meta: "#a9b4cc",
+    accent: "#ffbe68",
+    effect: "midnight-bookshop",
+  },
+  {
+    name: "워터컬러",
+    key: "watercolor-bleed",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 8% 6%, rgba(72,160,160,.38) 0 14%, rgba(72,160,160,0) 34%), radial-gradient(circle at 96% 96%, rgba(232,184,84,.42) 0 14%, rgba(232,184,84,0) 36%), linear-gradient(150deg, #fffdf8 0%, #f6f1e6 100%)",
+    text: "#2c2a28",
+    meta: "#7d776c",
+    accent: "#48a0a0",
+    effect: "watercolor-bleed",
+  },
+  {
+    name: "문라이트",
+    key: "moon-ridge",
+    defaultVisible: false,
+    background: "radial-gradient(circle at 76% 20%, rgba(255,244,214,.62) 0 5%, rgba(255,244,214,0) 30%), linear-gradient(180deg, #101a3a 0%, #070b1c 100%)",
+    text: "#eef0fb",
+    meta: "#9fabd0",
+    accent: "#f0dfb4",
+    effect: "moon-ridge",
+  },
+  {
+    name: "프리즘",
+    key: "prism-foil",
+    defaultVisible: false,
+    background: "linear-gradient(118deg, rgba(255,255,255,0) 30%, rgba(255,170,200,.34) 40%, rgba(255,247,170,.30) 50%, rgba(150,214,244,.36) 62%, rgba(184,170,250,.34) 70%, rgba(255,255,255,0) 80%), linear-gradient(150deg, #fdfdff 0%, #f1f2fb 100%)",
+    text: "#25284a",
+    meta: "#7b7fa6",
+    accent: "#8f86e8",
+    effect: "prism-foil",
+  },
 ];
 
 const READER_SHARE_FONTS = [
@@ -10526,6 +10576,7 @@ function getReaderShareBrandName() {
 
 let readerSharePresetVisibility = null;
 let readerSharePresetVisibilityPromise = null;
+const READER_SHARE_PRESET_VISIBILITY_CACHE_KEY = "rjsQuotePresetVisibilityV1";
 let readerShareAdminPreviewKey = "";
 const READER_SHARE_ADMIN_EMBED_MODE = new URLSearchParams(window.location.search).get("quote-embed") === "1";
 let readerShareAdminOutputTimer = 0;
@@ -10552,12 +10603,24 @@ async function loadReaderSharePresetVisibility({ admin = false, force = false } 
       for (const preset of Array.isArray(data?.presets) ? data.presets : []) {
         if (preset && typeof preset.key === "string" && typeof preset.visible === "boolean") map.set(preset.key, preset.visible);
       }
-      if (!admin) readerSharePresetVisibility = map;
+      if (!admin) {
+        readerSharePresetVisibility = map;
+        try {
+          sessionStorage.setItem(READER_SHARE_PRESET_VISIBILITY_CACHE_KEY, JSON.stringify([...map.entries()]));
+        } catch (_) {}
+      }
       return map;
     } catch (error) {
       if (admin) throw error;
-      console.warn("문장 이미지 프리셋 노출 설정 로드 실패, 기본값 사용", error);
-      const fallback = new Map(READER_SHARE_BACKGROUNDS.map((background) => [getReaderShareBackgroundKey(background), getReaderShareDefaultVisibility(background)]));
+      console.warn("문장 이미지 프리셋 노출 설정 로드 실패, 최근 설정 또는 기본값 사용", error);
+      let fallback = null;
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(READER_SHARE_PRESET_VISIBILITY_CACHE_KEY) || "null");
+        if (Array.isArray(cached)) fallback = new Map(cached.filter((entry) => Array.isArray(entry) && typeof entry[0] === "string" && typeof entry[1] === "boolean"));
+      } catch (_) {}
+      if (!fallback || !fallback.size) {
+        fallback = new Map(READER_SHARE_BACKGROUNDS.map((background) => [getReaderShareBackgroundKey(background), getReaderShareDefaultVisibility(background)]));
+      }
       readerSharePresetVisibility = fallback;
       return fallback;
     } finally {
@@ -10631,7 +10694,8 @@ function ensureReaderShareUi() {
     .reader-share-label { font-size:12px; font-weight:750; color:var(--muted, #756d79); white-space:nowrap; }
     .reader-share-preview-wrap { display:flex; justify-content:center; padding:2px 0 10px; }
     .reader-share-card { position:relative; width:min(82vw, 380px); aspect-ratio:1/1; border-radius:18px; overflow:hidden; background:#eee center/cover no-repeat; box-shadow:0 12px 28px rgba(29,20,33,.17); transition:aspect-ratio .16s ease,width .16s ease,opacity .16s ease; }
-    .reader-share-card.is-render-loading { opacity:.92; }
+    .reader-share-card.is-render-loading { opacity:.92; background:var(--surface,#f3f4f6) !important; }
+    .reader-share-card.is-render-loading > :not(.reader-share-card-render) { visibility:hidden; }
     .reader-share-card-render { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; z-index:3; background:transparent; }
     .reader-share-card-render[hidden] { display:none !important; }
     .reader-share-card[data-ratio="2:3"] { aspect-ratio:2/3; width:min(68vw, 300px); }
@@ -10862,6 +10926,19 @@ function ensureReaderShareUi() {
 
   const close = ({ fromHistory = false } = {}) => {
     backdrop.hidden = true;
+    window.clearTimeout(readerSharePrepareTimer);
+    window.clearTimeout(readerSharePreviewTimer);
+    window.clearTimeout(readerShareAdminOutputTimer);
+    readerSharePreviewGeneration += 1;
+    revokeReaderSharePreviewUrl();
+    readerSharePreviewKey = "";
+    readerSharePreparedBlob = null;
+    readerSharePreparedBlobKey = "";
+    if (renderImage) {
+      renderImage.hidden = true;
+      renderImage.removeAttribute("src");
+    }
+    card?.classList.remove("is-render-loading");
     lastSavedQuote = null;
     state.readerShareText = "";
     state.readerShareSourceItem = null;
@@ -11209,6 +11286,418 @@ function parseShareGradientColors(backgroundValue) {
   };
 }
 
+function quoteTestRng(seed) {
+  let a = seed >>> 0;
+  return function () {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+// 부드럽게 일그러진 원 (수채 번짐용). 경로만 만들고 fill/stroke는 호출 측에서 한다.
+function quoteTestBlobPath(ctx, cx, cy, radius, rand, points) {
+  const n = points || 14;
+  const pts = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    const k = 0.8 + rand() * 0.4;
+    pts.push([
+      cx + Math.cos(angle) * radius * k,
+      cy + Math.sin(angle) * radius * k * (0.9 + rand() * 0.2),
+    ]);
+  }
+  ctx.beginPath();
+  const last = pts[n - 1];
+  ctx.moveTo((last[0] + pts[0][0]) / 2, (last[1] + pts[0][1]) / 2);
+  for (let i = 0; i < n; i++) {
+    const p0 = pts[i];
+    const p1 = pts[(i + 1) % n];
+    ctx.quadraticCurveTo(p0[0], p0[1], (p0[0] + p1[0]) / 2, (p0[1] + p1[1]) / 2);
+  }
+  ctx.closePath();
+}
+
+function quoteTestFourPointStar(ctx, cx, cy, s, fill) {
+  ctx.fillStyle = fill;
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - s);
+  ctx.quadraticCurveTo(cx, cy, cx + s, cy);
+  ctx.quadraticCurveTo(cx, cy, cx, cy + s);
+  ctx.quadraticCurveTo(cx, cy, cx - s, cy);
+  ctx.quadraticCurveTo(cx, cy, cx, cy - s);
+  ctx.fill();
+}
+
+/* ---------- 1. 금박한지 ---------- */
+// 한지 섬유 질감 + 모서리에 흩뿌린 금박 조각 + 가는 이중 금테
+function drawQuoteHanjiGilt(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(9701);
+
+  // 종이 얼룩(빛 번짐)
+  [[0.2, 0.25, 0.5], [0.78, 0.62, 0.55], [0.45, 0.92, 0.45], [0.9, 0.1, 0.35]].forEach(([x, y, k]) => {
+    const g = ctx.createRadialGradient(w * x, h * y, 0, w * x, h * y, w * k);
+    g.addColorStop(0, "rgba(190,150,86,.09)");
+    g.addColorStop(1, "rgba(190,150,86,0)");
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, w, h);
+  });
+
+  // 한지 섬유: 어두운 실 + 밝은 실
+  ctx.lineCap = "round";
+  for (let i = 0; i < 380; i++) {
+    const x = r() * w;
+    const y = r() * h;
+    const len = (14 + r() * 58) * u;
+    const a = r() * Math.PI;
+    const bend = (r() - 0.5) * 18 * u;
+    const light = r() < 0.38;
+    ctx.strokeStyle = light
+      ? "rgba(255,255,255," + (0.22 + r() * 0.3).toFixed(3) + ")"
+      : "rgba(132,98,52," + (0.035 + r() * 0.07).toFixed(3) + ")";
+    ctx.lineWidth = (light ? 1.4 : 0.8 + r() * 0.9) * u;
+    ctx.beginPath();
+    ctx.moveTo(x, y);
+    ctx.quadraticCurveTo(
+      x + (Math.cos(a) * len) / 2 + bend,
+      y + (Math.sin(a) * len) / 2 - bend,
+      x + Math.cos(a) * len,
+      y + Math.sin(a) * len
+    );
+    ctx.stroke();
+  }
+
+  // 금박 조각: 오른쪽 위 / 왼쪽 아래 모서리에만 모아서 본문 가독성을 지킨다
+  const tones = ["rgba(226,190,106,.80)", "rgba(204,162,76,.72)", "rgba(240,214,142,.76)", "rgba(184,141,58,.64)"];
+  const flake = (cx, cy, s, tone) => {
+    const n = 5 + Math.floor(r() * 3);
+    ctx.beginPath();
+    for (let i = 0; i < n; i++) {
+      const a = (i / n) * Math.PI * 2 + r() * 0.5;
+      const rr = s * (0.55 + r() * 0.6);
+      const x = cx + Math.cos(a) * rr;
+      const y = cy + Math.sin(a) * rr * 0.8;
+      if (i) ctx.lineTo(x, y);
+      else ctx.moveTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = tone;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,244,205,.55)";
+    ctx.lineWidth = Math.max(1, 0.9 * u);
+    ctx.stroke();
+  };
+  const cluster = (ax, ay, dx, dy, spreadX, spreadY, count) => {
+    for (let i = 0; i < count; i++) {
+      const d = Math.pow(r(), 1.8);
+      const cx = w * (ax + dx * d * spreadX * (0.4 + r() * 0.8));
+      const cy = h * (ay + dy * d * spreadY * (0.4 + r() * 0.8));
+      const s = (5 + (1 - d) * 20 * r()) * u;
+      flake(cx, cy, s, tones[Math.floor(r() * tones.length)]);
+    }
+  };
+  cluster(0.955, 0.045, -1, 1, 0.34, 0.2, 34);
+  cluster(0.045, 0.955, 1, -1, 0.2, 0.15, 20);
+
+  // 이중 금테
+  const m1 = w * 0.032;
+  const m2 = w * 0.043;
+  ctx.strokeStyle = "rgba(170,128,56,.58)";
+  ctx.lineWidth = 1.8 * u;
+  ctx.strokeRect(m1, m1, w - m1 * 2, h - m1 * 2);
+  ctx.strokeStyle = "rgba(170,128,56,.26)";
+  ctx.lineWidth = 1 * u;
+  ctx.strokeRect(m2, m2, w - m2 * 2, h - m2 * 2);
+}
+
+/* ---------- 2. 심야서점 ---------- */
+// 늦은 밤 스탠드 불빛, 대각선 빛줄기, 보케, 먼지 알갱이
+function drawQuoteMidnightBookshop(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(4421);
+
+  let g = ctx.createRadialGradient(w * 0.84, h * 0.12, 0, w * 0.84, h * 0.12, w * 0.85);
+  g.addColorStop(0, "rgba(255,190,104,.42)");
+  g.addColorStop(0.28, "rgba(255,158,72,.16)");
+  g.addColorStop(1, "rgba(255,158,72,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  g = ctx.createRadialGradient(w * 0.1, h * 0.95, 0, w * 0.1, h * 0.95, w * 0.6);
+  g.addColorStop(0, "rgba(86,128,214,.20)");
+  g.addColorStop(1, "rgba(86,128,214,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  // 빛줄기: 폭이 다른 반투명 폴리곤을 겹쳐 가장자리를 부드럽게 만든다 (ctx.filter/blur 미사용 → Safari 안전)
+  {
+    const x0 = w * 0.88, y0 = h * 0.13, x1 = w * 0.08, y1 = h * 0.95;
+    const dx = x1 - x0, dy = y1 - y0;
+    const len = Math.hypot(dx, dy);
+    const nx = dy / len, ny = -dx / len; // 진행 방향에 수직인 단위벡터
+    const beam = ctx.createLinearGradient(x0, y0, x1, y1);
+    beam.addColorStop(0, "rgba(255,214,150,.05)");
+    beam.addColorStop(1, "rgba(255,214,150,0)");
+    for (let i = 0; i < 6; i++) {
+      const k = 1 - i * 0.16;
+      const top = w * 0.085 * k;
+      const bottom = w * 0.14 * k;
+      ctx.beginPath();
+      ctx.moveTo(x0 + nx * top, y0 + ny * top);
+      ctx.lineTo(x0 - nx * top, y0 - ny * top);
+      ctx.lineTo(x1 - nx * bottom, y1 - ny * bottom);
+      ctx.lineTo(x1 + nx * bottom, y1 + ny * bottom);
+      ctx.closePath();
+      ctx.fillStyle = beam;
+      ctx.fill();
+    }
+  }
+
+  // 보케 + 먼지: 빛이 더해지는 합성
+  ctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < 24; i++) {
+    const x = w * (0.35 + r() * 0.65);
+    const y = h * (r() * 0.55);
+    const rad = (12 + r() * r() * 70) * u;
+    ctx.fillStyle = "rgba(255,214,150," + (0.04 + r() * 0.06).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,226,172," + (0.06 + r() * 0.07).toFixed(3) + ")";
+    ctx.lineWidth = 1.6 * u;
+    ctx.stroke();
+  }
+  for (let i = 0; i < 70; i++) {
+    const rad = (0.8 + r() * 1.8) * u;
+    ctx.fillStyle = "rgba(255,230,190," + (0.15 + r() * 0.4).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.arc(r() * w, r() * h, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalCompositeOperation = "source-over";
+
+  // 비네트
+  g = ctx.createRadialGradient(w / 2, h / 2, w * 0.35, w / 2, h / 2, Math.hypot(w, h) * 0.62);
+  g.addColorStop(0, "rgba(2,5,14,0)");
+  g.addColorStop(1, "rgba(2,5,14,.42)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+}
+
+/* ---------- 3. 수채번짐 ---------- */
+// 흰 종이 위에 번진 물감. multiply 합성 + 가장자리에 고인 안료
+function drawQuoteWatercolorBleed(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(7313);
+
+  // 종이 결
+  for (let i = 0; i < 520; i++) {
+    ctx.fillStyle = "rgba(120,100,70," + (0.025 + r() * 0.035).toFixed(3) + ")";
+    ctx.fillRect(r() * w, r() * h, (1 + r() * 1.6) * u, (1 + r() * 1.6) * u);
+  }
+
+  ctx.globalCompositeOperation = "multiply";
+  const wash = (cx, cy, rad, rgb, alpha) => {
+    // 큰 번짐 → 안쪽 겹 → 가장자리 안료
+    quoteTestBlobPath(ctx, w * cx, h * cy, w * rad, r, 14);
+    ctx.fillStyle = "rgba(" + rgb + "," + alpha + ")";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(" + rgb + "," + (alpha * 1.15).toFixed(3) + ")";
+    ctx.lineWidth = 3 * u;
+    ctx.stroke();
+    quoteTestBlobPath(ctx, w * (cx + rad * 0.06), h * (cy + rad * 0.05), w * rad * 0.7, r, 12);
+    ctx.fillStyle = "rgba(" + rgb + "," + (alpha * 0.6).toFixed(3) + ")";
+    ctx.fill();
+  };
+  wash(0.06, 0.04, 0.3, "72,160,160", 0.2);
+  wash(0.32, -0.01, 0.2, "238,126,112", 0.19);
+  wash(0.18, 0.15, 0.13, "232,184,84", 0.16);
+  wash(0.97, 0.98, 0.34, "232,184,84", 0.2);
+  wash(0.78, 1.03, 0.2, "238,126,112", 0.18);
+  wash(1.02, 0.84, 0.14, "72,160,160", 0.15);
+
+  // 튄 물방울
+  const drops = [[0.24, 0.2, 0.008, "238,126,112"], [0.3, 0.25, 0.005, "72,160,160"], [0.7, 0.86, 0.007, "232,184,84"], [0.64, 0.9, 0.004, "238,126,112"], [0.9, 0.72, 0.006, "72,160,160"]];
+  drops.forEach(([x, y, rr, rgb]) => {
+    ctx.fillStyle = "rgba(" + rgb + ",.30)";
+    ctx.beginPath();
+    ctx.arc(w * x, h * y, w * rr, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalCompositeOperation = "source-over";
+}
+
+/* ---------- 4. 달빛능선 ---------- */
+// 초승달 + 별가루 + 안개 낀 능선 3겹
+function drawQuoteMoonRidge(ctx, w, h) {
+  const u = w / 1200;
+  const r = quoteTestRng(1187);
+
+  // 달무리
+  let g = ctx.createRadialGradient(w * 0.76, h * 0.2, 0, w * 0.76, h * 0.2, w * 0.5);
+  g.addColorStop(0, "rgba(255,244,214,.26)");
+  g.addColorStop(0.35, "rgba(255,244,214,.08)");
+  g.addColorStop(1, "rgba(255,244,214,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+
+  // 별가루(위쪽 45%에만)
+  for (let i = 0; i < 80; i++) {
+    const rad = (0.6 + r() * r() * 2.2) * u;
+    ctx.fillStyle = "rgba(235,240,255," + (0.2 + r() * 0.6).toFixed(3) + ")";
+    ctx.beginPath();
+    ctx.arc(r() * w, r() * h * 0.45, rad, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  [[0.14, 0.2, 9], [0.4, 0.09, 7], [0.58, 0.31, 6], [0.9, 0.38, 8]].forEach(([x, y, s]) => {
+    quoteTestFourPointStar(ctx, w * x, h * y, s * u, "rgba(255,248,226,.78)");
+  });
+
+  // 초승달: 큰 원을 clip 하고, 작은 원을 뺀 영역만 칠한다(배경을 지우지 않음)
+  const mx = w * 0.76;
+  const my = h * 0.2;
+  const mr = w * 0.115;
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(mx, my, mr, 0, Math.PI * 2);
+  ctx.clip();
+  const mg = ctx.createLinearGradient(mx - mr, my - mr, mx + mr, my + mr);
+  mg.addColorStop(0, "#fff7dc");
+  mg.addColorStop(1, "#f0dfb4");
+  ctx.fillStyle = mg;
+  ctx.beginPath();
+  ctx.rect(mx - mr * 2, my - mr * 2, mr * 4, mr * 4);
+  ctx.arc(mx + mr * 0.42, my - mr * 0.18, mr * 0.9, 0, Math.PI * 2, true);
+  ctx.fill("evenodd");
+  ctx.restore();
+
+  // 능선 3겹
+  const ridge = (base, amp, freq, phase, top, bottom) => {
+    const fill = ctx.createLinearGradient(0, h * (base - 0.08), 0, h);
+    fill.addColorStop(0, top);
+    fill.addColorStop(1, bottom);
+    ctx.beginPath();
+    ctx.moveTo(0, h);
+    const steps = 60;
+    for (let i = 0; i <= steps; i++) {
+      const t = i / steps;
+      const y =
+        h * base -
+        h * amp *
+          (Math.sin(t * freq * 6.2832 + phase) * 0.55 +
+            Math.sin(t * freq * 2.3 * 6.2832 + phase * 1.7) * 0.3 +
+            Math.sin(t * freq * 5.1 * 6.2832 + phase * 0.6) * 0.15);
+      ctx.lineTo(w * t, y);
+    }
+    ctx.lineTo(w, h);
+    ctx.closePath();
+    ctx.fillStyle = fill;
+    ctx.fill();
+  };
+  ridge(0.86, 0.05, 0.9, 0.6, "rgba(52,76,150,.50)", "rgba(24,40,96,.70)");
+  // 능선 사이 안개
+  g = ctx.createLinearGradient(0, h * 0.82, 0, h * 0.96);
+  g.addColorStop(0, "rgba(170,188,235,0)");
+  g.addColorStop(0.5, "rgba(170,188,235,.12)");
+  g.addColorStop(1, "rgba(170,188,235,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(0, h * 0.82, w, h * 0.14);
+  ridge(0.9, 0.04, 1.2, 2.1, "rgba(26,44,108,.62)", "rgba(14,24,66,.86)");
+  ridge(0.945, 0.028, 1.6, 4.0, "rgba(12,20,56,.82)", "rgba(6,10,30,.95)");
+}
+
+/* ---------- 5. 프리즘 ---------- */
+// 대각선 스펙트럼 띠 + 하이라이트 + 유리 조각 + 굴절 광선
+function drawQuotePrismFoil(ctx, w, h) {
+  const u = w / 1200;
+
+  // 스펙트럼 띠
+  ctx.save();
+  ctx.translate(w * 0.5, h * 0.5);
+  ctx.rotate(-Math.PI / 6.2);
+  const L = Math.hypot(w, h);
+  let g = ctx.createLinearGradient(-L * 0.5, 0, L * 0.5, 0);
+  g.addColorStop(0.3, "rgba(255,170,200,0)");
+  g.addColorStop(0.38, "rgba(255,170,200,.22)");
+  g.addColorStop(0.45, "rgba(255,214,160,.22)");
+  g.addColorStop(0.51, "rgba(255,247,170,.18)");
+  g.addColorStop(0.57, "rgba(176,236,196,.22)");
+  g.addColorStop(0.63, "rgba(150,214,244,.24)");
+  g.addColorStop(0.7, "rgba(184,170,250,.24)");
+  g.addColorStop(0.78, "rgba(184,170,250,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(-L, -L, L * 2, L * 2);
+
+  // 하이라이트
+  g = ctx.createLinearGradient(-L * 0.5, 0, L * 0.5, 0);
+  g.addColorStop(0.435, "rgba(255,255,255,0)");
+  g.addColorStop(0.47, "rgba(255,255,255,.55)");
+  g.addColorStop(0.505, "rgba(255,255,255,0)");
+  ctx.fillStyle = g;
+  ctx.fillRect(-L, -L, L * 2, L * 2);
+  ctx.restore();
+
+  // 오른쪽 위 프리즘 삼각형
+  const ax = w * 0.86, ay = h * 0.045;
+  const bx = w * 0.76, by = h * 0.19;
+  const cx = w * 0.96, cy = h * 0.19;
+  const tg = ctx.createLinearGradient(bx, by, cx, ay);
+  tg.addColorStop(0, "rgba(255,170,200,.16)");
+  tg.addColorStop(0.5, "rgba(150,214,244,.16)");
+  tg.addColorStop(1, "rgba(184,170,250,.16)");
+  ctx.beginPath();
+  ctx.moveTo(ax, ay);
+  ctx.lineTo(bx, by);
+  ctx.lineTo(cx, cy);
+  ctx.closePath();
+  ctx.fillStyle = tg;
+  ctx.fill();
+  ctx.strokeStyle = "rgba(110,120,200,.30)";
+  ctx.lineWidth = 1.5 * u;
+  ctx.stroke();
+
+  // 굴절 광선: 삼각형 오른쪽 변에서 부채꼴로
+  const rays = [["rgba(255,150,190,.42)", 0.0], ["rgba(255,205,140,.42)", 0.018], ["rgba(150,225,190,.42)", 0.036], ["rgba(140,205,245,.42)", 0.054], ["rgba(176,160,248,.42)", 0.072]];
+  ctx.lineCap = "round";
+  rays.forEach(([color, spread], i) => {
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.2 * u;
+    ctx.beginPath();
+    ctx.moveTo(w * 0.91, h * 0.12);
+    ctx.lineTo(w * (1.02), h * (0.27 + spread * 1.2 + i * 0.004));
+    ctx.stroke();
+  });
+
+  // 유리 조각 facet
+  const facets = [
+    [[0.04, 0.9], [0.14, 0.82], [0.1, 0.97]],
+    [[0.14, 0.82], [0.24, 0.93], [0.1, 0.97]],
+    [[0.9, 0.84], [0.97, 0.76], [0.97, 0.93]],
+  ];
+  facets.forEach((tri) => {
+    ctx.beginPath();
+    tri.forEach(([x, y], i) => {
+      if (i) ctx.lineTo(w * x, h * y);
+      else ctx.moveTo(w * x, h * y);
+    });
+    ctx.closePath();
+    ctx.fillStyle = "rgba(255,255,255,.14)";
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.75)";
+    ctx.lineWidth = 1.2 * u;
+    ctx.stroke();
+  });
+
+  // 반짝임
+  quoteTestFourPointStar(ctx, w * 0.2, h * 0.17, 13 * u, "rgba(255,255,255,.95)");
+  quoteTestFourPointStar(ctx, w * 0.12, h * 0.3, 7 * u, "rgba(184,170,250,.8)");
+  quoteTestFourPointStar(ctx, w * 0.82, h * 0.64, 9 * u, "rgba(150,214,244,.85)");
+  quoteTestFourPointStar(ctx, w * 0.9, h * 0.52, 6 * u, "rgba(255,255,255,.9)");
+}
+
 function drawReaderShareThemeEffect(ctx, background, width, height) {
   const effect = String(background?.effect || "");
   if (!effect) return;
@@ -11443,6 +11932,16 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     [[.88,.15,.012],[.12,.82,.009],[.86,.77,.008]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(width*x,height*y,width*r,0,Math.PI*2);ctx.fill();});
   } else if (effect === "dawn-fog") {
     [[.16,.72,.42,"rgba(255,255,255,.22)"],[.76,.24,.34,"rgba(205,222,233,.18)"],[.55,.54,.5,"rgba(255,255,255,.12)"]].forEach(([x,y,r,c])=>{const g=ctx.createRadialGradient(width*x,height*y,0,width*x,height*y,width*r);g.addColorStop(0,c);g.addColorStop(1,"rgba(255,255,255,0)");ctx.fillStyle=g;ctx.fillRect(0,0,width,height);});
+  } else if (effect === "hanji-gilt") {
+    drawQuoteHanjiGilt(ctx, width, height);
+  } else if (effect === "midnight-bookshop") {
+    drawQuoteMidnightBookshop(ctx, width, height);
+  } else if (effect === "watercolor-bleed") {
+    drawQuoteWatercolorBleed(ctx, width, height);
+  } else if (effect === "moon-ridge") {
+    drawQuoteMoonRidge(ctx, width, height);
+  } else if (effect === "prism-foil") {
+    drawQuotePrismFoil(ctx, width, height);
   }
   ctx.restore();
 }
@@ -11681,6 +12180,7 @@ function updateReaderShareActionLabel() {
 let readerSharePreparedBlob = null;
 let readerSharePreparedBlobKey = "";
 let readerSharePreparePromise = null;
+let readerSharePreparePromiseKey = "";
 let readerSharePrepareTimer = 0;
 let readerSharePreviewUrl = "";
 let readerSharePreviewKey = "";
@@ -11754,30 +12254,96 @@ function createReaderShareClipboardBlobPromise() {
   return createReaderShareBlobPromise().then(normalizeReaderShareClipboardBlob);
 }
 
-function scheduleReaderShareBlobPreparation(delay = 90) {
+function getReaderShareOutputDimensions() {
+  const ratio = ["4:5", "2:3"].includes(state.readerShareRatio) ? state.readerShareRatio : "1:1";
+  return { width: 1200, height: ratio === "2:3" ? 1800 : ratio === "4:5" ? 1500 : 1200 };
+}
+
+function postReaderShareAdminOutputBlob(blob) {
+  if (!READER_SHARE_ADMIN_EMBED_MODE || window.parent === window || !(blob instanceof Blob)) return;
+  const dims = getReaderShareOutputDimensions();
+  try {
+    window.parent.postMessage({
+      type: "rjs-quote-admin-output",
+      key: readerShareAdminPreviewKey,
+      blob,
+      size: blob.size,
+      width: dims.width,
+      height: dims.height,
+    }, window.location.origin);
+  } catch (_) {}
+}
+
+function showReaderShareRenderedBlob(blob, key) {
+  if (!(blob instanceof Blob) || !key || getReaderShareBlobKey() !== key) return false;
+  readerSharePreparedBlob = blob;
+  readerSharePreparedBlobKey = key;
+
+  if (readerShareUi?.renderImage) {
+    const nextUrl = URL.createObjectURL(blob);
+    revokeReaderSharePreviewUrl();
+    readerSharePreviewUrl = nextUrl;
+    readerSharePreviewKey = key;
+    readerShareUi.renderImage.src = nextUrl;
+    readerShareUi.renderImage.hidden = false;
+    readerShareUi.card?.classList.remove("is-render-loading");
+  }
+  postReaderShareAdminOutputBlob(blob);
+  if (readerShareUi && !readerShareUi.backdrop.hidden) updateReaderShareActionLabel();
+  return true;
+}
+
+function scheduleReaderShareUnifiedRender(delay = 280) {
   window.clearTimeout(readerSharePrepareTimer);
+  window.clearTimeout(readerSharePreviewTimer);
+  window.clearTimeout(readerShareAdminOutputTimer);
   const key = getReaderShareBlobKey();
-  if (readerSharePreparedBlob && readerSharePreparedBlobKey === key) return;
+
+  if (readerSharePreparedBlob && readerSharePreparedBlobKey === key) {
+    if (readerSharePreviewKey !== key || !readerSharePreviewUrl) {
+      showReaderShareRenderedBlob(readerSharePreparedBlob, key);
+    } else {
+      readerShareUi?.card?.classList.remove("is-render-loading");
+      if (readerShareUi?.renderImage) readerShareUi.renderImage.hidden = false;
+      postReaderShareAdminOutputBlob(readerSharePreparedBlob);
+    }
+    return;
+  }
+  if (readerSharePreparePromise && readerSharePreparePromiseKey === key) return;
 
   readerSharePrepareTimer = window.setTimeout(() => {
-    const preparedKey = getReaderShareBlobKey();
-    if (readerSharePreparedBlob && readerSharePreparedBlobKey === preparedKey) return;
+    const renderKey = getReaderShareBlobKey();
+    if (readerSharePreparedBlob && readerSharePreparedBlobKey === renderKey) {
+      showReaderShareRenderedBlob(readerSharePreparedBlob, renderKey);
+      return;
+    }
+    if (readerSharePreparePromise && readerSharePreparePromiseKey === renderKey) return;
 
+    const generation = ++readerSharePreviewGeneration;
     const promise = createReaderShareClipboardBlobPromise();
     readerSharePreparePromise = promise;
+    readerSharePreviewPromise = promise;
+    readerSharePreparePromiseKey = renderKey;
     promise.then((blob) => {
-      if (getReaderShareBlobKey() !== preparedKey) return;
-      readerSharePreparedBlob = blob;
-      readerSharePreparedBlobKey = preparedKey;
-      if (readerShareUi && !readerShareUi.backdrop.hidden) {
-        updateReaderShareActionLabel();
-      }
+      if (generation !== readerSharePreviewGeneration) return;
+      showReaderShareRenderedBlob(blob, renderKey);
     }).catch((error) => {
       console.warn("reader share image pre-render failed", error);
+      if (generation !== readerSharePreviewGeneration) return;
+      readerShareUi?.card?.classList.remove("is-render-loading");
+      if (readerShareUi?.renderImage) readerShareUi.renderImage.hidden = true;
     }).finally(() => {
-      if (readerSharePreparePromise === promise) readerSharePreparePromise = null;
+      if (readerSharePreparePromise === promise) {
+        readerSharePreparePromise = null;
+        readerSharePreparePromiseKey = "";
+      }
+      if (readerSharePreviewPromise === promise) readerSharePreviewPromise = null;
     });
   }, Math.max(0, Number(delay) || 0));
+}
+
+function scheduleReaderShareBlobPreparation(delay = 280) {
+  scheduleReaderShareUnifiedRender(delay);
 }
 
 function getPreparedReaderShareBlob() {
@@ -11835,10 +12401,13 @@ async function handleReaderShareExport(mode) {
 
   setReaderShareBusy(true);
   try {
-    const blob = getPreparedReaderShareBlob() || await createReaderShareBlobPromise();
-    if (!readerSharePreparedBlob || readerSharePreparedBlobKey !== getReaderShareBlobKey()) {
-      readerSharePreparedBlob = blob;
-      readerSharePreparedBlobKey = getReaderShareBlobKey();
+    const exportKey = getReaderShareBlobKey();
+    const pending = readerSharePreparePromise && readerSharePreparePromiseKey === exportKey
+      ? readerSharePreparePromise
+      : null;
+    const blob = getPreparedReaderShareBlob() || await (pending || createReaderShareClipboardBlobPromise());
+    if (getReaderShareBlobKey() === exportKey) {
+      showReaderShareRenderedBlob(blob, exportKey);
     }
     const filename = getReaderShareFilename();
     if (mode === "save") {
@@ -11898,71 +12467,6 @@ function revokeReaderSharePreviewUrl() {
   readerSharePreviewUrl = "";
 }
 
-function scheduleReaderShareExactPreview(delay = 80) {
-  if (!readerShareUi?.renderImage) return;
-  window.clearTimeout(readerSharePreviewTimer);
-  const key = getReaderShareBlobKey();
-  if (readerSharePreviewKey === key && readerSharePreviewUrl) {
-    readerShareUi.card?.classList.remove("is-render-loading");
-    readerShareUi.renderImage.hidden = false;
-    return;
-  }
-
-  readerSharePreviewTimer = window.setTimeout(() => {
-    const pendingKey = getReaderShareBlobKey();
-    const generation = ++readerSharePreviewGeneration;
-    const task = createReaderShareBlobPromise();
-    readerSharePreviewPromise = task;
-    task.then((blob) => {
-      if (generation !== readerSharePreviewGeneration) return;
-      if (getReaderShareBlobKey() !== pendingKey) return;
-      const nextUrl = URL.createObjectURL(blob);
-      revokeReaderSharePreviewUrl();
-      readerSharePreviewUrl = nextUrl;
-      readerSharePreviewKey = pendingKey;
-      if (readerShareUi?.renderImage) {
-        readerShareUi.renderImage.src = nextUrl;
-        readerShareUi.renderImage.hidden = false;
-      }
-      readerShareUi?.card?.classList.remove("is-render-loading");
-    }).catch((error) => {
-      console.warn("reader share preview render failed", error);
-      readerShareUi?.card?.classList.remove("is-render-loading");
-      if (readerShareUi?.renderImage && !readerSharePreviewUrl) {
-        readerShareUi.renderImage.hidden = true;
-      }
-    }).finally(() => {
-      if (readerSharePreviewPromise === task) readerSharePreviewPromise = null;
-    });
-  }, Math.max(0, Number(delay) || 0));
-}
-
-function scheduleReaderShareAdminOutput() {
-  if (!READER_SHARE_ADMIN_EMBED_MODE || window.parent === window) return;
-  window.clearTimeout(readerShareAdminOutputTimer);
-  const generation = ++readerShareAdminOutputGeneration;
-  readerShareAdminOutputTimer = window.setTimeout(async () => {
-    try {
-      const canvas = await renderReaderShareCanvas();
-      if (generation !== readerShareAdminOutputGeneration) return;
-      const blob = await new Promise((resolve, reject) => {
-        canvas.toBlob((value) => value ? resolve(value) : reject(new Error("blob_failed")), "image/png");
-      });
-      if (generation !== readerShareAdminOutputGeneration) return;
-      window.parent.postMessage({
-        type: "rjs-quote-admin-output",
-        key: readerShareAdminPreviewKey,
-        blob,
-        size: blob.size,
-        width: canvas.width,
-        height: canvas.height,
-      }, window.location.origin);
-    } catch (error) {
-      console.warn("관리자 문장 이미지 최종 렌더 미리보기 실패", error);
-    }
-  }, 220);
-}
-
 function updateReaderSharePreview() {
   ensureReaderShareState();
   const ui = ensureReaderShareUi();
@@ -11999,8 +12503,8 @@ function updateReaderSharePreview() {
   ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
   ui.brand.textContent = getReaderShareBrandName();
 
-  ui.thumbs.querySelectorAll("[data-share-background]").forEach((button, index) => {
-    button.classList.toggle("active", index === state.readerShareBackground);
+  ui.thumbs.querySelectorAll("[data-share-background]").forEach((button) => {
+    button.classList.toggle("active", Number(button.dataset.shareBackground) === state.readerShareBackground);
   });
   ui.backdrop.querySelectorAll("[data-share-ratio]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareRatio === state.readerShareRatio);
@@ -12026,10 +12530,9 @@ function updateReaderSharePreview() {
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
   if (ui.card) ui.card.classList.add("is-render-loading");
+  if (ui.renderImage) ui.renderImage.hidden = true;
   postReaderShareAdminPreview(background);
-  scheduleReaderShareAdminOutput();
-  scheduleReaderShareExactPreview(READER_SHARE_ADMIN_EMBED_MODE ? 120 : 60);
-  scheduleReaderShareBlobPreparation(120);
+  scheduleReaderShareUnifiedRender(READER_SHARE_ADMIN_EMBED_MODE ? 300 : 280);
   updateReaderShareActionLabel();
 }
 
@@ -12118,9 +12621,6 @@ async function maybeOpenAdminReaderSharePreview() {
 function closeReaderShareUi({ fromHistory = false } = {}) {
   if (!readerShareUi) return;
   readerShareUi.floatButton.hidden = true;
-  window.clearTimeout(readerSharePrepareTimer);
-  window.clearTimeout(readerSharePreviewTimer);
-  readerShareUi.card?.classList.remove("is-render-loading");
   readerShareUi.close?.({ fromHistory });
 }
 
