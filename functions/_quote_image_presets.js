@@ -46,6 +46,14 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "vellum", name: "벨럼", defaultVisible: false },
   { key: "crumple", name: "크럼플", defaultVisible: false },
   { key: "gingham", name: "깅엄", defaultVisible: false },
+  { key: "azulejo", name: "코발트 타일", defaultVisible: false },
+  { key: "emerald-vein", name: "에메랄드 베인", defaultVisible: false },
+  { key: "butter-sticker", name: "버터 스티커", defaultVisible: false },
+  { key: "burgundy-leather", name: "버건디 레더", defaultVisible: false },
+  { key: "terracotta-arch", name: "테라코타 아치", defaultVisible: false },
+  { key: "lime-hud", name: "라임 HUD", defaultVisible: false },
+  { key: "overprint", name: "오버프린트", defaultVisible: false },
+  { key: "terrazzo-pop", name: "테라조 팝", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {

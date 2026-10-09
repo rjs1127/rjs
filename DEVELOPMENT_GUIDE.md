@@ -1,3 +1,10 @@
+# v10.07 — 신규 문장 이미지 8종 Canvas·타이포그래피 구현 기준
+
+- v10.07의 신규 8종은 `public/app.js` 내 `READER_SHARE_NEW8`에 제공받은 프리셋 정의와 Canvas 효과 함수를 원본의 이름/좌표/색상으로 함께 보존한다. 별도 API·Canvas 렌더 서버·외부 이미지/폰트 리소스는 추가하지 않는다.
+- `READER_SHARE_BACKGROUNDS`에 `...READER_SHARE_NEW8.presets`를 추가하고 `drawReaderShareThemeEffect()`에서 동일한 효과 함수를 재사용한다. 관리자 갤러리와 사용자 PNG 저장·복사는 기존 `renderReaderShareCanvas()` 단일 경로를 이용한다.
+- 제공된 `textFx`의 그림자/금박/엠보싱/외곽선은 신규 프리셋에만 적용한다. 기존 45종의 텍스트 배치·줄바꿈·선택 폰트·클립보드 클릭 경로는 변경하지 않는다.
+- 신규 key 8종은 `functions/_quote_image_presets.js`에 동일한 이름/기본 `defaultVisible:false`로 추가한다. 공개 여부는 기존 관리자 KV override와 최소 1개 공개 정책을 그대로 따른다.
+
 # v10.06 문장 이미지 관리자 갤러리·렌더링 안전 기준
 
 - 관리자 문장 이미지 탭은 CSS 배경과 사용자 Canvas 결과를 컴팩트 카드 두 칸에 동시 표시하고 각각 1:1 확대 모달로 검수한다. 기존 Y/N 저장 API·KV 상태·최소 1개 공개 정책을 유지한다.
