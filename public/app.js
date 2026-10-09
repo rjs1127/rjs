@@ -2547,7 +2547,7 @@ function getQuoteFeedTheme(item) {
     hash ^= source.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
-  const themes = READER_SHARE_BACKGROUNDS || [];
+  const themes = getVisibleReaderShareBackgroundEntries().map(({ background }) => background);
   return themes[Math.abs(hash >>> 0) % Math.max(1, themes.length)] || {
     background: "linear-gradient(145deg,#fffdf9,#f6f3ee)",
     text: "#191816",
@@ -2687,6 +2687,7 @@ function renderQuoteFeed() {
 async function loadQuoteFeed({ append = false } = {}) {
   if (state.quoteFeedLoading) return;
   if (append && !state.quoteFeedNextCursor) return;
+  const presetVisibilityTask = loadReaderSharePresetVisibility().catch(() => null);
   state.quoteFeedLoading = true;
   state.quoteFeedError = "";
   renderQuoteFeed();
@@ -2708,6 +2709,7 @@ async function loadQuoteFeed({ append = false } = {}) {
     if (!append) state.quoteFeedItems = [];
     state.quoteFeedError = "문장 피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
   } finally {
+    await presetVisibilityTask;
     state.quoteFeedLoading = false;
     renderQuoteFeed();
   }
@@ -10617,7 +10619,7 @@ function sceneRibbon(H){const sc=newScene();
 const PRESETS=[
 {name:'모아레 울트라',key:'moire-ultra',concept:'어긋난 동심원 선이 만드는 간섭무늬 — 스위스 포스터식 옵아트',hex:['#F9F7F1','#0B0B14','#2230FF'],base:['#f9f7f1','#efece2'],text:'#0b0b14',meta:'#5b5f78',fx:{halo:['rgba(246,244,237,.95)',9]},scene:sceneMoire,
  near:['ripple-pool','overprint'],diff:'부드러운 물결/CMY 잉크 번짐이 아닌 1.15px 선의 간섭. 흑+울트라블루 2색, 중앙은 종이색 베일로 비움.',feas:'원 stroke ~110개 + 방사형 베일 1개'},
-{name:'디더 바이올렛',key:'dither-violet',concept:'8×8 베이어 디더링 비트맵이 모서리에서 번지는 1-bit 감성',hex:['#F5F3FF','#CBC1FF','#5A3CF0','#231662'],base:['#f5f3ff','#e9e5ff'],text:'#231662',meta:'#7569c4',fx:null,scene:sceneDither,
+{name:'디더 바이올렛',key:'dither-violet',concept:'8×8 베이어 디더링 비트맵이 모서리에서 번지는 1-bit 감성',hex:['#F5F3FF','#CBC1FF','#5A3CF0','#231662'],base:['#f5f3ff','#e9e5ff'],text:'#231662',meta:'#7569c4',fx:{halo:['rgba(255,255,255,.96)',11],shadow:['rgba(203,193,255,.42)',8,0,0]},scene:sceneDither,
  near:['soft-polka','lime-hud'],diff:'원형 도트/형광 UI가 아닌 사각 픽셀의 규칙적 디더 확산. 연보라 위 2톤 바이올렛.',feas:'run-length 사각형 path 2개(셀 4유닛), 픽셀 단위 연산 없음'},
 {name:'시트러스 슬라이스',key:'citrus-slice',concept:'오렌지·라임·자몽 단면이 모서리에 걸린 상큼한 과일 포스터',hex:['#FFF6EA','#FF9A1F','#78B83C','#F2706A','#FFD23F','#5C2A14'],base:['#fff6ea','#ffe9d6'],text:'#5c2a14',meta:'#b0705a',fx:null,scene:sceneCitrus,
  near:['butter-sticker','petal-flow'],diff:'납작한 외곽선 스티커/꽃잎이 아닌 과육 결·껍질·속껍질이 있는 단면 일러스트. 다색 과일 + 잎.',feas:'원/부채꼴 path/타원 + shadowBlur'},
@@ -11348,29 +11350,34 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap);
     let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - lines.length * lineHeight) / 2);
     const x = model.textAlign === 'left' ? padX + 36 * scale : model.textAlign === 'right' ? padX + innerW - 36 * scale : width / 2;
-    // CSS Live Preview uses a vertically clipped white→cyan→pink text gradient.
-    // Create ONE gradient across the full quote block so later lines become pink,
-    // rather than filling every glyph white like the original Canvas implementation.
-    const textGradient = ctx.createLinearGradient(0, y, 0, y + Math.max(lineHeight, lines.length * lineHeight));
-    textGradient.addColorStop(0, '#eefbff');
-    textGradient.addColorStop(0.22, '#a3efff');
-    textGradient.addColorStop(0.53, '#46d7f1');
-    textGradient.addColorStop(0.63, '#63c9eb');
-    textGradient.addColorStop(0.77, '#f99bd1');
-    textGradient.addColorStop(1, '#ff77bc');
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const line of lines) {
-      // Keep the layered turquoise / magenta glow from the CSS preview.
-      ctx.fillStyle = textGradient;
-      ctx.shadowColor = 'rgba(0,240,255,.8)';
+      // 레트로 PC통신 느낌: 살짝 어긋난 검은 고스트 + 흰 본문 + 청록/핑크 글로우.
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      ctx.fillStyle = 'rgba(0,0,0,.92)';
+      ctx.fillText(line, x + 2.2 * scale, y + 1.7 * scale);
+      ctx.fillStyle = 'rgba(18,24,46,.66)';
+      ctx.fillText(line, x + 1.1 * scale, y + 0.9 * scale);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = 'rgba(0,240,255,.82)';
       ctx.shadowBlur = 14 * scale;
       ctx.fillText(line, x, y);
-      ctx.shadowColor = 'rgba(255,0,128,.42)';
+      ctx.shadowColor = 'rgba(255,0,128,.36)';
       ctx.shadowBlur = 24 * scale;
       ctx.fillText(line, x, y);
       ctx.shadowBlur = 0;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillText(line, x, y);
+
+      const tint = ctx.createLinearGradient(0, y, 0, y + lineHeight);
+      tint.addColorStop(0, 'rgba(173,240,255,.42)');
+      tint.addColorStop(0.58, 'rgba(116,219,255,.20)');
+      tint.addColorStop(1, 'rgba(255,119,188,.34)');
+      ctx.fillStyle = tint;
       ctx.fillText(line, x, y);
       y += lineHeight;
     }
@@ -11630,6 +11637,7 @@ const READER_SHARE_BACKGROUNDS = [
     meta: "#a9acd0",
     accent: "#d5d7ff",
     effect: "meteor-trails",
+    textFx: { halo: ['rgba(18,22,43,.72)', 5], shadow: ['rgba(188,220,255,.78)', 18, 0, 0] },
   },
   {
     name: "바람결",
