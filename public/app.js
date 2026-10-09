@@ -10912,6 +10912,185 @@ function drawTerrazzo(c,w,h){
   return { presets, effects };
 })();
 
+
+// v10.10: Gemini 신규 4종. 썸네일 CSS와 최종 Canvas를 최대한 맞추기 위해
+// 전용 렌더러를 추가하되, 기존 글꼴 선택/저장/복사/관리자 갤러리 경로는 유지한다.
+const READER_SHARE_GEMINI4 = (() => {
+  const presets = [
+    {
+      name: "네온 프리즘 회절",
+      key: "neon-prism-diffraction",
+      defaultVisible: false,
+      background: "radial-gradient(circle at 50% 50%, rgba(255,0,128,.24) 0 16%, rgba(0,230,255,.22) 22%, rgba(0,255,128,.18) 36%, rgba(255,230,0,.22) 52%, rgba(180,0,255,.18) 68%, rgba(5,5,10,0) 84%), repeating-linear-gradient(0deg, rgba(255,255,255,.04) 0 1px, transparent 1px 20px), repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 1px, transparent 1px 20px), linear-gradient(135deg, #05050a 0%, #090914 100%)",
+      text: "#ffffff",
+      meta: "rgba(205, 235, 255, .78)",
+      accent: "#00f0ff",
+      customLayout: "neon-prism-diffraction",
+    },
+    {
+      name: "와비사비 한지",
+      key: "wabi-sabi-washi",
+      defaultVisible: false,
+      background: "radial-gradient(circle at 70% 30%, rgba(45,40,35,.14) 0 8%, rgba(45,40,35,.06) 16%, rgba(45,40,35,0) 34%), radial-gradient(circle at 0 0, rgba(44,42,41,.10) 0 .7px, transparent .9px), radial-gradient(circle at 14px 14px, rgba(44,42,41,.06) 0 .7px, transparent .9px), linear-gradient(145deg, #f4efe6 0%, #eee7da 100%)",
+      text: "#22201f",
+      meta: "#6a635d",
+      accent: "#a33223",
+      customLayout: "wabi-sabi-washi",
+    },
+    {
+      name: "바우하우스 구상",
+      key: "bauhaus-constructivism",
+      defaultVisible: false,
+      background: "linear-gradient(#111111,#111111) 0 0/100% 10% no-repeat, linear-gradient(#111111,#111111) 0 100%/100% 10% no-repeat, linear-gradient(#111111,#111111) 0 0/10% 100% no-repeat, linear-gradient(#111111,#111111) 100% 0/10% 100% no-repeat, linear-gradient(#d9381e,#d9381e) 84% 10%/18% 18% no-repeat, radial-gradient(circle at 10% 90%, #f2b705 0 17%, transparent 18%), linear-gradient(#1040a3,#1040a3) 10% 48%/4% 24% no-repeat, linear-gradient(135deg, #f0f0eb 0%, #f0f0eb 100%)",
+      text: "#111111",
+      meta: "#555555",
+      accent: "#d9381e",
+      customLayout: "bauhaus-constructivism",
+    },
+    {
+      name: "사이버펑크 홀로그램",
+      key: "cyberpunk-hologram",
+      defaultVisible: false,
+      background: "repeating-linear-gradient(to bottom, rgba(255,255,255,0) 0 2px, rgba(0,0,0,.35) 2px 4px), linear-gradient(135deg, rgba(0,240,255,.22) 0%, rgba(255,0,128,.20) 50%, rgba(0,255,170,.18) 100%), linear-gradient(135deg, #07060c 0%, #100d18 100%)",
+      text: "#ffffff",
+      meta: "rgba(160, 245, 255, .82)",
+      accent: "#00f0ff",
+      customLayout: "cyberpunk-hologram",
+    },
+  ];
+
+  function rrPath(ctx, x, y, width, height, radius) {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function fillRoundRect(ctx, x, y, width, height, radius, fillStyle) {
+    ctx.save(); rrPath(ctx, x, y, width, height, radius); ctx.fillStyle = fillStyle; ctx.fill(); ctx.restore();
+  }
+  function strokeRoundRect(ctx, x, y, width, height, radius, strokeStyle, lineWidth) {
+    ctx.save(); rrPath(ctx, x, y, width, height, radius); ctx.strokeStyle = strokeStyle; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.restore();
+  }
+  function makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap) {
+    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap);
+    const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      const last = lines.length - 1;
+      lines[last] = `${String(lines[last] || '').replace(/[.…\s]+$/u, '')}…`;
+    }
+    return lines;
+  }
+  function drawLines(ctx, lines, x, y, lineHeight, align) {
+    ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+    for (const line of lines) { ctx.fillText(line, x, y); y += lineHeight; }
+  }
+
+  function renderNeon(ctx, width, height, model) {
+    const quote = String(model.text || '');
+    const title = String(model.item?.title || '제목 정보 없음');
+    const author = String(model.item?.author || '');
+    const brand = String(model.brand || '셩냥책');
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif';
+    const quoteWeight = model.fontWeight || model.font?.weight || 500;
+    const mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#05050b'; ctx.fillRect(0, 0, width, height);
+    if (typeof ctx.createConicGradient === 'function') {
+      const prismGrad = ctx.createConicGradient(Math.PI / 4, width / 2, height / 2);
+      prismGrad.addColorStop(0, 'rgba(255, 0, 128, 0.35)'); prismGrad.addColorStop(0.2, 'rgba(0, 230, 255, 0.35)'); prismGrad.addColorStop(0.4, 'rgba(0, 255, 128, 0.25)'); prismGrad.addColorStop(0.6, 'rgba(255, 230, 0, 0.35)'); prismGrad.addColorStop(0.8, 'rgba(180, 0, 255, 0.35)'); prismGrad.addColorStop(1, 'rgba(255, 0, 128, 0.35)');
+      ctx.save(); ctx.fillStyle = prismGrad; ctx.filter = 'blur(90px)'; ctx.beginPath(); ctx.arc(width / 2, height / 2, Math.min(width, height) * 0.58, 0, Math.PI * 2); ctx.fill(); ctx.restore();
+    }
+    ctx.strokeStyle = 'rgba(255,255,255,.045)'; ctx.lineWidth = 1;
+    const gridSize = Math.max(20, Math.round(width * 0.033));
+    for (let x = 0; x <= width; x += gridSize) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+    for (let y = 0; y <= height; y += gridSize) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+    const margin = width * 0.08, panelX = margin, panelY = margin, panelW = width - margin * 2, panelH = height - margin * 2;
+    ctx.save(); ctx.shadowColor = 'rgba(0, 229, 255, 0.28)'; ctx.shadowBlur = 40; fillRoundRect(ctx, panelX, panelY, panelW, panelH, 32, 'rgba(15, 15, 26, 0.72)'); ctx.restore();
+    const borderGrad = ctx.createLinearGradient(panelX, panelY, panelX + panelW, panelY + panelH);
+    borderGrad.addColorStop(0, 'rgba(255,255,255,.35)'); borderGrad.addColorStop(.5, 'rgba(0,240,255,.2)'); borderGrad.addColorStop(1, 'rgba(255,0,128,.35)');
+    strokeRoundRect(ctx, panelX, panelY, panelW, panelH, 32, borderGrad, 2.5);
+    const scale = width / 1200;
+    ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${22 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('[ PRISM // DISPERSION ]', panelX + 40 * scale, panelY + 36 * scale);
+    ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'right'; ctx.fillText(brand, panelX + panelW - 40 * scale, panelY + 36 * scale);
+    const quoteBoxX = panelX + 52 * scale, quoteBoxY = panelY + panelH * 0.27, quoteBoxW = panelW - 104 * scale, quoteBoxH = panelH * 0.43;
+    const fontSize = (model.sizePx * (width / 380)) * 1.08, lineHeight = fontSize * 1.42;
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, `"${quote}"`, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.shadowColor = 'rgba(0,240,255,.6)'; ctx.shadowBlur = 12 * scale; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left'); ctx.shadowBlur = 0;
+    const footerY = panelY + panelH - 86 * scale;
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(panelX + 40 * scale, footerY - 26 * scale); ctx.lineTo(panelX + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
+    ctx.fillStyle = '#ffffff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, panelX + 40 * scale, footerY);
+    ctx.fillStyle = 'rgba(200,230,255,.72)'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', panelX + 40 * scale, footerY + 36 * scale);
+  }
+
+  function renderWabi(ctx, width, height, model) {
+    const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
+    const quoteFont = model.font?.css || 'serif', quoteWeight = model.fontWeight || model.font?.weight || 400, scale = width / 1200, rand = quoteTestRng(8261 + Math.round(height));
+    ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'rgba(60, 50, 40, 0.016)';
+    for (let i = 0; i < 2800; i++) { const rx = rand() * width, ry = rand() * height, rw = (rand() * 3.4 + 1) * scale, rh = (rand() * 3.4 + 1) * scale; ctx.fillRect(rx, ry, rw, rh); }
+    ctx.strokeStyle = 'rgba(80, 60, 45, 0.055)'; ctx.lineWidth = 1 * scale;
+    for (let i = 0; i < 110; i++) { const sx = rand() * width, sy = rand() * height; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + (rand() * 30 - 15) * scale, sy + (rand() * 30 - 15) * scale, sx + (rand() * 50 - 25) * scale, sy + (rand() * 50 - 25) * scale); ctx.stroke(); }
+    const washGrad = ctx.createRadialGradient(width * 0.72, height * 0.28, 20 * scale, width * 0.72, height * 0.28, Math.min(width, height) * 0.42);
+    washGrad.addColorStop(0, 'rgba(35, 30, 25, 0.12)'); washGrad.addColorStop(.5, 'rgba(45, 40, 35, 0.05)'); washGrad.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = washGrad; ctx.beginPath(); ctx.arc(width * 0.72, height * 0.28, Math.min(width, height) * 0.42, 0, Math.PI * 2); ctx.fill();
+    const pad = width * 0.1;
+    ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(`${brand} 謹寫`, pad, pad + 6 * scale);
+    const stampX = width - pad - 62 * scale, stampY = pad;
+    ctx.strokeStyle = '#a33223'; ctx.lineWidth = 3 * scale; ctx.strokeRect(stampX, stampY, 60 * scale, 60 * scale); ctx.fillStyle = '#a33223'; ctx.font = `700 ${20 * scale}px ${quoteFont}`; ctx.fillText('餘白', stampX + 10 * scale, stampY + 16 * scale);
+    const quoteBoxX = pad, quoteBoxY = height * 0.3, quoteBoxW = width - pad * 2, quoteBoxH = height * 0.42;
+    const fontSize = (model.sizePx * (width / 380)) * 1.02, lineHeight = fontSize * 1.7;
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, `"${quote}"`, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
+    ctx.fillStyle = '#22201f'; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left');
+    ctx.strokeStyle = 'rgba(60,50,40,.2)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(pad, height - pad - 90 * scale); ctx.lineTo(width - pad, height - pad - 90 * scale); ctx.stroke();
+    ctx.fillStyle = '#1a1817'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, pad, height - pad - 54 * scale); ctx.fillStyle = '#59534e'; ctx.font = `500 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad, height - pad - 16 * scale);
+  }
+
+  function renderBauhaus(ctx, width, height, model) {
+    const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700)), scale = width / 1200, mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    ctx.fillStyle = '#f0f0eb'; ctx.fillRect(0, 0, width, height); const frame = 24 * scale; ctx.fillStyle = '#111111'; ctx.fillRect(0, 0, width, frame); ctx.fillRect(0, height - frame, width, frame); ctx.fillRect(0, 0, frame, height); ctx.fillRect(width - frame, 0, frame, height);
+    ctx.fillStyle = '#d9381e'; ctx.fillRect(width * 0.72, frame, width * 0.28 - frame, height * 0.22); ctx.fillStyle = '#f2b705'; ctx.beginPath(); ctx.moveTo(frame, height - frame); ctx.arc(frame, height - frame, 180 * scale, -Math.PI / 2, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#1040a3'; ctx.fillRect(frame, height * 0.42, 28 * scale, height * 0.22);
+    ctx.strokeStyle = '#111111'; ctx.lineWidth = 4 * scale; const headerY = height * 0.16; ctx.beginPath(); ctx.moveTo(frame, headerY); ctx.lineTo(width - frame, headerY); ctx.stroke();
+    ctx.fillStyle = '#111111'; ctx.font = `800 ${24 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('BAUHAUS_GRID // DESIGN', frame + 30 * scale, headerY - 52 * scale); ctx.textAlign = 'right'; ctx.fillText(brand, width - frame - 40 * scale, headerY - 52 * scale);
+    const blockX = frame + 50 * scale, blockY = height * 0.28, blockW = width - frame * 2 - 100 * scale, blockH = height * 0.45; ctx.fillStyle = '#ffffff'; ctx.fillRect(blockX, blockY, blockW, blockH); ctx.lineWidth = 3 * scale; ctx.strokeStyle = '#111111'; ctx.strokeRect(blockX, blockY, blockW, blockH); ctx.fillStyle = '#d9381e'; ctx.fillRect(blockX, blockY, 18 * scale, blockH);
+    const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * 1.38; ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, blockW - 80 * scale, lineHeight, blockH - 80 * scale, model.autoWrap); drawLines(ctx, lines, blockX + 50 * scale, blockY + 56 * scale, lineHeight, 'left');
+    const footerY = height - frame - 110 * scale; ctx.beginPath(); ctx.moveTo(frame, footerY); ctx.lineTo(width - frame, footerY); ctx.stroke();
+    ctx.fillStyle = '#111111'; ctx.font = `900 ${32 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, frame + 40 * scale, footerY + 18 * scale); ctx.fillStyle = '#555555'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', frame + 40 * scale, footerY + 56 * scale); ctx.fillStyle = '#111111'; ctx.fillRect(width - frame - 140 * scale, footerY + 4 * scale, 100 * scale, 45 * scale); ctx.fillStyle = '#ffffff'; ctx.font = `700 ${20 * scale}px ${mono}`; ctx.fillText('N° 04', width - frame - 120 * scale, footerY + 18 * scale);
+  }
+
+  function renderCyber(ctx, width, height, model) {
+    const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Math.max(500, Number(model.fontWeight || model.font?.weight || 500)), mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', scale = width / 1200;
+    ctx.fillStyle = '#07060c'; ctx.fillRect(0, 0, width, height); const holoGrad = ctx.createLinearGradient(0, 0, width, height); holoGrad.addColorStop(0, 'rgba(0, 240, 255, 0.22)'); holoGrad.addColorStop(.5, 'rgba(255, 0, 128, 0.20)'); holoGrad.addColorStop(1, 'rgba(0, 255, 170, 0.18)'); ctx.fillStyle = holoGrad; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; for (let y = 0; y < height; y += 6 * scale) ctx.fillRect(0, y, width, 3 * scale);
+    const pad = width * 0.08, panelW = width - pad * 2, panelH = height - pad * 2; ctx.save(); ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 30 * scale; fillRoundRect(ctx, pad, pad, panelW, panelH, 20 * scale, 'rgba(10, 10, 18, 0.82)'); ctx.restore(); strokeRoundRect(ctx, pad, pad, panelW, panelH, 20 * scale, 'rgba(0,240,255,.6)', 2 * scale);
+    ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${22 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('// HOLO_SYS_2026', pad + 40 * scale, pad + 36 * scale); ctx.fillStyle = '#ff007f'; ctx.font = `800 ${26 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'right'; ctx.fillText(brand, pad + panelW - 40 * scale, pad + 34 * scale);
+    const quoteX = pad + 50 * scale, quoteY = pad + panelH * 0.28, maxW = panelW - 100 * scale; const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * 1.45; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, maxW, lineHeight, panelH * 0.42, model.autoWrap); const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (panelH * 0.42 - totalHeight) / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const line of lines) { ctx.fillStyle = 'rgba(0,240,255,.8)'; ctx.fillText(line, quoteX - 3 * scale, y); ctx.fillStyle = 'rgba(255,0,128,.8)'; ctx.fillText(line, quoteX + 3 * scale, y); ctx.fillStyle = '#ffffff'; ctx.fillText(line, quoteX, y); y += lineHeight; }
+    const footerY = pad + panelH - 88 * scale; ctx.strokeStyle = 'rgba(0,240,255,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(pad + 40 * scale, footerY - 26 * scale); ctx.lineTo(pad + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
+    ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, pad + 40 * scale, footerY); ctx.fillStyle = '#ff77c2'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad + 40 * scale, footerY + 36 * scale);
+    fillRoundRect(ctx, pad + panelW - 140 * scale, footerY - 8 * scale, 100 * scale, 36 * scale, 6 * scale, 'rgba(0,240,255,.15)'); strokeRoundRect(ctx, pad + panelW - 140 * scale, footerY - 8 * scale, 100 * scale, 36 * scale, 6 * scale, '#00f0ff', 1 * scale); ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${16 * scale}px ${mono}`; ctx.fillText('VER 4.0', pad + panelW - 122 * scale, footerY + 3 * scale);
+  }
+
+  const renderers = {
+    'neon-prism-diffraction': renderNeon,
+    'wabi-sabi-washi': renderWabi,
+    'bauhaus-constructivism': renderBauhaus,
+    'cyberpunk-hologram': renderCyber,
+  };
+  return { presets, renderers };
+})();
+
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
@@ -11338,6 +11517,7 @@ const READER_SHARE_BACKGROUNDS = [
   ...READER_SHARE_NEW8.presets,
   ...READER_SHARE_CURATED_SET1.presets,
   ...READER_SHARE_CURATED_SET2.presets,
+  ...READER_SHARE_GEMINI4.presets,
 ];
 
 const READER_SHARE_FONTS = [
@@ -13996,6 +14176,12 @@ async function renderReaderShareCanvas() {
   canvas.height = height;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas_context_unavailable");
+
+  const customRenderer = READER_SHARE_GEMINI4.renderers[getReaderShareBackgroundKey(model.background)];
+  if (typeof customRenderer === "function") {
+    customRenderer(ctx, width, height, model);
+    return canvas;
+  }
 
   const colors = parseShareGradientColors(model.background.background);
   const gradient = ctx.createLinearGradient(0, 0, width, height);

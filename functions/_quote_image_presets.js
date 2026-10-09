@@ -62,6 +62,10 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "optic-pleats", name: "옵틱 플리츠", defaultVisible: false },
   { key: "acrylic-step", name: "아크릴 스텝", defaultVisible: false },
   { key: "blind-press", name: "블라인드 프레스", defaultVisible: false },
+  { key: "neon-prism-diffraction", name: "네온 프리즘 회절", defaultVisible: false },
+  { key: "wabi-sabi-washi", name: "와비사비 한지", defaultVisible: false },
+  { key: "bauhaus-constructivism", name: "바우하우스 구상", defaultVisible: false },
+  { key: "cyberpunk-hologram", name: "사이버펑크 홀로그램", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
