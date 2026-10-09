@@ -1,3 +1,10 @@
+# v10.06 문장 이미지 관리자 갤러리·렌더링 안전 기준
+
+- 관리자 문장 이미지 탭은 CSS 배경과 사용자 Canvas 결과를 컴팩트 카드 두 칸에 동시 표시하고 각각 1:1 확대 모달로 검수한다. 기존 Y/N 저장 API·KV 상태·최소 1개 공개 정책을 유지한다.
+- `public/admin-app.js`는 인증된 단일 `?quote-test=KEY&quote-embed=1&quote-gallery=1` iframe에 `postMessage`로 렌더를 요청한다. iframe `public/app.js`는 관리 API 조회가 성공하고 등록된 key일 때만 메시지를 수락하며, 요청 전후에 origin/source/key/requestId를 확인한다. 일반 `quote-test` 검수와 사용자 편집기를 수정하지 않는다.
+- 사용자와 **동일한 `renderReaderShareCanvas()`**를 사용해 1:1 1200px를 그린다. 목록의 Canvas 썸네일만 280px로 축소해 메모리에 저장하며, 모달 Canvas 확대는 별도로 1200px PNG를 요청한다. 화면에 보이는 항목부터 한 번에 하나씩 그려 동시 캔버스 메모리 부하를 억제한다. 모달/카드 URL 객체를 재사용하거나 폐기할 때 `URL.revokeObjectURL()`을 유지한다.
+- 운영자 화면의 실제 인증·KV 설정·기기 성능은 브라우저 모의 테스트와 별도로 운영 배포 후 확인해야 한다. `functions/_quote_image_presets.js` 서버 key/기본 노출 목록과 `public/app.js` UI 카탈로그의 정합성을 유지한다.
+
 # v9.93 문장 이미지 프리셋 검수·노출 기준
 
 - 코드로 새 문장 이미지 프리셋을 추가할 때는 사용자에게 즉시 노출하지 않고, `functions/_quote_image_presets.js` 카탈로그와 `public/app.js` 배경 정의에 같은 안정된 key를 등록한다. 새 실험 프리셋의 기본값은 `defaultVisible:false`를 사용하고 관리자 `문장 이미지` 탭에서 실제 편집기 저장/복사 테스트 후 Y로 전환한다.

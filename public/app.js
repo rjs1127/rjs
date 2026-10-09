@@ -10739,6 +10739,7 @@ let readerSharePresetVisibilityPromise = null;
 const READER_SHARE_PRESET_VISIBILITY_CACHE_KEY = "rjsQuotePresetVisibilityV1";
 let readerShareAdminPreviewKey = "";
 const READER_SHARE_ADMIN_EMBED_MODE = new URLSearchParams(window.location.search).get("quote-embed") === "1";
+const READER_SHARE_ADMIN_GALLERY_MODE = READER_SHARE_ADMIN_EMBED_MODE && new URLSearchParams(window.location.search).get("quote-gallery") === "1";
 let readerShareAdminOutputTimer = 0;
 let readerShareAdminOutputGeneration = 0;
 
@@ -13779,6 +13780,42 @@ async function openReaderShareSheet(options = {}) {
   }
 }
 
+// The iframe only enables gallery rendering after its administrator-only catalog request succeeds.
+// Each requested image is generated through renderReaderShareCanvas(), exactly as in user export.
+let readerShareAdminGalleryReady = false;
+window.addEventListener("message", async (event) => {
+  if (!READER_SHARE_ADMIN_GALLERY_MODE || !readerShareAdminGalleryReady || window.parent === window) return;
+  if (event.source !== window.parent || event.origin !== window.location.origin) return;
+  const data = event.data || {};
+  if (data.type !== "rjs-quote-gallery-render") return;
+  const key = String(data.key || "");
+  const requestId = Number(data.requestId);
+  const index = READER_SHARE_BACKGROUNDS.findIndex((background) => getReaderShareBackgroundKey(background) === key);
+  if (!Number.isSafeInteger(requestId) || index < 0 || !readerSharePresetVisibility?.has(key)) return;
+  try {
+    state.readerShareBackground = index;
+    state.readerShareRatio = "1:1";
+    const canvas = await renderReaderShareCanvas();
+    const full = data.full === true;
+    let output = canvas;
+    if (!full) {
+      output = document.createElement("canvas");
+      output.width = 280;
+      output.height = 280;
+      const ctx = output.getContext("2d");
+      if (!ctx) throw new Error("gallery_canvas_context_unavailable");
+      ctx.drawImage(canvas, 0, 0, 280, 280);
+    }
+    const blob = await new Promise((resolve, reject) => {
+      output.toBlob((value) => value ? resolve(value) : reject(new Error("gallery_blob_failed")), "image/png");
+    });
+    window.parent.postMessage({ type: "rjs-quote-gallery-image", key, requestId, full, blob }, window.location.origin);
+  } catch (error) {
+    window.parent.postMessage({ type: "rjs-quote-gallery-image", key, requestId, full: data.full === true, error: "이미지 생성 실패" }, window.location.origin);
+    console.warn("문장 이미지 관리자 갤러리 렌더 실패", error);
+  }
+});
+
 async function maybeOpenAdminReaderSharePreview() {
   const key = String(new URLSearchParams(window.location.search).get("quote-test") || "").trim();
   if (!key) return;
@@ -13790,6 +13827,26 @@ async function maybeOpenAdminReaderSharePreview() {
     readerSharePresetVisibility = map;
     state.readerShareBackground = index;
     if (READER_SHARE_ADMIN_EMBED_MODE) document.documentElement.classList.add("quote-admin-embed");
+    if (READER_SHARE_ADMIN_GALLERY_MODE && window.parent !== window) {
+      // Use the real user Canvas renderer for every gallery preview; no duplicate drawing implementation.
+      state.readerShareText = "마음에 남은 문장을 이곳에서 미리 확인해 보세요.";
+      state.readerShareSourceItem = { id: "admin-quote-preview", source: "postype", title: "문장 이미지 테스트", author: "관리자 미리보기" };
+      state.readerShareRatio = "1:1";
+      resetReaderShareEditorOptions();
+      ensureReaderShareState();
+      readerShareAdminGalleryReady = true;
+      window.parent.postMessage({
+        type: "rjs-quote-gallery-ready",
+        presets: READER_SHARE_BACKGROUNDS.filter((background) => map.has(getReaderShareBackgroundKey(background)))
+          .map((background) => ({
+            key: getReaderShareBackgroundKey(background),
+            background: String(background.background || ""),
+            textColor: String(background.text || "#222"),
+            metaColor: String(background.meta || "#777"),
+          })),
+      }, window.location.origin);
+      return;
+    }
     await openReaderShareSheet({
       allowEmpty: true,
       presetText: "마음에 남은 문장을 이곳에서 미리 확인해 보세요.",

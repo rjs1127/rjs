@@ -501,134 +501,301 @@ async function loadOpsAutomation(force = false) {
   opsAutomationLoaded = true;
 }
 
-function ensureQuotePresetFinalPreviewElements() {
-  if (els.quotePresetPopupImage && !els.quotePresetPopupImage.querySelector('.quote-preset-popup-final-image')) {
-    els.quotePresetPopupImage.innerHTML = '<img class="quote-preset-popup-final-image" alt="최종 생성 이미지 미리보기" hidden /><div class="quote-preset-popup-loading">최종 PNG 렌더링 중…</div>';
+// v10.06: compact quote-image gallery. All Canvas previews come from the user renderer iframe.
+const quotePresetStyles = new Map();
+const quotePresetThumbUrls = new Map();
+const quotePresetThumbErrors = new Set();
+const quotePresetRenderQueue = [];
+const quotePresetQueuedKeys = new Set();
+const quotePresetSavingKeys = new Set();
+let quotePresetGalleryReady = false;
+let quotePresetActiveRender = null;
+let quotePresetRequestSerial = 0;
+let quotePresetObserver = null;
+let quotePresetModalKey = "";
+let quotePresetModalMode = "css";
+let quotePresetModalFullUrl = "";
+let quotePresetModalFullKey = "";
+let quotePresetPendingFullKey = "";
+let quotePresetGalleryUiReady = false;
+
+function ensureQuotePresetGalleryUI() {
+  if (quotePresetGalleryUiReady || !els.quotePresetList) return;
+  quotePresetGalleryUiReady = true;
+  const library = els.quotePresetList.closest(".quote-preset-library");
+  const toolbar = document.createElement("div");
+  toolbar.className = "quote-gallery-tools";
+  toolbar.innerHTML = `
+    <label class="quote-gallery-search"><span aria-hidden="true">⌕</span><input id="quoteGallerySearch" type="search" placeholder="이름 또는 key 검색" aria-label="문장 이미지 프리셋 검색" autocomplete="off"></label>
+    <label class="quote-gallery-filter-label">상태 <select id="quoteGalleryFilter" aria-label="공개 상태 필터"><option value="all">전체</option><option value="visible">공개 Y</option><option value="hidden">비공개 N</option></select></label>
+    <span id="quoteGalleryCount" class="quote-gallery-count" aria-live="polite"></span>`;
+  library?.insertBefore(toolbar, els.quotePresetList);
+  const legacyHead = library?.querySelector(".quote-preset-library-head");
+  if (legacyHead) legacyHead.hidden = true;
+  // Keep one authenticated iframe for all presets, even though the old large inspector is hidden.
+  if (els.quotePresetEditorFrame && library) library.appendChild(els.quotePresetEditorFrame);
+  const note = document.querySelector(".quote-image-admin-panel .quote-preset-note");
+  if (note) note.textContent = "작은 카드에서 CSS 배경과 실제 Canvas 결과를 동시에 비교하세요. 이미지를 누르면 1:1로 확대됩니다. 변경한 공개 Y/N은 즉시 서버에 저장됩니다.";
+  const modal = document.createElement("dialog");
+  modal.id = "quoteGalleryModal";
+  modal.className = "quote-gallery-modal";
+  modal.setAttribute("aria-labelledby", "quoteGalleryModalName");
+  modal.innerHTML = `
+    <div class="quote-gallery-modal-shell">
+      <header class="quote-gallery-modal-head">
+        <div class="quote-gallery-modal-name"><strong id="quoteGalleryModalName"></strong><small id="quoteGalleryModalKey"></small></div>
+        <div class="quote-gallery-modal-actions" role="group" aria-label="미리보기 종류">
+          <button type="button" data-quote-gallery-mode="css" aria-pressed="true">CSS</button>
+          <button type="button" data-quote-gallery-mode="canvas" aria-pressed="false">Canvas</button>
+          <button type="button" class="quote-gallery-modal-close" data-quote-gallery-close aria-label="미리보기 닫기">×</button>
+        </div>
+      </header>
+      <div class="quote-gallery-modal-square">
+        <div id="quoteGalleryModalCss" class="quote-gallery-css quote-gallery-css-large"><span class="quote-gallery-sample">마음에 남은 문장을<br>이곳에서 미리 확인해 보세요.</span><small>문장 이미지 테스트 · 관리자 미리보기</small></div>
+        <img id="quoteGalleryModalCanvas" alt="최종 생성 Canvas 이미지, 1:1" hidden>
+        <div id="quoteGalleryModalLoading" class="quote-gallery-modal-loading" hidden>Canvas 이미지 생성 중…</div>
+      </div>
+      <p class="quote-gallery-modal-caption">CSS background · Canvas 실제 생성 이미지 (1:1)</p>
+    </div>`;
+  document.body.appendChild(modal);
+  toolbar.querySelector("#quoteGallerySearch")?.addEventListener("input", renderQuotePresetAdmin);
+  toolbar.querySelector("#quoteGalleryFilter")?.addEventListener("change", renderQuotePresetAdmin);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal || event.target.closest("[data-quote-gallery-close]")) modal.close();
+    const modeButton = event.target.closest("[data-quote-gallery-mode]");
+    if (modeButton) setQuotePresetModalMode(modeButton.dataset.quoteGalleryMode);
+  });
+  modal.addEventListener("close", () => {
+    quotePresetModalKey = "";
+    quotePresetPendingFullKey = "";
+    revokeQuotePresetFullUrl();
+  });
+  if ("IntersectionObserver" in window) {
+    quotePresetObserver = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.isIntersecting) {
+          queueQuotePresetThumbnail(entry.target.dataset.quotePreset);
+          quotePresetObserver.unobserve(entry.target);
+        }
+      }
+    }, { rootMargin: "80px 0px" });
   }
 }
 
-function getQuotePresetFinalPreviewImage() {
-  ensureQuotePresetFinalPreviewElements();
-  return els.quotePresetPopupImage?.querySelector('.quote-preset-popup-final-image') || null;
+function revokeQuotePresetFullUrl() {
+  if (quotePresetModalFullUrl) URL.revokeObjectURL(quotePresetModalFullUrl);
+  quotePresetModalFullUrl = "";
+  quotePresetModalFullKey = "";
+  const image = document.getElementById("quoteGalleryModalCanvas");
+  if (image) image.removeAttribute("src");
 }
 
-function getQuotePresetFinalPreviewLoading() {
-  ensureQuotePresetFinalPreviewElements();
-  return els.quotePresetPopupImage?.querySelector('.quote-preset-popup-loading') || null;
+function styleQuotePresetCssPreview(element, preset) {
+  if (!element) return;
+  const style = quotePresetStyles.get(preset.key);
+  if (!style) return;
+  element.style.background = style.background;
+  element.style.color = style.textColor;
+  const meta = element.querySelector("small");
+  if (meta) meta.style.color = style.metaColor;
 }
 
-function getSelectedQuotePresetAdmin() {
-  return quotePresetAdminData.find((preset) => preset.key === quotePresetSelectedKey) || null;
+function updateQuotePresetImages() {
+  if (!els.quotePresetList) return;
+  els.quotePresetList.querySelectorAll("[data-quote-preset]").forEach((card) => {
+    const key = card.dataset.quotePreset;
+    const preset = quotePresetAdminData.find((entry) => entry.key === key);
+    if (!preset) return;
+    styleQuotePresetCssPreview(card.querySelector(".quote-gallery-css"), preset);
+    const img = card.querySelector("[data-quote-gallery-img]");
+    const loading = card.querySelector(".quote-gallery-image-loading");
+    const url = quotePresetThumbUrls.get(key);
+    if (url && img) { img.src = url; img.hidden = false; }
+    if (loading) loading.hidden = Boolean(url);
+    if (!url && quotePresetThumbErrors.has(key) && loading) loading.textContent = "미리보기 실패";
+  });
 }
 
-function resetQuotePresetOutputPreview() {
-  ensureQuotePresetFinalPreviewElements();
-  if (quotePresetOutputUrl) {
-    URL.revokeObjectURL(quotePresetOutputUrl);
-    quotePresetOutputUrl = "";
+function queueQuotePresetThumbnail(key) {
+  if (!key || !quotePresetAdminData.some((p) => p.key === key)) return;
+  if (quotePresetThumbUrls.has(key) || quotePresetThumbErrors.has(key) || quotePresetQueuedKeys.has(key)) return;
+  if (quotePresetActiveRender?.key === key && !quotePresetActiveRender.full) return;
+  quotePresetQueuedKeys.add(key);
+  quotePresetRenderQueue.push(key);
+  pumpQuotePresetGalleryQueue();
+}
+
+function pumpQuotePresetGalleryQueue() {
+  if (!quotePresetGalleryReady || quotePresetActiveRender || !els.quotePresetEditorFrame?.contentWindow) return;
+  const panel = document.querySelector('[data-tab-panel="quote-images"]');
+  if (!panel || panel.hidden) return;
+  let key = "";
+  let full = false;
+  if (quotePresetPendingFullKey && quotePresetModalKey === quotePresetPendingFullKey) {
+    key = quotePresetPendingFullKey;
+    quotePresetPendingFullKey = "";
+    full = true;
+  } else {
+    while (quotePresetRenderQueue.length) {
+      const next = quotePresetRenderQueue.shift();
+      quotePresetQueuedKeys.delete(next);
+      if (!quotePresetThumbUrls.has(next) && !quotePresetThumbErrors.has(next)) { key = next; break; }
+    }
   }
-  const finalPreviewImage = getQuotePresetFinalPreviewImage();
-  const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
-  if (finalPreviewImage) {
-    finalPreviewImage.hidden = true;
-    finalPreviewImage.removeAttribute("src");
-  }
-  if (finalPreviewLoading) finalPreviewLoading.hidden = false;
-  if (els.quotePresetPopupImage) {
-    els.quotePresetPopupImage.classList.add("is-loading");
-  }
+  if (!key) return;
+  quotePresetActiveRender = { key, full, requestId: ++quotePresetRequestSerial };
+  els.quotePresetEditorFrame.contentWindow.postMessage({
+    type: "rjs-quote-gallery-render", key, full, requestId: quotePresetActiveRender.requestId,
+  }, window.location.origin);
 }
 
-function renderQuotePresetInspector() {
-  ensureQuotePresetFinalPreviewElements();
-  const preset = getSelectedQuotePresetAdmin();
-  if (!els.quotePresetInspector) return;
-  els.quotePresetInspector.hidden = !preset;
-  if (!preset) return;
-
-  if (els.quotePresetInspectorName) els.quotePresetInspectorName.textContent = preset.name || "프리셋 검수";
-  if (els.quotePresetInspectorKey) els.quotePresetInspectorKey.textContent = preset.key || "";
-  if (els.quotePresetInspectorState) {
-    els.quotePresetInspectorState.textContent = preset.visible ? "노출 Y" : "노출 N";
-    els.quotePresetInspectorState.classList.toggle("is-y", Boolean(preset.visible));
-    els.quotePresetInspectorState.classList.toggle("is-n", !preset.visible);
+function receiveQuotePresetGalleryImage(data) {
+  const request = quotePresetActiveRender;
+  if (!request || request.requestId !== data.requestId || request.key !== data.key || request.full !== data.full) return;
+  quotePresetActiveRender = null;
+  if (data.blob instanceof Blob && data.blob.size > 0) {
+    const url = URL.createObjectURL(data.blob);
+    if (request.full) {
+      const dialog = document.getElementById("quoteGalleryModal");
+      if (dialog?.open && quotePresetModalKey === request.key) {
+        revokeQuotePresetFullUrl();
+        quotePresetModalFullUrl = url;
+        quotePresetModalFullKey = request.key;
+      } else {
+        URL.revokeObjectURL(url);
+      }
+      updateQuotePresetModalPreview();
+    } else {
+      const old = quotePresetThumbUrls.get(request.key);
+      if (old) URL.revokeObjectURL(old);
+      quotePresetThumbUrls.set(request.key, url);
+      updateQuotePresetImages();
+      updateQuotePresetModalPreview();
+    }
+  } else {
+    if (!request.full) quotePresetThumbErrors.add(request.key);
+    updateQuotePresetImages();
+    if (request.full && quotePresetModalKey === request.key) {
+      const loading = document.getElementById("quoteGalleryModalLoading");
+      if (loading) loading.textContent = "Canvas 이미지를 생성하지 못했습니다.";
+    }
   }
-  if (els.quotePresetThumbName) els.quotePresetThumbName.textContent = preset.name || "-";
+  pumpQuotePresetGalleryQueue();
 }
 
-function selectQuotePresetAdmin(key, { reloadFrame = true } = {}) {
+function updateQuotePresetModalPreview() {
+  const dialog = document.getElementById("quoteGalleryModal");
+  if (!dialog?.open) return;
+  const css = document.getElementById("quoteGalleryModalCss");
+  const img = document.getElementById("quoteGalleryModalCanvas");
+  const loading = document.getElementById("quoteGalleryModalLoading");
+  const isCanvas = quotePresetModalMode === "canvas";
+  if (css) css.hidden = isCanvas;
+  const imageUrl = quotePresetModalFullKey === quotePresetModalKey ? quotePresetModalFullUrl : quotePresetThumbUrls.get(quotePresetModalKey);
+  if (img) {
+    img.hidden = !isCanvas || !imageUrl;
+    if (isCanvas && imageUrl && img.getAttribute("src") !== imageUrl) img.src = imageUrl;
+  }
+  if (loading) {
+    loading.hidden = !isCanvas || (quotePresetModalFullKey === quotePresetModalKey && !!quotePresetModalFullUrl);
+    if (!loading.hidden) loading.textContent = imageUrl ? "고화질 이미지 생성 중…" : "Canvas 이미지 생성 중…";
+  }
+  dialog.querySelectorAll("[data-quote-gallery-mode]").forEach((button) => {
+    button.setAttribute("aria-pressed", button.dataset.quoteGalleryMode === quotePresetModalMode ? "true" : "false");
+  });
+}
+
+function setQuotePresetModalMode(mode) {
+  if (!quotePresetModalKey || !["css", "canvas"].includes(mode)) return;
+  quotePresetModalMode = mode;
+  if (mode === "canvas" && quotePresetModalFullKey !== quotePresetModalKey) {
+    quotePresetPendingFullKey = quotePresetModalKey;
+    pumpQuotePresetGalleryQueue();
+  }
+  updateQuotePresetModalPreview();
+}
+
+function openQuotePresetModal(key, mode) {
   const preset = quotePresetAdminData.find((entry) => entry.key === key);
-  if (!preset) return;
-  quotePresetSelectedKey = preset.key;
-  renderQuotePresetAdmin();
-  renderQuotePresetInspector();
-  if (!reloadFrame || !els.quotePresetEditorFrame) return;
-  resetQuotePresetOutputPreview();
-  if (els.quotePresetThumb) {
-    els.quotePresetThumb.style.background = "var(--sy-surface-subtle)";
-    els.quotePresetThumb.classList.add("is-loading");
-  }
-  if (els.quotePresetPopupImage) {
-    els.quotePresetPopupImage.style.background = "var(--sy-surface-subtle)";
-    els.quotePresetPopupImage.classList.add("is-loading");
-  }
-  const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
-  if (finalPreviewLoading) finalPreviewLoading.hidden = false;
-  els.quotePresetEditorFrame.src = `/?quote-test=${encodeURIComponent(preset.key)}&quote-embed=1`;
+  const dialog = document.getElementById("quoteGalleryModal");
+  if (!preset || !dialog) return;
+  if (dialog.open) dialog.close();
+  revokeQuotePresetFullUrl();
+  quotePresetModalKey = key;
+  quotePresetModalMode = mode === "canvas" ? "canvas" : "css";
+  document.getElementById("quoteGalleryModalName").textContent = preset.name;
+  document.getElementById("quoteGalleryModalKey").textContent = preset.key;
+  styleQuotePresetCssPreview(document.getElementById("quoteGalleryModalCss"), preset);
+  dialog.showModal();
+  setQuotePresetModalMode(quotePresetModalMode);
 }
 
 function renderQuotePresetAdmin() {
+  ensureQuotePresetGalleryUI();
   const presets = Array.isArray(quotePresetAdminData) ? quotePresetAdminData : [];
-  const visibleCount = presets.filter((preset) => preset.visible).length;
+  const visibleCount = presets.filter((p) => p.visible).length;
   if (els.quotePresetTotal) els.quotePresetTotal.textContent = String(presets.length);
   if (els.quotePresetVisible) els.quotePresetVisible.textContent = String(visibleCount);
-  if (els.quotePresetHidden) els.quotePresetHidden.textContent = String(Math.max(0, presets.length - visibleCount));
+  if (els.quotePresetHidden) els.quotePresetHidden.textContent = String(presets.length - visibleCount);
   if (!els.quotePresetList) return;
-  if (!presets.length) {
-    els.quotePresetList.innerHTML = '<div class="empty">등록된 문장 이미지 프리셋이 없습니다.</div>';
+  const query = String(document.getElementById("quoteGallerySearch")?.value || "").trim().toLocaleLowerCase();
+  const filter = document.getElementById("quoteGalleryFilter")?.value || "all";
+  const filtered = presets.filter((p) => {
+    if (filter === "visible" && !p.visible) return false;
+    if (filter === "hidden" && p.visible) return false;
+    return !query || String(p.name || "").toLocaleLowerCase().includes(query) || String(p.key || "").toLocaleLowerCase().includes(query);
+  });
+  const count = document.getElementById("quoteGalleryCount");
+  if (count) count.textContent = `${filtered.length} / ${presets.length}개`;
+  if (quotePresetObserver) quotePresetObserver.disconnect();
+  if (!filtered.length) {
+    els.quotePresetList.innerHTML = '<div class="empty">조건에 맞는 프리셋이 없습니다.</div>';
     return;
   }
-  els.quotePresetList.innerHTML = presets.map((preset) => `
-    <article class="quote-preset-item${preset.visible ? " is-visible" : " is-hidden"}${preset.key === quotePresetSelectedKey ? " is-selected" : ""}" data-quote-preset="${escapeHtml(preset.key)}">
-      <button type="button" class="quote-preset-select" data-quote-preset-select="${escapeHtml(preset.key)}">
-        <div class="quote-preset-main">
-          <div><strong>${escapeHtml(preset.name)}</strong><code>${escapeHtml(preset.key)}</code></div>
-          <span class="quote-preset-state ${preset.visible ? "is-y" : "is-n"}">${preset.visible ? "노출 Y" : "노출 N"}</span>
-        </div>
-        <span class="quote-preset-open">검수 →</span>
-      </button>
-      <div class="quote-preset-actions">
-        <button type="button" class="quote-preset-toggle ${preset.visible ? "is-on" : ""}" role="switch" aria-checked="${preset.visible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(preset.key)}">
-          <span>${preset.visible ? "Y" : "N"}</span><i aria-hidden="true"></i>
-        </button>
+  els.quotePresetList.innerHTML = filtered.map((p) => `
+    <article class="quote-preset-item quote-gallery-card${p.visible ? " is-visible" : " is-hidden"}" data-quote-preset="${escapeHtml(p.key)}">
+      <header class="quote-gallery-card-head"><strong>${escapeHtml(p.name)}</strong><span class="quote-preset-state ${p.visible ? "is-y" : "is-n"}">${p.visible ? "Y" : "N"}</span></header>
+      <code class="quote-gallery-card-key" title="${escapeHtml(p.key)}">${escapeHtml(p.key)}</code>
+      <div class="quote-gallery-pair">
+        <div><button type="button" class="quote-gallery-preview-trigger" data-quote-preset-preview="${escapeHtml(p.key)}" data-quote-preview-mode="css" aria-label="${escapeHtml(p.name)} CSS 배경 확대"><div class="quote-gallery-css"><span class="quote-gallery-sample">마음에 남은 문장을<br>이곳에서 미리 확인해 보세요.</span><small>문장 이미지 테스트 · 관리자 미리보기</small></div></button><span class="quote-gallery-kind">CSS background</span></div>
+        <div><button type="button" class="quote-gallery-preview-trigger" data-quote-preset-preview="${escapeHtml(p.key)}" data-quote-preview-mode="canvas" aria-label="${escapeHtml(p.name)} Canvas 확대"><div class="quote-gallery-canvas-art"><img data-quote-gallery-img alt="" hidden><span class="quote-gallery-image-loading">${quotePresetGalleryReady ? "생성 대기" : "연결 중"}</span></div></button><span class="quote-gallery-kind">Canvas 원본 효과</span></div>
       </div>
+      <div class="quote-gallery-card-foot"><span>사용자 공개</span><button type="button" class="quote-preset-toggle ${p.visible ? "is-on" : ""}" role="switch" aria-label="${escapeHtml(p.name)} 사용자 공개" aria-checked="${p.visible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(p.key)}" ${quotePresetSavingKeys.has(p.key) ? "disabled" : ""}><span>${p.visible ? "Y" : "N"}</span><i aria-hidden="true"></i></button></div>
     </article>`).join("");
-  renderQuotePresetInspector();
+  updateQuotePresetImages();
+  els.quotePresetList.querySelectorAll(".quote-gallery-card").forEach((card, index) => {
+    if (quotePresetObserver) quotePresetObserver.observe(card);
+    else queueQuotePresetThumbnail(card.dataset.quotePreset);
+  });
 }
 
 async function loadQuotePresetAdmin(force = false) {
-  ensureQuotePresetFinalPreviewElements();
-  if (quotePresetAdminLoaded && !force) return;
+  ensureQuotePresetGalleryUI();
+  if (quotePresetAdminLoaded && !force) { pumpQuotePresetGalleryQueue(); return; }
   if (els.quotePresetMessage) { els.quotePresetMessage.hidden = true; els.quotePresetMessage.textContent = ""; }
   const data = await api("/api/admin/quote-image-presets", { method: "GET" });
   quotePresetAdminData = Array.isArray(data?.presets) ? data.presets : [];
   quotePresetAdminLoaded = true;
-  if (!quotePresetAdminData.some((preset) => preset.key === quotePresetSelectedKey)) {
-    quotePresetSelectedKey = quotePresetAdminData[0]?.key || "";
-  }
   renderQuotePresetAdmin();
-  if (quotePresetSelectedKey && els.quotePresetEditorFrame && (!els.quotePresetEditorFrame.getAttribute("src") || force)) {
-    selectQuotePresetAdmin(quotePresetSelectedKey, { reloadFrame: true });
+  if (quotePresetAdminData.length && els.quotePresetEditorFrame && !els.quotePresetEditorFrame.getAttribute("src")) {
+    els.quotePresetEditorFrame.src = `/?quote-test=${encodeURIComponent(quotePresetAdminData[0].key)}&quote-embed=1&quote-gallery=1`;
+    window.setTimeout(() => {
+      if (quotePresetGalleryReady || !els.quotePresetMessage) return;
+      els.quotePresetMessage.hidden = false;
+      els.quotePresetMessage.textContent = "CSS·Canvas 미리보기 연결이 지연되고 있습니다. 관리자 로그인 상태를 확인한 뒤 새로고침해 주세요.";
+    }, 16000);
   }
+  pumpQuotePresetGalleryQueue();
 }
 
 async function setQuotePresetVisibility(key, visible, button) {
+  if (quotePresetSavingKeys.has(key)) return;
+  quotePresetSavingKeys.add(key);
   if (button) button.disabled = true;
   try {
     const data = await api("/api/admin/quote-image-presets", { method: "POST", body: JSON.stringify({ key, visible }) });
     quotePresetAdminData = Array.isArray(data?.presets) ? data.presets : quotePresetAdminData;
     quotePresetAdminLoaded = true;
-    renderQuotePresetAdmin();
     if (els.quotePresetMessage) {
       els.quotePresetMessage.hidden = false;
       els.quotePresetMessage.textContent = visible ? "사용자 노출을 Y로 변경했습니다." : "사용자 노출을 N으로 변경했습니다.";
@@ -636,7 +803,8 @@ async function setQuotePresetVisibility(key, visible, button) {
   } catch (error) {
     if (els.quotePresetMessage) { els.quotePresetMessage.hidden = false; els.quotePresetMessage.textContent = error.message || "노출 설정을 저장하지 못했습니다."; }
   } finally {
-    if (button?.isConnected) button.disabled = false;
+    quotePresetSavingKeys.delete(key);
+    renderQuotePresetAdmin();
   }
 }
 
@@ -6635,46 +6803,31 @@ els.quotePresetList?.addEventListener("click", (event) => {
     if (key) void setQuotePresetVisibility(key, !current, toggle);
     return;
   }
-
-  const selectButton = event.target.closest("[data-quote-preset-select]");
-  if (!selectButton) return;
-  const key = String(selectButton.dataset.quotePresetSelect || "");
-  if (key) selectQuotePresetAdmin(key, { reloadFrame: true });
+  const preview = event.target.closest("[data-quote-preset-preview]");
+  if (preview) openQuotePresetModal(String(preview.dataset.quotePresetPreview || ""), preview.dataset.quotePreviewMode);
 });
 
 window.addEventListener("message", (event) => {
   if (event.origin !== window.location.origin) return;
   if (!els.quotePresetEditorFrame || event.source !== els.quotePresetEditorFrame.contentWindow) return;
   const data = event.data || {};
-  if (data.type === "rjs-quote-admin-preview") {
-    if (String(data.key || "") !== quotePresetSelectedKey) return;
-    if (els.quotePresetThumb) {
-      els.quotePresetThumb.classList.remove("is-loading");
-      els.quotePresetThumb.style.background = String(data.background || "var(--sy-surface-subtle)");
+  if (data.type === "rjs-quote-gallery-ready") {
+    quotePresetStyles.clear();
+    for (const style of Array.isArray(data.presets) ? data.presets : []) {
+      if (!quotePresetAdminData.some((p) => p.key === style.key)) continue;
+      quotePresetStyles.set(style.key, style);
     }
-    if (els.quotePresetThumbName) {
-      els.quotePresetThumbName.textContent = String(data.name || getSelectedQuotePresetAdmin()?.name || "-");
-      els.quotePresetThumbName.style.color = String(data.textColor || "#fff");
+    quotePresetGalleryReady = true;
+    if (els.quotePresetMessage?.textContent?.startsWith("CSS·Canvas 미리보기 연결이 지연")) {
+      els.quotePresetMessage.hidden = true;
+      els.quotePresetMessage.textContent = "";
     }
-    if (els.quotePresetPopupImage) {
-      els.quotePresetPopupImage.style.background = String(data.background || "var(--sy-surface-subtle)");
-    }
-    return;
-  }
-  if (data.type === "rjs-quote-admin-output") {
-    if (String(data.key || "") !== quotePresetSelectedKey || !(data.blob instanceof Blob)) return;
-    if (quotePresetOutputUrl) URL.revokeObjectURL(quotePresetOutputUrl);
-    quotePresetOutputUrl = URL.createObjectURL(data.blob);
-    const finalPreviewImage = getQuotePresetFinalPreviewImage();
-    const finalPreviewLoading = getQuotePresetFinalPreviewLoading();
-    if (els.quotePresetPopupImage) {
-      els.quotePresetPopupImage.classList.remove("is-loading");
-    }
-    if (finalPreviewImage) {
-      finalPreviewImage.src = quotePresetOutputUrl;
-      finalPreviewImage.hidden = false;
-    }
-    if (finalPreviewLoading) finalPreviewLoading.hidden = true;
+    const currentPreset = quotePresetAdminData.find((p) => p.key === quotePresetModalKey);
+    if (currentPreset) styleQuotePresetCssPreview(document.getElementById("quoteGalleryModalCss"), currentPreset);
+    renderQuotePresetAdmin();
+    pumpQuotePresetGalleryQueue();
+  } else if (data.type === "rjs-quote-gallery-image") {
+    receiveQuotePresetGalleryImage(data);
   }
 });
 
