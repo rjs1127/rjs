@@ -1285,6 +1285,11 @@ const els = {
   readerDownloadButton: document.getElementById("readerDownloadButton"),
   readerWorkShareButton: document.getElementById("readerWorkShareButton"),
   readerWorkShareMenu: document.getElementById("readerWorkShareMenu"),
+  readerMoreButton: document.getElementById("readerMoreButton"),
+  readerMoreMenu: document.getElementById("readerMoreMenu"),
+  readerMoreDownloadButton: document.getElementById("readerMoreDownloadButton"),
+  readerMoreLinkCopyButton: document.getElementById("readerMoreLinkCopyButton"),
+  readerMoreSystemShareButton: document.getElementById("readerMoreSystemShareButton"),
   readerWorkLinkCopyButton: document.getElementById("readerWorkLinkCopyButton"),
   readerWorkSystemShareButton: document.getElementById("readerWorkSystemShareButton"),
   sharedWorkModal: document.getElementById("sharedWorkModal"),
@@ -4482,7 +4487,8 @@ function getMobileListMoreHtml(item) {
       </summary>
       <div class="list-mobile-more-menu" role="menu">
         <button type="button" role="menuitem" data-list-bookmark="${escapeHtml(item.id)}">${bookmarked ? "북마크 해제" : "북마크"}</button>
-        ${downloadUrl ? `<a role="menuitem" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener noreferrer" data-download-id="${escapeHtml(item.id)}">TXT</a>` : ""}
+        ${downloadUrl ? `<a role="menuitem" href="${escapeHtml(downloadUrl)}" target="_blank" rel="noopener noreferrer" data-download-id="${escapeHtml(item.id)}">다운로드</a>` : ""}
+        <button type="button" role="menuitem" data-list-share="${escapeHtml(item.id)}">공유하기</button>
       </div>
     </details>`;
 }
@@ -9858,6 +9864,17 @@ function handleContentOpenClick(event) {
     return;
   }
 
+  const listShareButton = event.target.closest("[data-list-share]");
+  if (listShareButton) {
+    event.preventDefault();
+    event.stopPropagation();
+    const details = listShareButton.closest("details[data-list-more]");
+    if (details) details.open = false;
+    const item = state.items.find((entry) => entry.id === listShareButton.dataset.listShare);
+    if (item) void shareWorkLink(item);
+    return;
+  }
+
   const downloadButton = event.target.closest("[data-download-id]");
   if (downloadButton) {
     event.stopPropagation();
@@ -9910,6 +9927,7 @@ for (const container of [els.contentGrid, els.contentListBody]) {
   container.addEventListener("keydown", (event) => {
     if (
       event.target.closest("[data-download-id]") ||
+      event.target.closest("[data-list-share]") ||
       event.target.closest("[data-postype-bookmark]") ||
       event.target.closest("[data-drive-bookmark]") ||
       event.target.closest("[data-item-like]") ||
@@ -9973,8 +9991,33 @@ els.readerWorkShareButton?.addEventListener("click", (event) => {
   event.stopPropagation();
   const menu = els.readerWorkShareMenu;
   if (!menu || !state.activeReaderItem) return;
-  menu.hidden = !menu.hidden;
-  els.readerWorkShareButton.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+  const willOpen = menu.hidden;
+  closeReaderWorkShareMenu();
+  menu.hidden = !willOpen;
+  els.readerWorkShareButton.setAttribute("aria-expanded", String(willOpen));
+});
+els.readerMoreButton?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const menu = els.readerMoreMenu;
+  if (!menu || !state.activeReaderItem) return;
+  const willOpen = menu.hidden;
+  closeReaderWorkShareMenu();
+  menu.hidden = !willOpen;
+  els.readerMoreButton.setAttribute("aria-expanded", String(willOpen));
+});
+els.readerMoreDownloadButton?.addEventListener("click", () => {
+  closeReaderWorkShareMenu();
+  els.readerDownloadButton?.click(); // Existing download handler and analytics.
+});
+els.readerMoreLinkCopyButton?.addEventListener("click", async () => {
+  const item = state.activeReaderItem;
+  closeReaderWorkShareMenu();
+  if (item) await copyWorkShareLink(item, els.readerMoreLinkCopyButton);
+});
+els.readerMoreSystemShareButton?.addEventListener("click", () => {
+  const item = state.activeReaderItem;
+  closeReaderWorkShareMenu();
+  if (item) void shareWorkLink(item);
 });
 els.readerWorkLinkCopyButton?.addEventListener("click", async () => {
   const item = state.activeReaderItem;
@@ -9987,7 +10030,7 @@ els.readerWorkSystemShareButton?.addEventListener("click", () => {
   if (item) void shareWorkLink(item);
 });
 document.addEventListener("click", (event) => {
-  if (!event.target.closest?.("#readerWorkShareButton, #readerWorkShareMenu")) closeReaderWorkShareMenu();
+  if (!event.target.closest?.("#readerWorkShareButton, #readerWorkShareMenu, #readerMoreButton, #readerMoreMenu")) closeReaderWorkShareMenu();
 });
 document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") closeReaderWorkShareMenu();
@@ -15551,11 +15594,20 @@ async function shareWorkLink(item) {
 function closeReaderWorkShareMenu() {
   if (els.readerWorkShareMenu) els.readerWorkShareMenu.hidden = true;
   els.readerWorkShareButton?.setAttribute("aria-expanded", "false");
+  if (els.readerMoreMenu) els.readerMoreMenu.hidden = true;
+  els.readerMoreButton?.setAttribute("aria-expanded", "false");
 }
 
 function showIncomingSharedWork() {
   if (incomingSharedWorkHandled || !incomingSharedWorkId || !els.sharedWorkModal) return;
   incomingSharedWorkHandled = true;
+  // The link is a one-time navigation hint, not a durable page state.
+  // Consume it before openModal pushes its history entry so reload/back won't reopen it.
+  const cleanUrl = new URL(window.location.href);
+  if (cleanUrl.searchParams.has("work")) {
+    cleanUrl.searchParams.delete("work");
+    history.replaceState(history.state, "", `${cleanUrl.pathname}${cleanUrl.search}${cleanUrl.hash}`);
+  }
   incomingSharedWorkItem = state.items.find((item) => String(item.id) === incomingSharedWorkId) || null;
   const item = incomingSharedWorkItem;
   els.sharedWorkTitle.textContent = item?.title || "작품을 찾을 수 없어요";

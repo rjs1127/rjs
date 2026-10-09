@@ -4999,3 +4999,102 @@ body.reader-open .network-status-banner {
     width: min(300px, calc(100vw - 24px));
   }
 }
+
+
+/* v10.17 — compact reader: keep five actions in one row, move download/share to overflow. */
+.reader-header-actions { isolation:isolate; }
+.reader-work-share-menu {
+  position:absolute; top:calc(100% + 8px); right:0; z-index:30;
+  min-width:160px; padding:5px; border:1px solid var(--theme-line,#ddd7ce);
+  border-radius:12px; background:var(--theme-surface-strong,#fff);
+  color:var(--theme-text,#191816); box-shadow:0 12px 30px rgba(30,26,20,.16);
+  box-sizing:border-box;
+}
+.reader-work-share-menu[hidden] { display:none !important; }
+.reader-work-share-menu button {
+  display:block; width:100%; min-height:38px; border:0; border-radius:8px;
+  padding:9px 12px; background:transparent; color:inherit;
+  text-align:left; font:inherit; font-size:12px; font-weight:750; cursor:pointer;
+  white-space:nowrap;
+}
+.reader-work-share-menu button:hover,
+.reader-work-share-menu button:focus-visible { background:var(--theme-hover,#f4efe8); }
+.reader-header-actions > #readerMoreButton { display:none !important; }
+.reader.reader-compact .reader-header-actions > #readerDownloadButton,
+.reader.reader-compact .reader-header-actions > #readerWorkShareButton { display:none !important; }
+.reader.reader-compact .reader-header-actions > #readerMoreButton {
+  display:inline-grid !important;
+}
+.reader-header-actions > #readerMoreButton svg { fill:currentColor !important; stroke:none !important; }
+
+@media (max-width:640px) {
+  /* Compact title and actions occupy separate grid columns — never overlap. */
+  .reader.reader-compact .reader-header,
+  .reader.reader-page-mode.reader-compact .reader-header {
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) max-content !important;
+    grid-template-areas:"title actions" !important;
+    align-items:center !important;
+    column-gap:8px !important;
+  }
+  .reader.reader-compact .reader-header h2,
+  .reader.reader-page-mode.reader-compact .reader-header h2 {
+    grid-area:title !important;
+    min-width:0 !important;
+    max-width:100% !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    white-space:nowrap !important;
+    overflow-wrap:normal !important;
+    word-break:normal !important;
+    font-size:12px;
+  }
+  .reader.reader-compact .reader-header-actions,
+  .reader.reader-page-mode.reader-compact .reader-header-actions {
+    position:relative !important;
+    top:auto !important; right:auto !important; inset:auto !important;
+    grid-area:actions !important;
+    width:auto !important; min-width:0 !important; max-width:none !important;
+    justify-self:end !important;
+    display:flex !important; gap:4px !important;
+  }
+  .reader.reader-compact .reader-header-actions > #readerMoreButton,
+  .reader.reader-page-mode.reader-compact .reader-header-actions > #readerMoreButton {
+    display:inline-grid !important;
+    width:38px !important; min-width:38px !important; max-width:38px !important;
+    height:38px !important; min-height:38px !important; max-height:38px !important;
+    flex:0 0 38px !important; padding:0 !important;
+  }
+  .reader.reader-compact .reader-header-actions > #readerDownloadButton,
+  .reader.reader-compact .reader-header-actions > #readerWorkShareButton {
+    display:none !important;
+  }
+}
+@media (max-width:360px) {
+  .reader.reader-compact .reader-header-actions,
+  .reader.reader-page-mode.reader-compact .reader-header-actions { gap:3px !important; }
+  .reader.reader-compact .reader-header-actions > #readerMoreButton,
+  .reader.reader-compact .reader-header-actions > #readerSearchOpenButton,
+  .reader.reader-compact .reader-header-actions > #readerBookmarkButton,
+  .reader.reader-compact .reader-header-actions > #readerLikeButton,
+  .reader.reader-compact .reader-header-actions > #closeReader {
+    width:34px !important; min-width:34px !important; max-width:34px !important;
+    height:34px !important; min-height:34px !important; max-height:34px !important;
+    flex:0 0 34px !important;
+  }
+}
+
+@media (max-width:640px) {
+  /* Override the older v9.22 236px title reservation (based on six buttons). */
+  .reader.reader-compact #readerTitle,
+  .reader.reader-compact:not(.reader-page-mode) .reader-header #readerTitle,
+  .reader.reader-page-mode.reader-compact .reader-header #readerTitle {
+    width:100% !important;
+    max-width:100% !important;
+    display:block !important;
+    white-space:nowrap !important;
+    overflow:hidden !important;
+    text-overflow:ellipsis !important;
+    -webkit-line-clamp:unset !important;
+  }
+}
