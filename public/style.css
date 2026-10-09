@@ -4619,3 +4619,29 @@ body:not(.simple-modal-open) #readerPageText {
   user-select: text;
   -webkit-touch-callout: default;
 }
+
+/* v10.13: compact reader-only work sharing; no list or card action is added. */
+.reader-header-actions .reader-work-share-button { position:relative; }
+.reader-work-share-menu {
+  position:absolute; right:42px; top:calc(100% + 8px); z-index:20;
+  width:166px; padding:6px; border:1px solid var(--line);
+  border-radius:13px; background:var(--surface, #fffdf9);
+  box-shadow:0 12px 30px rgba(0,0,0,.16);
+}
+.reader-work-share-menu[hidden] { display:none !important; }
+.reader-work-share-menu button {
+  display:block; width:100%; border:0; border-radius:8px; padding:11px 9px;
+  background:transparent; color:var(--ink); font:inherit; font-size:12px;
+  font-weight:700; text-align:left; cursor:pointer;
+}
+.reader-work-share-menu button:hover,
+.reader-work-share-menu button:focus-visible { background:var(--chip); }
+.shared-work-modal { max-width:420px; }
+.shared-work-modal .simple-modal-description { overflow-wrap:anywhere; }
+.shared-work-status { color:var(--muted); font-size:13px; line-height:1.6; }
+.shared-work-actions { display:flex; gap:8px; flex-wrap:wrap; margin-top:18px; }
+.shared-work-actions button { flex:1 1 120px; min-height:42px; }
+@media (max-width:640px) {
+  .reader-header-actions .reader-work-share-button { width:32px; height:32px; padding:0; justify-content:center; }
+  .reader-work-share-menu { right:34px; }
+}

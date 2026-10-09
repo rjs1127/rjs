@@ -73,7 +73,7 @@
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="manifest" href="/manifest.webmanifest?v=935" />
   <link rel="stylesheet" href="/design-tokens.css?v=974" />
-  <link rel="stylesheet" href="/style.css?v=1006" />
+  <link rel="stylesheet" href="/style.css?v=1013" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="/theme.css?v=968" />
   <link rel="stylesheet" href="/user-next.css?v=984" />
@@ -536,7 +536,7 @@
     </main>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.12</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.13</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -575,6 +575,17 @@
             </svg>
             <span class="reader-download-label">다운로드</span>
           </button>
+          <button id="readerWorkShareButton" class="reader-download-button reader-work-share-button" type="button" aria-label="작품 공유" title="작품 공유" aria-expanded="false" aria-controls="readerWorkShareMenu">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="18" cy="5" r="2.2"></circle><circle cx="6" cy="12" r="2.2"></circle><circle cx="18" cy="19" r="2.2"></circle>
+              <path d="m8.1 11 7.7-4.9M8.1 13 15.8 18"></path>
+            </svg>
+            <span class="reader-download-label">공유</span>
+          </button>
+          <div id="readerWorkShareMenu" class="reader-work-share-menu" role="group" aria-label="작품 공유" hidden>
+            <button id="readerWorkLinkCopyButton" type="button">작품 링크 복사</button>
+            <button id="readerWorkSystemShareButton" type="button">작품 공유하기</button>
+          </div>
           <button id="readerBookmarkButton" class="reader-bookmark-button" type="button" aria-label="북마크">
             <svg class="reader-action-icon" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M5.75 4.75A1.75 1.75 0 0 1 7.5 3h9A1.75 1.75 0 0 1 18.25 4.75v15.5L12 16.35l-6.25 3.9V4.75Z"></path>
@@ -693,6 +704,20 @@
           <span id="readerSearchPageStatus"></span>
           <button id="readerSearchNextPage" type="button">다음 ›</button>
         </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="sharedWorkModal" class="simple-modal-overlay" hidden>
+    <section class="simple-modal shared-work-modal" role="dialog" aria-modal="true" aria-labelledby="sharedWorkTitle">
+      <button class="simple-modal-close" type="button" data-close-modal="sharedWorkModal" aria-label="닫기">×</button>
+      <p class="simple-modal-kicker">셩냥책 · 작품 공유</p>
+      <h2 id="sharedWorkTitle">공유받은 작품</h2>
+      <p id="sharedWorkAuthor" class="simple-modal-description"></p>
+      <p id="sharedWorkStatus" class="shared-work-status">작품 정보를 확인하고 열어보세요.</p>
+      <div class="shared-work-actions">
+        <button id="sharedWorkOpenButton" class="modal-primary-button" type="button">작품 열기</button>
+        <button type="button" class="modal-secondary-button" data-close-modal="sharedWorkModal">닫기</button>
       </div>
     </section>
   </div>
@@ -917,6 +942,7 @@
         <div><strong>맞춤 뷰어</strong><span>스크롤/페이지 보기, 글꼴, 글자 크기, 줄간격, 다크모드를 설정할 수 있어요.</span></div>
         <div><strong>이어보기·내 정보</strong><span>로그인하면 읽던 위치, 북마크, 최근 조회, 좋아요와 저장한 문장을 계정에 보관할 수 있어요.</span></div>
         <div><strong>문장 이미지·저장</strong><span>본문을 선택해 카드 이미지로 만들거나 선택 문장 자체를 계정에 저장할 수 있어요.</span></div>
+        <div><strong>작품 링크 공유</strong><span>TXT 뷰어 상단 공유 버튼에서 작품 링크를 복사하거나 공유할 수 있어요. 공유 링크는 읽던 위치를 포함하지 않습니다.</span></div>
         <div id="appInstallHelpPoint" class="app-install-help"><strong>앱처럼 사용하기</strong><span>브라우저 메뉴의 앱 설치·홈 화면에 추가를 이용하면 주소창 없는 독립 창으로 열 수 있어요. 온라인에서 열어본 TXT는 자동 저장되며 저장된 작품은 목록·카드와 내 서재의 오프라인 저장에서 확인할 수 있어요.</span></div>
       </div>
       <div class="help-modal-actions">
@@ -937,10 +963,10 @@
         <section><h3>1. 작품 찾기</h3><p>메인에서 제목·작가를 검색하고 CP, 작품형태, 상태, 출처 필터와 정렬을 함께 사용할 수 있어요. 한글 입력 중에는 조합이 끝난 뒤 결과를 갱신해 모바일에서도 검색 입력이 끊기지 않도록 처리합니다. 외국어 작가명·작품명은 운영자가 등록한 한글 표기나 다른 검색 별칭으로도 찾을 수 있으며, 별칭 자체는 작품 목록에 표시되지 않아요. 모바일에서는 정렬과 보기 방식도 필터 패널 안에서 선택할 수 있고, 현재 선택값은 메인 필터 버튼에서 함께 확인할 수 있어요. 초기화를 누르면 정렬도 제목순으로 돌아갑니다. TXT와 POSTYPE 콘텐츠가 함께 표시되며, TXT는 사이트 뷰어에서 읽고 POSTYPE은 등록된 원문으로 이동합니다.</p></section>
         <section><h3>2. TXT 뷰어 · 읽기 설정</h3><p>스크롤/페이지 모드, 글꼴, 글자 크기, 줄간격, <strong>본문 좌우 여백(좁게/기본/넓게)</strong>, 다크모드를 설정할 수 있어요. 지원 기기에서는 <strong>화면 켜짐 유지</strong>를 켜 뷰어가 열린 동안 화면 자동 꺼짐을 막을 수 있으며, 뷰어를 닫거나 앱·브라우저가 백그라운드로 가면 화면 유지도 해제됩니다. 다크모드 변경 시 지원되는 설치형 웹앱의 상태바·앱 창 테마 색상도 함께 맞춰집니다. 본문은 문단 첫 줄을 약 1글자 들여써 읽기 편하게 표시합니다. 현재 페이지/전체 페이지와 진행률을 확인할 수 있고, 페이지·진행 표시를 누르면 빠른 이동 슬라이더로 원하는 위치를 바로 찾을 수 있습니다. PC 페이지 모드에서는 ←/→ 또는 Page Up/Page Down 키로 앞뒤 페이지를 넘길 수 있으며, 검색창·메모 등 입력 중에는 페이지 이동 단축키가 작동하지 않습니다.</p></section>
         <section><h3>3. 본문 검색 · 원문 이동</h3><p>뷰어의 검색에서 현재 작품 본문을 검색하면 결과 위치와 앞뒤 문맥이 표시됩니다. 결과를 누르면 해당 문장이 화면 중앙 부근에 오도록 이동하며, 스크롤/페이지 모드 모두 사용할 수 있어요. PC에서는 뷰어가 열린 상태에서 Ctrl+F, Mac에서는 Command+F를 누르면 작품 내 검색창을 바로 열 수 있습니다.</p></section>
-        <section><h3>4. 이어보기 · 최근 본 작품</h3><p>로그인 상태로 읽은 TXT의 위치가 저장되어 다시 열 때 이어볼 수 있어요. 이어보기 안내는 뷰어를 열면 먼저 표시되며, 최근 본 작품은 내 정보에서 다시 찾을 수 있습니다.</p></section>
+        <section><h3>4. 이어보기 · 최근 본 작품</h3><p>로그인 상태로 읽은 TXT의 위치가 저장되어 다시 열 때 이어볼 수 있어요. 이어보기 안내는 뷰어를 열면 먼저 표시되며, 최근 본 작품은 내 정보에서 다시 찾을 수 있습니다. 뷰어 상단의 공유 버튼에서 작품 링크 복사 또는 공유하기를 이용할 수 있습니다. 링크로 접속하면 작품 안내 화면만 먼저 표시하며, <strong>접속만으로는 최근 조회나 이어보기 기록이 변경되지 않습니다.</strong></p></section>
         <section><h3>5. 내 정보</h3><p>로그인하면 <strong>북마크 · 최근 본 작품 · 좋아요 · 내 서재</strong>를 한곳에서 관리할 수 있어요. 북마크/최근 본 작품/좋아요에서 작품을 열었다가 뷰어를 닫아도 보던 탭과 목록 위치가 그대로 유지됩니다. 북마크 저장 중 네트워크 오류가 발생하면 저장된 것처럼 남겨두지 않고 이전 상태로 되돌린 뒤 안내합니다.</p></section>
         <section><h3>6. 내 서재 · 문장 · 메모</h3><p><strong>내 서재</strong>에서는 저장 기록과 이 브라우저의 <strong>오프라인 저장</strong> 작품을 나눠 볼 수 있어요. 오프라인 저장 보기에는 현재 실제로 본문이 저장된 TXT와 개수가 표시되며 온라인 상태에서도 확인할 수 있습니다. 작품별 저장 기록에서는 전체/문장/메모 탭으로 구분해 볼 수 있고, 원문 보기를 누르면 저장했던 위치로 이동합니다. 파일이 교체되어 예전 작품 ID가 사라진 경우에도 제목·작성자로 원본을 다시 찾되, 같은 후보가 여러 개면 임의의 작품으로 이동하지 않고 안내합니다. 뷰어를 닫으면 보던 작품의 내 서재 상세화면으로 돌아옵니다.</p><p>TXT에서 문장을 선택하면 공유와 메모 버튼이 나타납니다. 공유에서는 문장 이미지 제작·문장 저장을, 메모에서는 선택한 문장에 개인 기록을 남길 수 있고, 내 서재에서 저장한 메모를 다시 수정하거나 삭제할 수 있어요. TXT의 같은 작품·같은 위치에서 같은 문장을 다시 저장하면 새 중복 기록을 만들지 않습니다. POSTYPE 직접 입력도 같은 제목·작성자의 동일 문장을 다시 저장하면 기존 저장 문장을 사용합니다.</p></section>
-        <section><h3>7. 문장 저장 · 이미지 · 피드</h3><p>마음에 드는 문장을 저장하고 테마·비율·글꼴 등을 조절해 카드 이미지로 만들 수 있어요. 저장 문장의 <strong>피드 공유</strong> 토글을 켜면 문장 피드에 공개되며 기본값은 비공개입니다. 피드에서는 최신순/좋아요순으로 공개 문장을 둘러볼 수 있고, TXT 문장의 작품 열기를 누르면 저장 당시 원문 위치가 여전히 유효한 경우 그 위치로 바로 이동합니다. 위치가 바뀐 경우에는 문장이 원문에서 하나만 확인될 때 안전하게 다시 찾아 이동하며, 원문이 수정되었거나 같은 문장이 여러 번 나와 정확한 위치를 특정할 수 없으면 작품 처음에서 열고 안내합니다.</p></section>
+        <section><h3>7. 문장 저장 · 이미지 · 피드</h3><p>마음에 드는 문장을 저장하고 테마·비율·글꼴 등을 조절해 카드 이미지로 만들 수 있어요. 문장 이미지 공유하기는 이미지와 함께 ‘제목 • 작가’와 작품 링크를 전달하며, 이미지 클립보드 복사는 그대로 유지됩니다. 작품 링크만 복사하는 버튼도 제공됩니다. 저장 문장의 <strong>피드 공유</strong> 토글을 켜면 문장 피드에 공개되며 기본값은 비공개입니다. 피드에서는 최신순/좋아요순으로 공개 문장을 둘러볼 수 있고, TXT 문장의 작품 열기를 누르면 저장 당시 원문 위치가 여전히 유효한 경우 그 위치로 바로 이동합니다. 위치가 바뀐 경우에는 문장이 원문에서 하나만 확인될 때 안전하게 다시 찾아 이동하며, 원문이 수정되었거나 같은 문장이 여러 번 나와 정확한 위치를 특정할 수 없으면 작품 처음에서 열고 안내합니다.</p></section>
         <section><h3>8. 로그인 없이도 사용할 수 있나요?</h3><p>검색·필터·정렬, TXT 읽기, POSTYPE 원문 이동, 문장 피드 열람 등 기본 기능은 로그인 없이 사용할 수 있어요. 로그인하면 이어보기 동기화, 북마크, 최근 조회, 좋아요, 내 서재처럼 계정에 기록되는 기능을 사용할 수 있습니다.</p></section>
         <section><h3>9. 문의 · 오류 · 계정 문의</h3><p><strong>? 도움말 → 익명 의견</strong>에서 로그인 없이 문의·오류·기능 제안을 보낼 수 있어요. 비밀번호를 잊었다면 로그인 화면의 <strong>비밀번호를 잊으셨나요?</strong>를 눌러 계정 문의를 열고 계정 아이디와 답변 받을 연락수단을 남겨 주세요. 관리자가 계정 아이디와 문의 내용의 최근 열람·북마크 등 이용 기록을 대조해 본인 확인이 가능한 경우에만 비밀번호를 초기화해 임시 비밀번호를 전달합니다. 연락수단만으로는 본인 확인하지 않습니다. 일반 의견은 계정 정보를 요구하지 않으며, 계정 문의에만 사용자가 직접 입력한 계정 아이디와 연락수단이 저장됩니다. 오류라면 하단의 <strong>문제 신고 정보 복사</strong>로 진단정보를 함께 전달할 수 있으며 비밀번호나 인증 토큰 값 자체는 포함하지 않습니다.</p></section>
         <section><h3>10. 개인정보 · 기록 삭제</h3><p>계정과 독서 기록, 이용 통계 등 처리 항목은 화면 하단 <strong>개인정보 안내</strong>에서 확인할 수 있어요. 계정·관련 기록 삭제가 필요하면 운영자에게 요청해 주세요.</p></section>
@@ -1142,6 +1168,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=1012" defer></script>
+  <script src="/app.js?v=1013" defer></script>
 </body>
 </html>

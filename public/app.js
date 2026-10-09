@@ -1283,6 +1283,15 @@ const els = {
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
+  readerWorkShareButton: document.getElementById("readerWorkShareButton"),
+  readerWorkShareMenu: document.getElementById("readerWorkShareMenu"),
+  readerWorkLinkCopyButton: document.getElementById("readerWorkLinkCopyButton"),
+  readerWorkSystemShareButton: document.getElementById("readerWorkSystemShareButton"),
+  sharedWorkModal: document.getElementById("sharedWorkModal"),
+  sharedWorkTitle: document.getElementById("sharedWorkTitle"),
+  sharedWorkAuthor: document.getElementById("sharedWorkAuthor"),
+  sharedWorkStatus: document.getElementById("sharedWorkStatus"),
+  sharedWorkOpenButton: document.getElementById("sharedWorkOpenButton"),
   readerSearchOpenButton: document.getElementById("readerSearchOpenButton"),
   readerSearchModal: document.getElementById("readerSearchModal"),
   readerSearchInput: document.getElementById("readerSearchInput"),
@@ -3620,6 +3629,7 @@ async function loadArchive(force = false) {
     hideStatus();
     updateResumeShortcut();
     render();
+    showIncomingSharedWork();
     recordAnalyticsArchiveLoad(performance.now() - analyticsLoadStartedAt);
   } catch (error) {
     console.error(error);
@@ -7371,6 +7381,7 @@ async function openSavedQuoteLocation(quote) {
 
 async function openReader(item, options = {}) {
   if (!item) return;
+  closeReaderWorkShareMenu();
 
   if (!state.readerHistoryActive) {
     history.pushState(
@@ -9958,6 +9969,35 @@ els.resumeShortcutButton?.addEventListener("click", () => {
 els.cardViewButton.addEventListener("click", () => setView("card"));
 els.listViewButton.addEventListener("click", () => setView("list"));
 els.closeReader.addEventListener("click", closeReader);
+els.readerWorkShareButton?.addEventListener("click", (event) => {
+  event.stopPropagation();
+  const menu = els.readerWorkShareMenu;
+  if (!menu || !state.activeReaderItem) return;
+  menu.hidden = !menu.hidden;
+  els.readerWorkShareButton.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+});
+els.readerWorkLinkCopyButton?.addEventListener("click", async () => {
+  const item = state.activeReaderItem;
+  closeReaderWorkShareMenu();
+  if (item) await copyWorkShareLink(item, els.readerWorkLinkCopyButton);
+});
+els.readerWorkSystemShareButton?.addEventListener("click", () => {
+  const item = state.activeReaderItem;
+  closeReaderWorkShareMenu();
+  if (item) void shareWorkLink(item);
+});
+document.addEventListener("click", (event) => {
+  if (!event.target.closest?.("#readerWorkShareButton, #readerWorkShareMenu")) closeReaderWorkShareMenu();
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") closeReaderWorkShareMenu();
+});
+els.sharedWorkOpenButton?.addEventListener("click", () => {
+  const item = incomingSharedWorkItem;
+  if (!item) return;
+  closeModal(els.sharedWorkModal);
+  openContentItem(item);
+});
 els.readerOverlay?.addEventListener("click", (event) => {
   const positionTrigger = event.target.closest?.("#readerPositionStatus, .reader-page-progress");
   if (positionTrigger) {
@@ -11830,7 +11870,7 @@ function ensureReaderShareUi() {
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
     .reader-share-actions { display:grid; grid-template-columns:repeat(var(--share-action-count, 4),minmax(0,1fr)); gap:8px; }
-    .reader-share-action[data-share-system][hidden] { display:none !important; }
+    .reader-share-action[data-share-system][hidden], .reader-share-action[data-share-work-link][hidden] { display:none !important; }
     .reader-share-action { min-height:42px; border-radius:12px; border:1px solid rgba(91,75,99,.18); font-size:13px; font-weight:800; cursor:pointer; }
     .reader-share-action.primary { background:#191816; color:#fff; border-color:#191816; }
     .reader-share-action.secondary { background:rgba(255,255,255,.64); color:inherit; }
@@ -11987,6 +12027,7 @@ function ensureReaderShareUi() {
             <button type="button" class="reader-share-action secondary" data-share-quote>문장 저장</button>
             <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
             <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
+            <button type="button" class="reader-share-action secondary" data-share-work-link>작품 링크 복사</button>
             <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
           </div>
           <div class="reader-share-saved-panel" data-share-saved-panel hidden>
@@ -12022,6 +12063,7 @@ function ensureReaderShareUi() {
   const quoteSaveButton = backdrop.querySelector("[data-share-quote]");
   const saveButton = backdrop.querySelector("[data-share-save]");
   const clipboardButton = backdrop.querySelector("[data-share-clipboard]");
+  const workLinkButton = backdrop.querySelector("[data-share-work-link]");
   const shareButton = backdrop.querySelector("[data-share-system]");
   const savedPanel = backdrop.querySelector("[data-share-saved-panel]");
   const publicToggle = backdrop.querySelector("[data-share-public-toggle]");
@@ -12361,6 +12403,9 @@ function ensureReaderShareUi() {
       updateReaderShareActionLabel();
     }
   });
+  workLinkButton?.addEventListener("click", async () => {
+    await copyWorkShareLink(getReaderShareSourceItem(), workLinkButton);
+  });
   shareButton?.addEventListener("click", async () => {
     await handleReaderShareExport("share");
   });
@@ -12392,7 +12437,7 @@ function ensureReaderShareUi() {
     bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
-readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, shareButton, savedPanel, publicToggle, close };
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -14349,6 +14394,10 @@ function updateReaderShareActionLabel() {
   // v7.77 검증 동작: 준비 상태 때문에 버튼 자체를 비활성화하지 않는다.
   // 아직 Blob이 준비되지 않은 극히 짧은 구간은 클릭 핸들러가 안내 후 즉시 재준비한다.
   if (readerShareUi.clipboardButton) readerShareUi.clipboardButton.textContent = "클립보드 복사";
+  if (readerShareUi.workLinkButton) {
+    readerShareUi.workLinkButton.textContent = "작품 링크 복사";
+    readerShareUi.workLinkButton.hidden = !getWorkShareUrl(getReaderShareSourceItem());
+  }
   if (readerShareUi.shareButton) {
     readerShareUi.shareButton.textContent = "공유하기";
     readerShareUi.shareButton.hidden = !touch;
@@ -14601,7 +14650,7 @@ async function handleReaderShareExport(mode) {
       await navigator.share({
         files: [file],
         title: filename,
-        text: `${getReaderShareSourceItem().title || "문장 이미지"}`,
+        text: getWorkShareText(getReaderShareSourceItem()) || `${getReaderShareSourceItem().title || "문장 이미지"}`,
       });
       return;
     }
@@ -15177,6 +15226,86 @@ function getIssueReportText() {
       ? `열린 작품: ${activeItem.title || "제목 미상"} / ID=${activeItem.id} / 출처=${activeItem.source || "drive"} / 진도=${progress}`
       : "열린 작품: 없음",
   ].join("\n");
+}
+
+// v10.13 — 작품 ID만으로 생성하는 링크. 위치·페이지·진행률 값은 포함하지 않는다.
+const SHARED_WORK_WEB_ORIGIN = "https://rjs-cj6.pages.dev";
+const incomingSharedWorkId = (() => {
+  const id = new URLSearchParams(window.location.search).get("work") || "";
+  return id.length <= 256 ? id : "";
+})();
+let incomingSharedWorkHandled = false;
+let incomingSharedWorkItem = null;
+
+function getWorkShareUrl(item) {
+  const id = String(item?.id ?? "").trim();
+  if (!id || id.length > 256) return "";
+  // 외부에 공유할 수 있는 공개 인덱스에 있는 작품만 링크를 발행한다.
+  if (!state.items.some((candidate) => String(candidate.id) === id)) return "";
+  const protocol = window.location.protocol;
+  const host = window.location.hostname;
+  const liveWeb = (protocol === "https:" || protocol === "http:")
+    && host !== "localhost" && host !== "127.0.0.1";
+  const url = new URL("/", liveWeb ? window.location.origin : SHARED_WORK_WEB_ORIGIN);
+  url.searchParams.set("work", id);
+  return url.href;
+}
+
+function getWorkShareText(item) {
+  const url = getWorkShareUrl(item);
+  if (!url) return "";
+  return `${String(item.title || "제목 미상")} • ${String(item.author || "작가 미상")}\n📎${url}`;
+}
+
+async function copyWorkShareLink(item, button) {
+  const url = getWorkShareUrl(item);
+  if (!url) { window.alert("공유할 수 있는 작품 링크를 찾지 못했습니다."); return; }
+  try {
+    await copyTextToClipboard(url);
+    if (button) flashButtonLabel(button, "링크 복사 완료");
+    else window.alert("작품 링크를 복사했어요.");
+  } catch (error) {
+    console.warn("작품 링크 복사 실패", error);
+    window.alert("링크 복사에 실패했습니다. 다시 시도해 주세요.");
+  }
+}
+
+async function shareWorkLink(item) {
+  const text = getWorkShareText(item);
+  if (!text) { window.alert("공유할 수 있는 작품 링크를 찾지 못했습니다."); return; }
+  if (typeof navigator.share === "function") {
+    try { await navigator.share({ title: `${item.title || "제목 미상"} • ${item.author || "작가 미상"}`, text }); }
+    catch (error) { if (error?.name !== "AbortError") window.alert("작품 공유에 실패했습니다. 링크 복사를 이용해 주세요."); }
+  } else {
+    try {
+      await copyTextToClipboard(text);
+      window.alert("이 기기에서는 시스템 공유를 지원하지 않아 작품 정보와 링크를 복사했어요.");
+    } catch (error) {
+      console.warn("작품 공유 텍스트 복사 실패", error);
+      window.alert("공유 내용 복사에 실패했습니다. 작품 링크 복사를 이용해 주세요.");
+    }
+  }
+}
+
+function closeReaderWorkShareMenu() {
+  if (els.readerWorkShareMenu) els.readerWorkShareMenu.hidden = true;
+  els.readerWorkShareButton?.setAttribute("aria-expanded", "false");
+}
+
+function showIncomingSharedWork() {
+  if (incomingSharedWorkHandled || !incomingSharedWorkId || !els.sharedWorkModal) return;
+  incomingSharedWorkHandled = true;
+  incomingSharedWorkItem = state.items.find((item) => String(item.id) === incomingSharedWorkId) || null;
+  const item = incomingSharedWorkItem;
+  els.sharedWorkTitle.textContent = item?.title || "작품을 찾을 수 없어요";
+  els.sharedWorkAuthor.textContent = item?.author || "";
+  els.sharedWorkStatus.textContent = item
+    ? "공유받은 작품이에요. ‘작품 열기’를 눌러 읽을 수 있어요. 기존 이어보기 위치는 각자 유지됩니다."
+    : "삭제되었거나 현재 목록에 없는 작품이에요. 작품 ID가 다른 작품을 대신 열지는 않습니다.";
+  els.sharedWorkOpenButton.hidden = !item;
+  els.sharedWorkOpenButton.textContent = item?.source === "postype" ? "원문 열기" : "작품 열기";
+  // 공유 URL만 방문하는 동안에는 openReader/recordRecentView/persistProgress를 호출하지 않는다.
+  openModal(els.sharedWorkModal);
 }
 
 async function copyTextToClipboard(text) {
