@@ -11183,6 +11183,240 @@ const READER_SHARE_GEMINI4 = (() => {
   return { presets, renderers };
 })();
 
+
+// v10.14: Gemini 신규 프리셋 66~68 선별 반영.
+// CSS Live Preview의 인상을 최대한 유지하면서,
+// Sub-caption은 사이트명(셩냥책), Author/Source는 `작가 『제목』` 형식으로 통일한다.
+const READER_SHARE_GEMINI_SELECT3 = (() => {
+  const presets = [
+    {
+      name: "홀로그래픽 베이퍼웨이브",
+      key: "holographic-vaporwave",
+      defaultVisible: false,
+      background: "radial-gradient(circle at 20% 20%, rgba(255, 0, 128, 0.25) 0%, transparent 40%), radial-gradient(circle at 80% 80%, rgba(0, 240, 255, 0.25) 0%, transparent 40%), linear-gradient(0deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px), linear-gradient(135deg, #0d0221 0%, #190a38 40%, #031b33 80%, #20002c 100%)",
+      text: "#ffffff",
+      meta: "#80f0ff",
+      accent: "#ff77bc",
+      customLayout: "holographic-vaporwave",
+    },
+    {
+      name: "보태니컬 프레스",
+      key: "botanical-press",
+      defaultVisible: false,
+      background: "radial-gradient(#e2dbcd 1px, transparent 0), radial-gradient(#e2dbcd 1px, #f5f2eb 0), linear-gradient(180deg, #f5f2eb 0%, #f5f2eb 100%)",
+      text: "#1c2822",
+      meta: "#5c4033",
+      accent: "#2c3e35",
+      customLayout: "botanical-press",
+    },
+    {
+      name: "네온 매트릭스",
+      key: "neon-matrix-terminal",
+      defaultVisible: false,
+      background: "linear-gradient(rgba(0, 255, 136, 0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(0, 255, 136, 0.04) 1px, transparent 1px), linear-gradient(180deg, #05080a 0%, #05080a 100%)",
+      text: "#00ff88",
+      meta: "rgba(0,255,136,.88)",
+      accent: "#00ff88",
+      customLayout: "neon-matrix-terminal",
+    },
+  ];
+
+  function rrPath2(ctx, x, y, width, height, radius) {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function fillRoundRect2(ctx, x, y, width, height, radius, fillStyle) {
+    ctx.save(); rrPath2(ctx, x, y, width, height, radius); ctx.fillStyle = fillStyle; ctx.fill(); ctx.restore();
+  }
+  function makeLines2(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap) {
+    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap);
+    const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      const last = lines.length - 1;
+      lines[last] = `${String(lines[last] || '').replace(/[.…\s]+$/u, '')}…`;
+    }
+    return lines;
+  }
+  function drawLines2(ctx, lines, x, y, lineHeight, align) {
+    ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
+    for (const line of lines) { ctx.fillText(line, x, y); y += lineHeight; }
+  }
+  function metaLine(model) {
+    const author = String(model.item?.author || '').trim() || '작자 미상';
+    const title = String(model.item?.title || '').trim() || '제목 정보 없음';
+    return `${author} 『${title}』`;
+  }
+  function siteName(model) {
+    return String(model.brand || '셩냥책');
+  }
+
+  function renderVapor(ctx, width, height, model) {
+    const quote = String(model.text || '');
+    const brand = siteName(model);
+    const meta = metaLine(model);
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif';
+    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const orbitron = 'Orbitron, Pretendard, sans-serif';
+    const scale = width / 1200;
+
+    const bg = ctx.createLinearGradient(0, 0, width, height);
+    bg.addColorStop(0, '#0d0221'); bg.addColorStop(0.4, '#190a38'); bg.addColorStop(0.8, '#031b33'); bg.addColorStop(1, '#20002c');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+    const rg1 = ctx.createRadialGradient(width * 0.2, height * 0.2, 0, width * 0.2, height * 0.2, width * 0.42);
+    rg1.addColorStop(0, 'rgba(255, 0, 128, 0.28)'); rg1.addColorStop(1, 'rgba(255, 0, 128, 0)');
+    ctx.fillStyle = rg1; ctx.fillRect(0, 0, width, height);
+    const rg2 = ctx.createRadialGradient(width * 0.82, height * 0.82, 0, width * 0.82, height * 0.82, width * 0.42);
+    rg2.addColorStop(0, 'rgba(0, 240, 255, 0.28)'); rg2.addColorStop(1, 'rgba(0, 240, 255, 0)');
+    ctx.fillStyle = rg2; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(255,255,255,.04)'; ctx.lineWidth = 1;
+    const step = Math.max(22, Math.round(width * 0.04));
+    for (let x = 0; x <= width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+    for (let y = 0; y <= height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+
+    const padX = width * 0.08, padY = height * 0.08;
+    const innerW = width - padX * 2, innerH = height - padY * 2;
+    fillRoundRect2(ctx, padX, padY, innerW, innerH, 28 * scale, 'rgba(8, 10, 24, 0.16)');
+
+    ctx.strokeStyle = 'rgba(0,240,255,.28)'; ctx.lineWidth = 1.3 * scale;
+    ctx.beginPath(); ctx.moveTo(padX + 36 * scale, padY + 68 * scale); ctx.lineTo(padX + innerW - 36 * scale, padY + 68 * scale); ctx.stroke();
+    ctx.font = `700 ${22 * scale}px ${orbitron}`; ctx.fillStyle = '#80f0ff'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(brand.toUpperCase(), padX + 36 * scale, padY + 36 * scale);
+    ctx.fillStyle = '#ff77bc';
+    ctx.beginPath(); ctx.arc(padX + innerW - 56 * scale, padY + 45 * scale, 7 * scale, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#80f0ff';
+    ctx.beginPath(); ctx.arc(padX + innerW - 35 * scale, padY + 45 * scale, 7 * scale, 0, Math.PI * 2); ctx.fill();
+
+    const quoteMaxW = innerW - 72 * scale;
+    const quoteBoxH = innerH * 0.45;
+    const fontSize = (model.sizePx * (width / 380)) * 1.04;
+    const lineHeight = fontSize * 1.56;
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap);
+    let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - lines.length * lineHeight) / 2);
+    const x = model.textAlign === 'left' ? padX + 36 * scale : model.textAlign === 'right' ? padX + innerW - 36 * scale : width / 2;
+    for (const line of lines) {
+      ctx.textAlign = model.textAlign || 'center'; ctx.textBaseline = 'top';
+      ctx.fillStyle = 'rgba(0,240,255,.9)'; ctx.shadowColor = 'rgba(0,240,255,.75)'; ctx.shadowBlur = 18 * scale; ctx.fillText(line, x, y);
+      ctx.fillStyle = 'rgba(255,119,188,.76)'; ctx.shadowColor = 'rgba(255,0,128,.45)'; ctx.shadowBlur = 28 * scale; ctx.fillText(line, x + 0.5 * scale, y + 0.5 * scale);
+      ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(0,240,255,.45)'; ctx.shadowBlur = 8 * scale; ctx.fillText(line, x, y);
+      y += lineHeight;
+    }
+    ctx.shadowBlur = 0;
+
+    const footerY = padY + innerH - 64 * scale;
+    ctx.strokeStyle = 'rgba(255,119,188,.24)'; ctx.beginPath(); ctx.moveTo(padX + 36 * scale, footerY - 18 * scale); ctx.lineTo(padX + innerW - 36 * scale, footerY - 18 * scale); ctx.stroke();
+    ctx.font = `500 ${22 * scale}px ${orbitron}`; ctx.fillStyle = '#80f0ff'; ctx.textAlign = 'left';
+    ctx.fillText(meta, padX + 36 * scale, footerY);
+  }
+
+  function renderBotanical(ctx, width, height, model) {
+    const quote = String(model.text || '');
+    const brand = siteName(model);
+    const meta = metaLine(model);
+    const quoteFont = model.font?.css || 'Gowun Batang, serif';
+    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const cinzel = 'Cinzel, Gowun Batang, serif';
+    const playfair = 'Playfair Display, Gowun Batang, serif';
+    const scale = width / 1200;
+
+    ctx.fillStyle = '#f5f2eb'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = '#e2dbcd';
+    const dotStep = Math.max(24 * scale, 12);
+    for (let i = 0; i <= width; i += dotStep) {
+      for (let j = 0; j <= height; j += dotStep) {
+        ctx.beginPath(); ctx.arc(i, j, 1.2 * scale, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(i + dotStep / 2, j + dotStep / 2, 1.2 * scale, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+
+    const pad = width * 0.11;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = `600 ${20 * scale}px ${cinzel}`; ctx.fillStyle = 'rgba(44,62,53,.78)';
+    ctx.fillText(brand.toUpperCase(), width / 2, pad);
+    ctx.strokeStyle = 'rgba(44,62,53,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(width / 2 - 42 * scale, pad + 34 * scale); ctx.lineTo(width / 2 + 42 * scale, pad + 34 * scale); ctx.stroke();
+
+    const fontSize = (model.sizePx * (width / 380)) * 1.03;
+    const lineHeight = fontSize * 1.62;
+    ctx.font = `italic ${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines2(ctx, `"${quote}"`, width - pad * 2, lineHeight, height * 0.42, model.autoWrap);
+    let y = height * 0.36 + Math.max(0, (height * 0.42 - lines.length * lineHeight) / 2);
+    ctx.fillStyle = '#1c2822';
+    drawLines2(ctx, lines, model.textAlign === 'left' ? pad : model.textAlign === 'right' ? width - pad : width / 2, y, lineHeight, model.textAlign || 'center');
+
+    ctx.strokeStyle = 'rgba(44,62,53,.3)'; ctx.beginPath(); ctx.moveTo(width / 2 - 42 * scale, height - pad - 38 * scale); ctx.lineTo(width / 2 + 42 * scale, height - pad - 38 * scale); ctx.stroke();
+    ctx.font = `italic 600 ${21 * scale}px ${playfair}`; ctx.fillStyle = '#5c4033'; ctx.textAlign = 'center';
+    ctx.fillText(meta, width / 2, height - pad - 18 * scale);
+  }
+
+  function renderMatrix(ctx, width, height, model) {
+    const quote = String(model.text || '');
+    const brand = siteName(model);
+    const meta = metaLine(model);
+    const quoteFont = model.font?.css || 'Fira Code, Pretendard, monospace';
+    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const mono = 'Fira Code, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    const scale = width / 1200;
+
+    ctx.fillStyle = '#05080a'; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(0,255,136,.05)'; ctx.lineWidth = 1 * scale;
+    const step = Math.max(16 * scale, 10);
+    for (let i = 0; i <= width; i += step) { ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, height); ctx.stroke(); }
+    for (let j = 0; j <= height; j += step) { ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(width, j); ctx.stroke(); }
+
+    const pad = width * 0.065;
+    const bLen = 20 * scale;
+    ctx.strokeStyle = '#00ff88'; ctx.lineWidth = 2 * scale;
+    ctx.beginPath(); ctx.moveTo(pad, pad + bLen); ctx.lineTo(pad, pad); ctx.lineTo(pad + bLen, pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width - pad - bLen, pad); ctx.lineTo(width - pad, pad); ctx.lineTo(width - pad, pad + bLen); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(pad, height - pad - bLen); ctx.lineTo(pad, height - pad); ctx.lineTo(pad + bLen, height - pad); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width - pad - bLen, height - pad); ctx.lineTo(width - pad, height - pad); ctx.lineTo(width - pad, height - pad - bLen); ctx.stroke();
+
+    ctx.font = `500 ${20 * scale}px ${mono}`; ctx.textBaseline = 'top';
+    ctx.fillStyle = 'rgba(0,255,136,.82)'; ctx.textAlign = 'left'; ctx.fillText(`> ${brand}`, pad + 12 * scale, pad + 10 * scale);
+    ctx.textAlign = 'right';
+    ctx.fillText('ONLINE', width - pad - 14 * scale, pad + 10 * scale);
+    ctx.beginPath(); ctx.fillStyle = '#00ff88'; ctx.arc(width - pad - 118 * scale, pad + 20 * scale, 5 * scale, 0, Math.PI * 2); ctx.fill();
+
+    const fontSize = (model.sizePx * (width / 380)) * 1.02;
+    const lineHeight = fontSize * 1.54;
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines2(ctx, quote, width - pad * 2 - 30 * scale, lineHeight, height * 0.44, model.autoWrap);
+    let y = height * 0.34 + Math.max(0, (height * 0.44 - lines.length * lineHeight) / 2);
+    const x = model.textAlign === 'left' ? pad + 14 * scale : model.textAlign === 'right' ? width - pad - 14 * scale : width / 2;
+    ctx.textAlign = model.textAlign || 'left';
+    for (const line of lines) {
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = '#00ff88'; ctx.shadowColor = 'rgba(0,255,136,.65)'; ctx.shadowBlur = 14 * scale; ctx.fillText(line, x, y);
+      y += lineHeight;
+    }
+    ctx.shadowBlur = 0;
+
+    const footerY = height - pad - 40 * scale;
+    ctx.strokeStyle = 'rgba(0,255,136,.24)'; ctx.beginPath(); ctx.moveTo(pad + 6 * scale, footerY - 18 * scale); ctx.lineTo(width - pad - 6 * scale, footerY - 18 * scale); ctx.stroke();
+    ctx.font = `500 ${18 * scale}px ${mono}`; ctx.fillStyle = 'rgba(0,255,136,.9)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(`<${meta}>`, pad + 6 * scale, footerY);
+    ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(0,255,136,.55)'; ctx.fillText('[SECURED]', width - pad - 6 * scale, footerY);
+  }
+
+  const renderers = {
+    'holographic-vaporwave': renderVapor,
+    'botanical-press': renderBotanical,
+    'neon-matrix-terminal': renderMatrix,
+  };
+  return { presets, renderers };
+})();
+
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
@@ -11610,6 +11844,7 @@ const READER_SHARE_BACKGROUNDS = [
   ...READER_SHARE_CURATED_SET1.presets,
   ...READER_SHARE_CURATED_SET2.presets,
   ...READER_SHARE_GEMINI4.presets,
+  ...READER_SHARE_GEMINI_SELECT3.presets,
 ];
 
 const READER_SHARE_FONTS = [
@@ -14274,7 +14509,11 @@ async function renderReaderShareCanvas() {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("canvas_context_unavailable");
 
-  const customRenderer = READER_SHARE_GEMINI4.renderers[getReaderShareBackgroundKey(model.background)];
+  const customRenderers = {
+    ...READER_SHARE_GEMINI4.renderers,
+    ...READER_SHARE_GEMINI_SELECT3.renderers,
+  };
+  const customRenderer = customRenderers[getReaderShareBackgroundKey(model.background)];
   if (typeof customRenderer === "function") {
     customRenderer(ctx, width, height, model);
     return canvas;

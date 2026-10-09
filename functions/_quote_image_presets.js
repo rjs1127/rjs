@@ -66,6 +66,9 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "wabi-sabi-washi", name: "와비사비 한지", defaultVisible: false },
   { key: "bauhaus-constructivism", name: "바우하우스 구상", defaultVisible: false },
   { key: "cyberpunk-hologram", name: "사이버펑크 홀로그램", defaultVisible: false },
+  { key: "holographic-vaporwave", name: "홀로그래픽 베이퍼웨이브", defaultVisible: false },
+  { key: "botanical-press", name: "보태니컬 프레스", defaultVisible: false },
+  { key: "neon-matrix-terminal", name: "네온 매트릭스", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
