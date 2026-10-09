@@ -11001,7 +11001,6 @@ const READER_SHARE_GEMINI4 = (() => {
     const brand = String(model.brand || '셩냥책');
     const quoteFont = model.font?.css || 'Pretendard, sans-serif';
     const quoteWeight = model.fontWeight || model.font?.weight || 500;
-    const mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
     ctx.fillStyle = '#05050b'; ctx.fillRect(0, 0, width, height);
     if (typeof ctx.createConicGradient === 'function') {
       const prismGrad = ctx.createConicGradient(Math.PI / 4, width / 2, height / 2);
@@ -11018,7 +11017,19 @@ const READER_SHARE_GEMINI4 = (() => {
     borderGrad.addColorStop(0, 'rgba(255,255,255,.35)'); borderGrad.addColorStop(.5, 'rgba(0,240,255,.2)'); borderGrad.addColorStop(1, 'rgba(255,0,128,.35)');
     strokeRoundRect(ctx, panelX, panelY, panelW, panelH, 32, borderGrad, 2.5);
     const scale = width / 1200;
-    ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${22 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('[ PRISM // DISPERSION ]', panelX + 40 * scale, panelY + 36 * scale);
+    // Light-diffraction emblem: three spectral strokes in place of a preset label.
+    ctx.save();
+    const markX = panelX + 40 * scale;
+    const markY = panelY + 43 * scale;
+    for (const [i, color] of ['#00f0ff', '#ff398f', '#ffe68a'].entries()) {
+      const x = markX + i * 21 * scale;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 5 * scale;
+      ctx.lineCap = 'round';
+      ctx.beginPath(); ctx.moveTo(x, markY + (i % 2 ? -6 : 4) * scale);
+      ctx.lineTo(x + 14 * scale, markY + (i % 2 ? -14 : -4) * scale); ctx.stroke();
+    }
+    ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'right'; ctx.fillText(brand, panelX + panelW - 40 * scale, panelY + 36 * scale);
     const quoteBoxX = panelX + 52 * scale, quoteBoxY = panelY + panelH * 0.27, quoteBoxW = panelW - 104 * scale, quoteBoxH = panelH * 0.43;
     const fontSize = (model.sizePx * (width / 380)) * 1.08, lineHeight = fontSize * 1.42;
@@ -11043,7 +11054,7 @@ const READER_SHARE_GEMINI4 = (() => {
     washGrad.addColorStop(0, 'rgba(35, 30, 25, 0.12)'); washGrad.addColorStop(.5, 'rgba(45, 40, 35, 0.05)'); washGrad.addColorStop(1, 'rgba(0,0,0,0)');
     ctx.fillStyle = washGrad; ctx.beginPath(); ctx.arc(width * 0.72, height * 0.28, Math.min(width, height) * 0.42, 0, Math.PI * 2); ctx.fill();
     const pad = width * 0.1;
-    ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(`${brand} 謹寫`, pad, pad + 6 * scale);
+    ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad, pad + 6 * scale);
     const stampX = width - pad - 62 * scale, stampY = pad;
     ctx.strokeStyle = '#a33223'; ctx.lineWidth = 3 * scale; ctx.strokeRect(stampX, stampY, 60 * scale, 60 * scale); ctx.fillStyle = '#a33223'; ctx.font = `700 ${20 * scale}px ${quoteFont}`; ctx.fillText('餘白', stampX + 10 * scale, stampY + 16 * scale);
     const quoteBoxX = pad, quoteBoxY = height * 0.3, quoteBoxW = width - pad * 2, quoteBoxH = height * 0.42;
@@ -11062,24 +11073,57 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.fillStyle = '#f0f0eb'; ctx.fillRect(0, 0, width, height); const frame = 24 * scale; ctx.fillStyle = '#111111'; ctx.fillRect(0, 0, width, frame); ctx.fillRect(0, height - frame, width, frame); ctx.fillRect(0, 0, frame, height); ctx.fillRect(width - frame, 0, frame, height);
     ctx.fillStyle = '#d9381e'; ctx.fillRect(width * 0.72, frame, width * 0.28 - frame, height * 0.22); ctx.fillStyle = '#f2b705'; ctx.beginPath(); ctx.moveTo(frame, height - frame); ctx.arc(frame, height - frame, 180 * scale, -Math.PI / 2, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#1040a3'; ctx.fillRect(frame, height * 0.42, 28 * scale, height * 0.22);
     ctx.strokeStyle = '#111111'; ctx.lineWidth = 4 * scale; const headerY = height * 0.16; ctx.beginPath(); ctx.moveTo(frame, headerY); ctx.lineTo(width - frame, headerY); ctx.stroke();
-    ctx.fillStyle = '#111111'; ctx.font = `800 ${24 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('BAUHAUS_GRID // DESIGN', frame + 30 * scale, headerY - 52 * scale); ctx.textAlign = 'right'; ctx.fillText(brand, width - frame - 40 * scale, headerY - 52 * scale);
+    // Small constructivist emblem, not a design-name label.
+    const markX = frame + 30 * scale, markY = headerY - 62 * scale;
+    ctx.fillStyle = '#d9381e'; ctx.fillRect(markX, markY, 25 * scale, 25 * scale);
+    ctx.fillStyle = '#1040a3'; ctx.fillRect(markX + 34 * scale, markY + 1 * scale, 10 * scale, 24 * scale);
+    ctx.fillStyle = '#f2b705'; ctx.beginPath(); ctx.arc(markX + 62 * scale, markY + 12.5 * scale, 12.5 * scale, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#111111'; ctx.font = `800 ${24 * scale}px ${mono}`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText(brand, width - frame - 40 * scale, headerY - 52 * scale);
     const blockX = frame + 50 * scale, blockY = height * 0.28, blockW = width - frame * 2 - 100 * scale, blockH = height * 0.45; ctx.fillStyle = '#ffffff'; ctx.fillRect(blockX, blockY, blockW, blockH); ctx.lineWidth = 3 * scale; ctx.strokeStyle = '#111111'; ctx.strokeRect(blockX, blockY, blockW, blockH); ctx.fillStyle = '#d9381e'; ctx.fillRect(blockX, blockY, 18 * scale, blockH);
     const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * 1.38; ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, blockW - 80 * scale, lineHeight, blockH - 80 * scale, model.autoWrap); drawLines(ctx, lines, blockX + 50 * scale, blockY + 56 * scale, lineHeight, 'left');
     const footerY = height - frame - 110 * scale; ctx.beginPath(); ctx.moveTo(frame, footerY); ctx.lineTo(width - frame, footerY); ctx.stroke();
-    ctx.fillStyle = '#111111'; ctx.font = `900 ${32 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, frame + 40 * scale, footerY + 18 * scale); ctx.fillStyle = '#555555'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', frame + 40 * scale, footerY + 56 * scale); ctx.fillStyle = '#111111'; ctx.fillRect(width - frame - 140 * scale, footerY + 4 * scale, 100 * scale, 45 * scale); ctx.fillStyle = '#ffffff'; ctx.font = `700 ${20 * scale}px ${mono}`; ctx.fillText('N° 04', width - frame - 120 * scale, footerY + 18 * scale);
+    ctx.fillStyle = '#111111'; ctx.font = `900 ${32 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, frame + 40 * scale, footerY + 18 * scale); ctx.fillStyle = '#555555'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', frame + 40 * scale, footerY + 56 * scale); ctx.fillStyle = '#111111';
+    const badgeX = width - frame - 140 * scale, badgeY = footerY + 4 * scale;
+    ctx.fillRect(badgeX, badgeY, 100 * scale, 45 * scale);
+    ctx.fillStyle = '#d9381e'; ctx.fillRect(badgeX + 13 * scale, badgeY + 11 * scale, 20 * scale, 22 * scale);
+    ctx.fillStyle = '#f2b705'; ctx.beginPath(); ctx.arc(badgeX + 53 * scale, badgeY + 22 * scale, 11 * scale, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1040a3'; ctx.fillRect(badgeX + 76 * scale, badgeY + 11 * scale, 9 * scale, 22 * scale);
   }
 
   function renderCyber(ctx, width, height, model) {
     const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
-    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Math.max(500, Number(model.fontWeight || model.font?.weight || 500)), mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace', scale = width / 1200;
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Math.max(500, Number(model.fontWeight || model.font?.weight || 500)), scale = width / 1200;
     ctx.fillStyle = '#07060c'; ctx.fillRect(0, 0, width, height); const holoGrad = ctx.createLinearGradient(0, 0, width, height); holoGrad.addColorStop(0, 'rgba(0, 240, 255, 0.22)'); holoGrad.addColorStop(.5, 'rgba(255, 0, 128, 0.20)'); holoGrad.addColorStop(1, 'rgba(0, 255, 170, 0.18)'); ctx.fillStyle = holoGrad; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'rgba(0, 0, 0, 0.35)'; for (let y = 0; y < height; y += 6 * scale) ctx.fillRect(0, y, width, 3 * scale);
     const pad = width * 0.08, panelW = width - pad * 2, panelH = height - pad * 2; ctx.save(); ctx.shadowColor = '#00f0ff'; ctx.shadowBlur = 30 * scale; fillRoundRect(ctx, pad, pad, panelW, panelH, 20 * scale, 'rgba(10, 10, 18, 0.82)'); ctx.restore(); strokeRoundRect(ctx, pad, pad, panelW, panelH, 20 * scale, 'rgba(0,240,255,.6)', 2 * scale);
-    ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${22 * scale}px ${mono}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText('// HOLO_SYS_2026', pad + 40 * scale, pad + 36 * scale); ctx.fillStyle = '#ff007f'; ctx.font = `800 ${26 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'right'; ctx.fillText(brand, pad + panelW - 40 * scale, pad + 34 * scale);
+    // Cyan/magenta holo scanner motif instead of a fictional version/system ID.
+    const holoX = pad + 40 * scale, holoY = pad + 49 * scale;
+    ctx.save();
+    ctx.lineCap = 'round'; ctx.lineWidth = 3 * scale;
+    for (const [i, length, color] of [[0, 36, '#00f0ff'], [1, 23, '#ff007f'], [2, 42, '#75ffe1']]) {
+      ctx.strokeStyle = color;
+      ctx.beginPath(); ctx.moveTo(holoX, holoY + i * 9 * scale);
+      ctx.lineTo(holoX + length * scale, holoY + i * 9 * scale); ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(0,240,255,.72)'; ctx.lineWidth = 2 * scale;
+    ctx.beginPath(); ctx.arc(holoX + 64 * scale, holoY + 9 * scale, 9 * scale, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = '#ff007f'; ctx.fillRect(holoX + 62 * scale, holoY + 7 * scale, 4 * scale, 4 * scale);
+    ctx.restore();
+    ctx.fillStyle = '#ff007f'; ctx.font = `800 ${26 * scale}px Pretendard, sans-serif`;
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad + panelW - 40 * scale, pad + 34 * scale);
     const quoteX = pad + 50 * scale, quoteY = pad + panelH * 0.28, maxW = panelW - 100 * scale; const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * 1.45; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, maxW, lineHeight, panelH * 0.42, model.autoWrap); const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (panelH * 0.42 - totalHeight) / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of lines) { ctx.fillStyle = 'rgba(0,240,255,.8)'; ctx.fillText(line, quoteX - 3 * scale, y); ctx.fillStyle = 'rgba(255,0,128,.8)'; ctx.fillText(line, quoteX + 3 * scale, y); ctx.fillStyle = '#ffffff'; ctx.fillText(line, quoteX, y); y += lineHeight; }
     const footerY = pad + panelH - 88 * scale; ctx.strokeStyle = 'rgba(0,240,255,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(pad + 40 * scale, footerY - 26 * scale); ctx.lineTo(pad + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
     ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, pad + 40 * scale, footerY); ctx.fillStyle = '#ff77c2'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad + 40 * scale, footerY + 36 * scale);
-    fillRoundRect(ctx, pad + panelW - 140 * scale, footerY - 8 * scale, 100 * scale, 36 * scale, 6 * scale, 'rgba(0,240,255,.15)'); strokeRoundRect(ctx, pad + panelW - 140 * scale, footerY - 8 * scale, 100 * scale, 36 * scale, 6 * scale, '#00f0ff', 1 * scale); ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${16 * scale}px ${mono}`; ctx.fillText('VER 4.0', pad + panelW - 122 * scale, footerY + 3 * scale);
+    const badgeX = pad + panelW - 140 * scale, badgeY = footerY - 8 * scale;
+    fillRoundRect(ctx, badgeX, badgeY, 100 * scale, 36 * scale, 6 * scale, 'rgba(0,240,255,.1)');
+    strokeRoundRect(ctx, badgeX, badgeY, 100 * scale, 36 * scale, 6 * scale, 'rgba(0,240,255,.65)', 1 * scale);
+    // Static RGB spectral bars: decorative only, no numeric version or status.
+    for (const [i, color, h] of [[0, '#00f0ff', 11], [1, '#ff007f', 21], [2, '#75ffe1', 15], [3, '#ad8bff', 23]]) {
+      ctx.fillStyle = color;
+      ctx.fillRect(badgeX + (17 + i * 17) * scale, badgeY + (36 - h) / 2 * scale, 7 * scale, h * scale);
+    }
   }
 
   const renderers = {
