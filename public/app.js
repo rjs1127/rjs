@@ -11478,10 +11478,50 @@ function getVisibleReaderShareBackgroundEntries() {
     });
 }
 
+// v10.09: SVG data URLs contain quotes. Assign styles via DOM instead of HTML
+// interpolation, which used to terminate the inline style attribute early.
+// Defer only expensive vector backgrounds until near the horizontal viewport.
+let readerShareThumbObserver = null;
 function renderReaderShareBackgroundThumbs(thumbs) {
   if (!thumbs) return;
-  thumbs.innerHTML = getVisibleReaderShareBackgroundEntries().map(({ background, index }) => `
-    <button type="button" class="reader-share-thumb" data-share-background="${index}" data-theme-name="${background.name}" aria-label="${background.name} 테마" style="background:${background.background};--thumb-label:${background.text}"></button>`).join("");
+  readerShareThumbObserver?.disconnect();
+  readerShareThumbObserver = null;
+
+  const fragment = document.createDocumentFragment();
+  const delayed = [];
+  for (const { background, index } of getVisibleReaderShareBackgroundEntries()) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "reader-share-thumb";
+    button.dataset.shareBackground = String(index);
+    button.dataset.themeName = String(background.name || "");
+    button.setAttribute("aria-label", `${background.name} 테마`);
+    button.style.setProperty("--thumb-label", String(background.text || "#fff"));
+    const cssBackground = String(background.background || "");
+    if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+      // Keep the correct base color until the nearby SVG thumbnail is painted.
+      button.style.backgroundColor = "#f4f1eb";
+      delayed.push([button, cssBackground]);
+    } else {
+      button.style.background = cssBackground;
+    }
+    fragment.appendChild(button);
+  }
+  thumbs.replaceChildren(fragment);
+  if (!delayed.length) return;
+
+  const backgrounds = new Map(delayed);
+  readerShareThumbObserver = new IntersectionObserver((entries, observer) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const cssBackground = backgrounds.get(entry.target);
+      if (cssBackground) entry.target.style.background = cssBackground;
+      backgrounds.delete(entry.target);
+      observer.unobserve(entry.target);
+    }
+    if (!backgrounds.size) observer.disconnect();
+  }, { root: thumbs, rootMargin: "0px 320px 0px 320px" });
+  for (const [button] of delayed) readerShareThumbObserver.observe(button);
 }
 
 function ensureReaderShareUi() {
@@ -11550,7 +11590,7 @@ function ensureReaderShareUi() {
     .reader-share-card[data-ratio="4:5"] .reader-share-card-quote { top:12%; bottom:13%; }
     .reader-share-card-meta { position:absolute; z-index:1; left:8%; right:8%; bottom:5.8%; text-align:center; font-size:10px; line-height:1.4; opacity:.86; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     .reader-share-card[data-ratio="2:3"] .reader-share-card-meta { bottom:4.9%; }
-    .reader-share-thumbs { display:flex; gap:8px; overflow:auto; padding:1px 1px 3px; scrollbar-width:none; }
+    .reader-share-thumbs { display:flex; gap:8px; overflow-x:auto; overflow-y:hidden; padding:1px 1px 3px; scrollbar-width:none; -webkit-overflow-scrolling:touch; overscroll-behavior-inline:contain; touch-action:pan-x; }
     .reader-share-thumbs::-webkit-scrollbar { display:none; }
     .reader-share-thumb { position:relative; flex:0 0 58px; width:58px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(70,55,75,.08); }
     .reader-share-thumb.active { border-color:#5a4e45; box-shadow:0 0 0 2px rgba(90,78,69,.14), inset 0 0 0 1px rgba(255,255,255,.22); }
