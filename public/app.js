@@ -12196,6 +12196,8 @@ function ensureReaderShareUi() {
       .reader-header .reader-filename { margin-bottom:14px !important; padding-bottom:2px !important; }
       .reader-resume { margin-top:10px !important; position:relative !important; clear:both !important; z-index:1; }
       .reader-share-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      /* Expand only a lone final share button; keep even-count action grids compact. */
+      .reader-share-actions[data-share-system-wide="true"] .reader-share-action[data-share-system] { grid-column:1 / -1; }
       .reader-share-action { padding-left:6px; padding-right:6px; font-size:12px; }
     }
     @media (min-width: 720px) {
@@ -14689,6 +14691,10 @@ function updateReaderShareActionLayout() {
   const count = Math.max(1, visibleButtons.length);
   readerShareUi.actions.style.setProperty('--share-action-count', String(count));
   readerShareUi.actions.dataset.layout = touch ? 'mobile' : 'desktop';
+  // On touch screens, a fifth (lone) share action fills the two-column last row.
+  const wideShare = touch && visibleButtons.length % 2 === 1
+    && visibleButtons[visibleButtons.length - 1] === readerShareUi.shareButton;
+  readerShareUi.actions.dataset.shareSystemWide = wideShare ? 'true' : 'false';
 }
 
 function updateReaderShareActionLabel() {
