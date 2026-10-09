@@ -54,6 +54,14 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "lime-hud", name: "라임 HUD", defaultVisible: false },
   { key: "overprint", name: "오버프린트", defaultVisible: false },
   { key: "terrazzo-pop", name: "테라조 팝", defaultVisible: false },
+  { key: "moire-ultra", name: "모아레 울트라", defaultVisible: false },
+  { key: "dither-violet", name: "디더 바이올렛", defaultVisible: false },
+  { key: "citrus-slice", name: "시트러스 슬라이스", defaultVisible: false },
+  { key: "stained-rose", name: "스테인드 로즈", defaultVisible: false },
+  { key: "red-edition", name: "레드 에디션", defaultVisible: false },
+  { key: "optic-pleats", name: "옵틱 플리츠", defaultVisible: false },
+  { key: "acrylic-step", name: "아크릴 스텝", defaultVisible: false },
+  { key: "blind-press", name: "블라인드 프레스", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
