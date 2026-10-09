@@ -11082,7 +11082,7 @@ const READER_SHARE_GEMINI4 = (() => {
     const quoteBoxX = panelX + 52 * scale, quoteBoxY = panelY + panelH * 0.27, quoteBoxW = panelW - 104 * scale, quoteBoxH = panelH * 0.43;
     const fontSize = (model.sizePx * (width / 380)) * 1.08, lineHeight = fontSize * 1.42;
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, `"${quote}"`, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
     const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
     ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.shadowColor = 'rgba(0,240,255,.6)'; ctx.shadowBlur = 12 * scale; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left'); ctx.shadowBlur = 0;
     const footerY = panelY + panelH - 86 * scale;
@@ -11108,7 +11108,7 @@ const READER_SHARE_GEMINI4 = (() => {
     const quoteBoxX = pad, quoteBoxY = height * 0.3, quoteBoxW = width - pad * 2, quoteBoxH = height * 0.42;
     const fontSize = (model.sizePx * (width / 380)) * 1.02, lineHeight = fontSize * 1.7;
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, `"${quote}"`, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
     const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
     ctx.fillStyle = '#22201f'; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left');
     ctx.strokeStyle = 'rgba(60,50,40,.2)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(pad, height - pad - 90 * scale); ctx.lineTo(width - pad, height - pad - 90 * scale); ctx.stroke();
@@ -11130,7 +11130,7 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText(brand, width - frame - 40 * scale, headerY - 52 * scale);
     const blockX = frame + 50 * scale, blockY = height * 0.28, blockW = width - frame * 2 - 100 * scale, blockH = height * 0.45; ctx.fillStyle = '#ffffff'; ctx.fillRect(blockX, blockY, blockW, blockH); ctx.lineWidth = 3 * scale; ctx.strokeStyle = '#111111'; ctx.strokeRect(blockX, blockY, blockW, blockH); ctx.fillStyle = '#d9381e'; ctx.fillRect(blockX, blockY, 18 * scale, blockH);
-    const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * 1.38; ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, blockW - 80 * scale, lineHeight, blockH - 80 * scale, model.autoWrap); drawLines(ctx, lines, blockX + 50 * scale, blockY + 56 * scale, lineHeight, 'left');
+    const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * 1.38; ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, quote, blockW - 80 * scale, lineHeight, blockH - 80 * scale, model.autoWrap); drawLines(ctx, lines, blockX + 50 * scale, blockY + 56 * scale, lineHeight, 'left');
     const footerY = height - frame - 110 * scale; ctx.beginPath(); ctx.moveTo(frame, footerY); ctx.lineTo(width - frame, footerY); ctx.stroke();
     ctx.fillStyle = '#111111'; ctx.font = `900 ${32 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, frame + 40 * scale, footerY + 18 * scale); ctx.fillStyle = '#555555'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', frame + 40 * scale, footerY + 56 * scale); ctx.fillStyle = '#111111';
     const badgeX = width - frame - 140 * scale, badgeY = footerY + 4 * scale;
@@ -11160,7 +11160,7 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.restore();
     ctx.fillStyle = '#ff007f'; ctx.font = `800 ${26 * scale}px Pretendard, sans-serif`;
     ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad + panelW - 40 * scale, pad + 34 * scale);
-    const quoteX = pad + 50 * scale, quoteY = pad + panelH * 0.28, maxW = panelW - 100 * scale; const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * 1.45; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, `"${quote}"`, maxW, lineHeight, panelH * 0.42, model.autoWrap); const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (panelH * 0.42 - totalHeight) / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    const quoteX = pad + 50 * scale, quoteY = pad + panelH * 0.28, maxW = panelW - 100 * scale; const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * 1.45; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, quote, maxW, lineHeight, panelH * 0.42, model.autoWrap); const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (panelH * 0.42 - totalHeight) / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of lines) { ctx.fillStyle = 'rgba(0,240,255,.8)'; ctx.fillText(line, quoteX - 3 * scale, y); ctx.fillStyle = 'rgba(255,0,128,.8)'; ctx.fillText(line, quoteX + 3 * scale, y); ctx.fillStyle = '#ffffff'; ctx.fillText(line, quoteX, y); y += lineHeight; }
     const footerY = pad + panelH - 88 * scale; ctx.strokeStyle = 'rgba(0,240,255,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(pad + 40 * scale, footerY - 26 * scale); ctx.lineTo(pad + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
     ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, pad + 40 * scale, footerY); ctx.fillStyle = '#ff77c2'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad + 40 * scale, footerY + 36 * scale);
@@ -11305,14 +11305,33 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap);
     let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - lines.length * lineHeight) / 2);
     const x = model.textAlign === 'left' ? padX + 36 * scale : model.textAlign === 'right' ? padX + innerW - 36 * scale : width / 2;
+    // CSS Live Preview uses a vertically clipped white→cyan→pink text gradient.
+    // Create ONE gradient across the full quote block so later lines become pink,
+    // rather than filling every glyph white like the original Canvas implementation.
+    const textGradient = ctx.createLinearGradient(0, y, 0, y + Math.max(lineHeight, lines.length * lineHeight));
+    textGradient.addColorStop(0, '#eefbff');
+    textGradient.addColorStop(0.22, '#a3efff');
+    textGradient.addColorStop(0.53, '#46d7f1');
+    textGradient.addColorStop(0.63, '#63c9eb');
+    textGradient.addColorStop(0.77, '#f99bd1');
+    textGradient.addColorStop(1, '#ff77bc');
+    ctx.save();
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
     for (const line of lines) {
-      ctx.textAlign = model.textAlign || 'center'; ctx.textBaseline = 'top';
-      ctx.fillStyle = 'rgba(0,240,255,.9)'; ctx.shadowColor = 'rgba(0,240,255,.75)'; ctx.shadowBlur = 18 * scale; ctx.fillText(line, x, y);
-      ctx.fillStyle = 'rgba(255,119,188,.76)'; ctx.shadowColor = 'rgba(255,0,128,.45)'; ctx.shadowBlur = 28 * scale; ctx.fillText(line, x + 0.5 * scale, y + 0.5 * scale);
-      ctx.fillStyle = '#ffffff'; ctx.shadowColor = 'rgba(0,240,255,.45)'; ctx.shadowBlur = 8 * scale; ctx.fillText(line, x, y);
+      // Keep the layered turquoise / magenta glow from the CSS preview.
+      ctx.fillStyle = textGradient;
+      ctx.shadowColor = 'rgba(0,240,255,.8)';
+      ctx.shadowBlur = 14 * scale;
+      ctx.fillText(line, x, y);
+      ctx.shadowColor = 'rgba(255,0,128,.42)';
+      ctx.shadowBlur = 24 * scale;
+      ctx.fillText(line, x, y);
+      ctx.shadowBlur = 0;
+      ctx.fillText(line, x, y);
       y += lineHeight;
     }
-    ctx.shadowBlur = 0;
+    ctx.restore();
 
     const footerY = padY + innerH - 64 * scale;
     ctx.strokeStyle = 'rgba(255,119,188,.24)'; ctx.beginPath(); ctx.moveTo(padX + 36 * scale, footerY - 18 * scale); ctx.lineTo(padX + innerW - 36 * scale, footerY - 18 * scale); ctx.stroke();
@@ -11349,7 +11368,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const fontSize = (model.sizePx * (width / 380)) * 1.03;
     const lineHeight = fontSize * 1.62;
     ctx.font = `italic ${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines2(ctx, `"${quote}"`, width - pad * 2, lineHeight, height * 0.42, model.autoWrap);
+    const lines = makeLines2(ctx, quote, width - pad * 2, lineHeight, height * 0.42, model.autoWrap);
     let y = height * 0.36 + Math.max(0, (height * 0.42 - lines.length * lineHeight) / 2);
     ctx.fillStyle = '#1c2822';
     drawLines2(ctx, lines, model.textAlign === 'left' ? pad : model.textAlign === 'right' ? width - pad : width / 2, y, lineHeight, model.textAlign || 'center');
@@ -11393,8 +11412,11 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
     const lines = makeLines2(ctx, quote, width - pad * 2 - 30 * scale, lineHeight, height * 0.44, model.autoWrap);
     let y = height * 0.34 + Math.max(0, (height * 0.44 - lines.length * lineHeight) / 2);
-    const x = model.textAlign === 'left' ? pad + 14 * scale : model.textAlign === 'right' ? width - pad - 14 * scale : width / 2;
-    ctx.textAlign = model.textAlign || 'left';
+    // The editor's real model has no textAlign field. Previously x defaulted to
+    // center while Canvas defaulted to LEFT, pushing every line off the right edge.
+    // Match the common quote renderer: center-align inside the measured safe width.
+    const x = width / 2;
+    ctx.textAlign = 'center';
     for (const line of lines) {
       ctx.textBaseline = 'top';
       ctx.fillStyle = '#00ff88'; ctx.shadowColor = 'rgba(0,255,136,.65)'; ctx.shadowBlur = 14 * scale; ctx.fillText(line, x, y);
@@ -11405,7 +11427,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const footerY = height - pad - 40 * scale;
     ctx.strokeStyle = 'rgba(0,255,136,.24)'; ctx.beginPath(); ctx.moveTo(pad + 6 * scale, footerY - 18 * scale); ctx.lineTo(width - pad - 6 * scale, footerY - 18 * scale); ctx.stroke();
     ctx.font = `500 ${18 * scale}px ${mono}`; ctx.fillStyle = 'rgba(0,255,136,.9)'; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    ctx.fillText(`<${meta}>`, pad + 6 * scale, footerY);
+    ctx.fillText(`<${meta}>`, pad + 6 * scale, footerY, width - pad * 2 - 165 * scale);
     ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(0,255,136,.55)'; ctx.fillText('[SECURED]', width - pad - 6 * scale, footerY);
   }
 
