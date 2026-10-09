@@ -2609,13 +2609,16 @@ function renderQuoteFeed() {
     }
   } else {
     if (els.quoteFeedStatus) els.quoteFeedStatus.hidden = true;
+    // CSS/SVG backgrounds may contain quotes (e.g. url("data:image/svg+xml,...")).
+    // Set theme variables on DOM nodes after HTML parsing, as the detail view does.
+    // Interpolating them into a quoted HTML style attribute truncates some feed cards.
+    const cardThemes = items.map(getQuoteFeedTheme);
     els.quoteFeedGrid.innerHTML = items.map((item) => {
-      const theme = getQuoteFeedTheme(item);
       const sizes = getQuoteFeedCardSizes(item.quoteText);
       const saving = state.quoteFeedLikeSaving.has(String(item.quoteId));
       return `
         <article class="quote-feed-card"
-          style="--quote-bg:${theme.background};--quote-color:${theme.text};--quote-size:${sizes.desktop}px;--quote-mobile-size:${sizes.mobile}px">
+          style="--quote-size:${sizes.desktop}px;--quote-mobile-size:${sizes.mobile}px">
           <button type="button" class="quote-feed-card-open" data-quote-feed-id="${item.quoteId}" aria-label="문장 자세히 보기">
             <span class="quote-feed-card-inner">
               <span class="quote-feed-card-copy"><span class="quote-feed-card-text">${escapeHtml(item.quoteText)}</span></span>
@@ -2630,6 +2633,11 @@ function renderQuoteFeed() {
           </button>
         </article>`;
     }).join("");
+    els.quoteFeedGrid.querySelectorAll(".quote-feed-card").forEach((card, index) => {
+      const theme = cardThemes[index];
+      card.style.setProperty("--quote-bg", theme.background);
+      card.style.setProperty("--quote-color", theme.text);
+    });
   }
 
   if (els.quoteFeedStatus && state.quoteFeedError) {
