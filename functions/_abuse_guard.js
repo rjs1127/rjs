@@ -138,3 +138,22 @@ export function recordLoginSuccess(request, userId = '', admin = false) {
   loginKeys(request, userId, admin).forEach(key => counters.delete(key));
   // Keep request-volume limits even on success. An attacker cannot reset those by logging in.
 }
+
+// Delegated Drive sync: isolated best-effort brute-force protection by Cloudflare client IP.
+// Does not share counters or failure blocks with the site owner/admin login.
+export function checkGuestDriveSyncRequest(request) {
+  const admission = take(ipKey(request, 'guest-drive-attempt'), 8, 60 * 1000);
+  const seconds = admission.retryAfter || blocked(ipKey(request, 'guest-drive-failure'), 5, 30 * 60 * 1000);
+  return seconds ? limited(seconds) : null;
+}
+
+export function recordGuestDriveSyncFailure(request) {
+  const key = ipKey(request, 'guest-drive-failure');
+  if (!key) return;
+  const now = Date.now();
+  const entry = bucket(key, 30 * 60 * 1000, now);
+  if (entry && entry.count < 5) {
+    entry.count++;
+    if (entry.count === 5) entry.expiresAt = now + 30 * 60 * 1000;
+  }
+}

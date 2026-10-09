@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="robots" content="noindex,nofollow,noarchive" />
+  <meta name="referrer" content="no-referrer" />
+  <meta http-equiv="Cache-Control" content="no-store" />
+  <title>셩냥책 · Drive 동기화</title>
+  <style>
+    :root { color-scheme: light; font-family: system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif; }
+    * { box-sizing: border-box; }
+    body { min-height:100svh; margin:0; padding:24px 16px max(24px,env(safe-area-inset-bottom)); display:grid; place-items:center; background:#f8f8f6; color:#242825; }
+    .panel { width:100%; max-width:390px; border:1px solid #e3e6e1; background:#fff; border-radius:22px; padding:28px 24px; box-shadow:0 12px 34px #1c29220b; }
+    .eyebrow { color:#718176; font-size:12px; font-weight:750; letter-spacing:.08em; margin:0 0 10px; }
+    h1 { font-size:23px; margin:0 0 12px; letter-spacing:-.04em; }
+    .intro { margin:0 0 25px; font-size:14px; line-height:1.65; color:#5e6a62; }
+    label { display:block; font-weight:700; font-size:13px; margin:0 0 8px; }
+    input { display:block; width:100%; height:50px; border:1px solid #cdd7cf; border-radius:12px; padding:0 15px; font-size:18px; background:#fff; color:#1f2922; }
+    input:focus { outline:2px solid #557968; outline-offset:1px; }
+    button { display:block; width:100%; margin-top:14px; padding:15px 10px; border:0; border-radius:12px; background:#35674e; color:white; font:700 16px inherit; font-size:16px; font-weight:750; cursor:pointer; }
+    button:disabled { opacity:.65; cursor:wait; }
+    .status { min-height:45px; margin:16px 0 0; padding:13px; background:#f6f8f5; border-radius:12px; color:#4e5e52; font-size:13px; line-height:1.55; white-space:pre-line; }
+    .status[data-state="success"] { background:#eff8f1; color:#205d3e; }
+    .status[data-state="warning"] { background:#fff8eb; color:#81571e; }
+    .status[data-state="error"] { background:#fff0ef; color:#9b302b; }
+    .tip { margin:17px 0 0; color:#7b857f; font-size:12px; line-height:1.5; }
+    @media(prefers-color-scheme:dark){ :root{color-scheme:dark}body{background:#121816;color:#f1f5f0}.panel{background:#1b231e;border-color:#344237}.intro,.tip{color:#b2c0b5}input{color:#fff;background:#263329;border-color:#4e6555}.status{background:#263329;color:#c8d8cc}.status[data-state="success"]{background:#1c4030;color:#b5efc7}.status[data-state="warning"]{background:#45361b;color:#ffde98}.status[data-state="error"]{background:#502c2a;color:#ffb6af}}
+  </style>
+</head>
+<body>
+  <main class="panel">
+    <p class="eyebrow">SYUNGBOOK · DRIVE</p>
+    <h1>Google Drive 동기화</h1>
+    <p class="intro">관리자에게 받은 암호를 입력하고 버튼을 눌러주세요. 작품 목록만 갱신하며 관리자 페이지에는 접근할 수 없습니다.</p>
+    <form id="syncForm" autocomplete="off">
+      <label for="syncCode">동기화 암호</label>
+      <input id="syncCode" name="code" type="password" placeholder="암호 입력" maxlength="64" required autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button id="syncButton" type="submit">Drive 동기화 실행</button>
+    </form>
+    <p id="syncStatus" class="status" role="status" aria-live="polite">실행 전입니다.</p>
+    <p class="tip">동기화 도중에는 페이지를 닫지 마세요. 대량 삭제 등이 감지되면 자동 반영하지 않고 관리자에게 확인을 요청합니다.</p>
+  </main>
+  <script>
+    (() => {
+      const form = document.getElementById('syncForm');
+      const input = document.getElementById('syncCode');
+      const button = document.getElementById('syncButton');
+      const status = document.getElementById('syncStatus');
+      const say = (message, state='') => { status.textContent = message; status.dataset.state = state; };
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const code = input.value.trim();
+        if (!code || button.disabled) return;
+        button.disabled = true;
+        button.textContent = '동기화 중…';
+        say('Google Drive 파일 목록을 확인하고 있어요. 잠시 기다려 주세요.');
+        try {
+          const response = await fetch('/api/guest-drive-sync', {
+            method: 'POST',
+            credentials: 'same-origin',
+            cache: 'no-store',
+            headers: { 'content-type':'application/json' },
+            body: JSON.stringify({ code }),
+          });
+          const data = await response.json().catch(() => ({}));
+          if (!response.ok) { say(data.error || '동기화 요청에 실패했어요.', 'error'); return; }
+          if (data.blocked) {
+            say('안전 확인이 필요해서 변경 사항을 반영하지 않았어요.\n' + (data.warning || '관리자에게 문의해 주세요.'), 'warning');
+          } else {
+            const summary = `추가 ${Number(data.addedCount||0)}개 · 수정 ${Number(data.updatedCount||0)}개 · 삭제 ${Number(data.removedCount||0)}개`;
+            say(data.warning ? '동기화가 끝났지만 주의사항이 있어요.\n'+summary+'\n'+data.warning : '동기화 완료!\n'+summary, data.warning ? 'warning':'success');
+          }
+        } catch (_) { say('네트워크 오류가 발생했어요. 잠시 뒤 다시 시도해 주세요.', 'error'); }
+        finally { button.disabled = false; button.textContent = 'Drive 동기화 실행'; }
+      });
+    })();
+  </script>
+</body>
+</html>

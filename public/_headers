@@ -26,3 +26,9 @@
 # Always revalidate worker code; never give the worker an immutable URL.
 /body-sw.js
   Cache-Control: no-cache
+
+# Restricted Drive sync entry page. PIN verification happens server-side.
+/drive-sync.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY

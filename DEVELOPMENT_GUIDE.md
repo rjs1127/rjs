@@ -1,3 +1,10 @@
+# v10.16 — 초대 Drive 동기화 보안·안정성 기준
+
+- `public/drive-sync.html`은 미리 알려 준 PIN을 입력하는 모바일 UI이며 관리자 계정/자동화 토큰을 전달하지 않는다. 값은 Cloudflare Secret `DRIVE_GUEST_SYNC_PIN`에만 저장한다. 이 PIN을 자바스크립트 소스, URL, 저장소, 응답 본문에 노출하지 않는다.
+- `functions/api/guest-drive-sync.js`는 **POST + same-origin + JSON + PIN 검증** 후 기존 `runDriveAutoSync(env,"guest")`만 호출한다. POSTYPE나 강제 대량 삭제 옵션을 허용하지 않는다. 응답에서 원본 파일 목록·관리자 진단 정보를 보내지 않는다.
+- 동일 isolate/IP 단위 요청 제한은 best-effort다. 공유 PIN은 이메일 인증이나 개인식별이 아니므로 특정 한 사람만의 사용을 보장하지 않는다. PIN 유출 시 Secret 교체가 필요하다.
+- 기존 Drive/POSTYPE 자동동기화, 관리자 수동 동기화, 대량 삭제 보류·실패한 폴더 스캔 보호를 바꾸지 않는다. 초대 페이지와 기존 admin 경로는 기능 및 인증을 분리한다.
+
 # v10.07 — 신규 문장 이미지 8종 Canvas·타이포그래피 구현 기준
 
 - v10.07의 신규 8종은 `public/app.js` 내 `READER_SHARE_NEW8`에 제공받은 프리셋 정의와 Canvas 효과 함수를 원본의 이름/좌표/색상으로 함께 보존한다. 별도 API·Canvas 렌더 서버·외부 이미지/폰트 리소스는 추가하지 않는다.
