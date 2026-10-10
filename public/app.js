@@ -11348,36 +11348,44 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const lineHeight = fontSize * 1.56;
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
     const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap);
-    let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - lines.length * lineHeight) / 2);
+    const quoteBlockH = Math.max(lineHeight, lines.length * lineHeight);
+    let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - quoteBlockH) / 2);
     const x = model.textAlign === 'left' ? padX + 36 * scale : model.textAlign === 'right' ? padX + innerW - 36 * scale : width / 2;
+    const textGradient = ctx.createLinearGradient(0, y, 0, y + quoteBlockH);
+    textGradient.addColorStop(0, '#f7fdff');
+    textGradient.addColorStop(0.18, '#d7f8ff');
+    textGradient.addColorStop(0.42, '#7be7ff');
+    textGradient.addColorStop(0.65, '#6ed5ff');
+    textGradient.addColorStop(0.82, '#f1a2d8');
+    textGradient.addColorStop(1, '#ff79c2');
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (const line of lines) {
-      // 레트로 PC통신 느낌: 살짝 어긋난 검은 고스트 + 흰 본문 + 청록/핑크 글로우.
+      // 66번 전용: 홀로그래픽 그라데이션을 유지하면서 검은 오프셋 고스트를 겹친다.
       ctx.shadowBlur = 0;
       ctx.shadowColor = 'transparent';
       ctx.fillStyle = 'rgba(0,0,0,.92)';
-      ctx.fillText(line, x + 2.2 * scale, y + 1.7 * scale);
-      ctx.fillStyle = 'rgba(18,24,46,.66)';
-      ctx.fillText(line, x + 1.1 * scale, y + 0.9 * scale);
+      ctx.fillText(line, x + 2.4 * scale, y + 1.8 * scale);
+      ctx.fillStyle = 'rgba(8, 12, 26, .72)';
+      ctx.fillText(line, x + 1.2 * scale, y + 0.95 * scale);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.shadowColor = 'rgba(0,240,255,.82)';
-      ctx.shadowBlur = 14 * scale;
+      ctx.fillStyle = textGradient;
+      ctx.shadowColor = 'rgba(0,240,255,.85)';
+      ctx.shadowBlur = 16 * scale;
       ctx.fillText(line, x, y);
-      ctx.shadowColor = 'rgba(255,0,128,.36)';
-      ctx.shadowBlur = 24 * scale;
+      ctx.shadowColor = 'rgba(255,0,128,.44)';
+      ctx.shadowBlur = 26 * scale;
       ctx.fillText(line, x, y);
       ctx.shadowBlur = 0;
-      ctx.fillStyle = '#ffffff';
+      ctx.fillStyle = textGradient;
       ctx.fillText(line, x, y);
 
-      const tint = ctx.createLinearGradient(0, y, 0, y + lineHeight);
-      tint.addColorStop(0, 'rgba(173,240,255,.42)');
-      tint.addColorStop(0.58, 'rgba(116,219,255,.20)');
-      tint.addColorStop(1, 'rgba(255,119,188,.34)');
-      ctx.fillStyle = tint;
+      const topSheen = ctx.createLinearGradient(0, y, 0, y + lineHeight);
+      topSheen.addColorStop(0, 'rgba(255,255,255,.36)');
+      topSheen.addColorStop(0.35, 'rgba(255,255,255,.10)');
+      topSheen.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = topSheen;
       ctx.fillText(line, x, y);
       y += lineHeight;
     }
