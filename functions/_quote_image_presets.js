@@ -69,6 +69,8 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "holographic-vaporwave", name: "홀로그래픽 베이퍼웨이브", defaultVisible: false },
   { key: "botanical-press", name: "보태니컬 프레스", defaultVisible: false },
   { key: "neon-matrix-terminal", name: "네온 매트릭스", defaultVisible: false },
+  { key: "pastel-pixel-desktop", name: "파스텔 픽셀 데스크톱", defaultVisible: false },
+  { key: "midnight-twilight-os", name: "야경 픽셀 노을 OS", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {

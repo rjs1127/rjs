@@ -11489,6 +11489,180 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
   return { presets, renderers };
 })();
 
+// v10.20 — Source: user-supplied syunghnyangbook_v10_13_studio.html.
+// Only presets 70 / 72 are integrated. The original studio is a prototype;
+// the preview and PNG below are drawn without external Tailwind/fonts/images.
+const READER_SHARE_GEMINI_OS70_72 = (() => {
+  const brand = 'syungnyangbook';
+  const svgHeader = (fill, labelColor) => `
+    <rect x="96" y="96" width="1008" height="86" rx="26" fill="${fill}"/>
+    <rect x="96" y="155" width="1008" height="27" fill="${fill}"/>
+    <circle cx="148" cy="139" r="12" fill="#f87171"/>
+    <circle cx="183" cy="139" r="12" fill="#fbbf24"/>
+    <circle cx="218" cy="139" r="12" fill="#34d399"/>
+    <text x="600" y="149" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="${labelColor}">${brand}</text>`;
+  const themes = {
+    'pastel-pixel-desktop': {
+      name: '파스텔 픽셀 데스크톱',
+      key: 'pastel-pixel-desktop',
+      defaultVisible: false,
+      text: '#1e1b4b',
+      meta: '#881337',
+      accent: '#ec4899',
+      background: '',
+    },
+    'midnight-twilight-os': {
+      name: '야경 픽셀 노을 OS',
+      key: 'midnight-twilight-os',
+      defaultVisible: false,
+      text: '#0f172a',
+      meta: '#4338ca',
+      accent: '#c084fc',
+      background: '',
+    },
+  };
+
+  function thumbSVG(kind) {
+    const day = kind === 'pastel-pixel-desktop';
+    const background = day ? `
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#d0f4de"/>
+          <stop offset=".50" stop-color="#fcf1f3"/>
+          <stop offset="1" stop-color="#fefae0"/>
+        </linearGradient>
+        <pattern id="grid" width="52" height="52" patternUnits="userSpaceOnUse"><path d="M52 0H0V52" stroke="#ec4899" stroke-opacity=".20" stroke-width="2" fill="none"/></pattern>
+      </defs>
+      <rect width="1200" height="1200" fill="url(#bg)"/>
+      <rect width="1200" height="1200" fill="url(#grid)"/>
+      <rect x="45" y="52" width="38" height="38" fill="#f472b6" opacity=".65"/>
+      <rect x="64" y="70" width="38" height="38" fill="#fff" stroke="#f472b6" stroke-width="4"/>
+      <rect x="1125" y="1069" width="20" height="20" fill="#f472b6"/>
+      <rect x="1152" y="1096" width="12" height="12" fill="#f472b6" opacity=".7"/>`
+    : `
+      <defs><linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2e1065"/><stop offset=".6" stop-color="#3b0764"/><stop offset="1" stop-color="#0f172a"/></linearGradient></defs>
+      <rect width="1200" height="1200" fill="url(#bg)"/>
+      <circle cx="195" cy="171" r="5" fill="#fff7d6"/><circle cx="940" cy="120" r="5" fill="#ffdafa"/><circle cx="1042" cy="326" r="3" fill="#fff"/>
+      <g fill="#0f172a" opacity=".95"><rect x="0" y="1032" width="90" height="168"/><rect x="87" y="1073" width="110" height="127"/><rect x="192" y="995" width="95" height="205"/><rect x="286" y="1060" width="108" height="140"/><rect x="391" y="976" width="100" height="224"/><rect x="491" y="1048" width="112" height="152"/><rect x="605" y="999" width="99" height="201"/><rect x="705" y="1085" width="100" height="115"/><rect x="805" y="1014" width="101" height="186"/><rect x="907" y="1056" width="113" height="144"/><rect x="1019" y="987" width="97" height="213"/><rect x="1117" y="1048" width="83" height="152"/></g>
+      <g fill="#c084fc" opacity=".26"><rect x="117" y="1113" width="9" height="18"/><rect x="436" y="1019" width="9" height="16"/><rect x="760" y="1124" width="9" height="16"/><rect x="1065" y="1033" width="9" height="17"/></g>`;
+    const stroke = day ? '#f4a2b8' : '#c084fc';
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">${background}
+      <rect x="103" y="106" width="1008" height="1008" rx="28" fill="#050509" opacity=".16"/>
+      <rect x="96" y="96" width="1008" height="1008" rx="28" fill="${day ? '#fff' : '#fff'}" fill-opacity="${day ? '.95' : '.96'}" stroke="${stroke}" stroke-width="6"/>
+      ${svgHeader(day ? '#f8c8dc' : '#7e22ce', day ? '#1e1b4b' : '#fff')}
+      <path d="M96 182H1104" stroke="${stroke}" stroke-width="4"/>
+      <path d="M150 979H1050" stroke="${day ? '#ead7df' : '#dbd3f2'}" stroke-width="3"/>
+      <rect x="${day ? 156 : 153}" y="${day ? 218 : 221}" width="9" height="9" fill="${day ? '#f4a2b8' : '#a78bfa'}" opacity=".55"/>
+    </svg>`;
+  }
+  for (const preset of Object.values(themes)) {
+    preset.background = `url("data:image/svg+xml,${encodeURIComponent(thumbSVG(preset.key))}") center/100% 100% no-repeat`;
+  }
+
+  function roundRect(ctx, x, y, w, h, radius, fill, stroke, sw=0) {
+    const r = Math.max(0, Math.min(radius, w/2, h/2));
+    ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+    if (fill) {ctx.fillStyle=fill;ctx.fill();}
+    if (stroke && sw) {ctx.strokeStyle=stroke;ctx.lineWidth=sw;ctx.stroke();}
+  }
+  function drawSkyline(ctx, w, h, u) {
+    const heights = [174,127,204,139,223,152,201,115,186,144,212,151];
+    ctx.fillStyle = 'rgba(15,23,42,.93)';
+    for (let i=0;i<heights.length;i++) {
+      const x=i*w/heights.length, bw=w/heights.length;
+      ctx.fillRect(x,h-heights[i]*u,bw+1,heights[i]*u);
+    }
+    ctx.fillStyle='rgba(192,132,252,.26)';
+    for(let i=0;i<heights.length;i+=3){
+      const x=(i+.43)*w/heights.length;
+      ctx.fillRect(x,h-(heights[i]-40)*u,8*u,16*u);
+    }
+  }
+  function textLines(ctx, value, maxWidth, lineHeight, maxHeight, autoWrap) {
+    const lines = fitShareLinesToWidth(ctx, value, maxWidth, autoWrap);
+    const count = Math.max(1, Math.floor(maxHeight / lineHeight));
+    if(lines.length <= count) return lines;
+    const shown=lines.slice(0,count);
+    const last=count-1;
+    while(shown[last] && ctx.measureText(shown[last]+'…').width > maxWidth) shown[last]=shown[last].slice(0,-1);
+    shown[last]=shown[last].replace(/[\s.…]+$/u,'')+'…';
+    return shown;
+  }
+  function draw(ctx,w,h,model,kind) {
+    const day = kind==='pastel-pixel-desktop';
+    const u=w/1200;
+    const bg=ctx.createLinearGradient(0,0,day?w:0,h);
+    if(day){bg.addColorStop(0,'#d0f4de');bg.addColorStop(.5,'#fcf1f3');bg.addColorStop(1,'#fefae0');}
+    else{bg.addColorStop(0,'#2e1065');bg.addColorStop(.6,'#3b0764');bg.addColorStop(1,'#0f172a');}
+    ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+    if(day){
+      ctx.strokeStyle='rgba(236,72,153,.22)';ctx.lineWidth=2*u;
+      for(let x=0;x<w;x+=52*u){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,h);ctx.stroke();}
+      for(let y=0;y<h;y+=52*u){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(w,y);ctx.stroke();}
+      ctx.fillStyle='rgba(244,114,182,.7)';ctx.fillRect(45*u,52*u,38*u,38*u);
+      ctx.fillStyle='#fff';ctx.fillRect(64*u,70*u,38*u,38*u);
+      ctx.strokeStyle='#f472b6';ctx.lineWidth=4*u;ctx.strokeRect(64*u,70*u,38*u,38*u);
+      ctx.fillStyle='#f472b6';ctx.fillRect(w-75*u,h-120*u,20*u,20*u);
+      ctx.globalAlpha=.7;ctx.fillRect(w-48*u,h-93*u,12*u,12*u);ctx.globalAlpha=1;
+    } else {
+      ctx.fillStyle='#fff7d6';ctx.beginPath();ctx.arc(w*.16,h*.15,5*u,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#ffdafa';ctx.beginPath();ctx.arc(w*.78,h*.1,5*u,0,Math.PI*2);ctx.fill();
+      ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(w*.87,h*.27,3*u,0,Math.PI*2);ctx.fill();
+      drawSkyline(ctx,w,h,u);
+    }
+    const panelX=w*.08,panelY=w*.08,panelW=w*.84,panelH=h-2*panelY;
+    const stroke=day?'#f4a2b8':'#c084fc';
+    ctx.save();ctx.shadowColor='rgba(10,10,22,.18)';ctx.shadowBlur=35*u;ctx.shadowOffsetY=14*u;
+    roundRect(ctx,panelX,panelY,panelW,panelH,28*u,'rgba(255,255,255,'+(day?'.95':'.96')+')');ctx.restore();
+    roundRect(ctx,panelX,panelY,panelW,panelH,28*u,null,stroke,6*u);
+    ctx.save();ctx.beginPath();ctx.rect(panelX+3*u,panelY+3*u,panelW-6*u,86*u);ctx.clip();
+    ctx.fillStyle=day?'#f8c8dc':'#7e22ce';ctx.fillRect(panelX,panelY,panelW,86*u);ctx.restore();
+    ctx.strokeStyle=stroke;ctx.lineWidth=4*u;ctx.beginPath();ctx.moveTo(panelX,panelY+86*u);ctx.lineTo(panelX+panelW,panelY+86*u);ctx.stroke();
+    ['#f87171','#fbbf24','#34d399'].forEach((color,i)=>{
+      ctx.fillStyle=color;ctx.beginPath();ctx.arc(panelX+(52+i*35)*u,panelY+43*u,12*u,0,Math.PI*2);ctx.fill();
+    });
+    ctx.save();ctx.fillStyle=day?'#1e1b4b':'#fff';ctx.font=`700 ${30*u}px ui-monospace, SFMono-Regular, Menlo, Consolas, sans-serif`;
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(brand,w/2,panelY+46*u,panelW-320*u);ctx.restore();
+
+    const innerPad=54*u, contentX=panelX+innerPad, contentW=panelW-innerPad*2;
+    const quoteTop=panelY+158*u;
+    const footerTop=panelY+panelH-131*u;
+    const contentH=Math.max(70*u,footerTop-quoteTop-22*u);
+    const fontSize=Math.max(20*u, (Number(model.sizePx)||18)*(w/380));
+    const fontWeight=model.fontWeight||model.font?.weight||500;
+    const fontFamily=model.font?.css||'sans-serif';
+    const lineHeight=fontSize*1.48;
+    ctx.font=`${fontWeight} ${fontSize}px ${fontFamily}`;
+    const lines=textLines(ctx,String(model.text||''),contentW,lineHeight,contentH,model.autoWrap);
+    let y=quoteTop+Math.max(0,(contentH-lines.length*lineHeight)/2);
+    ctx.save();ctx.globalAlpha=Number.isFinite(Number(model.textOpacity))?Number(model.textOpacity):1;
+    ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle=day?'#1e1b4b':'#0f172a';
+    for(const line of lines){ctx.fillText(line,contentX,y);y+=lineHeight;}ctx.restore();
+
+    const footerY=panelY+panelH-97*u;
+    ctx.strokeStyle=day?'rgba(136,19,55,.12)':'rgba(67,56,202,.14)';ctx.lineWidth=2*u;
+    ctx.beginPath();ctx.moveTo(contentX,footerY-28*u);ctx.lineTo(contentX+contentW,footerY-28*u);ctx.stroke();
+    const title=String(model.item?.title||'제목 정보 없음').trim();
+    const author=String(model.item?.author||'작자 미상').trim();
+    const meta=`${author} 『${title}』`;
+    let msize=28*u;
+    ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle=day?'#881337':'#4338ca';
+    ctx.font=`700 ${msize}px ${fontFamily}`;
+    while(msize>18*u && ctx.measureText(meta).width>contentW){msize-=2*u;ctx.font=`700 ${msize}px ${fontFamily}`;}
+    ctx.fillText(meta,contentX+contentW,footerY,contentW);
+  }
+  return {
+    presets:Object.values(themes),
+    renderers:{
+      'pastel-pixel-desktop':(ctx,w,h,model)=>draw(ctx,w,h,model,'pastel-pixel-desktop'),
+      'midnight-twilight-os':(ctx,w,h,model)=>draw(ctx,w,h,model,'midnight-twilight-os'),
+    },
+  };
+})();
+
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
@@ -11918,6 +12092,7 @@ const READER_SHARE_BACKGROUNDS = [
   ...READER_SHARE_CURATED_SET2.presets,
   ...READER_SHARE_GEMINI4.presets,
   ...READER_SHARE_GEMINI_SELECT3.presets,
+  ...READER_SHARE_GEMINI_OS70_72.presets,
 ];
 
 const READER_SHARE_FONTS = [
@@ -14587,6 +14762,7 @@ async function renderReaderShareCanvas() {
   const customRenderers = {
     ...READER_SHARE_GEMINI4.renderers,
     ...READER_SHARE_GEMINI_SELECT3.renderers,
+    ...READER_SHARE_GEMINI_OS70_72.renderers,
   };
   const customRenderer = customRenderers[getReaderShareBackgroundKey(model.background)];
   if (typeof customRenderer === "function") {
