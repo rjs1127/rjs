@@ -4,6 +4,12 @@
 - 프리셋 설정의 source of truth는 v10.31부터 기존 D1 user_system_meta의 quote-image:preset-visibility:v1 행이다. 관리자 최초 저장 시 기존 KV 값을 INSERT OR IGNORE로 승계하며, 키별 JSON 수정과 이미지/피드 최소 1개 검사를 단일 SQL에서 실행한다. 기본값 복귀는 override를 제거하고 동일 값은 UPDATE하지 않는다. KV는 전환 전 읽기 fallback으로만 사용하며 쓰지 않는다. 공개 API의 기존 캐시 정책을 유지해 변경 반영에 기존 캐시 지연이 있을 수 있다.
 - null/미지정/빈 문자열/공백 문자열 위치값은 숫자 변환 전에 제외하고, 정상적인 시작 위치 0은 허용한다. 위치 없는 내 서재 기록은 임의로 본문 처음으로 이동시키지 않는다. 과거 잘못 저장된 0은 정상 0과 구별할 수 없으므로 자동 데이터 보정은 하지 않는다.
 
+## v10.31 문장 이미지 프리셋 보완
+- 공개 설정 메모리 캐시는 성공 시 60초, 실패 fallback은 15초이며 기존 편집기/피드 진입에서만 만료를 확인한다. 진행 중 요청을 공유하고 이미지/피드 맵을 같이 갱신한다. 서버의 기존 max-age=60, stale-while-revalidate=300 정책은 그대로이므로 운영 설정의 반영 지연이 즉시 없어지는 것은 아니다. 공개 설정 갱신 시 열린 편집기의 숨겨진 선택 배경은 공개 목록의 첫 배경으로 전환한다. 서버 API/D1/KV 저장 구조와 sessionStorage fallback 형식은 변경하지 않는다.
+- 팝업 종료는 이전 렌더 Promise/키를 분리하고 generation을 증가시킨다. 완료/실패/정리에서 이전 작업이 새 Promise나 팝업을 변경하지 않도록 generation과 Promise 동일성을 확인한다.
+- bauhaus-constructivism/holographic-vaporwave/botanical-press/neon-matrix-terminal은 명시 선택 전 기본 굵기 700을 유지한다. 굵기 버튼 클릭 후에는 선택한 300/500/700을 사용하며 명시 선택 여부도 PNG 캐시 키에 포함한다. 편집기 재열기는 이 구분을 초기화하고 CSS/Canvas 모델과 굵기 버튼의 선택 표시는 같은 유효 굵기를 사용한다. 공개 설정 갱신 시 새 썸네일은 생성 시점에 현재 선택의 active 클래스를 적용하고, 선택 표시만 복구하기 위한 Canvas 재생성은 하지 않는다.
+- 문장 이미지의 grapheme 분할기는 Intl.Segmenter 인스턴스 1개를 재사용하며 미지원 시 결합 문자·ZWJ·emoji modifier·regional indicator 쌍·한글 자모를 보수적으로 묶는다. fallback은 전체 Unicode grapheme 규칙을 구현한 외부 라이브러리가 아니다. 자간 0의 measureText/fillText 빠른 경로는 유지하고 줄바꿈·생략은 grapheme 경계를 보존한다. 본문 렌더링·이어보기 위치·사용자 저장 API는 변경하지 않는다.
+
 ## v10.30 프리셋 설정 롤백 절차
 - v10.31의 첫 관리자 저장은 기존 KV의 overrides와 feedOverrides를 함께 INSERT OR IGNORE로 승계한다. 이후 D1이 기준이며 KV 이중 저장은 하지 않는다.
 - v10.30은 KV만 읽으므로 코드만 되돌리면 v10.31에서 변경한 설정을 잃는다. 롤백 전 관리자 설정 변경을 잠시 중단하고, 실제 USER_DB의 user_system_meta에서 meta_key = 'quote-image:preset-visibility:v1'인 meta_value 전체 JSON을 읽어 안전하게 백업한다. ARCHIVE_KV의 동일 키 기존 JSON도 백업한다.

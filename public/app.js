@@ -224,6 +224,7 @@ const state = {
   readerShareLocation: null,
   readerShareBackground: 0,
   readerShareWeight: "regular",
+  readerShareWeightExplicit: false,
   readerShareLetterSpacing: 0,
   readerShareLineHeight: 1.42,
   readerSharePaddingX: 0,
@@ -11341,7 +11342,7 @@ const READER_SHARE_GEMINI4 = (() => {
 
   function renderBauhaus(ctx, width, height, model) {
     const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
-    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700)), scale = width / 1200, mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
+    const quoteFont = model.font?.css || 'Pretendard, sans-serif', quoteWeight = Number(model.fontWeight || model.font?.weight || 700), scale = width / 1200, mono = 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
     ctx.fillStyle = '#f0f0eb'; ctx.fillRect(0, 0, width, height); const frame = 24 * scale; ctx.fillStyle = '#111111'; ctx.fillRect(0, 0, width, frame); ctx.fillRect(0, height - frame, width, frame); ctx.fillRect(0, 0, frame, height); ctx.fillRect(width - frame, 0, frame, height);
     ctx.fillStyle = '#d9381e'; ctx.fillRect(width * 0.72, frame, width * 0.28 - frame, height * 0.22); ctx.fillStyle = '#f2b705'; ctx.beginPath(); ctx.moveTo(frame, height - frame); ctx.arc(frame, height - frame, 180 * scale, -Math.PI / 2, 0); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#1040a3'; ctx.fillRect(frame, height * 0.42, 28 * scale, height * 0.22);
     ctx.strokeStyle = '#111111'; ctx.lineWidth = 4 * scale; const headerY = height * 0.16; ctx.beginPath(); ctx.moveTo(frame, headerY); ctx.lineTo(width - frame, headerY); ctx.stroke();
@@ -11509,7 +11510,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const brand = siteName(model);
     const meta = metaLine(model);
     const quoteFont = model.font?.css || 'Pretendard, sans-serif';
-    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const quoteWeight = Number(model.fontWeight || model.font?.weight || 700);
     const orbitron = 'Orbitron, Pretendard, sans-serif';
     const scale = width / 1200;
 
@@ -11602,7 +11603,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const brand = siteName(model);
     const meta = metaLine(model);
     const quoteFont = model.font?.css || 'Gowun Batang, serif';
-    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const quoteWeight = Number(model.fontWeight || model.font?.weight || 700);
     const cinzel = 'Cinzel, Gowun Batang, serif';
     const playfair = 'Playfair Display, Gowun Batang, serif';
     const scale = width / 1200;
@@ -11643,7 +11644,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     const brand = siteName(model);
     const meta = metaLine(model);
     const quoteFont = model.font?.css || 'Fira Code, Pretendard, monospace';
-    const quoteWeight = Math.max(700, Number(model.fontWeight || model.font?.weight || 700));
+    const quoteWeight = Number(model.fontWeight || model.font?.weight || 700);
     const mono = 'Fira Code, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
     const scale = width / 1200;
 
@@ -11800,7 +11801,7 @@ const READER_SHARE_GEMINI_OS70_72 = (() => {
     if(lines.length <= count) return lines;
     const shown=lines.slice(0,count);
     const last=count-1;
-    while(shown[last] && readerShareCustomMeasureText(ctx, shown[last]+'…', spacing) > maxWidth) shown[last]=shown[last].slice(0,-1);
+    while(shown[last] && readerShareCustomMeasureText(ctx, shown[last]+'…', spacing) > maxWidth) shown[last]=readerShareTrimLastGrapheme(shown[last]);
     shown[last]=shown[last].replace(/[\s.…]+$/u,'')+'…';
     return shown;
   }
@@ -11999,14 +12000,14 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
     const lines = fitShareLinesToWidth(ctx, text, maxWidth, true, spacing).slice(0, maxLines);
     if (lines.length) {
       let last = lines[lines.length - 1];
-      while (last.length && readerShareCustomMeasureText(ctx, last + '…', spacing) > maxWidth) last = last.slice(0, -1);
+      while (last.length && readerShareCustomMeasureText(ctx, last + '…', spacing) > maxWidth) last = readerShareTrimLastGrapheme(last);
       lines[lines.length - 1] = `${String(last).replace(/[\s.…]+$/u, '')}…`;
     }
     return { lines, lineHeight, size: minFont };
   }
   function fitCredit(ctx, text, maxWidth) {
     let v = String(text || ''); if (ctx.measureText(v).width <= maxWidth) return v;
-    while (v.length && ctx.measureText(v + '…').width > maxWidth) v = v.slice(0, -1); return `${v.replace(/[\s.…]+$/u, '')}…`;
+    while (v.length && ctx.measureText(v + '…').width > maxWidth) v = readerShareTrimLastGrapheme(v); return `${v.replace(/[\s.…]+$/u, '')}…`;
   }
   function draw(ctx, width, height, model) {
     const quote = String(model.text || '');
@@ -12648,6 +12649,9 @@ function getReaderShareBrandName() {
 let readerSharePresetVisibility = null;
 let readerShareFeedVisibility = null;
 let readerSharePresetVisibilityPromise = null;
+let readerSharePresetVisibilityExpiresAt = 0;
+const READER_SHARE_VISIBILITY_TTL_MS = 60_000;
+const READER_SHARE_VISIBILITY_RETRY_MS = 15_000;
 const READER_SHARE_PRESET_VISIBILITY_CACHE_KEY = "rjsQuotePresetVisibilityV1";
 const READER_SHARE_FEED_VISIBILITY_CACHE_KEY = "rjsQuoteFeedPresetVisibilityV1";
 const READER_SHARE_FEED_DEFAULT_KEYS = new Set([
@@ -12671,8 +12675,8 @@ function getReaderShareDefaultVisibility(background) {
 }
 
 async function loadReaderSharePresetVisibility({ admin = false, force = false } = {}) {
-  if (!admin && readerSharePresetVisibility && !force) return readerSharePresetVisibility;
-  if (!admin && readerSharePresetVisibilityPromise && !force) return readerSharePresetVisibilityPromise;
+  if (!admin && readerSharePresetVisibilityPromise) return readerSharePresetVisibilityPromise;
+  if (!admin && readerSharePresetVisibility && !force && Date.now() < readerSharePresetVisibilityExpiresAt) return readerSharePresetVisibility;
   const endpoint = admin ? "/api/admin/quote-image-presets" : "/api/quote-image-presets";
   const task = (async () => {
     try {
@@ -12691,10 +12695,12 @@ async function loadReaderSharePresetVisibility({ admin = false, force = false } 
       if (!admin) {
         readerSharePresetVisibility = map;
         readerShareFeedVisibility = feedMap;
+        readerSharePresetVisibilityExpiresAt = Date.now() + READER_SHARE_VISIBILITY_TTL_MS;
         try {
           sessionStorage.setItem(READER_SHARE_PRESET_VISIBILITY_CACHE_KEY, JSON.stringify([...map.entries()]));
           sessionStorage.setItem(READER_SHARE_FEED_VISIBILITY_CACHE_KEY, JSON.stringify([...feedMap.entries()]));
         } catch (_) {}
+        refreshReaderShareVisibleBackground();
       }
       return map;
     } catch (error) {
@@ -12720,6 +12726,8 @@ async function loadReaderSharePresetVisibility({ admin = false, force = false } 
           const key = getReaderShareBackgroundKey(background);
           return [key, READER_SHARE_FEED_DEFAULT_KEYS.has(key)];
         }));
+      readerSharePresetVisibilityExpiresAt = Date.now() + READER_SHARE_VISIBILITY_RETRY_MS;
+      refreshReaderShareVisibleBackground();
       return fallback;
     } finally {
       if (!admin) readerSharePresetVisibilityPromise = null;
@@ -12739,6 +12747,15 @@ function getVisibleReaderShareBackgroundEntries() {
     });
 }
 
+function refreshReaderShareVisibleBackground() {
+  if (!readerShareUi || readerShareUi.backdrop.hidden || readerShareAdminPreviewKey) return;
+  const entries = getVisibleReaderShareBackgroundEntries();
+  const changed = !entries.some(({ index }) => index === state.readerShareBackground);
+  if (changed && entries.length) state.readerShareBackground = entries[0].index;
+  renderReaderShareBackgroundThumbs(readerShareUi.thumbs);
+  if (changed && entries.length) updateReaderSharePreview();
+}
+
 // v10.09: SVG data URLs contain quotes. Assign styles via DOM instead of HTML
 // interpolation, which used to terminate the inline style attribute early.
 // Defer only expensive vector backgrounds until near the horizontal viewport.
@@ -12754,6 +12771,7 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "reader-share-thumb";
+    button.classList.toggle("active", index === state.readerShareBackground);
     button.dataset.shareBackground = String(index);
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
@@ -13136,6 +13154,9 @@ function ensureReaderShareUi() {
     window.clearTimeout(readerSharePreviewTimer);
     window.clearTimeout(readerShareAdminOutputTimer);
     readerSharePreviewGeneration += 1;
+    readerSharePreparePromise = null;
+    readerSharePreparePromiseKey = "";
+    readerSharePreviewPromise = null;
     revokeReaderSharePreviewUrl();
     readerSharePreviewKey = "";
     readerSharePreparedBlob = null;
@@ -13246,6 +13267,7 @@ function ensureReaderShareUi() {
     if (weightButton) {
       if (weightButton.disabled) return;
       state.readerShareWeight = weightButton.dataset.shareWeight || "regular";
+      state.readerShareWeightExplicit = true;
       normalizeReaderShareWeightForFont();
       updateReaderSharePreview();
       return;
@@ -13266,7 +13288,7 @@ function ensureReaderShareUi() {
   const normalizePostypeReaderShareValue = (rawValue) => {
     const normalizedLineBreaks = String(rawValue || "")
       .replace(/\r\n?|\u0085|\u2028|\u2029/g, "\n")
-      .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "");
+      .replace(/[\u200B\u200C\u2060\uFEFF]/g, "");
 
     const hadTrailingLineBreak = normalizedLineBreaks.endsWith("\n");
     const lines = normalizedLineBreaks.split("\n");
@@ -15226,14 +15248,22 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
   ctx.restore();
 }
 
+const READER_SHARE_DEFAULT_BOLD_KEYS = new Set([
+  "bauhaus-constructivism", "holographic-vaporwave", "botanical-press", "neon-matrix-terminal",
+]);
+function getReaderShareQuoteFontWeight(background, font) {
+  if (!state.readerShareWeightExplicit && READER_SHARE_DEFAULT_BOLD_KEYS.has(getReaderShareBackgroundKey(background))) return 700;
+  const setting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
+  return setting.weight || font.weight || 400;
+}
+
 function getReaderShareRenderModel() {
   ensureReaderShareState();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = getReaderShareSourceItem();
-  const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
+  const text = readerShareLimitText(getReaderShareEditedText(state.readerShareText));
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
-  const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
   const ratio = ["4:5", "2:3"].includes(state.readerShareRatio) ? state.readerShareRatio : "1:1";
   return {
     background,
@@ -15243,7 +15273,7 @@ function getReaderShareRenderModel() {
     // Preserve the explicit size step for export as well. Long text is truncated
     // from the bottom by the layout logic instead of collapsing small steps.
     sizePx: size.px,
-    fontWeight: weightSetting.weight || font.weight || 400,
+    fontWeight: getReaderShareQuoteFontWeight(background, font),
     ratio,
     letterSpacingPx: state.readerShareLetterSpacing,
     lineHeightMult: state.readerShareLineHeight,
@@ -15254,9 +15284,59 @@ function getReaderShareRenderModel() {
   };
 }
 
+let readerShareGraphemeSegmenter;
+function readerShareGraphemes(value) {
+  const text = String(value || "");
+  if (!text) return [];
+  if (readerShareGraphemeSegmenter === undefined) {
+    try { readerShareGraphemeSegmenter = typeof Intl?.Segmenter === "function"
+      ? new Intl.Segmenter(undefined, { granularity: "grapheme" }) : null; }
+    catch (_) { readerShareGraphemeSegmenter = null; }
+  }
+  if (readerShareGraphemeSegmenter) return Array.from(readerShareGraphemeSegmenter.segment(text), part => part.segment);
+  // Conservative fallback for combining marks, emoji modifiers/ZWJ, flags and Hangul.
+  const clusters = [];
+  const hangul = code => code >= 0x1100 && code <= 0x115f || code >= 0xa960 && code <= 0xa97c ? "L"
+    : code >= 0x1160 && code <= 0x11a7 || code >= 0xd7b0 && code <= 0xd7c6 ? "V"
+    : code >= 0x11a8 && code <= 0x11ff || code >= 0xd7cb && code <= 0xd7fb ? "T"
+    : code >= 0xac00 && code <= 0xd7a3 ? (code - 0xac00) % 28 ? "LVT" : "LV" : "";
+  let previous = "", flags = 0;
+  for (const char of text) {
+    const code = char.codePointAt(0), kind = hangul(code);
+    const flag = code >= 0x1f1e6 && code <= 0x1f1ff;
+    const mark = /\p{Mark}/u.test(char) || code >= 0x1f3fb && code <= 0x1f3ff
+      || code >= 0xe0020 && code <= 0xe007f || code >= 0xe0100 && code <= 0xe01ef;
+    const last = clusters[clusters.length - 1] || "";
+    const joinHangul = previous === "L" && ["L", "V", "LV", "LVT"].includes(kind)
+      || ["LV", "V"].includes(previous) && ["V", "T"].includes(kind)
+      || ["LVT", "T"].includes(previous) && kind === "T";
+    if (last && (mark || char === "\u200d" || last.endsWith("\u200d") || joinHangul || flag && flags % 2 === 1)) clusters[clusters.length - 1] += char;
+    else clusters.push(char);
+    flags = flag ? flags + 1 : 0;
+    previous = kind;
+  }
+  return clusters;
+}
+function readerShareTrimLastGrapheme(value) {
+  const parts = readerShareGraphemes(value);
+  parts.pop();
+  return parts.join("");
+}
+function readerShareLimitText(value, maxLength = 700) {
+  const text = String(value || "");
+  if (text.length <= maxLength) return text;
+  let result = "";
+  for (const part of readerShareGraphemes(text)) {
+    if (result.length + part.length > maxLength) break;
+    result += part;
+  }
+  return result;
+}
+
 function measureReaderShareTextWidth(ctx, text, letterSpacing = 0) {
   const raw = String(text || "");
-  const count = Math.max(0, Array.from(raw).length - 1);
+  if (!letterSpacing) return ctx.measureText(raw).width;
+  const count = Math.max(0, readerShareGraphemes(raw).length - 1);
   return Math.max(0, ctx.measureText(raw).width + (count * Number(letterSpacing || 0)));
 }
 
@@ -15269,7 +15349,7 @@ function drawReaderShareTextWithSpacing(ctx, text, x, y, { letterSpacing = 0, al
     else ctx.fillText(raw, x, y);
     return;
   }
-  const chars = Array.from(raw);
+  const chars = readerShareGraphemes(raw);
   const totalWidth = measureReaderShareTextWidth(ctx, raw, spacing);
   let startX = x;
   if (align === "center") startX = x - totalWidth / 2;
@@ -15291,7 +15371,7 @@ function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap, letterSpacing = 
   const lines = [];
   const pushBrokenToken = (token) => {
     let part = "";
-    for (const ch of Array.from(token)) {
+    for (const ch of readerShareGraphemes(token)) {
       const test = part + ch;
       if (part && measureReaderShareTextWidth(ctx, test, letterSpacing) > maxWidth) {
         lines.push(part);
@@ -15567,12 +15647,13 @@ let readerSharePreviewTimer = 0;
 function getReaderShareBlobKey() {
   const item = getReaderShareSourceItem();
   return JSON.stringify({
-    text: getReaderShareEditedText(state.readerShareText).slice(0, 700),
+    text: readerShareLimitText(getReaderShareEditedText(state.readerShareText)),
     background: state.readerShareBackground,
     ratio: state.readerShareRatio,
     font: state.readerShareFont,
     size: state.readerShareSize,
     weight: state.readerShareWeight,
+    weightExplicit: Boolean(state.readerShareWeightExplicit),
     letterSpacing: state.readerShareLetterSpacing,
     lineHeight: state.readerShareLineHeight,
     paddingX: state.readerSharePaddingX,
@@ -15707,11 +15788,11 @@ function scheduleReaderShareUnifiedRender(delay = 280) {
     readerSharePreviewPromise = promise;
     readerSharePreparePromiseKey = renderKey;
     promise.then((blob) => {
-      if (generation !== readerSharePreviewGeneration) return;
+      if (generation !== readerSharePreviewGeneration || readerSharePreparePromise !== promise) return;
       showReaderShareRenderedBlob(blob, renderKey);
     }).catch((error) => {
       console.warn("reader share image pre-render failed", error);
-      if (generation !== readerSharePreviewGeneration) return;
+      if (generation !== readerSharePreviewGeneration || readerSharePreparePromise !== promise) return;
       readerShareUi?.card?.classList.remove("is-render-loading");
       if (readerShareUi?.renderLoading) readerShareUi.renderLoading.hidden = true;
       if (readerShareUi?.renderImage) readerShareUi.renderImage.hidden = true;
@@ -15855,7 +15936,7 @@ function updateReaderSharePreview() {
   const ui = ensureReaderShareUi();
   const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground] || READER_SHARE_BACKGROUNDS[0];
   const item = getReaderShareSourceItem();
-  const text = getReaderShareEditedText(state.readerShareText).slice(0, 700);
+  const text = readerShareLimitText(getReaderShareEditedText(state.readerShareText));
   const font = READER_SHARE_FONTS.find((entry) => entry.key === state.readerShareFont) || READER_SHARE_FONTS[0];
   const size = READER_SHARE_SIZES[state.readerShareSize] || READER_SHARE_SIZES.xs;
   const textColor = background.text;
@@ -15871,7 +15952,7 @@ function updateReaderSharePreview() {
   ui.quote.style.fontFamily = font.css;
   const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
   const insets = getReaderShareTextInsets(state.readerShareRatio, state.readerSharePaddingX, state.readerSharePaddingY);
-  ui.quote.style.fontWeight = String(weightSetting.weight || font.weight || 400);
+  ui.quote.style.fontWeight = String(getReaderShareQuoteFontWeight(background, font));
   ui.quote.style.lineHeight = String(state.readerShareLineHeight);
   ui.quote.style.letterSpacing = `${state.readerShareLetterSpacing}px`;
   ui.quote.style.left = `${insets.left}%`;
@@ -15901,10 +15982,11 @@ function updateReaderSharePreview() {
   ui.backdrop.querySelectorAll("[data-share-font]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareFont === state.readerShareFont);
   });
+  const displayedWeight = getReaderShareQuoteFontWeight(background, font);
   ui.backdrop.querySelectorAll("[data-share-weight]").forEach((button) => {
     const isLight = button.dataset.shareWeight === "light";
     button.disabled = isLight && !readerShareFontSupportsLight();
-    button.classList.toggle("active", button.dataset.shareWeight === state.readerShareWeight);
+    button.classList.toggle("active", READER_SHARE_WEIGHTS[button.dataset.shareWeight]?.weight === displayedWeight);
     if (button.disabled) {
       button.setAttribute("aria-label", "이 글꼴은 얇게 굵기를 지원하지 않음");
       button.title = "이 글꼴은 얇게 굵기를 지원하지 않아요";
@@ -15945,6 +16027,7 @@ function updateReaderSharePreview() {
 function resetReaderShareEditorOptions() {
   state.readerShareSize = "xs";        // 2
   state.readerShareWeight = "regular"; // 보통
+  state.readerShareWeightExplicit = false;
   state.readerShareLetterSpacing = READER_SHARE_TEXT_SETTING_DEFAULTS.letterSpacing;
   state.readerShareLineHeight = READER_SHARE_TEXT_SETTING_DEFAULTS.lineHeight;
   state.readerSharePaddingX = READER_SHARE_TEXT_SETTING_DEFAULTS.paddingX;
@@ -16105,7 +16188,7 @@ function normalizeReaderShareInitialText(rawText) {
   return String(rawText || "")
     .replace(/\r\n?|\u2028|\u2029/g, "\n")
     .replace(/\u00a0|\u3000/g, " ")
-    .replace(/[\u200B\u200C\u200D\u2060\uFEFF]/g, "")
+    .replace(/[\u200B\u200C\u2060\uFEFF]/g, "")
     .replace(/[\t\f\v]+/g, " ")
     .split("\n")
     .map((line) => line.replace(/ {2,}/g, " ").trim())
@@ -16179,7 +16262,7 @@ function getReaderTextSelection(options = {}) {
   const selection = window.getSelection?.();
   if (!selection || selection.rangeCount === 0 || selection.isCollapsed) return null;
 
-  const text = normalizeReaderShareInitialText(selection.toString()).slice(0, 700);
+  const text = readerShareLimitText(normalizeReaderShareInitialText(selection.toString()));
   if (!text) return null;
 
   const range = selection.getRangeAt(0);
