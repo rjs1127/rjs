@@ -11,8 +11,8 @@ export async function onRequestGet(context) {
   try {
     await requireAdminSession(context);
     const kv = requireKv(context.env);
-    const { overrides, updatedAt } = await readQuoteImagePresetVisibility(kv);
-    return jsonResponse({ presets: resolveQuoteImagePresetCatalog(overrides), updatedAt }, 200, { "cache-control": "no-store" });
+    const { overrides, feedOverrides, updatedAt } = await readQuoteImagePresetVisibility(kv);
+    return jsonResponse({ presets: resolveQuoteImagePresetCatalog(overrides, feedOverrides), updatedAt }, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(error);
     return jsonResponse({ error: error?.message || "문장 이미지 프리셋 설정을 불러오지 못했습니다." }, error?.status || 500);
@@ -25,29 +25,47 @@ export async function onRequestPost(context) {
     const kv = requireKv(context.env);
     const body = await context.request.json();
     const key = String(body?.key || "").trim();
+    const field = body?.field === "feed" ? "feed" : body?.field == null || body?.field === "visible" ? "visible" : "";
     const visible = body?.visible;
     const preset = QUOTE_IMAGE_PRESET_CATALOG.find((entry) => entry.key === key);
-    if (!preset || typeof visible !== "boolean") {
+    if (!preset || !field || typeof visible !== "boolean") {
       return jsonResponse({ error: "프리셋과 노출 여부를 확인해 주세요." }, 400);
     }
 
     const current = await readQuoteImagePresetVisibility(kv);
     const overrides = { ...current.overrides };
-    const currentVisible = typeof overrides[key] === "boolean" ? overrides[key] : preset.defaultVisible;
-    if (currentVisible === visible) {
-      return jsonResponse({ ok: true, changed: false, kvWritten: false, presets: resolveQuoteImagePresetCatalog(overrides), updatedAt: current.updatedAt }, 200, { "cache-control": "no-store" });
+    const feedOverrides = { ...current.feedOverrides };
+    const before = resolveQuoteImagePresetCatalog(overrides, feedOverrides);
+    const target = before.find((entry) => entry.key === key);
+    if (field === "feed" && visible && !target.feedEligible) {
+      return jsonResponse({ error: "이미지/SVG 배경은 피드에서 사용할 수 없습니다. CSS 배경만 선택해 주세요." }, 400);
+    }
+    const currentValue = field === "feed" ? target.feedVisible : target.visible;
+    if (currentValue === visible) {
+      return jsonResponse({ ok: true, changed: false, kvWritten: false, presets: before, updatedAt: current.updatedAt }, 200, { "cache-control": "no-store" });
     }
 
-    if (visible === preset.defaultVisible) delete overrides[key];
-    else overrides[key] = visible;
+    if (field === "feed") {
+      // Only independent feedOverrides change; the user-image overrides stay untouched.
+      const feedDefault = resolveQuoteImagePresetCatalog(overrides, {})
+        .find((entry) => entry.key === key).feedVisible;
+      if (visible === feedDefault) delete feedOverrides[key];
+      else feedOverrides[key] = visible;
+    } else {
+      if (visible === preset.defaultVisible) delete overrides[key];
+      else overrides[key] = visible;
+    }
 
-    const resolved = resolveQuoteImagePresetCatalog(overrides);
+    const resolved = resolveQuoteImagePresetCatalog(overrides, feedOverrides);
     if (!resolved.some((entry) => entry.visible)) {
       return jsonResponse({ error: "사용자에게 노출되는 프리셋은 최소 1개 이상이어야 합니다." }, 400);
     }
+    if (!resolved.some((entry) => entry.feedVisible)) {
+      return jsonResponse({ error: "문장피드 배경은 최소 1개 이상 Y로 유지해야 합니다." }, 400);
+    }
 
     const updatedAt = new Date().toISOString();
-    await kv.put(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, JSON.stringify({ overrides, updatedAt }));
+    await kv.put(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, JSON.stringify({ overrides, feedOverrides, updatedAt }));
     return jsonResponse({ ok: true, changed: true, kvWritten: true, presets: resolved, updatedAt }, 200, { "cache-control": "no-store" });
   } catch (error) {
     console.error(error);

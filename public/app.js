@@ -2547,7 +2547,14 @@ function getQuoteFeedTheme(item) {
     hash ^= source.charCodeAt(index);
     hash = Math.imul(hash, 16777619);
   }
-  const themes = getVisibleReaderShareBackgroundEntries().map(({ background }) => background);
+  // Independent feed Y/N, not the image editor visibility. Never load raster/SVG
+  // images or custom Canvas backgrounds in the feed list.
+  const themes = READER_SHARE_BACKGROUNDS.filter((background) => {
+    const key = getReaderShareBackgroundKey(background);
+    const enabled = readerShareFeedVisibility?.has(key)
+      ? readerShareFeedVisibility.get(key) === true : READER_SHARE_FEED_DEFAULT_KEYS.has(key);
+    return enabled && Boolean(background.background) && !/\burl\s*\(/i.test(background.background);
+  });
   return themes[Math.abs(hash >>> 0) % Math.max(1, themes.length)] || {
     background: "linear-gradient(145deg,#fffdf9,#f6f3ee)",
     text: "#191816",
@@ -11687,7 +11694,9 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
 
   // The CSS thumbnail reuses a text-free render of this exact Canvas artwork.
   // No competing simplified SVG scene. The PNG/export renderer below is unchanged.
-  preset.background = 'url("/quote-pixel-folder-ui-background.webp?v=1023") center/100% 100% no-repeat';
+  // CSS preview is generated from the SAME Canvas art renderer in memory.
+  // No separately deployed WebP/SVG art file. The generic CSS is a cheap fallback.
+  preset.background = 'linear-gradient(180deg,#8fc4ef,#d6c9f4)';
 
   function roundRect(ctx, x, y, w, h, r, fill, stroke, sw = 0) {
     const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -11841,6 +11850,34 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
   }
   return { presets: [preset], renderers: { 'pastel-pixel-folder-ui': draw } };
 })();
+
+
+// Pixel-folder art thumbnail: one small Canvas render per ratio per browser session.
+// Reuses the PNG renderer's backgroundOnly path (never duplicates the illustration).
+const readerSharePixelFolderCssCache = new Map();
+function getReaderShareCssBackground(background, ratio = "1:1") {
+  if (getReaderShareBackgroundKey(background) !== "pastel-pixel-folder-ui")
+    return String(background?.background || "");
+  const safeRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
+  if (readerSharePixelFolderCssCache.has(safeRatio)) return readerSharePixelFolderCssCache.get(safeRatio);
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 440;
+    canvas.height = safeRatio === "2:3" ? 660 : safeRatio === "4:5" ? 550 : 440;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return background.background;
+    READER_SHARE_PIXEL_FOLDER_A.renderers["pastel-pixel-folder-ui"](
+      ctx, canvas.width, canvas.height,
+      { text: "", item: { title: "", author: "" }, brand: "셩냥책", backgroundOnly: true }
+    );
+    const css = `url("${canvas.toDataURL("image/png")}") center/100% 100% no-repeat`;
+    readerSharePixelFolderCssCache.set(safeRatio, css);
+    return css;
+  } catch (error) {
+    console.warn("픽셀 폴더 CSS 미리보기 생성 실패", error);
+    return background.background;
+  }
+}
 
 const READER_SHARE_BACKGROUNDS = [
   {
@@ -12346,8 +12383,16 @@ function getReaderShareBrandName() {
 }
 
 let readerSharePresetVisibility = null;
+let readerShareFeedVisibility = null;
 let readerSharePresetVisibilityPromise = null;
 const READER_SHARE_PRESET_VISIBILITY_CACHE_KEY = "rjsQuotePresetVisibilityV1";
+const READER_SHARE_FEED_VISIBILITY_CACHE_KEY = "rjsQuoteFeedPresetVisibilityV1";
+const READER_SHARE_FEED_DEFAULT_KEYS = new Set([
+  "beige", "dark", "gray", "mocha", "sand", "rosy-blush", "sky-sparkle",
+  "lavender-mist", "rose-quartz-glow", "serenity-breeze", "opal-shimmer",
+  "mist-layers", "ink-echo", "aurora-weave", "sunset-layers", "wind-contours",
+  "graphite-grain", "petal-flow", "soft-glow", "paper-tape", "dawn-fog",
+]);
 let readerShareAdminPreviewKey = "";
 const READER_SHARE_ADMIN_EMBED_MODE = new URLSearchParams(window.location.search).get("quote-embed") === "1";
 const READER_SHARE_ADMIN_GALLERY_MODE = READER_SHARE_ADMIN_EMBED_MODE && new URLSearchParams(window.location.search).get("quote-gallery") === "1";
@@ -12372,13 +12417,20 @@ async function loadReaderSharePresetVisibility({ admin = false, force = false } 
       if (!response.ok) throw new Error(`preset_visibility_${response.status}`);
       const data = await response.json();
       const map = new Map();
+      const feedMap = new Map();
       for (const preset of Array.isArray(data?.presets) ? data.presets : []) {
-        if (preset && typeof preset.key === "string" && typeof preset.visible === "boolean") map.set(preset.key, preset.visible);
+        if (preset && typeof preset.key === "string" && typeof preset.visible === "boolean") {
+          map.set(preset.key, preset.visible);
+          feedMap.set(preset.key, typeof preset.feedVisible === "boolean"
+            ? preset.feedVisible : READER_SHARE_FEED_DEFAULT_KEYS.has(preset.key));
+        }
       }
       if (!admin) {
         readerSharePresetVisibility = map;
+        readerShareFeedVisibility = feedMap;
         try {
           sessionStorage.setItem(READER_SHARE_PRESET_VISIBILITY_CACHE_KEY, JSON.stringify([...map.entries()]));
+          sessionStorage.setItem(READER_SHARE_FEED_VISIBILITY_CACHE_KEY, JSON.stringify([...feedMap.entries()]));
         } catch (_) {}
       }
       return map;
@@ -12394,6 +12446,17 @@ async function loadReaderSharePresetVisibility({ admin = false, force = false } 
         fallback = new Map(READER_SHARE_BACKGROUNDS.map((background) => [getReaderShareBackgroundKey(background), getReaderShareDefaultVisibility(background)]));
       }
       readerSharePresetVisibility = fallback;
+      let feedFallback = null;
+      try {
+        const cached = JSON.parse(sessionStorage.getItem(READER_SHARE_FEED_VISIBILITY_CACHE_KEY) || "null");
+        if (Array.isArray(cached)) feedFallback = new Map(cached.filter((entry) =>
+          Array.isArray(entry) && typeof entry[0] === "string" && typeof entry[1] === "boolean"));
+      } catch (_) {}
+      readerShareFeedVisibility = feedFallback?.size ? feedFallback
+        : new Map(READER_SHARE_BACKGROUNDS.map((background) => {
+          const key = getReaderShareBackgroundKey(background);
+          return [key, READER_SHARE_FEED_DEFAULT_KEYS.has(key)];
+        }));
       return fallback;
     } finally {
       if (!admin) readerSharePresetVisibilityPromise = null;
@@ -12432,7 +12495,7 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
     button.style.setProperty("--thumb-label", String(background.text || "#fff"));
-    const cssBackground = String(background.background || "");
+    const cssBackground = getReaderShareCssBackground(background);
     if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
       // Keep the correct base color until the nearby SVG thumbnail is painted.
       button.style.backgroundColor = "#f4f1eb";
@@ -15359,7 +15422,7 @@ function postReaderShareAdminPreview(background) {
       type: "rjs-quote-admin-preview",
       key: readerShareAdminPreviewKey || getReaderShareBackgroundKey(background),
       name: String(background?.name || ""),
-      background: String(background?.background || ""),
+      background: getReaderShareCssBackground(background, state.readerShareRatio),
       textColor: String(background?.text || "#fff"),
       ratio: state.readerShareRatio,
       font: state.readerShareFont,
@@ -15386,7 +15449,7 @@ function updateReaderSharePreview() {
 
   ui.card.dataset.ratio = state.readerShareRatio;
   ui.card.style.backgroundImage = "none";
-  ui.card.style.background = background.background;
+  ui.card.style.background = getReaderShareCssBackground(background, state.readerShareRatio);
   ui.card.style.color = textColor;
   ui.meta.style.color = metaColor;
   ui.brand.style.color = metaColor;
@@ -15564,7 +15627,7 @@ async function maybeOpenAdminReaderSharePreview() {
         presets: READER_SHARE_BACKGROUNDS.filter((background) => map.has(getReaderShareBackgroundKey(background)))
           .map((background) => ({
             key: getReaderShareBackgroundKey(background),
-            background: String(background.background || ""),
+            background: getReaderShareCssBackground(background),
             textColor: String(background.text || "#222"),
             metaColor: String(background.meta || "#777"),
           })),

@@ -760,7 +760,10 @@ function renderQuotePresetAdmin() {
         <div><button type="button" class="quote-gallery-preview-trigger" data-quote-preset-preview="${escapeHtml(p.key)}" data-quote-preview-mode="css" aria-label="${escapeHtml(p.name)} CSS 배경 확대"><div class="quote-gallery-css"><span class="quote-gallery-sample">마음에 남은 문장을<br>이곳에서 미리 확인해 보세요.</span><small>문장 이미지 테스트 · 관리자 미리보기</small></div></button><span class="quote-gallery-kind">CSS background</span></div>
         <div><button type="button" class="quote-gallery-preview-trigger" data-quote-preset-preview="${escapeHtml(p.key)}" data-quote-preview-mode="canvas" aria-label="${escapeHtml(p.name)} Canvas 확대"><div class="quote-gallery-canvas-art"><img data-quote-gallery-img alt="" hidden><span class="quote-gallery-image-loading">${quotePresetGalleryReady ? "생성 대기" : "연결 중"}</span></div></button><span class="quote-gallery-kind">Canvas 원본 효과</span></div>
       </div>
-      <div class="quote-gallery-card-foot"><span>사용자 공개</span><button type="button" class="quote-preset-toggle ${p.visible ? "is-on" : ""}" role="switch" aria-label="${escapeHtml(p.name)} 사용자 공개" aria-checked="${p.visible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(p.key)}" ${quotePresetSavingKeys.has(p.key) ? "disabled" : ""}><span>${p.visible ? "Y" : "N"}</span><i aria-hidden="true"></i></button></div>
+      <div class="quote-gallery-card-foot">
+        <div class="quote-gallery-toggle-row"><span>이미지 공개</span><button type="button" class="quote-preset-toggle ${p.visible ? "is-on" : ""}" role="switch" aria-label="${escapeHtml(p.name)} 이미지 공개" aria-checked="${p.visible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(p.key)}" data-quote-toggle-field="visible" ${quotePresetSavingKeys.has(p.key) ? "disabled" : ""}><span>${p.visible ? "Y" : "N"}</span><i aria-hidden="true"></i></button></div>
+        <div class="quote-gallery-toggle-row"><span title="문장피드 목록에 사용하는 CSS 랜덤 배경">문장피드</span><button type="button" class="quote-preset-toggle ${p.feedVisible ? "is-on" : ""}" role="switch" aria-label="${escapeHtml(p.name)} 문장피드 배경 사용${p.feedEligible ? "" : " (이미지 배경 사용 불가)"}" aria-checked="${p.feedVisible ? "true" : "false"}" data-quote-preset-toggle="${escapeHtml(p.key)}" data-quote-toggle-field="feed" ${quotePresetSavingKeys.has(p.key) || !p.feedEligible ? 'disabled title="CSS 전용 배경이 아니어서 문장피드에 사용하지 않습니다."' : ""}><span>${p.feedVisible ? "Y" : "N"}</span><i aria-hidden="true"></i></button></div>
+      </div>
     </article>`).join("");
   updateQuotePresetImages();
   els.quotePresetList.querySelectorAll(".quote-gallery-card").forEach((card, index) => {
@@ -788,17 +791,17 @@ async function loadQuotePresetAdmin(force = false) {
   pumpQuotePresetGalleryQueue();
 }
 
-async function setQuotePresetVisibility(key, visible, button) {
+async function setQuotePresetVisibility(key, visible, button, field = "visible") {
   if (quotePresetSavingKeys.has(key)) return;
   quotePresetSavingKeys.add(key);
   if (button) button.disabled = true;
   try {
-    const data = await api("/api/admin/quote-image-presets", { method: "POST", body: JSON.stringify({ key, visible }) });
+    const data = await api("/api/admin/quote-image-presets", { method: "POST", body: JSON.stringify({ key, visible, field }) });
     quotePresetAdminData = Array.isArray(data?.presets) ? data.presets : quotePresetAdminData;
     quotePresetAdminLoaded = true;
     if (els.quotePresetMessage) {
       els.quotePresetMessage.hidden = false;
-      els.quotePresetMessage.textContent = visible ? "사용자 노출을 Y로 변경했습니다." : "사용자 노출을 N으로 변경했습니다.";
+      els.quotePresetMessage.textContent = `${field === "feed" ? "문장피드 배경" : "문장 이미지 공개"}를 ${visible ? "Y" : "N"}로 변경했습니다.`;
     }
   } catch (error) {
     if (els.quotePresetMessage) { els.quotePresetMessage.hidden = false; els.quotePresetMessage.textContent = error.message || "노출 설정을 저장하지 못했습니다."; }
@@ -6800,7 +6803,7 @@ els.quotePresetList?.addEventListener("click", (event) => {
   if (toggle) {
     const key = String(toggle.dataset.quotePresetToggle || "");
     const current = toggle.getAttribute("aria-checked") === "true";
-    if (key) void setQuotePresetVisibility(key, !current, toggle);
+    if (key) void setQuotePresetVisibility(key, !current, toggle, toggle.dataset.quoteToggleField || "visible");
     return;
   }
   const preview = event.target.closest("[data-quote-preset-preview]");

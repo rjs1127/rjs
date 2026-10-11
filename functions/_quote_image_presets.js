@@ -1,3 +1,29 @@
+// Lightweight CSS-only candidates for quote feed cards. Vector/raster image
+// backgrounds (including the pixel-folder Canvas thumbnail) are not feed candidates.
+const QUOTE_FEED_CSS_KEYS = new Set([
+  "beige", "dark", "gray", "mocha", "sand", "rosy-blush", "sky-sparkle", "lavender-mist",
+  "rose-quartz-glow", "serenity-breeze", "opal-shimmer", "mist-layers", "ink-echo",
+  "aurora-weave", "sunset-layers", "meteor-trails", "wind-contours", "graphite-grain",
+  "petal-flow", "soft-glow", "paper-tape", "dawn-fog", "hanji-gilt", "midnight-bookshop",
+  "watercolor-bleed", "moon-ridge", "prism-foil", "frost-window", "tide-lines",
+  "forest-haze", "film-leak", "star-chart", "soft-polka", "lace-grid", "retro-window",
+  "marker-plaid", "graph-paper", "cumulus", "ripple-pool", "kraft", "vellum",
+  "crumple", "gingham", "azulejo", "emerald-vein", "butter-sticker",
+  "burgundy-leather", "terracotta-arch", "lime-hud", "overprint", "terrazzo-pop",
+  "neon-prism-diffraction",
+  "wabi-sabi-washi", "bauhaus-constructivism", "cyberpunk-hologram",
+  "holographic-vaporwave", "botanical-press", "neon-matrix-terminal",
+]);
+
+// Initial pool prioritizes soft backgrounds that leave the reading area clear.
+// Feed Y/N may be changed later without changing the user's image presets.
+const QUOTE_FEED_DEFAULT_KEYS = new Set([
+  "beige", "dark", "gray", "mocha", "sand", "rosy-blush", "sky-sparkle",
+  "lavender-mist", "rose-quartz-glow", "serenity-breeze", "opal-shimmer",
+  "mist-layers", "ink-echo", "aurora-weave", "sunset-layers", "wind-contours",
+  "graphite-grain", "petal-flow", "soft-glow", "paper-tape", "dawn-fog",
+]);
+
 export const QUOTE_IMAGE_PRESET_VISIBILITY_KEY = "quote-image:preset-visibility:v1";
 
 export const QUOTE_IMAGE_PRESET_CATALOG = [
@@ -77,12 +103,19 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
 export async function readQuoteImagePresetVisibility(kv) {
   const raw = await kv.get(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, "json");
   const overrides = raw && typeof raw.overrides === "object" && raw.overrides ? raw.overrides : {};
-  return { overrides, updatedAt: raw?.updatedAt || null };
+  const feedOverrides = raw && typeof raw.feedOverrides === "object" && raw.feedOverrides ? raw.feedOverrides : {};
+  return { overrides, feedOverrides, updatedAt: raw?.updatedAt || null };
 }
 
-export function resolveQuoteImagePresetCatalog(overrides = {}) {
-  return QUOTE_IMAGE_PRESET_CATALOG.map((preset) => ({
-    ...preset,
-    visible: typeof overrides[preset.key] === "boolean" ? overrides[preset.key] : preset.defaultVisible,
-  }));
+export function resolveQuoteImagePresetCatalog(overrides = {}, feedOverrides = {}) {
+  return QUOTE_IMAGE_PRESET_CATALOG.map((preset) => {
+    const feedEligible = QUOTE_FEED_CSS_KEYS.has(preset.key);
+    return {
+      ...preset,
+      visible: typeof overrides[preset.key] === "boolean" ? overrides[preset.key] : preset.defaultVisible,
+      feedEligible,
+      feedVisible: feedEligible && (typeof feedOverrides[preset.key] === "boolean"
+        ? feedOverrides[preset.key] : QUOTE_FEED_DEFAULT_KEYS.has(preset.key)),
+    };
+  });
 }

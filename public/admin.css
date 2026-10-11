@@ -3527,3 +3527,10 @@ body.admin-password-modal-open{overflow:hidden}
 @media(max-width:1200px){.quote-image-admin-panel .quote-preset-list{grid-template-columns:repeat(4,minmax(0,1fr))}}
 @media(max-width:800px){.quote-image-admin-panel .quote-preset-list{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:570px){.quote-image-admin-panel .quote-preset-list{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.quote-image-admin-panel .quote-preset-item.quote-gallery-card{padding:7px;border-radius:11px}.quote-gallery-pair{gap:4px}.quote-gallery-css .quote-gallery-sample{font-size:8px}.quote-gallery-kind{font-size:8px}.quote-gallery-card-key{font-size:9px}.quote-gallery-count{width:100%;text-align:right}.quote-gallery-modal-square{width:min(94vw,75dvh)}.quote-gallery-modal-name strong{font-size:13px}.quote-gallery-modal-actions button{font-size:11px;padding:5px 7px}}
+
+/* v10.24: distinct image visibility and quote-feed CSS background switches */
+.quote-gallery-card-foot{display:flex;flex-direction:column;align-items:stretch;gap:7px}
+.quote-gallery-toggle-row{display:flex;justify-content:space-between;align-items:center;min-height:26px;gap:6px}
+.quote-gallery-toggle-row+ .quote-gallery-toggle-row{padding-top:7px;border-top:1px dashed var(--sy-line)}
+.quote-gallery-toggle-row>span{font-size:10px;color:var(--sy-text-secondary)}
+.quote-gallery-toggle-row .quote-preset-toggle:disabled{cursor:not-allowed;opacity:.52}

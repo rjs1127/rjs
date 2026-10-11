@@ -1,3 +1,10 @@
+# v10.24 — 문장피드 배경 Y/N 독립 관리
+
+- 문장 이미지 프리셋 공개 여부와 문장피드 랜덤 배경 허용 여부는 같은 KV `quote-image:preset-visibility:v1`의 `overrides` / `feedOverrides`에 따로 저장한다. 기존 공개 플래그나 전체 이미지용 `getVisibleReaderShareBackgroundEntries()`를 피드에 재사용하지 않는다.
+- 피드는 CSS-only 배경만 사용하고 이미지/SVG URL 및 Canvas 전용 장식은 선택 불가능하게 처리한다. 복잡한 디자인의 초기 feedVisible은 N이며, 화면에 문장이 겹쳐 가독성이 저하되는 것을 줄인다. 최소 한 개 이상의 피드 배경을 활성 상태로 보존한다.
+- 최종 PNG는 기존 `renderReaderShareCanvas()`와 전용 renderers를 유지한다. 파스텔 픽셀 폴더 UI CSS는 전용 Canvas 렌더러의 `backgroundOnly` 분기로 브라우저에서 소형 프리뷰를 만들고 비율별 재사용한다. 프리셋 선택/관리자 갤러리의 1:1 미리보기 이외에는 불필요한 Canvas 생성 금지.
+- `public/quote-pixel-folder-ui-background.webp` 참조 제거. 관리자 업로드 ZIP이 파일을 자동 삭제하지 않는 경우 저장소의 구 버전 정적 파일은 별도 삭제해야 한다.
+
 # v10.16 — 초대 Drive 동기화 보안·안정성 기준
 
 - `public/drive-sync.html`은 미리 알려 준 PIN을 입력하는 모바일 UI이며 관리자 계정/자동화 토큰을 전달하지 않는다. 값은 Cloudflare Secret `DRIVE_GUEST_SYNC_PIN`에만 저장한다. 이 PIN을 자바스크립트 소스, URL, 저장소, 응답 본문에 노출하지 않는다.
