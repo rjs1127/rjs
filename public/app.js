@@ -11019,6 +11019,49 @@ function drawTerrazzo(c,w,h){
 
 // v10.10: Gemini 신규 4종. 썸네일 CSS와 최종 Canvas를 최대한 맞추기 위해
 // 전용 렌더러를 추가하되, 기존 글꼴 선택/저장/복사/관리자 갤러리 경로는 유지한다.
+// v10.28: independent-preset text controls use the existing Canvas renderers.
+// Default settings follow their original paths to preserve their existing output.
+function getReaderShareCustomQuoteBox(model, width, height, x, y, w, h) {
+  const dx = Number(model.paddingX || 0) * width / 100;
+  const dy = Number(model.paddingY || 0) * height / 100;
+  if (!dx && !dy) return { x, y, w, h };
+  // Preserve the renderer's unique panel and protect at least one line of space.
+  return { x: x + dx, y: y + dy, w: Math.max(width * .22, w - 2 * dx), h: Math.max(height * .12, h - 2 * dy) };
+}
+function getReaderShareCustomLineHeight(model, originalMultiplier) {
+  // Each artistic preset has its own default rhythm. Keep that rhythm at 1.42.
+  return originalMultiplier * (Number(model.lineHeightMult || 1.42) / 1.42);
+}
+function getReaderShareCustomLetterSpacing(model, width) {
+  return Number(model.letterSpacingPx || 0) * width / 380;
+}
+function readerShareCustomSupportsNativeSpacing(ctx) {
+  return Boolean(ctx && 'letterSpacing' in ctx);
+}
+function readerShareCustomMeasureText(ctx, str, spacing = 0) {
+  if (!spacing) return ctx.measureText(str).width;
+  return measureReaderShareTextWidth(ctx, str, spacing);
+}
+function readerShareCustomDrawText(ctx, str, x, y, spacing = 0) {
+  if (!spacing) { ctx.fillText(str, x, y); return; }
+  if (readerShareCustomSupportsNativeSpacing(ctx)) {
+    ctx.save();
+    ctx.letterSpacing = `${spacing}px`;
+    ctx.fillText(str, x, y);
+    ctx.restore();
+  } else {
+    drawReaderShareTextWithSpacing(ctx, str, x, y, { align: ctx.textAlign, letterSpacing: spacing });
+  }
+}
+// Used only by one multi-pass neon design on browsers without native Canvas spacing.
+// In that case the adjustment is disabled rather than multiplying draw calls.
+const READER_SHARE_NATIVE_SPACING_REQUIRED = new Set(['holographic-vaporwave', 'cyberpunk-hologram']);
+function readerShareCustomSpacingAllowed(key) {
+  if (!READER_SHARE_NATIVE_SPACING_REQUIRED.has(key)) return true;
+  try { return readerShareCustomSupportsNativeSpacing(document.createElement('canvas').getContext('2d')); }
+  catch (_) { return false; }
+}
+
 const READER_SHARE_GEMINI4 = (() => {
   const presets = [
     {
@@ -11083,8 +11126,8 @@ const READER_SHARE_GEMINI4 = (() => {
   function strokeRoundRect(ctx, x, y, width, height, radius, strokeStyle, lineWidth) {
     ctx.save(); rrPath(ctx, x, y, width, height, radius); ctx.strokeStyle = strokeStyle; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.restore();
   }
-  function makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap) {
-    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap);
+  function makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap, spacing = 0) {
+    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap, spacing);
     const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
     if (lines.length > maxLines) {
       lines = lines.slice(0, maxLines);
@@ -11093,9 +11136,9 @@ const READER_SHARE_GEMINI4 = (() => {
     }
     return lines;
   }
-  function drawLines(ctx, lines, x, y, lineHeight, align) {
+  function drawLines(ctx, lines, x, y, lineHeight, align, spacing = 0) {
     ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
-    for (const line of lines) { ctx.fillText(line, x, y); y += lineHeight; }
+    for (const line of lines) { readerShareCustomDrawText(ctx, line, x, y, spacing); y += lineHeight; }
   }
 
   function renderNeon(ctx, width, height, model) {
@@ -11135,12 +11178,15 @@ const READER_SHARE_GEMINI4 = (() => {
     }
     ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,.72)'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'right'; ctx.fillText(brand, panelX + panelW - 40 * scale, panelY + 36 * scale);
-    const quoteBoxX = panelX + 52 * scale, quoteBoxY = panelY + panelH * 0.27, quoteBoxW = panelW - 104 * scale, quoteBoxH = panelH * 0.43;
-    const fontSize = (model.sizePx * (width / 380)) * 1.08, lineHeight = fontSize * 1.42;
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height,
+      panelX + 52 * scale, panelY + panelH * 0.27, panelW - 104 * scale, panelH * 0.43);
+    const { x: quoteBoxX, y: quoteBoxY, w: quoteBoxW, h: quoteBoxH } = quoteBox;
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fontSize = (model.sizePx * (width / 380)) * 1.08, lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.42);
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap, spacing);
     const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
-    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.shadowColor = 'rgba(0,240,255,.6)'; ctx.shadowBlur = 12 * scale; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left'); ctx.shadowBlur = 0;
+    ctx.fillStyle = '#ffffff'; ctx.textAlign = 'left'; ctx.shadowColor = 'rgba(0,240,255,.6)'; ctx.shadowBlur = 12 * scale; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left', spacing); ctx.shadowBlur = 0;
     const footerY = panelY + panelH - 86 * scale;
     ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(panelX + 40 * scale, footerY - 26 * scale); ctx.lineTo(panelX + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
     ctx.fillStyle = '#ffffff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, panelX + 40 * scale, footerY);
@@ -11161,12 +11207,14 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad, pad + 6 * scale);
     const stampX = width - pad - 62 * scale, stampY = pad;
     ctx.strokeStyle = '#a33223'; ctx.lineWidth = 3 * scale; ctx.strokeRect(stampX, stampY, 60 * scale, 60 * scale); ctx.fillStyle = '#a33223'; ctx.font = `700 ${20 * scale}px ${quoteFont}`; ctx.fillText('餘白', stampX + 10 * scale, stampY + 16 * scale);
-    const quoteBoxX = pad, quoteBoxY = height * 0.3, quoteBoxW = width - pad * 2, quoteBoxH = height * 0.42;
-    const fontSize = (model.sizePx * (width / 380)) * 1.02, lineHeight = fontSize * 1.7;
+    const { x: quoteBoxX, y: quoteBoxY, w: quoteBoxW, h: quoteBoxH } =
+      getReaderShareCustomQuoteBox(model, width, height, pad, height * 0.3, width - pad * 2, height * 0.42);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fontSize = (model.sizePx * (width / 380)) * 1.02, lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.7);
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap);
+    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap, spacing);
     const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
-    ctx.fillStyle = '#22201f'; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left');
+    ctx.fillStyle = '#22201f'; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left', spacing);
     ctx.strokeStyle = 'rgba(60,50,40,.2)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(pad, height - pad - 90 * scale); ctx.lineTo(width - pad, height - pad - 90 * scale); ctx.stroke();
     ctx.fillStyle = '#1a1817'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, pad, height - pad - 54 * scale); ctx.fillStyle = '#59534e'; ctx.font = `500 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad, height - pad - 16 * scale);
   }
@@ -11186,7 +11234,13 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText(brand, width - frame - 40 * scale, headerY - 52 * scale);
     const blockX = frame + 50 * scale, blockY = height * 0.28, blockW = width - frame * 2 - 100 * scale, blockH = height * 0.45; ctx.fillStyle = '#ffffff'; ctx.fillRect(blockX, blockY, blockW, blockH); ctx.lineWidth = 3 * scale; ctx.strokeStyle = '#111111'; ctx.strokeRect(blockX, blockY, blockW, blockH); ctx.fillStyle = '#d9381e'; ctx.fillRect(blockX, blockY, 18 * scale, blockH);
-    const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * 1.38; ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, quote, blockW - 80 * scale, lineHeight, blockH - 80 * scale, model.autoWrap); drawLines(ctx, lines, blockX + 50 * scale, blockY + 56 * scale, lineHeight, 'left');
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height,
+      blockX + 50 * scale, blockY + 56 * scale, blockW - 80 * scale, blockH - 80 * scale);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fontSize = (model.sizePx * (width / 380)) * 1.06, lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.38);
+    ctx.fillStyle = '#111111'; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, quote, quoteBox.w, lineHeight, quoteBox.h, model.autoWrap, spacing);
+    drawLines(ctx, lines, quoteBox.x, quoteBox.y, lineHeight, 'left', spacing);
     const footerY = height - frame - 110 * scale; ctx.beginPath(); ctx.moveTo(frame, footerY); ctx.lineTo(width - frame, footerY); ctx.stroke();
     ctx.fillStyle = '#111111'; ctx.font = `900 ${32 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, frame + 40 * scale, footerY + 18 * scale); ctx.fillStyle = '#555555'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', frame + 40 * scale, footerY + 56 * scale); ctx.fillStyle = '#111111';
     const badgeX = width - frame - 140 * scale, badgeY = footerY + 4 * scale;
@@ -11216,8 +11270,21 @@ const READER_SHARE_GEMINI4 = (() => {
     ctx.restore();
     ctx.fillStyle = '#ff007f'; ctx.font = `800 ${26 * scale}px Pretendard, sans-serif`;
     ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad + panelW - 40 * scale, pad + 34 * scale);
-    const quoteX = pad + 50 * scale, quoteY = pad + panelH * 0.28, maxW = panelW - 100 * scale; const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * 1.45; ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`; const lines = makeLines(ctx, quote, maxW, lineHeight, panelH * 0.42, model.autoWrap); const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (panelH * 0.42 - totalHeight) / 2); ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (const line of lines) { ctx.fillStyle = 'rgba(0,240,255,.8)'; ctx.fillText(line, quoteX - 3 * scale, y); ctx.fillStyle = 'rgba(255,0,128,.8)'; ctx.fillText(line, quoteX + 3 * scale, y); ctx.fillStyle = '#ffffff'; ctx.fillText(line, quoteX, y); y += lineHeight; }
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height,
+      pad + 50 * scale, pad + panelH * 0.28, panelW - 100 * scale, panelH * 0.42);
+    const { x: quoteX, y: quoteY, w: maxW, h: quoteH } = quoteBox;
+    const spacing = readerShareCustomSpacingAllowed('cyberpunk-hologram') ? getReaderShareCustomLetterSpacing(model, width) : 0;
+    const fontSize = (model.sizePx * (width / 380)) * 1.05, lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.45);
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, quote, maxW, lineHeight, quoteH, model.autoWrap, spacing);
+    const totalHeight = lines.length * lineHeight; let y = quoteY + Math.max(0, (quoteH - totalHeight) / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const line of lines) {
+      ctx.fillStyle = 'rgba(0,240,255,.8)'; readerShareCustomDrawText(ctx, line, quoteX - 3 * scale, y, spacing);
+      ctx.fillStyle = 'rgba(255,0,128,.8)'; readerShareCustomDrawText(ctx, line, quoteX + 3 * scale, y, spacing);
+      ctx.fillStyle = '#ffffff'; readerShareCustomDrawText(ctx, line, quoteX, y, spacing);
+      y += lineHeight;
+    }
     const footerY = pad + panelH - 88 * scale; ctx.strokeStyle = 'rgba(0,240,255,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(pad + 40 * scale, footerY - 26 * scale); ctx.lineTo(pad + panelW - 40 * scale, footerY - 26 * scale); ctx.stroke();
     ctx.fillStyle = '#00f0ff'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(title, pad + 40 * scale, footerY); ctx.fillStyle = '#ff77c2'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad + 40 * scale, footerY + 36 * scale);
     const badgeX = pad + panelW - 140 * scale, badgeY = footerY - 8 * scale;
@@ -11294,8 +11361,8 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
   function fillRoundRect2(ctx, x, y, width, height, radius, fillStyle) {
     ctx.save(); rrPath2(ctx, x, y, width, height, radius); ctx.fillStyle = fillStyle; ctx.fill(); ctx.restore();
   }
-  function makeLines2(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap) {
-    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap);
+  function makeLines2(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap, spacing = 0) {
+    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap, spacing);
     const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
     if (lines.length > maxLines) {
       lines = lines.slice(0, maxLines);
@@ -11304,9 +11371,9 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     }
     return lines;
   }
-  function drawLines2(ctx, lines, x, y, lineHeight, align) {
+  function drawLines2(ctx, lines, x, y, lineHeight, align, spacing = 0) {
     ctx.textAlign = align || 'left'; ctx.textBaseline = 'top';
-    for (const line of lines) { ctx.fillText(line, x, y); y += lineHeight; }
+    for (const line of lines) { readerShareCustomDrawText(ctx, line, x, y, spacing); y += lineHeight; }
   }
   function metaLine(model) {
     const author = String(model.item?.author || '').trim() || '작자 미상';
@@ -11353,15 +11420,17 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     ctx.fillStyle = '#80f0ff';
     ctx.beginPath(); ctx.arc(padX + innerW - 35 * scale, padY + 45 * scale, 7 * scale, 0, Math.PI * 2); ctx.fill();
 
-    const quoteMaxW = innerW - 72 * scale;
-    const quoteBoxH = innerH * 0.45;
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height,
+      padX + 36 * scale, padY + innerH * 0.3, innerW - 72 * scale, innerH * 0.45);
+    const quoteMaxW = quoteBox.w, quoteBoxH = quoteBox.h;
+    const spacing = readerShareCustomSpacingAllowed('holographic-vaporwave') ? getReaderShareCustomLetterSpacing(model, width) : 0;
     const fontSize = (model.sizePx * (width / 380)) * 1.04;
-    const lineHeight = fontSize * 1.56;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.56);
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap);
+    const lines = makeLines2(ctx, quote, quoteMaxW, lineHeight, quoteBoxH, model.autoWrap, spacing);
     const quoteBlockH = Math.max(lineHeight, lines.length * lineHeight);
-    let y = padY + innerH * 0.3 + Math.max(0, (quoteBoxH - quoteBlockH) / 2);
-    const x = model.textAlign === 'left' ? padX + 36 * scale : model.textAlign === 'right' ? padX + innerW - 36 * scale : width / 2;
+    let y = quoteBox.y + Math.max(0, (quoteBoxH - quoteBlockH) / 2);
+    const x = model.textAlign === 'left' ? quoteBox.x : model.textAlign === 'right' ? quoteBox.x + quoteBox.w : width / 2;
     const textGradient = ctx.createLinearGradient(0, y, 0, y + quoteBlockH);
     textGradient.addColorStop(0, '#f7fdff');
     textGradient.addColorStop(0.18, '#d7f8ff');
@@ -11377,27 +11446,27 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
       ctx.shadowBlur = 0;
       ctx.shadowColor = 'transparent';
       ctx.fillStyle = 'rgba(0,0,0,.92)';
-      ctx.fillText(line, x + 2.4 * scale, y + 1.8 * scale);
+      readerShareCustomDrawText(ctx, line, x + 2.4 * scale, y + 1.8 * scale, spacing);
       ctx.fillStyle = 'rgba(8, 12, 26, .72)';
-      ctx.fillText(line, x + 1.2 * scale, y + 0.95 * scale);
+      readerShareCustomDrawText(ctx, line, x + 1.2 * scale, y + 0.95 * scale, spacing);
 
       ctx.fillStyle = textGradient;
       ctx.shadowColor = 'rgba(0,240,255,.85)';
       ctx.shadowBlur = 16 * scale;
-      ctx.fillText(line, x, y);
+      readerShareCustomDrawText(ctx, line, x, y, spacing);
       ctx.shadowColor = 'rgba(255,0,128,.44)';
       ctx.shadowBlur = 26 * scale;
-      ctx.fillText(line, x, y);
+      readerShareCustomDrawText(ctx, line, x, y, spacing);
       ctx.shadowBlur = 0;
       ctx.fillStyle = textGradient;
-      ctx.fillText(line, x, y);
+      readerShareCustomDrawText(ctx, line, x, y, spacing);
 
       const topSheen = ctx.createLinearGradient(0, y, 0, y + lineHeight);
       topSheen.addColorStop(0, 'rgba(255,255,255,.36)');
       topSheen.addColorStop(0.35, 'rgba(255,255,255,.10)');
       topSheen.addColorStop(1, 'rgba(255,255,255,0)');
       ctx.fillStyle = topSheen;
-      ctx.fillText(line, x, y);
+      readerShareCustomDrawText(ctx, line, x, y, spacing);
       y += lineHeight;
     }
     ctx.restore();
@@ -11434,13 +11503,15 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     ctx.fillText(brand.toUpperCase(), width / 2, pad);
     ctx.strokeStyle = 'rgba(44,62,53,.3)'; ctx.lineWidth = 1.2 * scale; ctx.beginPath(); ctx.moveTo(width / 2 - 42 * scale, pad + 34 * scale); ctx.lineTo(width / 2 + 42 * scale, pad + 34 * scale); ctx.stroke();
 
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, pad, height * 0.36, width - pad * 2, height * 0.42);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
     const fontSize = (model.sizePx * (width / 380)) * 1.03;
-    const lineHeight = fontSize * 1.62;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.62);
     ctx.font = `italic ${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines2(ctx, quote, width - pad * 2, lineHeight, height * 0.42, model.autoWrap);
-    let y = height * 0.36 + Math.max(0, (height * 0.42 - lines.length * lineHeight) / 2);
+    const lines = makeLines2(ctx, quote, quoteBox.w, lineHeight, quoteBox.h, model.autoWrap, spacing);
+    let y = quoteBox.y + Math.max(0, (quoteBox.h - lines.length * lineHeight) / 2);
     ctx.fillStyle = '#1c2822';
-    drawLines2(ctx, lines, model.textAlign === 'left' ? pad : model.textAlign === 'right' ? width - pad : width / 2, y, lineHeight, model.textAlign || 'center');
+    drawLines2(ctx, lines, model.textAlign === 'left' ? quoteBox.x : model.textAlign === 'right' ? quoteBox.x + quoteBox.w : width / 2, y, lineHeight, model.textAlign || 'center', spacing);
 
     ctx.strokeStyle = 'rgba(44,62,53,.3)'; ctx.beginPath(); ctx.moveTo(width / 2 - 42 * scale, height - pad - 38 * scale); ctx.lineTo(width / 2 + 42 * scale, height - pad - 38 * scale); ctx.stroke();
     ctx.font = `italic 600 ${21 * scale}px ${playfair}`; ctx.fillStyle = '#5c4033'; ctx.textAlign = 'center';
@@ -11476,11 +11547,14 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     ctx.fillText('ONLINE', width - pad - 14 * scale, pad + 10 * scale);
     ctx.beginPath(); ctx.fillStyle = '#00ff88'; ctx.arc(width - pad - 118 * scale, pad + 20 * scale, 5 * scale, 0, Math.PI * 2); ctx.fill();
 
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height,
+      pad + 15 * scale, height * 0.34, width - pad * 2 - 30 * scale, height * 0.44);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
     const fontSize = (model.sizePx * (width / 380)) * 1.02;
-    const lineHeight = fontSize * 1.54;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.54);
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines2(ctx, quote, width - pad * 2 - 30 * scale, lineHeight, height * 0.44, model.autoWrap);
-    let y = height * 0.34 + Math.max(0, (height * 0.44 - lines.length * lineHeight) / 2);
+    const lines = makeLines2(ctx, quote, quoteBox.w, lineHeight, quoteBox.h, model.autoWrap, spacing);
+    let y = quoteBox.y + Math.max(0, (quoteBox.h - lines.length * lineHeight) / 2);
     // The editor's real model has no textAlign field. Previously x defaulted to
     // center while Canvas defaulted to LEFT, pushing every line off the right edge.
     // Match the common quote renderer: center-align inside the measured safe width.
@@ -11488,7 +11562,7 @@ const READER_SHARE_GEMINI_SELECT3 = (() => {
     ctx.textAlign = 'center';
     for (const line of lines) {
       ctx.textBaseline = 'top';
-      ctx.fillStyle = '#00ff88'; ctx.shadowColor = 'rgba(0,255,136,.65)'; ctx.shadowBlur = 14 * scale; ctx.fillText(line, x, y);
+      ctx.fillStyle = '#00ff88'; ctx.shadowColor = 'rgba(0,255,136,.65)'; ctx.shadowBlur = 14 * scale; readerShareCustomDrawText(ctx, line, x, y, spacing);
       y += lineHeight;
     }
     ctx.shadowBlur = 0;
@@ -11600,13 +11674,13 @@ const READER_SHARE_GEMINI_OS70_72 = (() => {
       ctx.fillRect(x,h-(heights[i]-40)*u,8*u,16*u);
     }
   }
-  function textLines(ctx, value, maxWidth, lineHeight, maxHeight, autoWrap) {
-    const lines = fitShareLinesToWidth(ctx, value, maxWidth, autoWrap);
+  function textLines(ctx, value, maxWidth, lineHeight, maxHeight, autoWrap, spacing = 0) {
+    const lines = fitShareLinesToWidth(ctx, value, maxWidth, autoWrap, spacing);
     const count = Math.max(1, Math.floor(maxHeight / lineHeight));
     if(lines.length <= count) return lines;
     const shown=lines.slice(0,count);
     const last=count-1;
-    while(shown[last] && ctx.measureText(shown[last]+'…').width > maxWidth) shown[last]=shown[last].slice(0,-1);
+    while(shown[last] && readerShareCustomMeasureText(ctx, shown[last]+'…', spacing) > maxWidth) shown[last]=shown[last].slice(0,-1);
     shown[last]=shown[last].replace(/[\s.…]+$/u,'')+'…';
     return shown;
   }
@@ -11650,16 +11724,18 @@ const READER_SHARE_GEMINI_OS70_72 = (() => {
     const quoteTop=panelY+158*u;
     const footerTop=panelY+panelH-131*u;
     const contentH=Math.max(70*u,footerTop-quoteTop-22*u);
+    const quoteBox=getReaderShareCustomQuoteBox(model,w,h,contentX,quoteTop,contentW,contentH);
+    const spacing=getReaderShareCustomLetterSpacing(model,w);
     const fontSize=Math.max(20*u, (Number(model.sizePx)||18)*(w/380));
     const fontWeight=model.fontWeight||model.font?.weight||500;
     const fontFamily=model.font?.css||'sans-serif';
-    const lineHeight=fontSize*1.48;
+    const lineHeight=fontSize*getReaderShareCustomLineHeight(model,1.48);
     ctx.font=`${fontWeight} ${fontSize}px ${fontFamily}`;
-    const lines=textLines(ctx,String(model.text||''),contentW,lineHeight,contentH,model.autoWrap);
-    let y=quoteTop+Math.max(0,(contentH-lines.length*lineHeight)/2);
+    const lines=textLines(ctx,String(model.text||''),quoteBox.w,lineHeight,quoteBox.h,model.autoWrap,spacing);
+    let y=quoteBox.y+Math.max(0,(quoteBox.h-lines.length*lineHeight)/2);
     ctx.save();ctx.globalAlpha=Number.isFinite(Number(model.textOpacity))?Number(model.textOpacity):1;
     ctx.textAlign='left';ctx.textBaseline='top';ctx.fillStyle=day?'#1e1b4b':'#0f172a';
-    for(const line of lines){ctx.fillText(line,contentX,y);y+=lineHeight;}ctx.restore();
+    for(const line of lines){readerShareCustomDrawText(ctx,line,quoteBox.x,y,spacing);y+=lineHeight;}ctx.restore();
 
     const footerY=panelY+panelH-97*u;
     ctx.strokeStyle=day?'rgba(136,19,55,.12)':'rgba(67,56,202,.14)';ctx.lineWidth=2*u;
@@ -11790,20 +11866,20 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
     }
     cloud(ctx, x + w * .7, y + h * .2, w * .16, h * .1, 'rgba(255,255,255,.75)');
   }
-  function fitQuote(ctx, text, maxWidth, maxHeight, maxFont, minFont, fontFamily, weight) {
+  function fitQuote(ctx, text, maxWidth, maxHeight, maxFont, minFont, fontFamily, weight, spacing, heightFactor) {
     for (let size = maxFont; size >= minFont; size -= 1) {
       ctx.font = `${weight} ${size}px ${fontFamily}`;
-      const lines = fitShareLinesToWidth(ctx, text, maxWidth, true);
-      const lineHeight = size * 1.4;
+      const lines = fitShareLinesToWidth(ctx, text, maxWidth, true, spacing);
+      const lineHeight = size * 1.4 * heightFactor;
       if (lines.length * lineHeight <= maxHeight) return { lines, lineHeight, size };
     }
     ctx.font = `${weight} ${minFont}px ${fontFamily}`;
-    const lineHeight = minFont * 1.4;
+    const lineHeight = minFont * 1.4 * heightFactor;
     const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
-    const lines = fitShareLinesToWidth(ctx, text, maxWidth, true).slice(0, maxLines);
+    const lines = fitShareLinesToWidth(ctx, text, maxWidth, true, spacing).slice(0, maxLines);
     if (lines.length) {
       let last = lines[lines.length - 1];
-      while (last.length && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+      while (last.length && readerShareCustomMeasureText(ctx, last + '…', spacing) > maxWidth) last = last.slice(0, -1);
       lines[lines.length - 1] = `${String(last).replace(/[\s.…]+$/u, '')}…`;
     }
     return { lines, lineHeight, size: minFont };
@@ -11844,12 +11920,20 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
     if (model.backgroundOnly === true) return;
     roundRect(ctx, ox + 38 * u, oy + 28 * u, 220 * u, 44 * u, 22 * u, '#7f719c', null, 0);
     ctx.fillStyle = '#fff'; ctx.font = `900 ${18 * u}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(brand, ox + 148 * u, oy + 56 * u);
-    const bodyX = panelX + panelW / 2, bodyY = panelY + 62 * u, bodyH = 510 * u;
+    const bodyBox = getReaderShareCustomQuoteBox(model, width, height,
+      panelX + (panelW - 825 * u) / 2, panelY + 62 * u, 825 * u, 510 * u);
+    // Limit movement to the illustrated quote panel: ornaments stay unobstructed.
+    bodyBox.x = Math.max(panelX + 20 * u, bodyBox.x);
+    bodyBox.w = Math.min(bodyBox.w, panelX + panelW - 20 * u - bodyBox.x);
+    bodyBox.y = Math.max(panelY + 22 * u, bodyBox.y);
+    bodyBox.h = Math.min(bodyBox.h, panelY + panelH - 90 * u - bodyBox.y);
+    const bodyX = bodyBox.x + bodyBox.w / 2, bodyY = bodyBox.y, bodyH = bodyBox.h;
     const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Math.max(500, Number(model.fontWeight || model.font?.weight || 700));
-    const fit = fitQuote(ctx, quote, 825 * u, bodyH, 53 * u, 27 * u, family, weight);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fit = fitQuote(ctx, quote, bodyBox.w, bodyH, 53 * u, 27 * u, family, weight, spacing, getReaderShareCustomLineHeight(model, 1));
     ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#4f577e';
     let qy = bodyY + Math.max(0, (bodyH - fit.lines.length * fit.lineHeight) / 2);
-    for (const line of fit.lines) { ctx.fillText(line, bodyX, qy); qy += fit.lineHeight; }
+    for (const line of fit.lines) { readerShareCustomDrawText(ctx, line, bodyX, qy, spacing); qy += fit.lineHeight; }
     ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right'; ctx.fillStyle = '#746d8d'; ctx.font = `800 ${19 * u}px ${family}`; ctx.fillText(fitCredit(ctx, credit, 815 * u), panelX + panelW - 48 * u, panelY + panelH - 45 * u);
   }
   return { presets: [preset], renderers: { 'pastel-pixel-folder-ui': draw } };
@@ -15720,6 +15804,14 @@ function updateReaderSharePreview() {
   if (ui.lineHeightValue) ui.lineHeightValue.textContent = formatReaderShareRangeValue(state.readerShareLineHeight, { zeroLabel: '1.42', digits: 2 });
   if (ui.paddingXValue) ui.paddingXValue.textContent = formatReaderShareRangeValue(state.readerSharePaddingX, { zeroLabel: '기본', plusPrefix: true });
   if (ui.paddingYValue) ui.paddingYValue.textContent = formatReaderShareRangeValue(state.readerSharePaddingY, { zeroLabel: '기본', plusPrefix: true });
+  // This multi-pass text effect only supports variable tracking with native Canvas spacing.
+  const presetKey = getReaderShareBackgroundKey(background);
+  const spacingSupported = readerShareCustomSpacingAllowed(presetKey);
+  if (ui.letterSpacingInput) {
+    ui.letterSpacingInput.disabled = !spacingSupported;
+    ui.letterSpacingInput.title = spacingSupported ? '' : '이 브라우저에서는 이 프리셋의 자간 효과를 안전하게 지원하지 않습니다';
+  }
+  if (ui.letterSpacingValue && !spacingSupported) ui.letterSpacingValue.textContent = '지원 안 함';
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
   if (ui.card) ui.card.classList.add("is-render-loading");
