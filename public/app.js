@@ -11671,6 +11671,242 @@ const READER_SHARE_GEMINI_OS70_72 = (() => {
   };
 })();
 
+// v10.22 — Preset A only: user-approved pastel pixel folder UI.
+// The CSS thumbnail stays compact, but the final exported/shared image uses
+// the dedicated Canvas renderer below as the source of truth.
+const READER_SHARE_PIXEL_FOLDER_A = (() => {
+  const preset = {
+    name: '파스텔 픽셀 폴더 UI',
+    key: 'pastel-pixel-folder-ui',
+    defaultVisible: false,
+    text: '#4f577e',
+    meta: '#746d8d',
+    accent: '#7f719c',
+    background: '',
+  };
+
+  function thumbSVG() {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#8fc4ef"/>
+          <stop offset=".34" stop-color="#8fc4ef"/>
+          <stop offset=".34" stop-color="#a9c6f0"/>
+          <stop offset=".62" stop-color="#a9c6f0"/>
+          <stop offset=".62" stop-color="#bfc7f4"/>
+          <stop offset="1" stop-color="#d6c9f4"/>
+        </linearGradient>
+      </defs>
+      <rect width="1200" height="1200" fill="url(#bg)"/>
+      <g opacity=".78">
+        <rect x="0" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="85.714" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="171.428" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="257.142" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="342.856" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="428.57" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="514.284" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="599.998" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="685.712" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="771.426" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="857.14" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="942.854" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+        <rect x="1028.568" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
+        <rect x="1114.282" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
+      </g>
+      <g fill="#eef5ff" opacity=".9">
+        <path d="M265 61h167c30 0 54 21 60 49h-35c-2-12-12-21-24-21H313c-13 0-24 10-25 22h-38c6-28 30-50 61-50Z"/>
+        <path d="M840 82h190c34 0 62 24 69 57h-39c-2-15-15-26-31-26H891c-16 0-29 10-33 25h-39c8-33 37-56 72-56Z"/>
+      </g>
+      <g>
+        <rect x="221" y="256" width="700" height="360" rx="22" fill="url(#folderA)" stroke="#7a6e98" stroke-width="4"/>
+        <defs>
+          <linearGradient id="folderA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f9e8c9"/><stop offset="1" stop-color="#f5cfda"/></linearGradient>
+          <linearGradient id="folderB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#aedaef"/><stop offset="1" stop-color="#c5f0e2"/></linearGradient>
+          <linearGradient id="folderC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bebcf2"/><stop offset="1" stop-color="#d9cdf8"/></linearGradient>
+        </defs>
+        <rect x="221" y="228" width="336" height="60" rx="18" fill="url(#folderA)" stroke="#7a6e98" stroke-width="4"/>
+        <rect x="249" y="281" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
+        <rect x="247" y="548" width="700" height="360" rx="22" fill="url(#folderB)" stroke="#7a6e98" stroke-width="4"/>
+        <rect x="247" y="520" width="336" height="60" rx="18" fill="url(#folderB)" stroke="#7a6e98" stroke-width="4"/>
+        <rect x="275" y="573" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
+        <rect x="221" y="834" width="700" height="312" rx="22" fill="url(#folderC)" stroke="#7a6e98" stroke-width="4"/>
+        <rect x="221" y="806" width="336" height="60" rx="18" fill="url(#folderC)" stroke="#7a6e98" stroke-width="4"/>
+        <rect x="249" y="859" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
+      </g>
+      <rect x="120" y="335" width="960" height="675" rx="28" fill="rgba(255,255,255,.92)" stroke="rgba(255,255,255,.98)" stroke-width="4"/>
+      <rect x="135" y="350" width="930" height="645" rx="20" fill="rgba(255,248,255,.55)"/>
+      <rect x="38" y="28" width="220" height="44" rx="22" fill="#7f719c"/>
+      <text x="148" y="56" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">셩냥책</text>
+      <g font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#ffe8f6" opacity=".92">
+        <text x="140" y="365">✦</text><text x="850" y="820">✦</text><text x="900" y="175">✦</text><text x="490" y="155">✦</text><text x="120" y="930">✦</text>
+      </g>
+      <g>
+        <rect x="55" y="112" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
+        <text x="75" y="140" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">✦</text>
+        <text x="275" y="140" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
+        <rect x="55" y="420" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
+        <text x="75" y="448" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">♫</text>
+        <text x="275" y="448" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
+        <rect x="825" y="840" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
+        <text x="845" y="868" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">♫</text>
+        <text x="1045" y="868" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
+      </g>
+    </svg>`;
+  }
+  preset.background = `url("data:image/svg+xml,${encodeURIComponent(thumbSVG())}") center/100% 100% no-repeat`;
+
+  function roundRect(ctx, x, y, w, h, r, fill, stroke, sw = 0) {
+    const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.arcTo(x + w, y, x + w, y + h, radius);
+    ctx.arcTo(x + w, y + h, x, y + h, radius);
+    ctx.arcTo(x, y + h, x, y, radius);
+    ctx.arcTo(x, y, x + w, y, radius);
+    ctx.closePath();
+    if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+    if (stroke && sw) { ctx.strokeStyle = stroke; ctx.lineWidth = sw; ctx.stroke(); }
+  }
+  function cloud(ctx, x, y, w, h, color) {
+    ctx.save();
+    ctx.fillStyle = color;
+    roundRect(ctx, x + w * .1, y + h * .28, w * .8, h * .46, h * .22, color, null, 0);
+    ctx.beginPath();
+    ctx.arc(x + w * .36, y + h * .32, h * .28, 0, Math.PI * 2);
+    ctx.arc(x + w * .56, y + h * .24, h * .34, 0, Math.PI * 2);
+    ctx.arc(x + w * .72, y + h * .34, h * .26, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  function spark(ctx, x, y, s, color) {
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = color; ctx.beginPath();
+    ctx.moveTo(0, -s); ctx.lineTo(s * .28, -s * .28); ctx.lineTo(s, 0); ctx.lineTo(s * .28, s * .28);
+    ctx.lineTo(0, s); ctx.lineTo(-s * .28, s * .28); ctx.lineTo(-s, 0); ctx.lineTo(-s * .28, -s * .28);
+    ctx.closePath(); ctx.fill(); ctx.restore();
+  }
+  function stickerCircle(ctx, x, y, r, fill, face = false) {
+    ctx.save();
+    ctx.fillStyle = '#fff8fb'; ctx.strokeStyle = 'rgba(182,159,199,.95)'; ctx.lineWidth = r * .14;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = fill; ctx.beginPath(); ctx.arc(x, y, r * .72, 0, Math.PI * 2); ctx.fill();
+    if (face) {
+      ctx.fillStyle = '#7b625b';
+      ctx.beginPath(); ctx.arc(x - r * .18, y - r * .06, r * .07, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(x + r * .18, y - r * .06, r * .07, 0, Math.PI * 2); ctx.fill();
+      ctx.lineWidth = r * .08; ctx.beginPath(); ctx.arc(x, y + r * .08, r * .2, 0.1, Math.PI - 0.1); ctx.stroke();
+    }
+    ctx.restore();
+  }
+  function tinyPill(ctx, x, y, w, h, label) {
+    roundRect(ctx, x, y, w, h, 9, 'rgba(255,255,255,.45)', 'rgba(131,116,160,.75)', 3);
+    ctx.fillStyle = '#7a6f98'; ctx.font = `700 ${Math.max(10, h * .36)}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(label, x + w / 2, y + h * .54);
+  }
+  function folderSticker(ctx, x, y, r, kind, color) {
+    if (kind === 'flower') {
+      for (let i = 0; i < 6; i++) { const a = Math.PI * 2 * i / 6; stickerCircle(ctx, x + Math.cos(a) * r * .38, y + Math.sin(a) * r * .38, r * .32, '#fff7fb'); }
+      stickerCircle(ctx, x, y, r * .28, color || '#ffdf87');
+    } else if (kind === 'sun') {
+      for (let i = 0; i < 8; i++) { const a = Math.PI * 2 * i / 8; stickerCircle(ctx, x + Math.cos(a) * r * .48, y + Math.sin(a) * r * .48, r * .22, '#fff5df'); }
+      stickerCircle(ctx, x, y, r * .36, color || '#f6d46d', true);
+    } else if (kind === 'heart') {
+      ctx.save(); ctx.translate(x, y); ctx.fillStyle = color || '#ffb2d2'; ctx.beginPath();
+      ctx.moveTo(0, r * .42); ctx.bezierCurveTo(r * .7, -.12 * r, r * .86, -.78 * r, 0, -.22 * r); ctx.bezierCurveTo(-.86 * r, -.78 * r, -.7 * r, -.12 * r, 0, r * .42); ctx.fill(); ctx.restore();
+    } else if (kind === 'butterfly') {
+      ctx.save(); ctx.translate(x, y); ctx.fillStyle = color || '#f4a6da'; ctx.beginPath();
+      ctx.ellipse(-r * .25, -r * .05, r * .28, r * .38, -.45, 0, Math.PI * 2);
+      ctx.ellipse(r * .25, -r * .05, r * .28, r * .38, .45, 0, Math.PI * 2);
+      ctx.ellipse(-r * .22, r * .25, r * .25, r * .3, .4, 0, Math.PI * 2);
+      ctx.ellipse(r * .22, r * .25, r * .25, r * .3, -.4, 0, Math.PI * 2);
+      ctx.fill(); ctx.fillStyle = '#6d5d86'; roundRect(ctx, -r * .05, -r * .34, r * .1, r * .82, r * .05, '#6d5d86', null, 0); ctx.restore();
+    }
+  }
+  function drawFolder(ctx, x, y, w, h, colors, leftBtn, rightBtn, stickers) {
+    const grad = ctx.createLinearGradient(x, y, x, y + h); grad.addColorStop(0, colors[0]); grad.addColorStop(1, colors[1]);
+    roundRect(ctx, x, y, w, h, 22, grad, 'rgba(122,110,152,.85)', 4);
+    roundRect(ctx, x, y - 28, w * .48, 60, 18, grad, 'rgba(122,110,152,.85)', 4);
+    roundRect(ctx, x + w * .04, y + h * .07, w * .78, h * .08, 6, 'rgba(255,255,255,.92)', 'rgba(122,110,152,.75)', 2.5);
+    for (const s of stickers) folderSticker(ctx, x + w * s.x, y + h * s.y, h * .12, s.kind, s.color);
+    spark(ctx, x + w * .09, y + h * .12, h * .09, '#f9d6de'); spark(ctx, x + w * .16, y + h * .1, h * .08, '#f9d6ef');
+    tinyPill(ctx, x + w * .73, y + h * .78, w * .11, h * .09, leftBtn); tinyPill(ctx, x + w * .85, y + h * .78, w * .11, h * .09, rightBtn);
+  }
+  function miniWindow(ctx, x, y, w, h, iconKind) {
+    roundRect(ctx, x, y, w, h, 18, 'rgba(251,217,240,.72)', 'rgba(125,101,160,.78)', 4);
+    ctx.fillStyle = '#7b6b9e'; ctx.textBaseline='alphabetic'; ctx.font = `700 ${Math.max(16, w * .09)}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(iconKind === 'phone' ? '✦' : '♫', x + w * .08, y + h * .14); ctx.textAlign = 'right'; ctx.fillText('_ ⨯', x + w * .9, y + h * .14);
+    const cx = x + w * .5, cy = y + h * .58;
+    if (iconKind === 'phone') {
+      ctx.save(); ctx.translate(cx, cy); ctx.rotate(-.2); roundRect(ctx, -w * .16, -h * .2, w * .24, h * .4, 18, '#c8b8ff', '#8f82be', 4); roundRect(ctx, -w * .11, -h * .14, w * .14, h * .1, 8, '#fff2c7', null, 0); ctx.fillStyle = '#a290df';
+      for (let row = 0; row < 3; row++) for (let col = 0; col < 3; col++) roundRect(ctx, -w * .1 + col * w * .06, -h * .01 + row * h * .055, w * .036, h * .034, 6, '#a290df', null, 0);
+      ctx.restore();
+    } else {
+      ctx.strokeStyle = '#a38ed5'; ctx.lineWidth = 5; ctx.fillStyle = '#f5f3ff'; ctx.beginPath(); ctx.arc(cx, cy, w * .17, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, w * .045, 0, Math.PI * 2); ctx.stroke(); cloud(ctx, x + w * .64, y + h * .58, w * .22, h * .12, 'rgba(255,255,255,.8)');
+    }
+    cloud(ctx, x + w * .7, y + h * .2, w * .16, h * .1, 'rgba(255,255,255,.75)');
+  }
+  function fitQuote(ctx, text, maxWidth, maxHeight, maxFont, minFont, fontFamily, weight) {
+    for (let size = maxFont; size >= minFont; size -= 1) {
+      ctx.font = `${weight} ${size}px ${fontFamily}`;
+      const lines = fitShareLinesToWidth(ctx, text, maxWidth, true);
+      const lineHeight = size * 1.4;
+      if (lines.length * lineHeight <= maxHeight) return { lines, lineHeight, size };
+    }
+    ctx.font = `${weight} ${minFont}px ${fontFamily}`;
+    const lineHeight = minFont * 1.4;
+    const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+    const lines = fitShareLinesToWidth(ctx, text, maxWidth, true).slice(0, maxLines);
+    if (lines.length) {
+      let last = lines[lines.length - 1];
+      while (last.length && ctx.measureText(last + '…').width > maxWidth) last = last.slice(0, -1);
+      lines[lines.length - 1] = `${String(last).replace(/[\s.…]+$/u, '')}…`;
+    }
+    return { lines, lineHeight, size: minFont };
+  }
+  function fitCredit(ctx, text, maxWidth) {
+    let v = String(text || ''); if (ctx.measureText(v).width <= maxWidth) return v;
+    while (v.length && ctx.measureText(v + '…').width > maxWidth) v = v.slice(0, -1); return `${v.replace(/[\s.…]+$/u, '')}…`;
+  }
+  function draw(ctx, width, height, model) {
+    const quote = String(model.text || '');
+    const title = String(model.item?.title || '').trim() || '제목 정보 없음';
+    const author = String(model.item?.author || '').trim() || '작자 미상';
+    const credit = `${author} 『${title}』`;
+    const brand = String(model.brand || '셩냥책');
+    const square = width; const ox = 0; const oy = Math.max(0, (height - square) / 2); const u = square / 1200;
+    const bg = ctx.createLinearGradient(0, oy, 0, oy + square);
+    bg.addColorStop(0, '#8fc4ef'); bg.addColorStop(.34, '#8fc4ef'); bg.addColorStop(.34, '#a9c6f0'); bg.addColorStop(.62, '#a9c6f0'); bg.addColorStop(.62, '#bfc7f4'); bg.addColorStop(1, '#d6c9f4');
+    ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+    for (let i = 0; i < 14; i++) {
+      const x = i * (width / 14);
+      ctx.fillStyle = i % 2 === 0 ? 'rgba(255,255,255,.58)' : 'rgba(252,232,242,.6)';
+      ctx.fillRect(x, 0, width / 28, height);
+    }
+    cloud(ctx, ox + 275 * u, oy + 20 * u, 220 * u, 70 * u, 'rgba(233,244,255,.85)');
+    cloud(ctx, ox + 820 * u, oy + 45 * u, 260 * u, 92 * u, 'rgba(231,240,255,.8)');
+    cloud(ctx, ox - 20 * u, oy + 1060 * u, 260 * u, 90 * u, 'rgba(240,245,255,.52)');
+    spark(ctx, ox + 140 * u, oy + 365 * u, 16 * u, '#ffe1f0'); spark(ctx, ox + 850 * u, oy + 820 * u, 16 * u, '#ffdff1'); spark(ctx, ox + 900 * u, oy + 175 * u, 14 * u, '#fff09d'); spark(ctx, ox + 490 * u, oy + 155 * u, 12 * u, '#ffe9f5'); spark(ctx, ox + 120 * u, oy + 930 * u, 13 * u, '#ffe8f6');
+    drawFolder(ctx, ox + 220 * u, oy + 255 * u, 700 * u, 360 * u, ['#f9e8c9', '#f5cfda'], 'SAVE', '♡', [{ kind: 'flower', x: .2, y: .36, color: '#af98f4' }, { kind: 'sun', x: .79, y: .22, color: '#f6d46d' }]);
+    drawFolder(ctx, ox + 220 * u, oy + 545 * u, 700 * u, 360 * u, ['#aedaef', '#c5f0e2'], 'LOAD', '♡', [{ kind: 'flower', x: .18, y: .58, color: '#f4a4dd' }, { kind: 'sun', x: .79, y: .3, color: '#e5a3eb' }]);
+    drawFolder(ctx, ox + 220 * u, oy + 835 * u, 700 * u, 310 * u, ['#bebcf2', '#d9cdf8'], 'LOAD', 'MENU', [{ kind: 'heart', x: .12, y: .32, color: '#ffb2d2' }, { kind: 'sun', x: .22, y: .74, color: '#f0d278' }, { kind: 'butterfly', x: .78, y: .44, color: '#f4a6da' }]);
+    miniWindow(ctx, ox + 55 * u, oy + 112 * u, 255 * u, 210 * u, 'phone');
+    miniWindow(ctx, ox + 55 * u, oy + 420 * u, 255 * u, 210 * u, 'cd');
+    miniWindow(ctx, ox + 825 * u, oy + 840 * u, 255 * u, 210 * u, 'cd');
+    const panelX = ox + 120 * u, panelY = oy + 335 * u, panelW = 960 * u, panelH = 675 * u;
+    roundRect(ctx, panelX, panelY, panelW, panelH, 28 * u, 'rgba(255,255,255,.9)', 'rgba(255,255,255,.95)', 4 * u);
+    roundRect(ctx, panelX + 15 * u, panelY + 15 * u, panelW - 30 * u, panelH - 30 * u, 20 * u, 'rgba(255,248,255,.55)', null, 0);
+    roundRect(ctx, ox + 38 * u, oy + 28 * u, 220 * u, 44 * u, 22 * u, '#7f719c', null, 0);
+    ctx.fillStyle = '#fff'; ctx.font = `900 ${18 * u}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(brand, ox + 148 * u, oy + 56 * u);
+    const bodyX = panelX + panelW / 2, bodyY = panelY + 62 * u, bodyH = 510 * u;
+    const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Math.max(500, Number(model.fontWeight || model.font?.weight || 700));
+    const fit = fitQuote(ctx, quote, 825 * u, bodyH, 53 * u, 27 * u, family, weight);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'center'; ctx.fillStyle = '#4f577e';
+    let qy = bodyY + Math.max(0, (bodyH - fit.lines.length * fit.lineHeight) / 2);
+    for (const line of fit.lines) { ctx.fillText(line, bodyX, qy); qy += fit.lineHeight; }
+    ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'right'; ctx.fillStyle = '#746d8d'; ctx.font = `800 ${19 * u}px ${family}`; ctx.fillText(fitCredit(ctx, credit, 815 * u), panelX + panelW - 48 * u, panelY + panelH - 45 * u);
+  }
+  return { presets: [preset], renderers: { 'pastel-pixel-folder-ui': draw } };
+})();
+
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
@@ -12101,6 +12337,7 @@ const READER_SHARE_BACKGROUNDS = [
   ...READER_SHARE_GEMINI4.presets,
   ...READER_SHARE_GEMINI_SELECT3.presets,
   ...READER_SHARE_GEMINI_OS70_72.presets,
+  ...READER_SHARE_PIXEL_FOLDER_A.presets,
 ];
 
 const READER_SHARE_FONTS = [
@@ -14771,6 +15008,7 @@ async function renderReaderShareCanvas() {
     ...READER_SHARE_GEMINI4.renderers,
     ...READER_SHARE_GEMINI_SELECT3.renderers,
     ...READER_SHARE_GEMINI_OS70_72.renderers,
+    ...READER_SHARE_PIXEL_FOLDER_A.renderers,
   };
   const customRenderer = customRenderers[getReaderShareBackgroundKey(model.background)];
   if (typeof customRenderer === "function") {

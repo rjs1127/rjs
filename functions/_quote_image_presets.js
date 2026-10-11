@@ -71,6 +71,7 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "neon-matrix-terminal", name: "네온 매트릭스", defaultVisible: false },
   { key: "pastel-pixel-desktop", name: "파스텔 픽셀 데스크톱", defaultVisible: false },
   { key: "midnight-twilight-os", name: "야경 픽셀 노을 OS", defaultVisible: false },
+  { key: "pastel-pixel-folder-ui", name: "파스텔 픽셀 폴더 UI", defaultVisible: false },
 ];
 
 export async function readQuoteImagePresetVisibility(kv) {
