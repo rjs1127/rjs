@@ -146,6 +146,10 @@ const state = {
   readerPageResizeTimer: 0,
   readerPageTouchStartX: null,
   readerPageTouchStartY: null,
+  readerPageTouchStartAt: 0,
+  readerPageTouchStartedOnText: false,
+  readerPageSelectionGesture: false,
+  readerPageIgnoreClickUntil: 0,
   readerPageLastSwipeAt: 0,
   readerPageAnimationTimer: 0,
   readerEstimatedTotalPages: 1,
@@ -5128,6 +5132,10 @@ function resetReaderPageState() {
   state.readerPageHasNavigated = false;
   state.readerPageTouchStartX = null;
   state.readerPageTouchStartY = null;
+  state.readerPageTouchStartAt = 0;
+  state.readerPageTouchStartedOnText = false;
+  state.readerPageSelectionGesture = false;
+  state.readerPageIgnoreClickUntil = 0;
   window.clearTimeout(state.readerPageResizeTimer);
   state.readerPageResizeTimer = 0;
   window.clearTimeout(state.readerPageAnimationTimer);
@@ -7941,9 +7949,43 @@ els.readerPageModeButton?.addEventListener("click", async () => {
 });
 
 
+// Safari may briefly collapse its native Selection while a selection handle is
+// dragged. Track selection intent across the whole touch gesture; a horizontal
+// handle drag is not a page swipe even when its distance exceeds 48px.
+function hasReaderPageTextSelection() {
+  const selection = window.getSelection?.();
+  const pageText = els.readerPageText;
+  if (!pageText || !selection || selection.isCollapsed || selection.rangeCount === 0) return false;
+  return Boolean(
+    (selection.anchorNode && pageText.contains(selection.anchorNode)) ||
+    (selection.focusNode && pageText.contains(selection.focusNode))
+  );
+}
+
+function clearReaderPageTouchTracking() {
+  state.readerPageTouchStartX = null;
+  state.readerPageTouchStartY = null;
+  state.readerPageTouchStartAt = 0;
+  state.readerPageTouchStartedOnText = false;
+  state.readerPageSelectionGesture = false;
+}
+
+// A native selection can be resolved after the browser starts the touch. This
+// listener only checks the Selection anchor/focus, no Range geometry or Canvas.
+document.addEventListener("selectionchange", () => {
+  if (
+    state.readerDisplayMode === "page" &&
+    state.readerPageTouchStartX != null &&
+    hasReaderPageTextSelection()
+  ) {
+    state.readerPageSelectionGesture = true;
+  }
+});
+
 els.readerPageViewport?.addEventListener("click", async (event) => {
   if (state.readerDisplayMode !== "page") return;
 
+  // Explicit navigation controls remain usable even after text selection.
   if (event.target.closest("#readerPagePrev")) {
     await turnReaderPage(-1);
     return;
@@ -7954,37 +7996,41 @@ els.readerPageViewport?.addEventListener("click", async (event) => {
     return;
   }
 
-  if (event.target.closest(".reader-page-footer")) {
-    return;
-  }
+  if (event.target.closest(".reader-page-footer")) return;
 
   if (
-    Date.now() - Number(state.readerPageLastSwipeAt || 0) <
-    450
-  ) {
-    return;
-  }
+    Date.now() < Number(state.readerPageIgnoreClickUntil || 0) ||
+    Date.now() - Number(state.readerPageLastSwipeAt || 0) < 450 ||
+    hasReaderPageTextSelection()
+  ) return;
 
+  // Do not reinterpret a tap as navigation if a selection exists elsewhere.
   const selection = window.getSelection?.();
-  if (selection && String(selection).trim()) {
-    return;
-  }
+  if (selection && String(selection).trim()) return;
 
   const rect = els.readerPageViewport.getBoundingClientRect();
   const x = event.clientX - rect.left;
   const previousZone = rect.width * 0.30;
-
   await turnReaderPage(x <= previousZone ? -1 : 1);
 });
 
 els.readerPageViewport?.addEventListener("touchstart", (event) => {
   if (state.readerDisplayMode !== "page") return;
-
-  const touch = event.touches?.[0];
-  if (!touch) return;
-
+  if (event.touches?.length !== 1) {
+    clearReaderPageTouchTracking();
+    return;
+  }
+  const touch = event.touches[0];
   state.readerPageTouchStartX = touch.clientX;
   state.readerPageTouchStartY = touch.clientY;
+  state.readerPageTouchStartAt = Date.now();
+  state.readerPageTouchStartedOnText = Boolean(event.target.closest?.("#readerPageText"));
+  state.readerPageSelectionGesture = hasReaderPageTextSelection();
+}, { passive: true });
+
+els.readerPageViewport?.addEventListener("touchmove", () => {
+  if (state.readerDisplayMode !== "page" || state.readerPageTouchStartX == null) return;
+  if (hasReaderPageTextSelection()) state.readerPageSelectionGesture = true;
 }, { passive: true });
 
 els.readerPageViewport?.addEventListener("touchend", async (event) => {
@@ -7995,21 +8041,36 @@ els.readerPageViewport?.addEventListener("touchend", async (event) => {
   ) return;
 
   const touch = event.changedTouches?.[0];
-  if (!touch) return;
+  const dx = touch ? touch.clientX - state.readerPageTouchStartX : 0;
+  const dy = touch ? touch.clientY - state.readerPageTouchStartY : 0;
+  const elapsed = Date.now() - Number(state.readerPageTouchStartAt || Date.now());
+  const selectionGesture = state.readerPageSelectionGesture || hasReaderPageTextSelection();
+  // A Safari long-press on text can establish a Selection only AFTER touchend.
+  // The time gate is Safari-only so ordinary non-Safari swipe behavior is unchanged.
+  const pendingSafariSelection = IS_SAFARI_READER &&
+    state.readerPageTouchStartedOnText && elapsed >= 380;
+  clearReaderPageTouchTracking();
 
-  const dx = touch.clientX - state.readerPageTouchStartX;
-  const dy = touch.clientY - state.readerPageTouchStartY;
-
-  state.readerPageTouchStartX = null;
-  state.readerPageTouchStartY = null;
-
+  if (selectionGesture || pendingSafariSelection) {
+    // Safari can synthesize a click after the touch/selection is released.
+    state.readerPageIgnoreClickUntil = Date.now() + 650;
+    return;
+  }
   if (
+    !touch ||
     Math.abs(dx) < READER_PAGE_SWIPE_PX ||
     Math.abs(dx) <= Math.abs(dy) * 1.2
   ) return;
 
   state.readerPageLastSwipeAt = Date.now();
   await turnReaderPage(dx < 0 ? 1 : -1);
+}, { passive: true });
+
+els.readerPageViewport?.addEventListener("touchcancel", () => {
+  if (state.readerPageSelectionGesture || hasReaderPageTextSelection()) {
+    state.readerPageIgnoreClickUntil = Date.now() + 650;
+  }
+  clearReaderPageTouchTracking();
 }, { passive: true });
 
 window.addEventListener("keydown", async (event) => {
