@@ -199,6 +199,8 @@ const state = {
   authRestoreRetryTimer: 0,
   remoteProgressSyncedAt: new Map(),
   progressSavePending: new Map(),
+  progressLastIssuedAt: new Map(),
+  progressLastAckAt: new Map(),
   localProgressSavedAt: new Map(),
   lastExitProgressSignature: "",
   lastExitProgressAt: 0,
@@ -1795,6 +1797,8 @@ function clearUserSession(clearToken = true) {
   state.remoteProgressState = new Map();
   state.remoteProgressSyncedAt = new Map();
   state.progressSavePending = new Map();
+  state.progressLastIssuedAt = new Map();
+  state.progressLastAckAt = new Map();
   state.bookmarkPersistedValues = new Map();
   state.authRestoreRetryNeeded = false;
   state.authRestoreRetryCount = 0;
@@ -3321,8 +3325,9 @@ async function persistProgress(item, saved) {
   // recover this position on the next open.
   writeLocalReaderProgress(item, saved, { force: true });
   const localSavedAtForRequest = Number(
-    state.localProgressSavedAt.get(item.id) || 0
+    state.progressLastIssuedAt.get(item.id) || Date.now()
   );
+  payload.savedAt = localSavedAtForRequest;
 
   // A scroll timer, reader close, visibilitychange and pagehide can all fire
   // around the same moment. If the exact same position is already being sent,
@@ -3349,10 +3354,17 @@ async function persistProgress(item, saved) {
   state.progressSavePending.set(item.id, signature);
 
   try {
-    await userApi("/api/user/item", {
+    const result = await userApi("/api/user/item", {
       method: "POST",
       body: JSON.stringify(payload),
     });
+    // An older request may complete after a newer one (including on D1).
+    // Do not replace current client state or clear its local fallback.
+    if (result?.applied === false) return false;
+    if (localSavedAtForRequest < Number(state.progressLastAckAt.get(item.id) || 0)) {
+      return true;
+    }
+    state.progressLastAckAt.set(item.id, localSavedAtForRequest);
     state.remoteProgressSyncedAt.set(item.id, Date.now());
     const savedEntry = getUserLibraryEntry(item.id);
     updateUserLibraryEntry(item.id, {
@@ -4761,16 +4773,22 @@ function writeLocalReaderProgress(item, saved, options = {}) {
   const key = getLocalReaderProgressKey(item.id);
   if (!key) return false;
 
-  const now = Date.now();
+  const wallNow = Date.now();
   const previousSavedAt = Number(state.localProgressSavedAt.get(item.id) || 0);
   if (
     !options.force &&
     previousSavedAt > 0 &&
-    now - previousSavedAt < READER_LOCAL_SAVE_INTERVAL_MS
+    wallNow - previousSavedAt < READER_LOCAL_SAVE_INTERVAL_MS
   ) {
     return false;
   }
 
+  const lastIssued = Number(state.progressLastIssuedAt.get(item.id) || 0);
+  const stored = readLocalReaderProgress(item.id);
+  const now = Math.max(wallNow, lastIssued + 1, Number(stored?.savedAt || 0) + 1);
+  // Keep this monotonic even when localStorage is unavailable or a previous
+  // local progress backup has already been cleared after a successful sync.
+  state.progressLastIssuedAt.set(item.id, now);
   try {
     localStorage.setItem(key, JSON.stringify({
       mode: saved.mode === "chunk" ? "chunk" : "scroll",
@@ -10241,6 +10259,7 @@ function flushReaderProgressBeforePageExit() {
   if (!token) return;
 
   const payload = buildProgressPayload(item, saved);
+  payload.savedAt = Number(state.progressLastIssuedAt.get(item.id) || Date.now());
   const signature = getProgressPayloadSignature(payload);
 
   // If the normal progress save is already sending this exact position, an

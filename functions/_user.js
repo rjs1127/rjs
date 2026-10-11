@@ -22,6 +22,8 @@ let quoteFeedSchemaReadyPromise = null;
 
 let bookmarkStatsSchemaReadyPromise = null;
 
+let progressOrderSchemaReadyPromise = null;
+
 async function ensurePersonalizationSchema(db) {
   if (personalizationSchemaReadyPromise) return personalizationSchemaReadyPromise;
 
@@ -250,6 +252,34 @@ async function ensureBookmarkStatsSchema(db) {
   return bookmarkStatsSchemaReadyPromise;
 }
 
+// A dedicated progress timestamp is necessary: user_items.updated_at is also
+// changed by bookmark/recent-view writes and must not gate reader progress.
+async function ensureProgressOrderSchema(db) {
+  if (progressOrderSchemaReadyPromise) return progressOrderSchemaReadyPromise;
+
+  progressOrderSchemaReadyPromise = (async () => {
+    await ensureUserSchema(db);
+    const info = await db.prepare("PRAGMA table_info(user_items)").all();
+    const columns = Array.isArray(info?.results) ? info.results : [];
+    if (!columns.some((column) => String(column?.name || "") === "progress_saved_at")) {
+      try {
+        await db.prepare("ALTER TABLE user_items ADD COLUMN progress_saved_at INTEGER").run();
+      } catch (error) {
+        // A concurrent isolate may have completed the same one-time migration.
+        const check = await db.prepare("PRAGMA table_info(user_items)").all();
+        if (!(check?.results || []).some((column) => String(column?.name || "") === "progress_saved_at")) {
+          throw error;
+        }
+      }
+    }
+  })().catch((error) => {
+    progressOrderSchemaReadyPromise = null;
+    throw error;
+  });
+
+  return progressOrderSchemaReadyPromise;
+}
+
 async function ensureDownloadTrackingSchema(db) {
   if (downloadSchemaReadyPromise) return downloadSchemaReadyPromise;
 
@@ -313,6 +343,7 @@ async function ensureUserSchema(db) {
         viewed_at INTEGER,
         read_at INTEGER,
         updated_at INTEGER NOT NULL,
+        progress_saved_at INTEGER,
         PRIMARY KEY (user_id, file_id)
       )
     `),
@@ -594,6 +625,7 @@ export {
   ensurePersonalizationSchema,
   ensureQuoteFeedSchema,
   ensureBookmarkStatsSchema,
+  ensureProgressOrderSchema,
   normalizeUserId,
   validateCredentials,
   randomHex,

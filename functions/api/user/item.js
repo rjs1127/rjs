@@ -3,6 +3,7 @@ import {
   requireUser,
   ensureDownloadTrackingSchema,
   ensureBookmarkStatsSchema,
+  ensureProgressOrderSchema,
   userErrorResponse,
 } from "../../_user.js";
 
@@ -105,40 +106,29 @@ export async function onRequestPost(context) {
       const bookmarked = body?.bookmarked ? 1 : 0;
       await ensureBookmarkStatsSchema(auth.db);
 
-      const existing = await auth.db.prepare(`
-        SELECT bookmarked
-        FROM user_items
-        WHERE user_id = ? AND file_id = ?
-        LIMIT 1
-      `).bind(auth.userId, fileId).first();
-
-      const previousBookmarked = Number(existing?.bookmarked || 0) ? 1 : 0;
-      if (previousBookmarked === bookmarked) {
-        const countRow = await auth.db.prepare(`
-          SELECT bookmark_count
-          FROM item_bookmark_counts
-          WHERE file_id = ?
-          LIMIT 1
-        `).bind(fileId).first();
-        return jsonResponse({
-          ok: true,
-          bookmarked: Boolean(bookmarked),
-          bookmarkCount: Math.max(0, Number(countRow?.bookmark_count || 0)),
-        });
-      }
-
+      // Both statements execute in one D1 transaction. SQLite changes() in the
+      // second statement reflects the preceding actual bookmark transition,
+      // not a stale SELECT performed in another concurrent request.
+      const mutation = bookmarked
+        ? auth.db.prepare(`
+            INSERT INTO user_items(user_id, file_id, bookmarked, updated_at)
+            VALUES (?, ?, 1, ?)
+            ON CONFLICT(user_id, file_id) DO UPDATE SET
+              bookmarked = 1,
+              updated_at = excluded.updated_at
+            WHERE COALESCE(user_items.bookmarked, 0) <> 1
+          `).bind(auth.userId, fileId, now)
+        : auth.db.prepare(`
+            UPDATE user_items
+            SET bookmarked = 0, updated_at = ?
+            WHERE user_id = ? AND file_id = ? AND bookmarked = 1
+          `).bind(now, auth.userId, fileId);
       const delta = bookmarked ? 1 : -1;
       await auth.db.batch([
-        auth.db.prepare(`
-          INSERT INTO user_items(user_id, file_id, bookmarked, updated_at)
-          VALUES (?, ?, ?, ?)
-          ON CONFLICT(user_id, file_id) DO UPDATE SET
-            bookmarked = excluded.bookmarked,
-            updated_at = excluded.updated_at
-        `).bind(auth.userId, fileId, bookmarked, now),
+        mutation,
         auth.db.prepare(`
           INSERT INTO item_bookmark_counts(file_id, bookmark_count, updated_at)
-          VALUES (?, MAX(0, ?), ?)
+          SELECT ?, MAX(0, ?), ? WHERE changes() > 0
           ON CONFLICT(file_id) DO UPDATE SET
             bookmark_count = MAX(0, item_bookmark_counts.bookmark_count + ?),
             updated_at = excluded.updated_at
@@ -160,7 +150,15 @@ export async function onRequestPost(context) {
     }
 
     if (action === "progress") {
+      await ensureProgressOrderSchema(auth.db);
       const percent = Math.max(0, Math.min(100, Number(body?.percent || 0)));
+      // The client timestamps the position when it was captured, not when an
+      // async request happens to reach the server. Legacy clients fall back to
+      // server time; cap future clocks so one device cannot block others long.
+      const suppliedSavedAt = Number(body?.savedAt);
+      const savedAt = Number.isSafeInteger(suppliedSavedAt) && suppliedSavedAt > 0
+        ? Math.min(suppliedSavedAt, now + 30 * 1000)
+        : now;
       const mode = body?.mode === "chunk" ? "chunk" : "scroll";
       const scrollTop = Number.isFinite(Number(body?.scrollTop))
         ? Number(body.scrollTop)
@@ -175,7 +173,7 @@ export async function onRequestPost(context) {
       const clearLegacyRead = body?.clearLegacyRead === true;
       const readAt = markRead ? now : null;
 
-      await auth.db.prepare(`
+      const result = await auth.db.prepare(`
         INSERT INTO user_items(
           user_id,
           file_id,
@@ -184,9 +182,10 @@ export async function onRequestPost(context) {
           chunk_index,
           chunk_ratio,
           read_at,
-          updated_at
+          updated_at,
+          progress_saved_at
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, file_id) DO UPDATE SET
           progress_percent = excluded.progress_percent,
           scroll_top = excluded.scroll_top,
@@ -197,7 +196,9 @@ export async function onRequestPost(context) {
             WHEN ? = 1 THEN NULL
             ELSE user_items.read_at
           END,
-          updated_at = excluded.updated_at
+          updated_at = excluded.updated_at,
+          progress_saved_at = excluded.progress_saved_at
+        WHERE excluded.progress_saved_at > COALESCE(user_items.progress_saved_at, 0)
       `).bind(
         auth.userId,
         fileId,
@@ -207,14 +208,17 @@ export async function onRequestPost(context) {
         mode === "chunk" ? chunkRatio : null,
         readAt,
         now,
+        savedAt,
         clearLegacyRead ? 1 : 0
       ).run();
 
+      const applied = Number(result?.meta?.changes || 0) > 0;
       return jsonResponse({
         ok: true,
+        applied,
         progressPercent: percent,
         read: markRead,
-        legacyReadCleared: clearLegacyRead && !markRead,
+        legacyReadCleared: applied && clearLegacyRead && !markRead,
       });
     }
 
