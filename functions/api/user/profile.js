@@ -1,3 +1,4 @@
+import { userPageOffset, userPageCursor, userPageQuery, userPage } from "../../_user_pagination.js";
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUser,
@@ -10,12 +11,20 @@ function cleanText(value, max = 200) {
   return String(value || "").trim().slice(0, max);
 }
 
+function nullableOffset(value) {
+  if (value == null || (typeof value === "string" && value.trim() === "")) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? Math.floor(number) : null;
+}
+
 export async function onRequestGet(context) {
   try {
     const auth = await requireUser(context);
     await ensurePersonalizationSchema(auth.db);
     await ensureQuoteFeedSchema(auth.db);
 
+    const cursor = userPageCursor(context.request);
+    const offset = cursor == null ? userPageOffset(context.request) : 0;
     const section = new URL(context.request.url).searchParams.get("section") || "";
     if (section === "library") {
       const [quotes, notes] = await Promise.all([
@@ -26,18 +35,18 @@ export async function onRequestGet(context) {
                  sq.shared_at
           FROM user_quotes q
           LEFT JOIN shared_quotes sq ON sq.quote_id = q.id AND sq.user_id = q.user_id
-          WHERE q.user_id = ?
-          ORDER BY q.created_at DESC, q.id DESC LIMIT 500
-        `).bind(auth.userId).all(),
+          WHERE q.user_id = ?${userPageQuery("quotes", cursor).where}
+          ORDER BY q.created_at DESC, q.id DESC LIMIT 501 OFFSET ?
+        `).bind(auth.userId, ...userPageQuery("quotes", cursor).values, offset).all(),
         auth.db.prepare(`
           SELECT id, work_id, title, author, note_text, quote_text,
                  start_offset, end_offset, created_at, updated_at
           FROM reader_notes
-          WHERE user_id = ?
-          ORDER BY created_at DESC, id DESC LIMIT 500
-        `).bind(auth.userId).all(),
+          WHERE user_id = ?${userPageQuery("notes", cursor).where}
+          ORDER BY created_at DESC, id DESC LIMIT 501 OFFSET ?
+        `).bind(auth.userId, ...userPageQuery("notes", cursor).values, offset).all(),
       ]);
-      return jsonResponse({ ok:true, quotes:quotes?.results||[], notes:notes?.results||[] }, 200, { "cache-control":"no-store" });
+      return jsonResponse({ ok:true, ...userPage({ quotes:quotes?.results||[], notes:notes?.results||[] }, offset) }, 200, { "cache-control":"no-store" });
     }
     if (section === "quotes") {
       const quotes = await auth.db.prepare(`
@@ -48,15 +57,20 @@ export async function onRequestGet(context) {
         FROM user_quotes q
         LEFT JOIN shared_quotes sq
           ON sq.quote_id = q.id AND sq.user_id = q.user_id
-        WHERE q.user_id = ?
+        WHERE q.user_id = ?${userPageQuery("quotes", cursor).where}
         ORDER BY q.created_at DESC, q.id DESC
-        LIMIT 500
-      `).bind(auth.userId).all();
+        LIMIT 501 OFFSET ?
+      `).bind(auth.userId, ...userPageQuery("quotes", cursor).values, offset).all();
 
       return jsonResponse({
         ok: true,
-        quotes: quotes?.results || [],
+        ...userPage({ quotes: quotes?.results || [] }, offset),
       }, 200, { "cache-control": "no-store" });
+    }
+
+    if (section === "likes") {
+      const likes = await auth.db.prepare(`SELECT work_id, title, author, liked_at FROM user_likes WHERE user_id = ?${userPageQuery("likes", cursor).where} ORDER BY liked_at DESC, work_id ASC LIMIT 501 OFFSET ?`).bind(auth.userId, ...userPageQuery("likes", cursor).values, offset).all();
+      return jsonResponse({ ok: true, ...userPage({ likes: likes?.results || [] }, offset) }, 200, { "cache-control": "no-store" });
     }
 
     const [user, likes, quotes] = await Promise.all([
@@ -69,10 +83,10 @@ export async function onRequestGet(context) {
       auth.db.prepare(`
         SELECT work_id, title, author, liked_at
         FROM user_likes
-        WHERE user_id = ?
-        ORDER BY liked_at DESC
-        LIMIT 500
-      `).bind(auth.userId).all(),
+        WHERE user_id = ?${userPageQuery("likes", cursor).where}
+        ORDER BY liked_at DESC, work_id ASC
+        LIMIT 501 OFFSET ?
+      `).bind(auth.userId, ...userPageQuery("likes", cursor).values, offset).all(),
       auth.db.prepare(`
         SELECT q.id, q.title, q.author, q.quote_text, q.work_id,
                q.start_offset, q.end_offset, q.source_text, q.created_at,
@@ -81,10 +95,10 @@ export async function onRequestGet(context) {
         FROM user_quotes q
         LEFT JOIN shared_quotes sq
           ON sq.quote_id = q.id AND sq.user_id = q.user_id
-        WHERE q.user_id = ?
+        WHERE q.user_id = ?${userPageQuery("quotes", cursor).where}
         ORDER BY q.created_at DESC, q.id DESC
-        LIMIT 500
-      `).bind(auth.userId).all(),
+        LIMIT 501 OFFSET ?
+      `).bind(auth.userId, ...userPageQuery("quotes", cursor).values, offset).all(),
     ]);
 
     return jsonResponse({
@@ -93,8 +107,7 @@ export async function onRequestGet(context) {
         userId: auth.userId,
         createdAt: user?.created_at == null ? null : Number(user.created_at),
       },
-      likes: likes?.results || [],
-      quotes: quotes?.results || [],
+      ...userPage({ likes: likes?.results || [], quotes: quotes?.results || [] }, offset),
     }, 200, { "cache-control": "no-store" });
   } catch (error) {
     return userErrorResponse(error);
@@ -147,8 +160,8 @@ export async function onRequestPost(context) {
       const title = cleanText(body?.title, 300);
       const author = cleanText(body?.author, 200);
       const workId = cleanText(body?.workId, 300);
-      const startOffsetRaw = Number(body?.startOffset);
-      const endOffsetRaw = Number(body?.endOffset);
+      const startOffsetRaw = nullableOffset(body?.startOffset);
+      const endOffsetRaw = nullableOffset(body?.endOffset);
       const hasLocation = Boolean(workId) && Number.isFinite(startOffsetRaw) && startOffsetRaw >= 0;
       const startOffset = hasLocation ? Math.floor(startOffsetRaw) : null;
       const endOffset = hasLocation && Number.isFinite(endOffsetRaw)
@@ -277,8 +290,8 @@ export async function onRequestPost(context) {
     if (action === "quote_location_update") {
       const id = Number(body?.id || 0);
       const workId = cleanText(body?.workId, 300);
-      const startOffsetRaw = Number(body?.startOffset);
-      const endOffsetRaw = Number(body?.endOffset);
+      const startOffsetRaw = nullableOffset(body?.startOffset);
+      const endOffsetRaw = nullableOffset(body?.endOffset);
       if (!Number.isInteger(id) || id <= 0 || !workId || !Number.isFinite(startOffsetRaw) || startOffsetRaw < 0) {
         return jsonResponse({ error: "저장 문장 위치 정보가 올바르지 않습니다." }, 400);
       }
@@ -378,8 +391,8 @@ export async function onRequestPost(context) {
       const workId = cleanText(body?.workId, 300);
       const noteText = cleanText(body?.noteText, 4000);
       if (!workId || !noteText) return jsonResponse({ error: "작품과 메모 내용을 확인해 주세요." }, 400);
-      const startRaw = Number(body?.startOffset);
-      const endRaw = Number(body?.endOffset);
+      const startRaw = nullableOffset(body?.startOffset);
+      const endRaw = nullableOffset(body?.endOffset);
       const startOffset = Number.isFinite(startRaw) && startRaw >= 0 ? Math.floor(startRaw) : null;
       const endOffset = startOffset != null && Number.isFinite(endRaw) ? Math.max(startOffset, Math.floor(endRaw)) : startOffset;
       const quoteText = cleanText(body?.quoteText, 1200);

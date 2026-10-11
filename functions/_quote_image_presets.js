@@ -100,8 +100,19 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "pastel-pixel-folder-ui", name: "파스텔 픽셀 폴더 UI", defaultVisible: false },
 ];
 
-export async function readQuoteImagePresetVisibility(kv) {
-  const raw = await kv.get(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, "json");
+export async function readQuoteImagePresetVisibility(kv, db) {
+  let raw;
+  if (db) {
+    try {
+      const row = await db.prepare("SELECT meta_value FROM user_system_meta WHERE meta_key = ? LIMIT 1")
+        .bind(QUOTE_IMAGE_PRESET_VISIBILITY_KEY).first();
+      if (row) raw = JSON.parse(row.meta_value);
+    } catch (error) {
+      // Before the first authenticated save the metadata table may not exist yet.
+      if (!/no such table.*user_system_meta/i.test(String(error?.message || error))) throw error;
+    }
+  }
+  if (raw === undefined) raw = await kv.get(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, "json");
   const overrides = raw && typeof raw.overrides === "object" && raw.overrides ? raw.overrides : {};
   const feedOverrides = raw && typeof raw.feedOverrides === "object" && raw.feedOverrides ? raw.feedOverrides : {};
   return { overrides, feedOverrides, updatedAt: raw?.updatedAt || null };
@@ -118,4 +129,52 @@ export function resolveQuoteImagePresetCatalog(overrides = {}, feedOverrides = {
         ? feedOverrides[preset.key] : QUOTE_FEED_DEFAULT_KEYS.has(preset.key)),
     };
   });
+}
+
+let visibilitySchemaReady;
+export async function saveQuoteImagePresetVisibility(kv, db, key, field, visible) {
+  if (!visibilitySchemaReady) visibilitySchemaReady = db.prepare(
+    "CREATE TABLE IF NOT EXISTS user_system_meta (meta_key TEXT PRIMARY KEY, meta_value TEXT, updated_at INTEGER NOT NULL)"
+  ).run().catch(error => { visibilitySchemaReady = null; throw error; });
+  await visibilitySchemaReady;
+  const current = await readQuoteImagePresetVisibility(kv, db);
+  // One INSERT wins migration; later requests always patch that authoritative row.
+  await db.prepare("INSERT OR IGNORE INTO user_system_meta(meta_key, meta_value, updated_at) VALUES (?, ?, ?)")
+    .bind(QUOTE_IMAGE_PRESET_VISIBILITY_KEY, JSON.stringify(current), Date.now()).run();
+  const path = '$.' + (field === "feed" ? "feedOverrides" : "overrides") + '."' + key + '"';
+  const updatedAt = new Date().toISOString();
+  // D1 executes the candidate update and both minimum-visible checks atomically.
+  // Patch only the requested key, never overwrite another tab's snapshot.
+  const defaults = resolveQuoteImagePresetCatalog({}, {}).map(p => ({ key: p.key, visible: p.visible, feedVisible: p.feedVisible, feedEligible: p.feedEligible }));
+  const defaultValue = Number(defaults.find(p => p.key === key)[field === "feed" ? "feedVisible" : "visible"]);
+  const row = await db.prepare(`
+    WITH candidate AS (
+      SELECT json_set(CASE WHEN ? = ? THEN json_remove(meta_value, ?)
+        ELSE json_set(meta_value, ?, json(?)) END, '$.updatedAt', ?) AS value
+      FROM user_system_meta WHERE meta_key = ?
+    )
+    UPDATE user_system_meta SET meta_value = (SELECT value FROM candidate), updated_at = ?
+    WHERE meta_key = ?
+      AND EXISTS (
+        SELECT 1 FROM json_each(?) p, candidate c
+        WHERE COALESCE(json_extract(c.value, '$.overrides."' || json_extract(p.value, '$.key') || '"'), json_extract(p.value, '$.visible')) = 1
+      )
+      AND EXISTS (
+        SELECT 1 FROM json_each(?) p, candidate c
+        WHERE json_extract(p.value, '$.feedEligible') = 1
+          AND COALESCE(json_extract(c.value, '$.feedOverrides."' || json_extract(p.value, '$.key') || '"'), json_extract(p.value, '$.feedVisible')) = 1
+      )
+      AND COALESCE(json_extract(meta_value, ?), ?) <> ?
+    RETURNING meta_value
+  `).bind(Number(visible), defaultValue, path, path, JSON.stringify(visible), updatedAt, QUOTE_IMAGE_PRESET_VISIBILITY_KEY,
+    Date.now(), QUOTE_IMAGE_PRESET_VISIBILITY_KEY, JSON.stringify(defaults), JSON.stringify(defaults),
+    path, defaultValue, Number(visible)).first();
+  const latest = row ? JSON.parse(row.meta_value) : await readQuoteImagePresetVisibility(kv, db);
+  const resolved = resolveQuoteImagePresetCatalog(latest.overrides, latest.feedOverrides);
+  const target = resolved.find(p => p.key === key);
+  if ((field === "feed" ? target.feedVisible : target.visible) !== visible) {
+    const error = new Error(field === "feed" ? "문장피드 배경은 최소 1개 이상 Y로 유지해야 합니다." : "사용자에게 노출되는 프리셋은 최소 1개 이상이어야 합니다.");
+    error.status = 400; throw error;
+  }
+  return { changed: Boolean(row), presets: resolved, updatedAt: latest.updatedAt };
 }

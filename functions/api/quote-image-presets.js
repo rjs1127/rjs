@@ -4,7 +4,7 @@ import { readQuoteImagePresetVisibility, resolveQuoteImagePresetCatalog } from "
 export async function onRequestGet(context) {
   try {
     const kv = requireKv(context.env);
-    const { overrides, feedOverrides, updatedAt } = await readQuoteImagePresetVisibility(kv);
+    const { overrides, feedOverrides, updatedAt } = await readQuoteImagePresetVisibility(kv, context.env.USER_DB);
     const presets = resolveQuoteImagePresetCatalog(overrides, feedOverrides).map(({ key, visible, feedVisible }) => ({ key, visible, feedVisible }));
     return jsonResponse({ presets, updatedAt }, 200, {
       "cache-control": "public, max-age=60, stale-while-revalidate=300",

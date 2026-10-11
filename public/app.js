@@ -2019,13 +2019,53 @@ function applyUserLibraryRows(rows = []) {
   }
 }
 
+async function loadUserPagedData(path, fields, firstPage = null) {
+  const data = firstPage || await userApi(path);
+  const lists = Object.fromEntries(fields.map(key => [key, [...(data[key] || [])]]));
+  let cursor = data.pagination?.nextCursor;
+  let offset = data.pagination?.nextOffset;
+  let previous = -1;
+  const cursors = new Set();
+  const ids = Object.fromEntries(fields.map(key => [key, new Set(lists[key].map(row => row.file_id ?? (key === "likes" ? row.work_id : row.id)))]));
+  while (cursor != null || offset != null) {
+    let query;
+    if (cursor != null) {
+      query = JSON.stringify(cursor);
+      if (cursors.has(query)) throw new Error("목록 조회 위치가 올바르지 않습니다.");
+      cursors.add(query);
+      query = "cursor=" + encodeURIComponent(query);
+    } else {
+      if (!Number.isSafeInteger(offset) || offset <= previous) throw new Error("목록 조회 위치가 올바르지 않습니다.");
+      previous = offset;
+      query = "offset=" + offset;
+    }
+    const page = await userApi(path + (path.includes("?") ? "&" : "?") + query);
+    for (const key of fields) for (const row of page[key] || []) {
+      const id = row.file_id ?? (key === "likes" ? row.work_id : row.id);
+      if (!ids[key].has(id)) { ids[key].add(id); lists[key].push(row); }
+    }
+    cursor = page.pagination?.nextCursor;
+    offset = cursor == null && !("nextCursor" in (page.pagination || {})) ? page.pagination?.nextOffset : null;
+  }
+  return { ...data, ...lists };
+}
+
+async function loadUserBootstrapData() {
+  const data = await userApi("/api/user/bootstrap", { method: "POST", body: "{}" });
+  const [items, likes] = await Promise.all([
+    loadUserPagedData("/api/user/library", ["items"], { items: data.items, pagination: { nextOffset: data.pagination?.itemsNextOffset, nextCursor: data.pagination?.itemsNextCursor } }),
+    loadUserPagedData("/api/user/profile?section=likes", ["likes"], { likes: data.likes, pagination: { nextOffset: data.pagination?.likesNextOffset, nextCursor: data.pagination?.likesNextCursor } }),
+  ]);
+  return { ...data, items: items.items, likes: likes.likes };
+}
+
 async function loadUserLibrary() {
   if (!state.user) {
     state.userLibrary = new Map();
     return;
   }
 
-  const data = await userApi("/api/user/library");
+  const data = await loadUserPagedData("/api/user/library", ["items"]);
   applyUserLibraryRows(data.items || []);
 }
 
@@ -2039,6 +2079,12 @@ function normalizeProfileLike(row) {
   };
 }
 
+function normalizeQuoteLocationOffset(value) {
+  if (value == null || (typeof value === "string" && value.trim() === "")) return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number >= 0 ? number : null;
+}
+
 function normalizeSavedQuote(row) {
   const shared = Number(row?.is_shared ?? row?.shared ?? 0) === 1 || row?.shared === true;
   const rawStartOffset = row?.start_offset ?? row?.startOffset;
@@ -2049,8 +2095,8 @@ function normalizeSavedQuote(row) {
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
     workId: String(row?.work_id ?? row?.workId ?? ""),
-    startOffset: rawStartOffset == null ? null : Number(rawStartOffset),
-    endOffset: rawEndOffset == null ? null : Number(rawEndOffset),
+    startOffset: normalizeQuoteLocationOffset(rawStartOffset),
+    endOffset: normalizeQuoteLocationOffset(rawEndOffset),
     sourceText: String(row?.source_text ?? row?.sourceText ?? ""),
     createdAt: Number(row?.created_at ?? row?.createdAt ?? 0),
     shared,
@@ -2098,7 +2144,7 @@ async function loadUserProfileData() {
   }
 
   try {
-    const data = await userApi("/api/user/profile");
+    const data = await loadUserPagedData("/api/user/profile", ["likes", "quotes"]);
     applyUserProfileData(data);
   } catch (error) {
     console.warn("개인화 데이터 불러오기 실패", error);
@@ -2116,7 +2162,7 @@ async function loadSavedQuotes() {
   if (state.profileOpen && state.profileTab === "quotes") renderProfilePage();
 
   try {
-    const data = await userApi("/api/user/profile?section=quotes");
+    const data = await loadUserPagedData("/api/user/profile?section=quotes", ["quotes"]);
     state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
     state.savedQuoteCount = state.savedQuotes.length;
     state.savedQuotesLoaded = true;
@@ -2132,10 +2178,7 @@ async function loadSavedQuotes() {
 async function loadUserBootstrap() {
   if (!state.user) return;
 
-  const data = await userApi("/api/user/bootstrap", {
-    method: "POST",
-    body: "{}",
-  });
+  const data = await loadUserBootstrapData();
 
   if (data.user?.userId) {
     state.user = { ...state.user, ...data.user };
@@ -2260,8 +2303,8 @@ function normalizeReaderNote(row) {
     id: Number(row?.id || 0), workId: String(row?.work_id ?? row?.workId ?? ""),
     title: String(row?.title || ""), author: String(row?.author || ""),
     noteText: String(row?.note_text ?? row?.noteText ?? ""), quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
-    startOffset: rawStart == null ? null : Number(rawStart),
-    endOffset: rawEnd == null ? null : Number(rawEnd),
+    startOffset: normalizeQuoteLocationOffset(rawStart),
+    endOffset: normalizeQuoteLocationOffset(rawEnd),
     createdAt: Number(row?.created_at ?? row?.createdAt ?? 0), updatedAt: Number(row?.updated_at ?? row?.updatedAt ?? 0),
   };
 }
@@ -2272,7 +2315,7 @@ async function loadMyLibrary(force = false) {
   state.myLibraryError = false;
   if (state.profileOpen) renderProfilePage();
   try {
-    const data = await userApi("/api/user/profile?section=library");
+    const data = await loadUserPagedData("/api/user/profile?section=library", ["quotes", "notes"]);
     state.savedQuotes = (data.quotes || []).map(normalizeSavedQuote);
     state.savedQuoteCount = state.savedQuotes.length;
     state.savedQuotesLoaded = true;
@@ -2544,8 +2587,8 @@ function normalizeQuoteFeedItem(row) {
     title: String(row?.title || ""),
     author: String(row?.author || ""),
     quoteText: String(row?.quote_text ?? row?.quoteText ?? ""),
-    startOffset: rawStartOffset == null ? null : Number(rawStartOffset),
-    endOffset: rawEndOffset == null ? null : Number(rawEndOffset),
+    startOffset: normalizeQuoteLocationOffset(rawStartOffset),
+    endOffset: normalizeQuoteLocationOffset(rawEndOffset),
     sharedAt: Number(row?.shared_at ?? row?.sharedAt ?? 0),
     likeCount: Math.max(0, Number(row?.like_count ?? row?.likeCount ?? 0)),
     liked: Number(row?.liked || 0) === 1 || row?.liked === true,
@@ -3049,10 +3092,7 @@ async function restoreAuth() {
     // 로그인 첫 화면에 필요한 개인화 데이터를 한 번의 요청으로 복원한다.
     // Safari에서는 JS 저장소에 토큰이 보이지 않아도 서버가 발급한 HttpOnly
     // 세션 쿠키를 브라우저가 요청에 자동 첨부할 수 있으므로 bootstrap을 시도한다.
-    const data = await userApi("/api/user/bootstrap", {
-      method: "POST",
-      body: "{}",
-    });
+    const data = await loadUserBootstrapData();
     state.authRestoreRetryNeeded = false;
     state.authRestoreRetryCount = 0;
     if (state.authRestoreRetryTimer) {
@@ -7317,7 +7357,7 @@ function isSavedQuoteOffsetStillValid(jump) {
   if (!Number.isFinite(startOffset) || startOffset < 0 || startOffset > getReaderTextLength()) return false;
   const sourceText = String(jump?.sourceText || "");
   if (!sourceText) return true;
-  const endOffset = Number.isFinite(Number(jump?.endOffset))
+  const endOffset = jump?.endOffset != null && Number.isFinite(Number(jump.endOffset))
     ? Math.max(startOffset, Number(jump.endOffset))
     : startOffset + sourceText.length;
   const current = String(state.readerText || "").slice(startOffset, endOffset);
@@ -7359,7 +7399,7 @@ async function resolveSavedQuoteJumpLocation(quote, item) {
     isSavedQuoteOffsetStillValid(quote)
   ) {
     const startOffset = clampReaderTextOffset(quote.startOffset);
-    const endOffset = Number.isFinite(Number(quote.endOffset))
+    const endOffset = quote.endOffset != null && Number.isFinite(Number(quote.endOffset))
       ? clampReaderTextOffset(Math.max(startOffset, Number(quote.endOffset)))
       : startOffset;
     return {
@@ -9405,7 +9445,7 @@ els.myLibraryModalList?.addEventListener("click", async (event) => {
   // dropping the user back to the library work list.
   state.readerReturnToMyLibrary = Boolean(state.profileOpen && state.myLibraryDetailWorkId);
   closeModal(els.myLibraryModal);
-  const offset=Number(entry.startOffset);
+  const offset=entry.startOffset == null || (typeof entry.startOffset === "string" && entry.startOffset.trim() === "") ? NaN : Number(entry.startOffset);
   await openReader(item);
   // Source jumps are temporary navigation to a saved sentence/note.
   // Scroll mode: place the target line at the vertical center of the viewport.

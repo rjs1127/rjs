@@ -1,3 +1,16 @@
+# v10.31 사용자 기록·프리셋 저장 정합성
+
+- 사용자 library/profile은 500행과 목록별 nextCursor를 반환하며 501번째 행은 후속 페이지 존재 확인에만 사용한다. 기존 날짜 내림차순과 file_id/work_id 오름차순·id 내림차순을 유지한 keyset 조건으로 앞 페이지 삭제에 따른 밀림을 방지한다. bootstrap도 items/likes 커서를 제공한다. 기존 offset 요청/응답은 호환용으로 유지하며 새 클라이언트는 커서를 우선한다. 추가 COUNT/쓰기/스냅샷 테이블 없이 기존 페이지 SELECT만 사용한다. 수집 중 같은 ID는 중복 추가하지 않고 반복 커서는 오류로 종료하며 완료 후 전체 상태를 적용한다. 동시 삭제된 이미 수집한 행이나 날짜가 변경된 행까지 완전한 스냅샷으로 고정하지는 않는다.
+- 프리셋 설정의 source of truth는 v10.31부터 기존 D1 user_system_meta의 quote-image:preset-visibility:v1 행이다. 관리자 최초 저장 시 기존 KV 값을 INSERT OR IGNORE로 승계하며, 키별 JSON 수정과 이미지/피드 최소 1개 검사를 단일 SQL에서 실행한다. 기본값 복귀는 override를 제거하고 동일 값은 UPDATE하지 않는다. KV는 전환 전 읽기 fallback으로만 사용하며 쓰지 않는다. 공개 API의 기존 캐시 정책을 유지해 변경 반영에 기존 캐시 지연이 있을 수 있다.
+- null/미지정/빈 문자열/공백 문자열 위치값은 숫자 변환 전에 제외하고, 정상적인 시작 위치 0은 허용한다. 위치 없는 내 서재 기록은 임의로 본문 처음으로 이동시키지 않는다. 과거 잘못 저장된 0은 정상 0과 구별할 수 없으므로 자동 데이터 보정은 하지 않는다.
+
+## v10.30 프리셋 설정 롤백 절차
+- v10.31의 첫 관리자 저장은 기존 KV의 overrides와 feedOverrides를 함께 INSERT OR IGNORE로 승계한다. 이후 D1이 기준이며 KV 이중 저장은 하지 않는다.
+- v10.30은 KV만 읽으므로 코드만 되돌리면 v10.31에서 변경한 설정을 잃는다. 롤백 전 관리자 설정 변경을 잠시 중단하고, 실제 USER_DB의 user_system_meta에서 meta_key = 'quote-image:preset-visibility:v1'인 meta_value 전체 JSON을 읽어 안전하게 백업한다. ARCHIVE_KV의 동일 키 기존 JSON도 백업한다.
+- 해당 D1 행이 있으면 JSON의 overrides/feedOverrides/updatedAt을 검증한 후 동일 JSON을 ARCHIVE_KV의 quote-image:preset-visibility:v1 키에 기존 관리자/Cloudflare 관리 절차로 반영하고 읽어 대조한다. D1 행이 없으면 이전이 시작되지 않았으므로 KV를 덮어쓰지 않는다. 그 뒤 v10.30으로 롤백하고 공개·관리자 양쪽 Y/N을 확인한다. 공개 응답의 기존 캐시 지연도 고려한다.
+- v10.30에서 설정을 바꾼 뒤 v10.31로 재전환할 때는 설정 변경을 중단하고 양쪽을 백업한 뒤 최신 KV JSON을 동일 D1 행에 반영·대조한 후 배포한다. 남아 있는 D1 행 때문에 INSERT OR IGNORE는 다시 승계하지 않는다. 신규 테이블이나 상시 이중 저장은 필요 없다. 운영 KV/D1 쓰기는 운영자의 명시적 승인·관리 절차로만 수행하며 이 패치 작업에서는 실행하지 않는다.
+
+
 # v10.24 — 문장피드 배경 Y/N 독립 관리
 
 - 문장 이미지 프리셋 공개 여부와 문장피드 랜덤 배경 허용 여부는 같은 KV `quote-image:preset-visibility:v1`의 `overrides` / `feedOverrides`에 따로 저장한다. 기존 공개 플래그나 전체 이미지용 `getVisibleReaderShareBackgroundEntries()`를 피드에 재사용하지 않는다.

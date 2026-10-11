@@ -1,3 +1,4 @@
+import { userPage } from "../../_user_pagination.js";
 import { jsonResponse } from "../../_shared.js";
 import {
   requireUser,
@@ -55,15 +56,15 @@ export async function onRequestPost(context) {
           updated_at
         FROM user_items
         WHERE user_id = ?
-        ORDER BY COALESCE(viewed_at, updated_at) DESC
-        LIMIT 500
+        ORDER BY COALESCE(viewed_at, updated_at) DESC, file_id ASC
+        LIMIT 501
       `).bind(auth.userId),
       auth.db.prepare(`
         SELECT work_id, title, author, liked_at
         FROM user_likes
         WHERE user_id = ?
-        ORDER BY liked_at DESC
-        LIMIT 500
+        ORDER BY liked_at DESC, work_id ASC
+        LIMIT 501
       `).bind(auth.userId),
     ]);
 
@@ -111,8 +112,14 @@ export async function onRequestPost(context) {
         createdAt: userRow?.created_at == null ? null : Number(userRow.created_at),
         savedQuoteCount: Number(userRow?.saved_quote_count || 0),
       },
-      items: itemsResult?.results || [],
-      likes: likesResult?.results || [],
+      items: userPage({ items: itemsResult?.results || [] }).items,
+      likes: userPage({ likes: likesResult?.results || [] }).likes,
+      pagination: {
+        itemsNextCursor: userPage({ items: itemsResult?.results || [] }).pagination.nextCursor,
+        likesNextCursor: userPage({ likes: likesResult?.results || [] }).pagination.nextCursor,
+        itemsNextOffset: userPage({ items: itemsResult?.results || [] }).pagination.nextOffset,
+        likesNextOffset: userPage({ likes: likesResult?.results || [] }).pagination.nextOffset,
+      },
       visitRecorded,
       visitCounted,
       visitedAt: visitCounted ? now : (lastVisitAt || null),

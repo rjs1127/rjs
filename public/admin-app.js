@@ -508,6 +508,7 @@ const quotePresetThumbErrors = new Set();
 const quotePresetRenderQueue = [];
 const quotePresetQueuedKeys = new Set();
 const quotePresetSavingKeys = new Set();
+let quotePresetSaveQueue = Promise.resolve();
 let quotePresetGalleryReady = false;
 let quotePresetActiveRender = null;
 let quotePresetRequestSerial = 0;
@@ -795,7 +796,11 @@ async function setQuotePresetVisibility(key, visible, button, field = "visible")
   if (quotePresetSavingKeys.has(key)) return;
   quotePresetSavingKeys.add(key);
   if (button) button.disabled = true;
+  const previous = quotePresetSaveQueue;
+  let release;
+  quotePresetSaveQueue = new Promise(resolve => { release = resolve; });
   try {
+    await previous;
     const data = await api("/api/admin/quote-image-presets", { method: "POST", body: JSON.stringify({ key, visible, field }) });
     quotePresetAdminData = Array.isArray(data?.presets) ? data.presets : quotePresetAdminData;
     quotePresetAdminLoaded = true;
@@ -807,6 +812,7 @@ async function setQuotePresetVisibility(key, visible, button, field = "visible")
     if (els.quotePresetMessage) { els.quotePresetMessage.hidden = false; els.quotePresetMessage.textContent = error.message || "노출 설정을 저장하지 못했습니다."; }
   } finally {
     quotePresetSavingKeys.delete(key);
+    release();
     renderQuotePresetAdmin();
   }
 }
