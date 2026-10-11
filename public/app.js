@@ -218,6 +218,10 @@ const state = {
   readerShareLocation: null,
   readerShareBackground: 0,
   readerShareWeight: "regular",
+  readerShareLetterSpacing: 0,
+  readerShareLineHeight: 1.42,
+  readerSharePaddingX: 0,
+  readerSharePaddingY: 0,
   visibleItemLimit: 40,
   paginationSignature: "",
 };
@@ -12041,11 +12045,12 @@ const READER_SHARE_BACKGROUNDS = [
   {
     name: "유리온실",
     key: "glasshouse",
-    background: "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 140 140%22%3E%3Cg fill=%22none%22 stroke=%234f806b stroke-opacity=%22.12%22 stroke-width=%221%22%3E%3Cpath d=%22M12 134C38 104 40 65 24 24M24 66c20-10 29-25 33-45M24 82C43 76 57 80 70 96M118 138c-14-34-10-72 12-110M119 72c-20-8-31-22-38-39%22/%3E%3C/g%3E%3C/svg%3E'), linear-gradient(145deg, #f5fbf7 0%, #deeee5 50%, #d0e4d9 100%)",
-    text: "#355c4c",
-    meta: "#739486",
-    accent: "#4f806b",
+    background: "url('data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 160 160%22%3E%3Cg fill=%22none%22 stroke-linecap=%22round%22%3E%3Cpath d=%22M18 160V22M44 160V22M70 160V22M96 160V22M122 160V22M148 160V22M10 38H150M10 64H150M10 90H150M10 116H150M10 142H150%22 stroke=%22%23598b78%22 stroke-opacity=%22.18%22 stroke-width=%221.3%22/%3E%3Cpath d=%22M18 22 80 6l62 16%22 stroke=%22%2371a18e%22 stroke-opacity=%22.22%22 stroke-width=%221.7%22/%3E%3Cpath d=%22M10 64c16-26 30-39 44-43M15 102c14-18 31-29 49-32M150 70c-20-24-36-35-52-40M144 112c-18-18-34-28-50-31%22 stroke=%22%234f806b%22 stroke-opacity=%22.16%22 stroke-width=%221.1%22/%3E%3Cellipse cx=%2218%22 cy=%2218%22 rx=%2230%22 ry=%2220%22 fill=%22%23ffffff%22 fill-opacity=%22.18%22/%3E%3C/g%3E%3C/svg%3E'), linear-gradient(90deg, rgba(255,255,255,.22) 0 1px, rgba(255,255,255,0) 1px 13%), linear-gradient(180deg, rgba(255,255,255,.18) 0 1px, rgba(255,255,255,0) 1px 16%), radial-gradient(circle at 84% 14%, rgba(255,247,218,.65) 0 12%, rgba(255,247,218,0) 34%), linear-gradient(145deg, #f7fcf8 0%, #e4f1e7 48%, #d2e6d9 100%)",
+    text: "#2d5647",
+    meta: "#688d7e",
+    accent: "#548873",
     effect: "glasshouse",
+    textFx: { halo: ['rgba(248,253,250,.97)', 9], shadow: ['rgba(45,86,71,.18)', 10, 0, 2] },
   },
   {
     name: "흑연결",
@@ -12347,6 +12352,19 @@ const READER_SHARE_WEIGHTS = {
   bold: { label: "굵게", weight: 700 },
 };
 
+const READER_SHARE_TEXT_SETTING_DEFAULTS = {
+  letterSpacing: 0,
+  lineHeight: 1.42,
+  paddingX: 0,
+  paddingY: 0,
+};
+const READER_SHARE_TEXT_SETTING_LIMITS = {
+  letterSpacing: { min: -4, max: 8, step: 0.5 },
+  lineHeight: { min: 1.1, max: 2, step: 0.05 },
+  paddingX: { min: -4, max: 8, step: 1 },
+  paddingY: { min: -4, max: 8, step: 1 },
+};
+
 const READER_SHARE_LIGHT_WEIGHT_FONTS = new Set(["paperlogy", "kopubbatang"]);
 
 function readerShareFontSupportsLight(fontKey = state.readerShareFont) {
@@ -12357,6 +12375,46 @@ function normalizeReaderShareWeightForFont() {
   if (state.readerShareWeight === "light" && !readerShareFontSupportsLight()) {
     state.readerShareWeight = "regular";
   }
+}
+
+function clampReaderShareNumber(value, min, max, fallback) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return fallback;
+  return Math.min(max, Math.max(min, num));
+}
+
+function roundReaderShareStep(value, step) {
+  const unit = Number(step) || 1;
+  return Math.round(value / unit) * unit;
+}
+
+function normalizeReaderShareTextSettings() {
+  const ls = READER_SHARE_TEXT_SETTING_LIMITS.letterSpacing;
+  const lh = READER_SHARE_TEXT_SETTING_LIMITS.lineHeight;
+  const px = READER_SHARE_TEXT_SETTING_LIMITS.paddingX;
+  const py = READER_SHARE_TEXT_SETTING_LIMITS.paddingY;
+  state.readerShareLetterSpacing = roundReaderShareStep(clampReaderShareNumber(state.readerShareLetterSpacing, ls.min, ls.max, READER_SHARE_TEXT_SETTING_DEFAULTS.letterSpacing), ls.step);
+  state.readerShareLineHeight = roundReaderShareStep(clampReaderShareNumber(state.readerShareLineHeight, lh.min, lh.max, READER_SHARE_TEXT_SETTING_DEFAULTS.lineHeight), lh.step);
+  state.readerSharePaddingX = roundReaderShareStep(clampReaderShareNumber(state.readerSharePaddingX, px.min, px.max, READER_SHARE_TEXT_SETTING_DEFAULTS.paddingX), px.step);
+  state.readerSharePaddingY = roundReaderShareStep(clampReaderShareNumber(state.readerSharePaddingY, py.min, py.max, READER_SHARE_TEXT_SETTING_DEFAULTS.paddingY), py.step);
+}
+
+function formatReaderShareRangeValue(value, { suffix = "", zeroLabel = "기본", plusPrefix = false, digits = null } = {}) {
+  const num = Number(value) || 0;
+  if (Math.abs(num) < 1e-9) return zeroLabel;
+  const fixed = digits == null ? String(num) : Number(num).toFixed(digits).replace(/\.0+$/, '').replace(/(\.\d*[1-9])0+$/, '$1');
+  const sign = plusPrefix && num > 0 ? '+' : '';
+  return `${sign}${fixed}${suffix}`;
+}
+
+function getReaderShareTextInsets(ratio, paddingX = 0, paddingY = 0) {
+  const baseTop = ratio === "2:3" ? 11.5 : ratio === "4:5" ? 12 : 13;
+  const baseBottom = ratio === "2:3" ? 11.5 : ratio === "4:5" ? 13 : 15;
+  const baseSide = 7;
+  const side = clampReaderShareNumber(baseSide + Number(paddingX || 0), 3, 22, baseSide);
+  const top = clampReaderShareNumber(baseTop + Number(paddingY || 0), 6, 24, baseTop);
+  const bottom = clampReaderShareNumber(baseBottom + Number(paddingY || 0), 7, 26, baseBottom);
+  return { left: side, right: side, top, bottom };
 }
 
 let readerShareUi = null;
@@ -12372,6 +12430,7 @@ function ensureReaderShareState() {
   if (!["light", "regular", "bold"].includes(state.readerShareWeight)) state.readerShareWeight = "regular";
   normalizeReaderShareWeightForFont();
   if (typeof state.readerShareAutoWrap !== "boolean") state.readerShareAutoWrap = true;
+  normalizeReaderShareTextSettings();
 }
 
 function getReaderShareBrandName() {
@@ -12720,25 +12779,41 @@ function ensureReaderShareUi() {
         </div>
 
         <div class="reader-share-section">
-          <div class="reader-share-row">
-            <span class="reader-share-label">글자 굵기</span>
-            <div class="reader-share-options reader-share-weights"></div>
-          </div>
-        </div>
-
-        <div class="reader-share-section">
-          <div class="reader-share-row">
-            <span class="reader-share-label">글자 크기</span>
-            <div class="reader-share-options reader-share-sizes"></div>
-          </div>
-        </div>
-
-        <div class="reader-share-section">
-          <div class="reader-share-row">
-            <span class="reader-share-label">줄 바꿈</span>
-            <div class="reader-share-wrap-control">
-              <span class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동 줄바꿈</span>
-              <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
+          <div class="reader-share-row" style="align-items:start;">
+            <span class="reader-share-label" style="padding-top:8px;">텍스트 설정</span>
+            <div class="reader-share-text-settings">
+              <div class="reader-share-setting-block">
+                <span class="reader-share-setting-title">굵기</span>
+                <div class="reader-share-options reader-share-weights"></div>
+              </div>
+              <div class="reader-share-setting-block">
+                <span class="reader-share-setting-title">크기</span>
+                <div class="reader-share-options reader-share-sizes"></div>
+              </div>
+              <div class="reader-share-setting-row">
+                <span class="reader-share-setting-title">자간</span>
+                <input class="reader-share-range" type="range" min="-4" max="8" step="0.5" value="0" data-share-letter-spacing aria-label="자간 조절">
+                <span class="reader-share-setting-value" data-share-letter-spacing-value>기본</span>
+              </div>
+              <div class="reader-share-setting-row">
+                <span class="reader-share-setting-title">줄간격</span>
+                <input class="reader-share-range" type="range" min="1.1" max="2" step="0.05" value="1.42" data-share-line-height aria-label="줄간격 조절">
+                <span class="reader-share-setting-value" data-share-line-height-value>1.42</span>
+              </div>
+              <div class="reader-share-setting-row">
+                <span class="reader-share-setting-title">좌우 여백</span>
+                <input class="reader-share-range" type="range" min="-4" max="8" step="1" value="0" data-share-padding-x aria-label="좌우 여백 조절">
+                <span class="reader-share-setting-value" data-share-padding-x-value>기본</span>
+              </div>
+              <div class="reader-share-setting-row">
+                <span class="reader-share-setting-title">상하 여백</span>
+                <input class="reader-share-range" type="range" min="-4" max="8" step="1" value="0" data-share-padding-y aria-label="상하 여백 조절">
+                <span class="reader-share-setting-value" data-share-padding-y-value>기본</span>
+              </div>
+              <div class="reader-share-wrap-control">
+                <span class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동 줄바꿈</span>
+                <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
+              </div>
             </div>
           </div>
         </div>
@@ -12786,6 +12861,14 @@ function ensureReaderShareUi() {
   const fonts = backdrop.querySelector(".reader-share-fonts");
   const weights = backdrop.querySelector(".reader-share-weights");
   const sizes = backdrop.querySelector(".reader-share-sizes");
+  const letterSpacingInput = backdrop.querySelector("[data-share-letter-spacing]");
+  const lineHeightInput = backdrop.querySelector("[data-share-line-height]");
+  const paddingXInput = backdrop.querySelector("[data-share-padding-x]");
+  const paddingYInput = backdrop.querySelector("[data-share-padding-y]");
+  const letterSpacingValue = backdrop.querySelector("[data-share-letter-spacing-value]");
+  const lineHeightValue = backdrop.querySelector("[data-share-line-height-value]");
+  const paddingXValue = backdrop.querySelector("[data-share-padding-x-value]");
+  const paddingYValue = backdrop.querySelector("[data-share-padding-y-value]");
   const actions = backdrop.querySelector(".reader-share-actions");
   const wrap = backdrop.querySelector("[data-share-wrap]");
   const quoteSaveButton = backdrop.querySelector("[data-share-quote]");
@@ -12999,6 +13082,18 @@ function ensureReaderShareUi() {
     updateReaderSharePreview();
   });
 
+  const bindReaderShareRange = (element, key, limits) => {
+    element?.addEventListener("input", () => {
+      const next = roundReaderShareStep(clampReaderShareNumber(element.value, limits.min, limits.max, READER_SHARE_TEXT_SETTING_DEFAULTS[key]), limits.step);
+      state[`readerShare${key.charAt(0).toUpperCase()}${key.slice(1)}`] = next;
+      updateReaderSharePreview();
+    });
+  };
+  bindReaderShareRange(letterSpacingInput, "letterSpacing", READER_SHARE_TEXT_SETTING_LIMITS.letterSpacing);
+  bindReaderShareRange(lineHeightInput, "lineHeight", READER_SHARE_TEXT_SETTING_LIMITS.lineHeight);
+  bindReaderShareRange(paddingXInput, "paddingX", READER_SHARE_TEXT_SETTING_LIMITS.paddingX);
+  bindReaderShareRange(paddingYInput, "paddingY", READER_SHARE_TEXT_SETTING_LIMITS.paddingY);
+
   quoteSaveButton?.addEventListener("click", async () => {
     if (!state.user) {
       closeReaderShareUi();
@@ -13165,7 +13260,7 @@ function ensureReaderShareUi() {
     bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
-readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, letterSpacingInput, lineHeightInput, paddingXInput, paddingYInput, letterSpacingValue, lineHeightValue, paddingXValue, paddingYValue, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -14763,9 +14858,44 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     ctx.strokeStyle="rgba(82,124,142,.16)"; ctx.lineWidth=Math.max(1,width/1300);
     for(let i=0;i<7;i++){const y=.18+i*.1;ctx.beginPath();ctx.moveTo(-width*.05,height*y);ctx.bezierCurveTo(width*.22,height*(y-.08),width*.46,height*(y+.08),width*.72,height*y);ctx.bezierCurveTo(width*.86,height*(y-.05),width*.96,height*(y+.02),width*1.05,height*(y-.03));ctx.stroke();}
   } else if (effect === "glasshouse") {
-    ctx.strokeStyle="rgba(70,112,94,.13)"; ctx.lineWidth=Math.max(1,width/1300);
-    for(let x=.08;x<1;x+=.14){ctx.beginPath();ctx.moveTo(width*x,0);ctx.lineTo(width*(x-.18),height);ctx.stroke();}
-    ctx.strokeStyle="rgba(255,255,255,.20)"; for(let x=.16;x<1;x+=.2){ctx.beginPath();ctx.moveTo(width*x,0);ctx.lineTo(width*(x+.14),height);ctx.stroke();}
+    const unit = width / 1200;
+    const sun = ctx.createRadialGradient(width * .82, height * .14, 0, width * .82, height * .14, width * .32);
+    sun.addColorStop(0, "rgba(255,246,207,.34)");
+    sun.addColorStop(.45, "rgba(255,246,207,.12)");
+    sun.addColorStop(1, "rgba(255,246,207,0)");
+    ctx.fillStyle = sun; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = "rgba(86,132,113,.16)";
+    ctx.lineWidth = Math.max(1.5, unit * 2.1);
+    for (let x = .08; x < 1; x += .14) { ctx.beginPath(); ctx.moveTo(width * x, height * .08); ctx.lineTo(width * x, height); ctx.stroke(); }
+    for (let y = .18; y < 1; y += .17) { ctx.beginPath(); ctx.moveTo(0, height * y); ctx.lineTo(width, height * y); ctx.stroke(); }
+    ctx.strokeStyle = "rgba(102,151,131,.2)";
+    ctx.lineWidth = Math.max(2, unit * 3);
+    ctx.beginPath(); ctx.moveTo(width * .08, height * .08); ctx.lineTo(width * .5, 0); ctx.lineTo(width * .92, height * .08); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,255,255,.24)";
+    ctx.lineWidth = Math.max(1, unit * 1.6);
+    for (let i = 0; i < 5; i += 1) {
+      const x = .12 + i * .18;
+      ctx.beginPath(); ctx.moveTo(width * x, height * .04); ctx.lineTo(width * (x + .08), height * .96); ctx.stroke();
+    }
+    ctx.strokeStyle = "rgba(255,255,255,.18)";
+    for (let i = 0; i < 3; i += 1) {
+      const x = .14 + i * .28;
+      ctx.beginPath(); ctx.moveTo(width * x, height * .1); ctx.bezierCurveTo(width * (x + .03), height * .24, width * (x - .02), height * .48, width * (x + .04), height * .66); ctx.stroke();
+    }
+    const drawLeaf = (x, y, sx, sy, rot, fill) => {
+      ctx.save();
+      ctx.translate(width * x, height * y);
+      ctx.rotate(rot);
+      ctx.scale(width * sx, height * sy);
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.bezierCurveTo(.56, -.12, .84, -.78, 0, -1);
+      ctx.bezierCurveTo(-.84, -.78, -.56, -.12, 0, 0);
+      ctx.fill();
+      ctx.restore();
+    };
+    [[.1,.26,.05,.09,-.62,"rgba(104,155,126,.17)"],[.16,.4,.06,.1,-.3,"rgba(91,140,111,.14)"],[.23,.62,.05,.09,.14,"rgba(126,171,137,.14)"],[.84,.22,.05,.09,.48,"rgba(88,136,113,.13)"],[.9,.42,.06,.11,.18,"rgba(111,158,130,.14)"],[.78,.68,.055,.1,-.24,"rgba(126,171,145,.12)"]].forEach(args => drawLeaf(...args));
   } else if (effect === "graphite-grain") {
     ctx.strokeStyle="rgba(42,46,52,.08)"; ctx.lineWidth=Math.max(1,width/1600);
     for(let y=0;y<height;y+=Math.max(8,height/90)){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(width,y+height*.02);ctx.stroke();}
@@ -14875,19 +15005,55 @@ function getReaderShareRenderModel() {
     sizePx: size.px,
     fontWeight: weightSetting.weight || font.weight || 400,
     ratio,
+    letterSpacingPx: state.readerShareLetterSpacing,
+    lineHeightMult: state.readerShareLineHeight,
+    paddingX: state.readerSharePaddingX,
+    paddingY: state.readerSharePaddingY,
     autoWrap: !!state.readerShareAutoWrap,
     brand: getReaderShareBrandName(),
   };
 }
 
-function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
+function measureReaderShareTextWidth(ctx, text, letterSpacing = 0) {
+  const raw = String(text || "");
+  const count = Math.max(0, Array.from(raw).length - 1);
+  return Math.max(0, ctx.measureText(raw).width + (count * Number(letterSpacing || 0)));
+}
+
+function drawReaderShareTextWithSpacing(ctx, text, x, y, { letterSpacing = 0, align = "left", mode = "fill" } = {}) {
+  const raw = String(text || "");
+  if (!raw) return;
+  const spacing = Number(letterSpacing || 0);
+  if (!spacing) {
+    if (mode === "stroke") ctx.strokeText(raw, x, y);
+    else ctx.fillText(raw, x, y);
+    return;
+  }
+  const chars = Array.from(raw);
+  const totalWidth = measureReaderShareTextWidth(ctx, raw, spacing);
+  let startX = x;
+  if (align === "center") startX = x - totalWidth / 2;
+  else if (align === "right" || align === "end") startX = x - totalWidth;
+
+  ctx.save();
+  ctx.textAlign = "left";
+  let cursor = startX;
+  for (const ch of chars) {
+    if (mode === "stroke") ctx.strokeText(ch, cursor, y);
+    else ctx.fillText(ch, cursor, y);
+    cursor += ctx.measureText(ch).width + spacing;
+  }
+  ctx.restore();
+}
+
+function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap, letterSpacing = 0) {
   const paragraphs = String(rawText || "").split(/\r?\n/);
   const lines = [];
   const pushBrokenToken = (token) => {
     let part = "";
     for (const ch of Array.from(token)) {
       const test = part + ch;
-      if (part && ctx.measureText(test).width > maxWidth) {
+      if (part && measureReaderShareTextWidth(ctx, test, letterSpacing) > maxWidth) {
         lines.push(part);
         part = ch;
       } else {
@@ -14910,7 +15076,7 @@ function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
     for (const token of tokens) {
       const test = line + token;
       if (!line) {
-        if (ctx.measureText(token).width <= maxWidth) {
+        if (measureReaderShareTextWidth(ctx, token, letterSpacing) <= maxWidth) {
           line = token;
         } else {
           pushBrokenToken(token);
@@ -14918,12 +15084,12 @@ function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
         }
         continue;
       }
-      if (ctx.measureText(test).width <= maxWidth) {
+      if (measureReaderShareTextWidth(ctx, test, letterSpacing) <= maxWidth) {
         line = test;
         continue;
       }
       lines.push(line.trimEnd());
-      if (ctx.measureText(token).width <= maxWidth) {
+      if (measureReaderShareTextWidth(ctx, token, letterSpacing) <= maxWidth) {
         line = token.trimStart();
       } else {
         pushBrokenToken(token.trim());
@@ -14936,17 +15102,19 @@ function fitShareLinesToWidth(ctx, rawText, maxWidth, autoWrap) {
 }
 
 function computeReaderShareTextLayout(ctx, model, width, height) {
-  const left = width * 0.07;
-  const right = width * 0.07;
-  const top = model.ratio === "2:3" ? height * 0.115 : model.ratio === "4:5" ? height * 0.12 : height * 0.13;
-  const bottom = model.ratio === "2:3" ? height * 0.115 : model.ratio === "4:5" ? height * 0.13 : height * 0.15;
+  const insets = getReaderShareTextInsets(model.ratio, model.paddingX, model.paddingY);
+  const left = width * (insets.left / 100);
+  const right = width * (insets.right / 100);
+  const top = height * (insets.top / 100);
+  const bottom = height * (insets.bottom / 100);
   const boxWidth = width - left - right;
   const boxHeight = height - top - bottom;
   const scale = width / 380;
   const fontSize = model.sizePx * scale;
-  const lineHeight = fontSize * 1.42;
+  const lineHeight = fontSize * model.lineHeightMult;
+  const letterSpacing = Number(model.letterSpacingPx || 0) * scale;
   ctx.font = `${model.fontWeight || model.font.weight || 400} ${fontSize}px ${model.font.css}`;
-  let lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap);
+  let lines = fitShareLinesToWidth(ctx, model.text, boxWidth, model.autoWrap, letterSpacing);
 
   const maxLines = Math.max(1, Math.floor(boxHeight / lineHeight));
   const truncated = lines.length > maxLines;
@@ -14956,22 +15124,24 @@ function computeReaderShareTextLayout(ctx, model, width, height) {
     lines[last] = `${String(lines[last] || "").replace(/[.…\s]+$/u, "")}…`;
   }
 
-  return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines, truncated };
+  return { left, top, boxWidth, boxHeight, fontSize, lineHeight, lines, truncated, letterSpacing, insets };
 }
 
 // v10.07: optional per-preset text treatment from the supplied design lab.
 // The regular text renderer, font selection, wrapping, save and clipboard paths stay unchanged.
-function drawReaderShareTextFx(ctx, line, x, y, color, fx, scale, foilFill = null) {
+function drawReaderShareTextFx(ctx, line, x, y, color, fx, scale, foilFill = null, options = {}) {
+  const align = options.align || ctx.textAlign || "left";
+  const letterSpacing = Number(options.letterSpacing || 0);
   ctx.save();
   if (Array.isArray(fx?.halo)) {
     ctx.lineJoin = "round";
     ctx.strokeStyle = fx.halo[0];
     ctx.lineWidth = Number(fx.halo[1] || 0) * scale;
-    ctx.strokeText(line, x, y);
+    drawReaderShareTextWithSpacing(ctx, line, x, y, { letterSpacing, align, mode: "stroke" });
   }
   if (fx?.emboss) {
     ctx.fillStyle = "rgba(0,0,0,.5)";
-    ctx.fillText(line, x + 1.6 * scale, y + 1.9 * scale);
+    drawReaderShareTextWithSpacing(ctx, line, x + 1.6 * scale, y + 1.9 * scale, { letterSpacing, align, mode: "fill" });
   }
   if (Array.isArray(fx?.shadow)) {
     ctx.shadowColor = fx.shadow[0];
@@ -14980,7 +15150,7 @@ function drawReaderShareTextFx(ctx, line, x, y, color, fx, scale, foilFill = nul
     ctx.shadowOffsetY = Number(fx.shadow[3] || 0) * scale;
   }
   ctx.fillStyle = foilFill || color;
-  ctx.fillText(line, x, y);
+  drawReaderShareTextWithSpacing(ctx, line, x, y, { letterSpacing, align, mode: "fill" });
   ctx.restore();
 }
 
@@ -15070,8 +15240,8 @@ async function renderReaderShareCanvas() {
     foilFill.addColorStop(1, textFx.foil[2]);
   }
   for (const line of layout.lines) {
-    if (textFx) drawReaderShareTextFx(ctx, line, centerX, y, model.background.text, textFx, effectScale, foilFill);
-    else ctx.fillText(line, centerX, y);
+    if (textFx) drawReaderShareTextFx(ctx, line, centerX, y, model.background.text, textFx, effectScale, foilFill, { align: "center", letterSpacing: layout.letterSpacing });
+    else drawReaderShareTextWithSpacing(ctx, line, centerX, y, { align: "center", letterSpacing: layout.letterSpacing, mode: "fill" });
     y += layout.lineHeight;
   }
 
@@ -15081,7 +15251,7 @@ async function renderReaderShareCanvas() {
   ctx.font = `400 ${10 * scale}px Pretendard, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "alphabetic";
-  if (textFx) drawReaderShareTextFx(ctx, meta, centerX, height - (height * 0.058), model.background.meta, textFx, effectScale);
+  if (textFx) drawReaderShareTextFx(ctx, meta, centerX, height - (height * 0.058), model.background.meta, textFx, effectScale, null, { align: "center", letterSpacing: 0 });
   else ctx.fillText(meta, centerX, height - (height * 0.058));
 
   return canvas;
@@ -15163,6 +15333,10 @@ function getReaderShareBlobKey() {
     font: state.readerShareFont,
     size: state.readerShareSize,
     weight: state.readerShareWeight,
+    letterSpacing: state.readerShareLetterSpacing,
+    lineHeight: state.readerShareLineHeight,
+    paddingX: state.readerSharePaddingX,
+    paddingY: state.readerSharePaddingY,
     autoWrap: !!state.readerShareAutoWrap,
     title: item.title || "",
     author: item.author || "",
@@ -15456,8 +15630,14 @@ function updateReaderSharePreview() {
   ui.quoteText.textContent = text;
   ui.quote.style.fontFamily = font.css;
   const weightSetting = READER_SHARE_WEIGHTS[state.readerShareWeight] || READER_SHARE_WEIGHTS.regular;
+  const insets = getReaderShareTextInsets(state.readerShareRatio, state.readerSharePaddingX, state.readerSharePaddingY);
   ui.quote.style.fontWeight = String(weightSetting.weight || font.weight || 400);
-  ui.quote.style.lineHeight = "1.42";
+  ui.quote.style.lineHeight = String(state.readerShareLineHeight);
+  ui.quote.style.letterSpacing = `${state.readerShareLetterSpacing}px`;
+  ui.quote.style.left = `${insets.left}%`;
+  ui.quote.style.right = `${insets.right}%`;
+  ui.quote.style.top = `${insets.top}%`;
+  ui.quote.style.bottom = `${insets.bottom}%`;
   // Keep 1~5 as explicit visual size steps in preview.
   // The old long-text penalty collapsed 1/2/3 to the same minimum on mobile.
   const previewFontSize = size.px;
@@ -15496,6 +15676,14 @@ function updateReaderSharePreview() {
   ui.backdrop.querySelectorAll("[data-share-size]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareSize === state.readerShareSize);
   });
+  if (ui.letterSpacingInput) ui.letterSpacingInput.value = String(state.readerShareLetterSpacing);
+  if (ui.lineHeightInput) ui.lineHeightInput.value = String(state.readerShareLineHeight);
+  if (ui.paddingXInput) ui.paddingXInput.value = String(state.readerSharePaddingX);
+  if (ui.paddingYInput) ui.paddingYInput.value = String(state.readerSharePaddingY);
+  if (ui.letterSpacingValue) ui.letterSpacingValue.textContent = formatReaderShareRangeValue(state.readerShareLetterSpacing, { suffix: 'px', zeroLabel: '기본', plusPrefix: true, digits: 1 });
+  if (ui.lineHeightValue) ui.lineHeightValue.textContent = formatReaderShareRangeValue(state.readerShareLineHeight, { zeroLabel: '1.42', digits: 2 });
+  if (ui.paddingXValue) ui.paddingXValue.textContent = formatReaderShareRangeValue(state.readerSharePaddingX, { zeroLabel: '기본', plusPrefix: true });
+  if (ui.paddingYValue) ui.paddingYValue.textContent = formatReaderShareRangeValue(state.readerSharePaddingY, { zeroLabel: '기본', plusPrefix: true });
   ui.wrap.classList.toggle("active", state.readerShareAutoWrap);
   ui.wrap.setAttribute("aria-pressed", state.readerShareAutoWrap ? "true" : "false");
   if (ui.card) ui.card.classList.add("is-render-loading");
@@ -15509,7 +15697,12 @@ function updateReaderSharePreview() {
 function resetReaderShareEditorOptions() {
   state.readerShareSize = "xs";        // 2
   state.readerShareWeight = "regular"; // 보통
+  state.readerShareLetterSpacing = READER_SHARE_TEXT_SETTING_DEFAULTS.letterSpacing;
+  state.readerShareLineHeight = READER_SHARE_TEXT_SETTING_DEFAULTS.lineHeight;
+  state.readerSharePaddingX = READER_SHARE_TEXT_SETTING_DEFAULTS.paddingX;
+  state.readerSharePaddingY = READER_SHARE_TEXT_SETTING_DEFAULTS.paddingY;
   normalizeReaderShareWeightForFont();
+  normalizeReaderShareTextSettings();
 }
 
 function getHistoryStateWithoutReaderShare() {
