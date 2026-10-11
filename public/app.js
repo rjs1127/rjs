@@ -12360,7 +12360,7 @@ const READER_SHARE_TEXT_SETTING_DEFAULTS = {
 };
 const READER_SHARE_TEXT_SETTING_LIMITS = {
   letterSpacing: { min: -4, max: 8, step: 0.5 },
-  lineHeight: { min: 1.1, max: 2, step: 0.05 },
+  lineHeight: { min: 1.1, max: 2, step: 0.02 },
   paddingX: { min: -4, max: 8, step: 1 },
   paddingY: { min: -4, max: 8, step: 1 },
 };
@@ -12677,6 +12677,25 @@ function ensureReaderShareUi() {
     .reader-share-switch.active::after { transform:translateX(18px); }
     .reader-share-wrap-control { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
     .reader-share-wrap-note { color:var(--muted,#756d79); font-size:11px; line-height:1.35; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    /* v10.27: text settings stay collapsed until requested. Matches the 72px label grid. */
+    .reader-share-text-toggle { display:grid; grid-template-columns:72px minmax(0,1fr); align-items:center; gap:10px; width:100%; min-height:34px; margin:0; padding:0; border:0; background:transparent; color:inherit; text-align:left; font:inherit; cursor:pointer; }
+    .reader-share-text-toggle:focus-visible { outline:2px solid #77695e; outline-offset:3px; border-radius:5px; }
+    .reader-share-text-toggle-action { display:flex; justify-content:space-between; align-items:center; min-width:0; padding:5px 10px; border:1px solid rgba(91,75,99,.16); border-radius:10px; background:rgba(91,75,99,.035); color:var(--muted,#756d79); font-size:12px; font-weight:750; }
+    .reader-share-text-toggle-chevron { width:15px; height:15px; flex:none; transform:rotate(0deg); transition:transform .15s ease; }
+    .reader-share-text-toggle[aria-expanded="true"] .reader-share-text-toggle-chevron { transform:rotate(180deg); }
+    .reader-share-text-details { padding-top:12px; align-items:start; }
+    .reader-share-text-details[hidden] { display:none !important; }
+    .reader-share-text-settings { display:grid; gap:12px; min-width:0; width:100%; box-sizing:border-box; }
+    .reader-share-setting-block { display:grid; gap:7px; min-width:0; }
+    .reader-share-setting-title { color:var(--muted,#756d79); font-size:12px; font-weight:750; line-height:1.35; }
+    .reader-share-setting-head { display:flex; justify-content:space-between; align-items:center; gap:8px; min-width:0; }
+    .reader-share-setting-value { flex:none; min-width:46px; padding:4px 8px; text-align:center; box-sizing:border-box; border-radius:8px; background:rgba(91,75,99,.07); color:var(--text,#2c2630); font-size:11px; line-height:1.3; font-variant-numeric:tabular-nums; font-weight:800; }
+    .reader-share-range { display:block; width:100%; min-width:0; max-width:100%; height:22px; margin:0; padding:0; box-sizing:border-box; accent-color:#5a4e45; cursor:pointer; }
+    .reader-share-text-settings .reader-share-weights, .reader-share-text-settings .reader-share-sizes { display:flex; flex-wrap:wrap; gap:7px; min-width:0; }
+    .reader-share-text-settings .reader-share-chip { min-width:38px; text-align:center; }
+    .reader-share-text-settings .reader-share-wrap-control { gap:8px; border-top:1px solid rgba(91,75,99,.09); padding-top:11px; }
+    .reader-share-text-settings .reader-share-wrap-note { white-space:normal; overflow:visible; min-width:0; }
+    @media (prefers-reduced-motion:reduce) { .reader-share-text-toggle-chevron { transition:none; } }
     @media (max-width: 719px) {
       .reader-header .reader-filename { margin-bottom:14px !important; padding-bottom:2px !important; }
       .reader-resume { margin-top:10px !important; position:relative !important; clear:both !important; z-index:1; }
@@ -12778,9 +12797,15 @@ function ensureReaderShareUi() {
           </div>
         </div>
 
-        <div class="reader-share-section">
-          <div class="reader-share-row" style="align-items:start;">
-            <span class="reader-share-label" style="padding-top:8px;">텍스트 설정</span>
+        <div class="reader-share-section reader-share-text-section">
+          <button type="button" class="reader-share-text-toggle" data-share-text-toggle aria-controls="reader-share-text-controls" aria-expanded="false">
+            <span class="reader-share-label">텍스트 설정</span>
+            <span class="reader-share-text-toggle-action"><span data-share-text-toggle-label>열기</span>
+              <svg class="reader-share-text-toggle-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </button>
+          <div id="reader-share-text-controls" class="reader-share-row reader-share-text-details" data-share-text-panel hidden>
+            <span class="reader-share-label" aria-hidden="true"></span>
             <div class="reader-share-text-settings">
               <div class="reader-share-setting-block">
                 <span class="reader-share-setting-title">굵기</span>
@@ -12790,28 +12815,24 @@ function ensureReaderShareUi() {
                 <span class="reader-share-setting-title">크기</span>
                 <div class="reader-share-options reader-share-sizes"></div>
               </div>
-              <div class="reader-share-setting-row">
-                <span class="reader-share-setting-title">자간</span>
+              <label class="reader-share-setting-block">
+                <span class="reader-share-setting-head"><span class="reader-share-setting-title">자간</span><output class="reader-share-setting-value" data-share-letter-spacing-value>기본</output></span>
                 <input class="reader-share-range" type="range" min="-4" max="8" step="0.5" value="0" data-share-letter-spacing aria-label="자간 조절">
-                <span class="reader-share-setting-value" data-share-letter-spacing-value>기본</span>
-              </div>
-              <div class="reader-share-setting-row">
-                <span class="reader-share-setting-title">줄간격</span>
-                <input class="reader-share-range" type="range" min="1.1" max="2" step="0.05" value="1.42" data-share-line-height aria-label="줄간격 조절">
-                <span class="reader-share-setting-value" data-share-line-height-value>1.42</span>
-              </div>
-              <div class="reader-share-setting-row">
-                <span class="reader-share-setting-title">좌우 여백</span>
+              </label>
+              <label class="reader-share-setting-block">
+                <span class="reader-share-setting-head"><span class="reader-share-setting-title">줄간격</span><output class="reader-share-setting-value" data-share-line-height-value>1.42</output></span>
+                <input class="reader-share-range" type="range" min="1.1" max="2" step="0.02" value="1.42" data-share-line-height aria-label="줄간격 조절">
+              </label>
+              <label class="reader-share-setting-block">
+                <span class="reader-share-setting-head"><span class="reader-share-setting-title">좌우 여백</span><output class="reader-share-setting-value" data-share-padding-x-value>기본</output></span>
                 <input class="reader-share-range" type="range" min="-4" max="8" step="1" value="0" data-share-padding-x aria-label="좌우 여백 조절">
-                <span class="reader-share-setting-value" data-share-padding-x-value>기본</span>
-              </div>
-              <div class="reader-share-setting-row">
-                <span class="reader-share-setting-title">상하 여백</span>
+              </label>
+              <label class="reader-share-setting-block">
+                <span class="reader-share-setting-head"><span class="reader-share-setting-title">상하 여백</span><output class="reader-share-setting-value" data-share-padding-y-value>기본</output></span>
                 <input class="reader-share-range" type="range" min="-4" max="8" step="1" value="0" data-share-padding-y aria-label="상하 여백 조절">
-                <span class="reader-share-setting-value" data-share-padding-y-value>기본</span>
-              </div>
+              </label>
               <div class="reader-share-wrap-control">
-                <span class="reader-share-wrap-note">문장을 카드 폭에 맞춰 자동 줄바꿈</span>
+                <span class="reader-share-wrap-note">카드 폭에 맞춰 자동 줄바꿈</span>
                 <button type="button" class="reader-share-switch" data-share-wrap aria-label="자동 줄 바꿈"></button>
               </div>
             </div>
@@ -12861,6 +12882,9 @@ function ensureReaderShareUi() {
   const fonts = backdrop.querySelector(".reader-share-fonts");
   const weights = backdrop.querySelector(".reader-share-weights");
   const sizes = backdrop.querySelector(".reader-share-sizes");
+  const textSettingsToggle = backdrop.querySelector("[data-share-text-toggle]");
+  const textSettingsPanel = backdrop.querySelector("[data-share-text-panel]");
+  const textSettingsToggleLabel = backdrop.querySelector("[data-share-text-toggle-label]");
   const letterSpacingInput = backdrop.querySelector("[data-share-letter-spacing]");
   const lineHeightInput = backdrop.querySelector("[data-share-line-height]");
   const paddingXInput = backdrop.querySelector("[data-share-padding-x]");
@@ -12891,6 +12915,17 @@ function ensureReaderShareUi() {
   sizes.innerHTML = Object.entries(READER_SHARE_SIZES).map(([key, size]) => `
     <button type="button" class="reader-share-chip" data-share-size="${key}" aria-label="${size.label}" title="${size.label}">${size.button}</button>`).join("");
 
+  const setTextSettingsOpen = (open) => {
+    const expanded = !!open;
+    if (!textSettingsToggle || !textSettingsPanel) return;
+    textSettingsPanel.hidden = !expanded;
+    textSettingsToggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+    if (textSettingsToggleLabel) textSettingsToggleLabel.textContent = expanded ? "닫기" : "열기";
+  };
+  textSettingsToggle?.addEventListener("click", () => {
+    setTextSettingsOpen(textSettingsToggle.getAttribute("aria-expanded") !== "true");
+  });
+
   const close = ({ fromHistory = false } = {}) => {
     backdrop.hidden = true;
     window.clearTimeout(readerSharePrepareTimer);
@@ -12917,6 +12952,7 @@ function ensureReaderShareUi() {
       publicToggle.setAttribute("aria-pressed", "false");
     }
     resetReaderShareEditorOptions();
+    setTextSettingsOpen(false);
     if (!fromHistory && history.state?.rjsReaderShare) {
       history.replaceState(getHistoryStateWithoutReaderShare(), "", location.href);
     }
