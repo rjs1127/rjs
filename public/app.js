@@ -1709,6 +1709,23 @@ function openModal(modal) {
   focusModal(modal);
 }
 
+// 보조 팝업이 popstate에서 닫히기 전에 열린 상태를 확인한다.
+window.addEventListener("popstate", (event) => {
+  if (els.readerOverlay?.hidden || !state.activeReaderItem) return;
+
+  if (event.state?.rjsReaderOpen) {
+    // 직접 닫은 보조 팝업의 이력은 뷰어 이력으로 남는다.
+    // 열린 팝업이 없을 때만 건너뛰며, 실제 팝업 뒤로가기는 유지한다.
+    if (!getOpenSimpleModal() && (!readerShareUi || readerShareUi.backdrop.hidden)) {
+      history.back();
+    }
+    return;
+  }
+
+  state.readerHistoryActive = false;
+  closeReader({ fromHistory: true });
+}, { capture: true });
+
 window.addEventListener("popstate", (event) => {
   const openSimpleModal = getOpenSimpleModal();
   if (openSimpleModal && !event.state?.rjsSimpleModal) {
@@ -7840,18 +7857,6 @@ function closeReader(options = {}) {
 
   finalizeReaderClose();
 }
-
-
-window.addEventListener("popstate", (event) => {
-  if (
-    !els.readerOverlay?.hidden &&
-    state.activeReaderItem &&
-    !event.state?.rjsReaderOpen
-  ) {
-    state.readerHistoryActive = false;
-    closeReader({ fromHistory: true });
-  }
-});
 
 state.sort = normalizeSortValue(state.sort);
 localStorage.setItem("archiveSort", state.sort);
