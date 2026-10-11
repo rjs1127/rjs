@@ -11685,76 +11685,9 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
     background: '',
   };
 
-  function thumbSVG() {
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="1200" viewBox="0 0 1200 1200">
-      <defs>
-        <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stop-color="#8fc4ef"/>
-          <stop offset=".34" stop-color="#8fc4ef"/>
-          <stop offset=".34" stop-color="#a9c6f0"/>
-          <stop offset=".62" stop-color="#a9c6f0"/>
-          <stop offset=".62" stop-color="#bfc7f4"/>
-          <stop offset="1" stop-color="#d6c9f4"/>
-        </linearGradient>
-      </defs>
-      <rect width="1200" height="1200" fill="url(#bg)"/>
-      <g opacity=".78">
-        <rect x="0" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="85.714" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="171.428" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="257.142" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="342.856" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="428.57" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="514.284" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="599.998" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="685.712" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="771.426" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="857.14" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="942.854" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-        <rect x="1028.568" y="0" width="42.857" height="1200" fill="rgba(255,255,255,.58)"/>
-        <rect x="1114.282" y="0" width="42.857" height="1200" fill="rgba(252,232,242,.62)"/>
-      </g>
-      <g fill="#eef5ff" opacity=".9">
-        <path d="M265 61h167c30 0 54 21 60 49h-35c-2-12-12-21-24-21H313c-13 0-24 10-25 22h-38c6-28 30-50 61-50Z"/>
-        <path d="M840 82h190c34 0 62 24 69 57h-39c-2-15-15-26-31-26H891c-16 0-29 10-33 25h-39c8-33 37-56 72-56Z"/>
-      </g>
-      <g>
-        <rect x="221" y="256" width="700" height="360" rx="22" fill="url(#folderA)" stroke="#7a6e98" stroke-width="4"/>
-        <defs>
-          <linearGradient id="folderA" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f9e8c9"/><stop offset="1" stop-color="#f5cfda"/></linearGradient>
-          <linearGradient id="folderB" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#aedaef"/><stop offset="1" stop-color="#c5f0e2"/></linearGradient>
-          <linearGradient id="folderC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#bebcf2"/><stop offset="1" stop-color="#d9cdf8"/></linearGradient>
-        </defs>
-        <rect x="221" y="228" width="336" height="60" rx="18" fill="url(#folderA)" stroke="#7a6e98" stroke-width="4"/>
-        <rect x="249" y="281" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
-        <rect x="247" y="548" width="700" height="360" rx="22" fill="url(#folderB)" stroke="#7a6e98" stroke-width="4"/>
-        <rect x="247" y="520" width="336" height="60" rx="18" fill="url(#folderB)" stroke="#7a6e98" stroke-width="4"/>
-        <rect x="275" y="573" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
-        <rect x="221" y="834" width="700" height="312" rx="22" fill="url(#folderC)" stroke="#7a6e98" stroke-width="4"/>
-        <rect x="221" y="806" width="336" height="60" rx="18" fill="url(#folderC)" stroke="#7a6e98" stroke-width="4"/>
-        <rect x="249" y="859" width="546" height="29" rx="6" fill="#fff" opacity=".92" stroke="rgba(122,110,152,.75)" stroke-width="2.5"/>
-      </g>
-      <rect x="120" y="335" width="960" height="675" rx="28" fill="rgba(255,255,255,.92)" stroke="rgba(255,255,255,.98)" stroke-width="4"/>
-      <rect x="135" y="350" width="930" height="645" rx="20" fill="rgba(255,248,255,.55)"/>
-      <rect x="38" y="28" width="220" height="44" rx="22" fill="#7f719c"/>
-      <text x="148" y="56" text-anchor="middle" font-family="Arial,sans-serif" font-size="18" font-weight="700" fill="#ffffff">셩냥책</text>
-      <g font-family="Arial,sans-serif" font-size="14" font-weight="700" fill="#ffe8f6" opacity=".92">
-        <text x="140" y="365">✦</text><text x="850" y="820">✦</text><text x="900" y="175">✦</text><text x="490" y="155">✦</text><text x="120" y="930">✦</text>
-      </g>
-      <g>
-        <rect x="55" y="112" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
-        <text x="75" y="140" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">✦</text>
-        <text x="275" y="140" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
-        <rect x="55" y="420" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
-        <text x="75" y="448" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">♫</text>
-        <text x="275" y="448" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
-        <rect x="825" y="840" width="255" height="210" rx="18" fill="rgba(251,217,240,.72)" stroke="rgba(125,101,160,.78)" stroke-width="4"/>
-        <text x="845" y="868" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">♫</text>
-        <text x="1045" y="868" text-anchor="end" font-family="Arial,sans-serif" font-size="16" font-weight="700" fill="#7b6b9e">_ ⨯</text>
-      </g>
-    </svg>`;
-  }
-  preset.background = `url("data:image/svg+xml,${encodeURIComponent(thumbSVG())}") center/100% 100% no-repeat`;
+  // The CSS thumbnail reuses a text-free render of this exact Canvas artwork.
+  // No competing simplified SVG scene. The PNG/export renderer below is unchanged.
+  preset.background = 'url("/quote-pixel-folder-ui-background.webp?v=1023") center/100% 100% no-repeat';
 
   function roundRect(ctx, x, y, w, h, r, fill, stroke, sw = 0) {
     const radius = Math.max(0, Math.min(r, w / 2, h / 2));
@@ -11894,6 +11827,8 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
     const panelX = ox + 120 * u, panelY = oy + 335 * u, panelW = 960 * u, panelH = 675 * u;
     roundRect(ctx, panelX, panelY, panelW, panelH, 28 * u, 'rgba(255,255,255,.9)', 'rgba(255,255,255,.95)', 4 * u);
     roundRect(ctx, panelX + 15 * u, panelY + 15 * u, panelW - 30 * u, panelH - 30 * u, 20 * u, 'rgba(255,248,255,.55)', null, 0);
+    // CSS source asset: render all the same decoration, omit variable text/credits.
+    if (model.backgroundOnly === true) return;
     roundRect(ctx, ox + 38 * u, oy + 28 * u, 220 * u, 44 * u, 22 * u, '#7f719c', null, 0);
     ctx.fillStyle = '#fff'; ctx.font = `900 ${18 * u}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.fillText(brand, ox + 148 * u, oy + 56 * u);
     const bodyX = panelX + panelW / 2, bodyY = panelY + 62 * u, bodyH = 510 * u;
