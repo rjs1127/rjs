@@ -10603,15 +10603,6 @@ function sceneChrome(H){const sc=newScene();
   chromeSphere(sc,'cC',316,H-74,15);chromeSphere(sc,'cD',66,96,8);chromeSphere(sc,'cE',336,H-28,6);
   return sc}
 
-function sceneMoire(H){const sc=newScene();const ink='#0b0b14',blue='#2230ff';
-  const rings=(x,y,R,col)=>{for(let r=3;r<=R;r+=4.2)add(sc,{t:'circle',x,y,r,stroke:col,sw:1.15})};
-  rings(350,20,108,ink);rings(372,36,108,blue);rings(26,H-30,82,ink);rings(6,H-50,82,blue);
-  const R=Math.max(250,H*.55);
-  sc.defs.push({id:'vl',k:'rad',cx:190,cy:H/2,r:R,st:[[0,'rgba(245,243,236,1)'],[.58,'rgba(245,243,236,.97)'],[1,'rgba(245,243,236,0)']]});
-  add(sc,{t:'circle',x:190,y:H/2,r:R,fill:'url(#vl)'});
-  add(sc,{t:'circle',x:96,y:H-86,r:4.5,fill:blue});
-  return sc}
-
 function bayer(n){let m=[[0]];while(m.length<n){const s=m.length,o=Array.from({length:s*2},()=>Array(s*2));for(let y=0;y<s;y++)for(let x=0;x<s;x++){const v=m[y][x]*4;o[y][x]=v;o[y][x+s]=v+2;o[y+s][x]=v+3;o[y+s][x+s]=v+1}m=o}return m}
 const B8=bayer(8);
 function sceneDither(H){const sc=newScene();const c=4,cols=95,rows=Math.ceil(H/c);
@@ -10789,8 +10780,6 @@ function sceneRibbon(H){const sc=newScene();
 
 /* ============ 프리셋 메타 ============ */
 const PRESETS=[
-{name:'모아레 울트라',key:'moire-ultra',concept:'어긋난 동심원 선이 만드는 간섭무늬 — 스위스 포스터식 옵아트',hex:['#F9F7F1','#0B0B14','#2230FF'],base:['#f9f7f1','#efece2'],text:'#0b0b14',meta:'#5b5f78',fx:{halo:['rgba(246,244,237,.95)',9]},scene:sceneMoire,
- near:['ripple-pool','overprint'],diff:'부드러운 물결/CMY 잉크 번짐이 아닌 1.15px 선의 간섭. 흑+울트라블루 2색, 중앙은 종이색 베일로 비움.',feas:'원 stroke ~110개 + 방사형 베일 1개'},
 {name:'디더 바이올렛',key:'dither-violet',concept:'8×8 베이어 디더링 비트맵이 모서리에서 번지는 1-bit 감성',hex:['#F5F3FF','#CBC1FF','#5A3CF0','#231662'],base:['#f5f3ff','#e9e5ff'],text:'#231662',meta:'#7569c4',fx:{halo:['rgba(255,255,255,.96)',11],shadow:['rgba(203,193,255,.42)',8,0,0]},scene:sceneDither,
  near:['soft-polka','lime-hud'],diff:'원형 도트/형광 UI가 아닌 사각 픽셀의 규칙적 디더 확산. 연보라 위 2톤 바이올렛.',feas:'run-length 사각형 path 2개(셀 4유닛), 픽셀 단위 연산 없음'},
 {name:'시트러스 슬라이스',key:'citrus-slice',concept:'오렌지·라임·자몽 단면이 모서리에 걸린 상큼한 과일 포스터',hex:['#FFF6EA','#FF9A1F','#78B83C','#F2706A','#FFD23F','#5C2A14'],base:['#fff6ea','#ffe9d6'],text:'#5c2a14',meta:'#b0705a',fx:null,scene:sceneCitrus,
@@ -10803,7 +10792,7 @@ const PRESETS=[
 const NEW_COUNT=PRESETS.length;
 
 /* ============ 렌더링 ============ */
-  const SELECTED_KEYS = new Set(["moire-ultra", "dither-violet", "stained-rose"]);
+  const SELECTED_KEYS = new Set(["dither-violet", "stained-rose"]);
   const selectedSourcePresets = PRESETS.filter((preset) => SELECTED_KEYS.has(preset.key));
   const presets = selectedSourcePresets.map((preset) => ({
     name: preset.name,
@@ -10840,9 +10829,9 @@ const presets=[
 ['레드 에디션','red-edition','#F03222','#FFF5DF',['#F03222','#FFF5DF','#35120E'],'큰 활자와 과감한 여백으로 구성한 문화 포스터.','overprint · butter-sticker','원형 잉크 겹침·스티커를 배제하고 확대 활자, 단일 잉크 면, 비대칭 편집 구조.','sans'],
 ['옵틱 플리츠','optic-pleats','#F0EBFF','#342459',['#F0EBFF','#5928A8','#BB91EC'],'보랏빛 접선이 만드는 선명한 옵아트 주름.','wind-contours · graphite-grain','흐린 등고선·전면 잔결 대신 가장자리에서만 꺾이는 고대비 사선 묶음.','sans'],
 ['인디고 스티치','indigo-stitch','#183D59','#F5EEE0',['#183D59','#F5EEE0','#DE765A'],'남색 직물 위 손바느질과 붉은 실 매듭.','gingham · paper-tape','체크·종이 테이프 대신 굵은 실의 땀, 솔기, 자수형 곡선. 격자 패턴 없음.','serif'],
-['칠리 쿠션','chili-cushion','#FFE6C9','#621F19',['#FFE6C9','#ED492C','#A82016'],'공중에 놓인 실리콘 매듭과 매끈한 반사광.','butter-sticker · terracotta-arch','검은 스티커 윤곽·건축 아치 대신 분리된 두 매듭의 연속 볼륨과 반사광. 프레임을 만들지 않음.','sans'],
+['칠리 쿠션','chili-cushion','#FFE6C9','#621F19',['#FFE6C9','#ED492C','#A82016'],'공중에 놓인 실리콘 매듭과 매끈한 반사광.','butter-sticker · burgundy-leather','검은 스티커 윤곽·건축 아치 대신 분리된 두 매듭의 연속 볼륨과 반사광. 프레임을 만들지 않음.','sans'],
 ['월넛 인레이','walnut-inlay','#E8DCCA','#382315',['#E8DCCA','#704122','#BC8651'],'나무의 성장결과 정밀한 상감 면이 만나는 오브제.','kraft · burgundy-leather','종이 섬유·가죽 금테 대신 좌측 목재 판의 유기적 세로결과 목재 상감 조각.','serif'],
-['모빌 밸런스','mobile-balance','#F4F2DC','#31432B',['#F4F2DC','#516632','#E88C42','#9377B9'],'얇은 와이어에 균형을 잡은 조각과 공중의 여백.','terrazzo-pop · star-chart','흩뿌린 칩·별 좌표 대신 연결된 지지대, 의도된 균형과 소수의 큰 조각.','serif'],
+['모빌 밸런스','mobile-balance','#F4F2DC','#31432B',['#F4F2DC','#516632','#E88C42','#9377B9'],'얇은 와이어에 균형을 잡은 조각과 공중의 여백.','star-chart · paper-tape','흩뿌린 칩·별 좌표 대신 연결된 지지대, 의도된 균형과 소수의 큰 조각.','serif'],
 ['아크릴 스텝','acrylic-step','#D9F9EE','#174E55',['#D9F9EE','#33B8CD','#A7E7F1','#EF93C0'],'차가운 투명판의 절삭 단면과 계단식 적층.','frost-window · glasshouse','서리·식물·유리 창살 대신 직각 절삭 단면과 청록/분홍 판의 층간 깊이.','sans'],
 ['블라인드 프레스','blind-press','#272927','#F0EFE5',['#272927','#141614','#464A45'],'숯빛 고무판에 눌린 거대한 무채색 활자.','dark · burgundy-leather','평면 어둠·금박 테두리 대신 가장자리 거대 활자의 음각, 무채색 면과 측광.','sans'],
 ['피치 다이컷','peach-diecut','#FFE1B9','#553321',['#FFE1B9','#F89673','#743A30','#BDE7D0'],'정교하게 잘린 큰 구멍 너머로 드러나는 색의 층.','vellum · crumple','접힘·구겨진 면 대신 실제 타공 실루엣, 절단 두께와 두 색의 하부 레이어.','serif']
@@ -10945,7 +10934,7 @@ function renderCanvas(canvas,i,width=800){const H=1000*ratio;canvas.width=width;
     name: preset.name,
     key: preset.key,
     defaultVisible: false,
-    background: ["optic-pleats", "acrylic-step"].includes(preset.key)
+    background: ["red-edition", "optic-pleats", "acrylic-step"].includes(preset.key)
       ? `url("data:image/svg+xml,${encodeURIComponent(svgScene(scene(sourceIndex, 1000)))}") center / cover`
       : "linear-gradient(150deg,#ece5db 0%,#d8cec2 100%)",
     text: preset.text,
@@ -11051,18 +11040,6 @@ function drawBurgundy(c,w,h){
       c.beginPath();for(let k=0;k<5;k++){const a=a0+k*Math.PI/8;c.moveTo(cx+Math.cos(a)*8*u,cy+Math.sin(a)*8*u);c.lineTo(cx+Math.cos(a)*44*u,cy+Math.sin(a)*44*u)}c.stroke()})};
   frames('rgba(0,0,0,.5)',1.6*u,1.8*u);frames(fg,0,0);
 }
-function drawTerracotta(c,w,h){
-  const u=w/1200,R=mulberry32(5521);
-  for(let i=0;i<560;i++){const x=R()*w,y=R()*h;c.fillStyle=R()<.55?'rgba(90,28,10,.12)':'rgba(255,205,165,.1)';c.beginPath();c.arc(x,y,(.7+R()*1.8)*u,0,TAU);c.fill()}
-  const x0=70*u,x1=w-70*u,y0=.115*h,y1=h-34*u,Rd=.25*w;
-  [[34,'rgba(240,170,130,.55)'],[22,'rgba(246,200,160,.7)'],[10,'rgba(250,226,196,.85)']].forEach(([o,col])=>{o*=u;c.strokeStyle=col;c.lineWidth=4*u;arch(c,x0-o,y0-o,x1+o,y1,Rd+o);c.stroke()});
-  c.fillStyle='#F7E3C8';arch(c,x0,y0,x1,y1,Rd);c.fill();
-  c.save();arch(c,x0,y0,x1,y1,Rd);c.clip();
-  for(let i=0;i<140;i++){c.fillStyle='rgba(120,70,40,.06)';c.beginPath();c.arc(x0+R()*(x1-x0),y0+R()*(y1-y0),(.7+R()*1.4)*u,0,TAU);c.fill()}
-  [[.22,'#F3C79B'],[.155,'#EBA06E'],[.09,'#D9783F']].forEach(([r,col])=>{c.fillStyle=col;c.beginPath();c.arc(w/2,y1,r*w,Math.PI,TAU);c.closePath();c.fill()});
-  c.restore();
-  c.strokeStyle='#8E3B22';c.lineWidth=4*u;arch(c,x0,y0,x1,y1,Rd);c.stroke();
-}
 function drawHud(c,w,h){
   const u=w/1200,L='rgba(200,255,61,',mono='ui-monospace,Menlo,Consolas,monospace';
   const g=c.createRadialGradient(w,0,0,w,0,w*.6);g.addColorStop(0,L+'.1)');g.addColorStop(1,L+'0)');c.fillStyle=g;c.fillRect(0,0,w,h);
@@ -11093,23 +11070,6 @@ function drawOverprint(c,w,h){
   const cols=['#00AEEF','#EC008C','#FFF200','#111','#6A6A6A','#B3B3B3','#E8E8E8'];
   cols.forEach((col,i)=>{c.fillStyle=col;c.fillRect(w/2-cols.length*11*u+i*22*u,h-19*u,22*u,9*u)});
 }
-function drawTerrazzo(c,w,h){
-  const u=w/1200,R=mulberry32(9013),pal=['#1F4FD8','#FF5A1F','#FF9DBA','#1E8A5A','#141414','#FFC933','#FFFDF6'],chips=[];
-  let t=0;
-  while(chips.length<150&&t<6000){t++;
-    const x=R()*w,y=R()*h,big=R()<.14,s=(big?26+R()*26:7+R()*13)*u;
-    if(x<300*u&&y<130*u)continue;if(y>h-200*u&&x>.16*w&&x<.84*w)continue;if(inZone(x,y,w,h,s))continue;
-    if(chips.some(p=>Math.hypot(p.x-x,p.y-y)<(p.s+s)*.85))continue;
-    chips.push({x,y,s,c:pal[Math.floor(R()*pal.length)],a:1})}
-  let k=0;while(k<18){const x=(.1+R()*.8)*w,y=(.16+R()*.66)*h;k++;chips.push({x,y,s:(4+R()*4)*u,c:pal[Math.floor(R()*6)],a:.45})}
-  chips.forEach(p=>{const n=5+Math.floor(R()*3),rot=R()*TAU;c.globalAlpha=p.a;c.fillStyle=p.c;c.beginPath();
-    for(let i=0;i<n;i++){const a=rot+i*TAU/n,r=p.s*(.6+R()*.55);i?c.lineTo(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r):c.moveTo(p.x+Math.cos(a)*r,p.y+Math.sin(a)*r)}
-    c.closePath();c.fill()});
-  c.globalAlpha=1;
-  for(let i=0;i<220;i++){const x=R()*w,y=R()*h;if(inZone(x,y,w,h)||(y>h-200*u&&x>.16*w&&x<.84*w))continue;c.fillStyle='rgba(40,30,20,.45)';c.beginPath();c.arc(x,y,(.8+R()*1.2)*u,0,TAU);c.fill()}
-  const g=c.createLinearGradient(0,h*.1,w,h*.9);g.addColorStop(.4,'rgba(255,255,255,0)');g.addColorStop(.5,'rgba(255,255,255,.2)');g.addColorStop(.6,'rgba(255,255,255,0)');c.fillStyle=g;c.fillRect(0,0,w,h);
-}
-
   const presets = [
   {
     name: "코발트 타일", key: "azulejo", defaultVisible: false,
@@ -11138,12 +11098,6 @@ function drawTerrazzo(c,w,h){
     textFx: {"foil": ["#F6E3A8", "#D9B15C", "#F3D98F"], "emboss": true}
   },
   {
-    name: "테라코타 아치", key: "terracotta-arch", defaultVisible: false,
-    background: "radial-gradient(ellipse at 50% 100%,rgba(240,178,122,1) 0 14%,rgba(235,160,110,1) 14% 22%,transparent 22.5%),linear-gradient(rgba(247,227,200,1),rgba(247,227,200,1)) 7% 11%/86% 82% no-repeat,linear-gradient(135deg,#C45A36,#A64427)",
-    text: "#4A2418", meta: "#2A1109", accent: "rgba(217,120,63,.5)",
-    effect: "terracotta-arch"
-  },
-  {
     name: "라임 HUD", key: "lime-hud", defaultVisible: false,
     background: "linear-gradient(rgba(200,255,61,.1) 1px,transparent 1px) 0 0/16px 16px,linear-gradient(90deg,rgba(200,255,61,.1) 1px,transparent 1px) 0 0/16px 16px,linear-gradient(135deg,#0A0D08,#12170C)",
     text: "#E8FFB8", meta: "rgba(232,255,184,.74)", accent: "rgba(200,255,61,.5)",
@@ -11156,13 +11110,6 @@ function drawTerrazzo(c,w,h){
     text: "#1B1A18", meta: "rgba(27,26,24,.74)", accent: "rgba(255,46,136,.45)",
     effect: "overprint"
   },
-  {
-    name: "테라조 팝", key: "terrazzo-pop", defaultVisible: false,
-    background: "radial-gradient(circle at 8% 14%,rgba(31,79,216,.95) 0 4%,transparent 4.5%),radial-gradient(circle at 90% 18%,rgba(255,90,31,.95) 0 3.5%,transparent 4%),radial-gradient(circle at 14% 92%,rgba(255,201,51,.95) 0 4%,transparent 4.5%),radial-gradient(circle at 86% 88%,rgba(30,138,90,.95) 0 3.5%,transparent 4%),linear-gradient(135deg,#F3ECE0,#EBE2D3)",
-    text: "#1D1B19", meta: "rgba(29,27,25,.78)", accent: "rgba(255,90,31,.45)",
-    effect: "terrazzo-pop",
-    textFx: {"halo": ["rgba(243,236,224,.95)", 8]}
-  }
   ];
 
   const effects = {
@@ -11170,10 +11117,8 @@ function drawTerrazzo(c,w,h){
     "emerald-vein": drawEmerald,
     "butter-sticker": drawButter,
     "burgundy-leather": drawBurgundy,
-    "terracotta-arch": drawTerracotta,
     "lime-hud": drawHud,
-    "overprint": drawOverprint,
-    "terrazzo-pop": drawTerrazzo
+    "overprint": drawOverprint
   };
 
   return { presets, effects };
@@ -12346,7 +12291,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     ctx.restore();
     ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, width * .09, height * .075);
     ctx.textAlign = 'right'; ctx.font = `600 ${16 * scale}px Pretendard, sans-serif`; ctx.fillText(fitSingleLine(ctx, title, width * .36, 'Pretendard, sans-serif', 600, 16 * scale), width * .9, height * .078);
-    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .16, width * .78, height * .48);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .16, width * .78, height * .52);
     fillRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.35)');
     strokeRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.55)', 2 * scale);
     const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Gowun Batang, serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
@@ -13448,13 +13393,16 @@ function ensureReaderShareUi() {
       background:rgba(238,191,194,.8);
     }
     .reader-share-css-art[data-share-css-art="ink-echo"]::before {
-      inset:10% 10% 12% 14%; border-radius:14px;
-      background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(244,240,233,.92));
-      box-shadow:inset 0 0 0 1px rgba(49,74,106,.10);
+      left:-6%; top:1%; width:46%; height:29%;
+      border-radius:42% 58% 54% 46% / 58% 43% 57% 42%;
+      background:rgba(27,43,68,.9);
+      box-shadow:18px 11px 0 rgba(41,63,96,.08), 34px 21px 0 rgba(41,63,96,.05);
+      transform:rotate(-8deg);
     }
     .reader-share-css-art[data-share-css-art="ink-echo"]::after {
-      left:14%; top:14%; width:7%; height:54%; border-radius:999px;
-      background:linear-gradient(180deg,#314a6a,#58708e); box-shadow:26px 0 0 rgba(49,74,106,.08), 38px 44px 0 0 rgba(49,74,106,.16);
+      left:10.5%; top:35%; width:.7%; height:42%; border-radius:999px;
+      background:rgba(41,63,96,.26);
+      box-shadow:0 9px 0 1px rgba(41,63,96,.46);
     }
     .reader-share-css-art[data-share-css-art="star-chart"]::before {
       inset:0; background:
@@ -16240,10 +16188,10 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
 
 const READER_SHARE_REDESIGN_OVERRIDES = {
   "ink-echo": {
-    background: "linear-gradient(90deg, rgba(34,50,74,.06) 0 10%, transparent 10% 100%), radial-gradient(circle at 76% 22%, rgba(46,67,96,.16) 0 11%, rgba(46,67,96,0) 34%), radial-gradient(circle at 24% 78%, rgba(196,202,210,.30) 0 16%, rgba(196,202,210,0) 46%), linear-gradient(145deg, #fbf7ef 0%, #f0ebe3 56%, #e8e3db 100%)",
-    text: "#233248",
-    meta: "#6b7583",
-    accent: "#314a6a",
+    background: "radial-gradient(ellipse at 18% 18%, rgba(26,42,68,.94) 0 12%, rgba(26,42,68,.82) 12% 21%, rgba(26,42,68,.18) 22% 31%, transparent 32%), repeating-radial-gradient(ellipse at 18% 18%, transparent 0 28px, rgba(46,66,94,.12) 29px 31px, transparent 32px 48px), linear-gradient(90deg, transparent 0 11%, rgba(39,57,83,.15) 11% 11.6%, transparent 11.6% 100%), linear-gradient(150deg, #fbf7ef 0%, #f2ede5 58%, #e8e2d8 100%)",
+    text: "#1f2d42",
+    meta: "#657080",
+    accent: "#293f60",
     customLayout: "ink-echo",
   },
   "star-chart": {
@@ -16370,39 +16318,73 @@ const READER_SHARE_REDESIGN8 = (() => {
   function renderInkEcho(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model);
     const scale = width / 1200;
-    ctx.fillStyle = '#fbf7ef'; ctx.fillRect(0, 0, width, height);
-    ctx.fillStyle = 'rgba(56, 68, 86, .04)';
-    for (let i = 0; i < 1600; i += 1) ctx.fillRect((i * 47 % 1200) * scale, (i * 67 % 1200) * scale, 1.2 * scale, 1.2 * scale);
-    const wash = ctx.createRadialGradient(width * .78, height * .24, 0, width * .78, height * .24, width * .24);
-    wash.addColorStop(0, 'rgba(42, 63, 94, .17)'); wash.addColorStop(.55, 'rgba(42, 63, 94, .07)'); wash.addColorStop(1, 'rgba(42, 63, 94, 0)');
-    ctx.fillStyle = wash; ctx.fillRect(0, 0, width, height);
-    ctx.strokeStyle = 'rgba(49,74,106,.17)'; ctx.lineCap = 'round';
-    ctx.lineWidth = 18 * scale; ctx.beginPath(); ctx.moveTo(width * .12, height * .72); ctx.bezierCurveTo(width * .26, height * .66, width * .44, height * .84, width * .68, height * .72); ctx.bezierCurveTo(width * .82, height * .64, width * .9, height * .7, width * .96, height * .64); ctx.stroke();
-    ctx.lineWidth = 7 * scale; ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(width * .1, height * .705); ctx.bezierCurveTo(width * .28, height * .64, width * .46, height * .815, width * .7, height * .7); ctx.stroke();
-    const pad = width * .085;
-    ctx.fillStyle = '#233248'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad, pad * .78);
-    ctx.fillStyle = '#314a6a'; ctx.fillRect(pad, height * .22, 8 * scale, height * .42);
-    fillRoundRect(ctx, pad + 36 * scale, height * .25, width * .54, height * .33, 28 * scale, 'rgba(255,255,255,.72)');
-    strokeRoundRect(ctx, pad + 36 * scale, height * .25, width * .54, height * .33, 28 * scale, 'rgba(49,74,106,.12)', 2 * scale);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, pad + 74 * scale, height * .30, width * .46, height * .23);
+    const rng = quoteTestRng(4817 + Math.round(height));
+    const paper = ctx.createLinearGradient(0, 0, width, height);
+    paper.addColorStop(0, '#fbf7ef'); paper.addColorStop(.58, '#f2ede5'); paper.addColorStop(1, '#e8e2d8');
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, width, height);
+    for (let i = 0; i < 920; i += 1) {
+      ctx.fillStyle = i % 3 ? 'rgba(51,58,68,.025)' : 'rgba(255,255,255,.11)';
+      const r = (.45 + rng() * 1.1) * scale;
+      ctx.beginPath(); ctx.arc(rng() * width, rng() * height, r, 0, Math.PI * 2); ctx.fill();
+    }
+    const inkX = width * .17, inkY = height * .16;
+    ctx.save(); ctx.translate(inkX, inkY);
+    ctx.fillStyle = 'rgba(27,43,68,.94)';
+    ctx.beginPath(); ctx.moveTo(-width * .15, -height * .12);
+    ctx.bezierCurveTo(width * .02, -height * .18, width * .24, -height * .08, width * .25, height * .05);
+    ctx.bezierCurveTo(width * .24, height * .15, width * .07, height * .19, -width * .07, height * .14);
+    ctx.bezierCurveTo(-width * .18, height * .10, -width * .21, -height * .02, -width * .15, -height * .12);
+    ctx.closePath(); ctx.fill();
+    ctx.lineWidth = 2.2 * scale; ctx.strokeStyle = 'rgba(42,63,92,.18)';
+    for (let i = 0; i < 5; i += 1) {
+      ctx.beginPath(); ctx.ellipse(width * .015, height * .025, width * (.19 + i * .028), height * (.105 + i * .018), -.18, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
+    ctx.strokeStyle = 'rgba(41,63,96,.20)'; ctx.lineWidth = 1.5 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .11, height * .355); ctx.lineTo(width * .11, height * .77); ctx.stroke();
+    ctx.fillStyle = '#293f60'; ctx.fillRect(width * .11 - 3 * scale, height * .395, 6 * scale, 48 * scale);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#293f60'; ctx.font = `800 ${22 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .89, height * .07);
+    ctx.fillStyle = 'rgba(41,63,96,.58)'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('INK / AFTERIMAGE · 01', width * .89, height * .102);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .38, width * .68, height * .31);
     quoteRect.canvasWidth = width;
     const spacing = getReaderShareCustomLetterSpacing(model, width);
-    const fontSize = (model.sizePx * (width / 380)) * 1.02;
-    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.6);
+    const fontSize = (model.sizePx * (width / 380)) * 1.04;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
     ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
     const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
     const total = lines.length * lineHeight;
     let y = quoteRect.y + Math.max(0, (quoteRect.h - total) / 2);
     ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     for (const line of lines) {
-      ctx.fillStyle = 'rgba(49,74,106,.14)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 3 * scale, y + 3 * scale, spacing);
-      ctx.fillStyle = '#233248'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+      ctx.fillStyle = 'rgba(41,63,96,.12)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 2.5 * scale, y + 2.5 * scale, spacing);
+      ctx.fillStyle = '#1f2d42'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
     }
-    const footerY = height - pad - 86 * scale;
-    ctx.strokeStyle = 'rgba(49,74,106,.18)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.moveTo(pad, footerY - 26 * scale); ctx.lineTo(width - pad, footerY - 26 * scale); ctx.stroke();
-    ctx.fillStyle = '#1f2936'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, pad, footerY);
-    ctx.fillStyle = '#6b7583'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad, footerY + 36 * scale);
+    const metaY = height * .79;
+    ctx.strokeStyle = 'rgba(41,63,96,.18)'; ctx.lineWidth = 1.2 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .55, metaY - 22 * scale); ctx.lineTo(width * .89, metaY - 22 * scale); ctx.stroke();
+    ctx.textAlign = 'right'; ctx.fillStyle = '#26354a'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, width * .89, metaY);
+    ctx.fillStyle = '#697483'; ctx.font = `500 ${20 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .89, metaY + 36 * scale);
+    ctx.textAlign = 'left';
   }
+  function renderRedEdition(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model);
+    const scale = width / 1200;
+    const effect = READER_SHARE_CURATED_SET2.effects['red-edition'];
+    if (typeof effect === 'function') effect(ctx, width, height);
+    ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+    ctx.fillStyle = 'rgba(255,245,223,.96)'; ctx.font = `800 ${18 * scale}px Pretendard, sans-serif`;
+    ctx.fillText(brand, width * .075, height * .205);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .145, height * .30, width * .71, height * .39);
+    quoteRect.canvasWidth = width;
+    ctx.save(); ctx.beginPath(); ctx.rect(quoteRect.x, quoteRect.y, quoteRect.w, quoteRect.h); ctx.clip();
+    drawQuotePanel(ctx, model, quoteRect, '#fff5df', { align: 'left', fontScale: 1.0, lineHeight: 1.46 });
+    ctx.restore();
+    const footerY = height * .755;
+    ctx.fillStyle = 'rgba(255,245,223,.96)'; ctx.font = `700 ${26 * scale}px ${quoteFont}`; ctx.fillText(title, width * .075, footerY);
+    ctx.fillStyle = 'rgba(255,245,223,.74)'; ctx.font = `500 ${19 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .075, footerY + 34 * scale);
+  }
+
   function renderStarChart(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model);
     const quoteWeight = Number(model.fontWeight || model.font?.weight || 500);
@@ -16670,6 +16652,7 @@ function renderBlindPress(ctx, width, height, model) {
   }
   const renderers = {
     'ink-echo': renderInkEcho,
+    'red-edition': renderRedEdition,
     'star-chart': renderStarChart,
     'cumulus': renderCumulus,
     'vellum': renderVellum,

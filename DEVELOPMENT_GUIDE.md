@@ -1,3 +1,11 @@
+## v10.47 — 문장 이미지 프리셋 후속 수정
+
+- 잉크잔향은 `READER_SHARE_REDESIGN8.renderers` 전용 Canvas 렌더러와 `READER_SHARE_REDESIGN_OVERRIDES` CSS 썸네일을 함께 조정한다. 공통 문장 이미지 상태/저장/공유 로직은 변경하지 않는다.
+- 레드 에디션 CSS 썸네일은 `READER_SHARE_CURATED_SET2.scene()`의 실제 벡터 장면을 CSS `background` data-SVG로 재사용하며 썸네일용 Canvas를 만들지 않는다. 최종 PNG는 전용 렌더러에서 안전 quoteBox와 clip을 사용한다.
+- 테라코타 아치/테라조 팝/모아레 울트라는 사용자 카탈로그·효과 연결·서버 카탈로그·피드 후보에서 제거한다. 기존 D1/KV override와 localStorage 즐겨찾기/최근 사용 값은 직접 정리하지 않고 현재 카탈로그 필터에 맡긴다.
+- 노을 한옥문은 기존 배경/색/메타를 유지하고 quoteBox 높이만 소폭 늘린다.
+- `public/version.json`, `public/index.html` 표시 버전과 `/app.js` 캐시 키를 `10.47`/`1047`로 맞춘다. HISTORY.md는 GitHub main 실제 커밋 자동 생성 구조를 보존한다.
+
 ## v10.46 — 피드·PNG 준비 성능
 
 - loadQuoteFeed()는 공개 프리셋 조회를 병렬 시작하되 피드 표시를 기다리게 하지 않는다. 설정 도착 후 refreshQuoteFeedThemes()로 기존 카드 스타일만 갱신한다.
