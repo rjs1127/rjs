@@ -12847,9 +12847,9 @@ function renderReaderShareBackgroundThumbs(thumbs) {
   });
   for (const { background, index } of ordered) {
     const button = document.createElement("button");
-    button.classList.toggle("is-favorite", favoriteOrder.has(getReaderShareBackgroundKey(background)));
     button.type = "button";
     button.className = "reader-share-thumb";
+    button.classList.toggle("is-favorite", favoriteOrder.has(getReaderShareBackgroundKey(background)));
     button.dataset.shareBackground = String(index);
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
@@ -13106,7 +13106,12 @@ function ensureReaderShareUi() {
     .reader-share-gallery-name { color:var(--share-ink); }
     .reader-share-gallery-item.is-selected .reader-share-gallery-swatch { border-color:var(--share-accent); outline-color:var(--share-accent); }
     .reader-share-gallery-star, html.theme-dark .reader-share-gallery-star { width:29px; height:29px;
-      background:#fff9f0; color:#66503e; border:1px solid #d4bd9d; font-size:17px; box-shadow:0 2px 5px rgba(0,0,0,.12); }
+      display:flex; align-items:center; justify-content:center; padding:0;
+      background:#fff9f0; color:#66503e; border:1px solid #d4bd9d;
+      box-shadow:0 2px 5px rgba(0,0,0,.12); }
+    .reader-share-gallery-star svg { width:17px; height:17px; display:block; flex:none;
+      fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .reader-share-gallery-star[aria-pressed="true"] svg { fill:currentColor; }
     .reader-share-gallery-star[aria-pressed="true"], html.theme-dark .reader-share-gallery-star[aria-pressed="true"] {
       color:#6c431d; background:#fbe2b6; border-color:#c99b58; }
     .reader-share-gallery-empty { color:var(--share-muted); }
@@ -13116,6 +13121,7 @@ function ensureReaderShareUi() {
     .reader-share-actions-title { margin:0 0 10px; }
     .reader-share-actions { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
     .reader-share-action { min-height:43px; }
+    .reader-share-action[data-share-work-link] { grid-column:1 / -1; }
     .reader-share-action.primary { background:var(--share-accent); color:var(--share-contrast); border-color:var(--share-accent); }
     .reader-share-action.secondary { background:var(--share-control); }
     .reader-share-preset-browse:focus-visible, .reader-share-preset-favorite:focus-visible,
@@ -13382,13 +13388,19 @@ function ensureReaderShareUi() {
   let galleryFilter = "all";
   let galleryObserver = null;
   let galleryReturnFocus = null;
-  const closeGallery = ({ restoreFocus = true } = {}) => {
+  let galleryHistoryPending = false;
+  const closeGallery = ({ restoreFocus = true, fromHistory = false } = {}) => {
     if (gallery.hidden) return;
     gallery.hidden = true;
     editorScroll.inert = false;
     galleryObserver?.disconnect();
     galleryObserver = null;
     if (restoreFocus && !backdrop.hidden) (galleryReturnFocus || backdrop.querySelector("[data-share-gallery-open]"))?.focus?.();
+    // Consume only the gallery entry. Keep the editor entry and its current state.
+    if (!fromHistory && history.state?.rjsReaderShareGallery) {
+      galleryHistoryPending = true;
+      history.back();
+    }
   };
   const renderGallery = () => {
     if (gallery.hidden) return;
@@ -13452,7 +13464,7 @@ function ensureReaderShareUi() {
       favorite.className = "reader-share-gallery-star";
       favorite.dataset.shareGalleryFavorite = key;
       const isFavorite = favorites.has(key);
-      favorite.textContent = isFavorite ? "★" : "☆";
+      favorite.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1L12 2Z"/></svg>';
       favorite.setAttribute("aria-pressed", isFavorite ? "true" : "false");
       favorite.setAttribute("aria-label", `${background.name} 즐겨찾기 ${isFavorite ? "해제" : "추가"}`);
       item.append(choose, favorite);
@@ -13481,8 +13493,8 @@ function ensureReaderShareUi() {
       for (const [swatch] of delayed) galleryObserver.observe(swatch);
     }
   };
-  const openGallery = () => {
-    if (READER_SHARE_ADMIN_EMBED_MODE) return;
+  const openGallery = ({ fromHistory = false } = {}) => {
+    if (READER_SHARE_ADMIN_EMBED_MODE || backdrop.hidden || !gallery.hidden || galleryHistoryPending) return;
     galleryReturnFocus = document.activeElement;
     gallery.hidden = false;
     editorScroll.inert = true;
@@ -13490,7 +13502,16 @@ function ensureReaderShareUi() {
     gallerySearch.value = "";
     galleryScroll.scrollTop = 0;
     renderGallery();
+    if (!fromHistory && history.state?.rjsReaderShare && !history.state?.rjsReaderShareGallery) {
+      history.pushState({ ...(history.state || {}), rjsReaderShareGallery: true }, "", location.href);
+    }
     gallery.querySelector("[data-share-gallery-close]")?.focus({ preventScroll: true });
+  };
+  const syncGalleryHistory = (nextState) => {
+    galleryHistoryPending = false;
+    if (backdrop.hidden) return;
+    if (nextState?.rjsReaderShareGallery && nextState?.rjsReaderShare) openGallery({ fromHistory: true });
+    else closeGallery({ fromHistory: true });
   };
   backdrop.querySelector("[data-share-gallery-open]")?.addEventListener("click", openGallery);
   backdrop.querySelector("[data-share-gallery-close]")?.addEventListener("click", () => closeGallery());
@@ -13512,6 +13533,10 @@ function ensureReaderShareUi() {
       const top = galleryScroll.scrollTop;
       renderGallery();
       galleryScroll.scrollTop = top;
+      const refreshed = [...galleryGrid.querySelectorAll("[data-share-gallery-favorite]")]
+        .find((button) => button.dataset.shareGalleryFavorite === star.dataset.shareGalleryFavorite);
+      if (refreshed) refreshed.focus({ preventScroll: true });
+      else gallery.querySelector('[data-share-gallery-filter="favorites"]')?.focus({ preventScroll: true });
       return;
     }
     const selected = event.target.closest("[data-share-gallery-select]");
@@ -13541,7 +13566,8 @@ function ensureReaderShareUi() {
     closeGallery();
   });
   const close = ({ fromHistory = false } = {}) => {
-    closeGallery({ restoreFocus: false });
+    closeGallery({ restoreFocus: false, fromHistory: true });
+    galleryHistoryPending = false;
     backdrop.hidden = true;
     window.clearTimeout(readerSharePrepareTimer);
     window.clearTimeout(readerSharePreviewTimer);
@@ -13916,7 +13942,7 @@ function ensureReaderShareUi() {
     bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
-readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, presetName, presetFavorite, refreshGallery: renderGallery, closeGallery, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, letterSpacingInput, lineHeightInput, paddingXInput, paddingYInput, letterSpacingValue, lineHeightValue, paddingXValue, paddingYValue, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, presetName, presetFavorite, gallery, refreshGallery: renderGallery, closeGallery, syncGalleryHistory, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, letterSpacingInput, lineHeightInput, paddingXInput, paddingYInput, letterSpacingValue, lineHeightValue, paddingXValue, paddingYValue, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -16430,6 +16456,7 @@ function resetReaderShareEditorOptions() {
 function getHistoryStateWithoutReaderShare() {
   const next = { ...(history.state || {}) };
   delete next.rjsReaderShare;
+  delete next.rjsReaderShareGallery;
   return next;
 }
 
@@ -16568,9 +16595,9 @@ function closeReaderShareUi({ fromHistory = false } = {}) {
 }
 
 window.addEventListener("popstate", (event) => {
-  if (readerShareUi && !readerShareUi.backdrop.hidden && !event.state?.rjsReaderShare) {
-    closeReaderShareUi({ fromHistory: true });
-  }
+  if (!readerShareUi || readerShareUi.backdrop.hidden) return;
+  readerShareUi.syncGalleryHistory?.(event.state);
+  if (!event.state?.rjsReaderShare) closeReaderShareUi({ fromHistory: true });
 });
 
 function getReaderShareEditedText(rawText) {
@@ -17048,7 +17075,7 @@ if (capacitorAppPlugin?.addListener) {
   capacitorAppPlugin.addListener("backButton", () => {
     // Close the top-most in-reader UI first. Reader-share/simple-modal states
     // can carry rjsReaderOpen as well because they are pushed on top of it.
-    if (history.state?.rjsReaderShare || history.state?.rjsSimpleModal) {
+    if (history.state?.rjsReaderShareGallery || history.state?.rjsReaderShare || history.state?.rjsSimpleModal) {
       history.back();
       return;
     }

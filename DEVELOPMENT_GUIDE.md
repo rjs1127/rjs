@@ -1,3 +1,10 @@
+## v10.34 문장 이미지 배경 갤러리 방문 기록 및 버튼 배치
+
+- 사용자 문장 이미지 팝업의 기존 `rjsReaderShare` history 단계 위에 전체보기 갤러리용 `rjsReaderShareGallery` 단계를 추가한다. 시스템/브라우저 뒤로가기 시 갤러리만 닫고 편집기는 유지한다. 갤러리의 닫기·선택·Escape는 `history.back()`으로 해당 단계만 소비하며 popstate는 history를 추가 조작하지 않는다. 브라우저 앞으로가기도 갤러리 화면과 일치하게 갱신한다.
+- 모바일 Capacitor backButton 핸들러는 `rjsReaderShareGallery`를 최상단 우선으로 처리하고 기존 문장 이미지 팝업·리더 닫기 순서를 보존한다.
+- 작품 링크 복사 버튼은 두 열을 차지하고, 갤러리 즐겨찾기 별은 SVG로 중앙 정렬한다. 메인 썸네일의 즐겨찾기 배지는 생성 시 클래스 적용 순서를 유지하고, 즐겨찾기 localStorage 키와 공개 프리셋 필터, 관리자 화면·Canvas/API는 변경하지 않는다.
+- 배포본 `public/index.html`의 앱 JS 캐시 키 및 `public/version.json`은 v10.34로 맞춘다. `HISTORY.md`는 실제 GitHub main 커밋 기준 자동 재생성을 유지한다.
+
 # v10.33 문장 이미지 팝업 UI·즐겨찾기 우선 정렬
 
 - v10.32 사용자 선택 화면만 소폭 재배치했다. Canvas 출력 모델, 프리셋 정의, 이미지 생성/저장/복사/공유/로그인/서버 요청·D1/KV 관리 구조는 건드리지 않는다. 관리자 quote embed는 기존 히든 처리·기능 유지.
