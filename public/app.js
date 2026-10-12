@@ -12096,7 +12096,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     {
       name: '안개 산수',
       key: 'misty-ink-landscape',
-      defaultVisible: false,
+      defaultVisible: true,
       background: 'linear-gradient(180deg, #e5dccb 0%, #d9cfbd 100%)',
       text: '#4e483d',
       meta: '#716759',
@@ -12105,7 +12105,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     {
       name: '노을 한옥문',
       key: 'hanok-sunset-gate',
-      defaultVisible: false,
+      defaultVisible: true,
       background: 'linear-gradient(180deg, #8d84a6 0%, #efb89f 56%, #efe2d2 100%)',
       text: '#372a25',
       meta: '#6f5246',
@@ -12114,7 +12114,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     {
       name: '블루 VHS 스카이',
       key: 'blue-vhs-sky',
-      defaultVisible: false,
+      defaultVisible: true,
       background: 'linear-gradient(180deg, #738cf1 0%, #8286d0 46%, #5167b4 100%)',
       text: '#f8fbff',
       meta: 'rgba(244,247,255,.78)',
@@ -12123,7 +12123,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     {
       name: '빈티지 뉴스 콜라주',
       key: 'vintage-news-collage',
-      defaultVisible: false,
+      defaultVisible: true,
       background: 'repeating-linear-gradient(0deg, rgba(44,30,20,.05) 0 2px, rgba(255,255,255,0) 2px 8px), linear-gradient(145deg, #e8dcc6 0%, #d7c6af 100%)',
       text: '#302216',
       meta: '#6d5845',
@@ -12132,7 +12132,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     {
       name: '키치 그리드 메모',
       key: 'kitsch-grid-memo',
-      defaultVisible: false,
+      defaultVisible: true,
       background: 'linear-gradient(0deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(90deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(160deg, #f4efe8 0%, #f0e6df 100%)',
       text: '#60554b',
       meta: '#8c7c6c',

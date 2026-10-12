@@ -98,6 +98,12 @@ export const QUOTE_IMAGE_PRESET_CATALOG = [
   { key: "pastel-pixel-desktop", name: "파스텔 픽셀 데스크톱", defaultVisible: false },
   { key: "midnight-twilight-os", name: "야경 픽셀 노을 OS", defaultVisible: false },
   { key: "pastel-pixel-folder-ui", name: "파스텔 픽셀 폴더 UI", defaultVisible: false },
+  // v10.36 — five v10.35 Canvas presets. Public by default; feed background remains ineligible.
+  { key: "misty-ink-landscape", name: "안개 산수", defaultVisible: true },
+  { key: "hanok-sunset-gate", name: "노을 한옥문", defaultVisible: true },
+  { key: "blue-vhs-sky", name: "블루 VHS 스카이", defaultVisible: true },
+  { key: "vintage-news-collage", name: "빈티지 뉴스 콜라주", defaultVisible: true },
+  { key: "kitsch-grid-memo", name: "키치 그리드 메모", defaultVisible: true },
 ];
 
 export async function readQuoteImagePresetVisibility(kv, db) {

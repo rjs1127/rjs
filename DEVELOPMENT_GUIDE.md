@@ -1,3 +1,10 @@
+## v10.36 신규 Canvas 프리셋 5종 공개 목록 등록
+
+- 프리셋을 추가할 때는 사용자 `READER_SHARE_BACKGROUNDS`와 최종 `renderReaderShareCanvas()`의 렌더러 맵뿐 아니라 **서버 `QUOTE_IMAGE_PRESET_CATALOG`에도 동일한 키·이름·defaultVisible**을 반드시 등록해야 한다. 관리자 공개 Y/N과 사용자 공개 API는 서버 카탈로그가 기준이다.
+- v10.35에서 빠진 5개 신규 키를 서버 카탈로그 끝에 등록하고 사용자와 서버의 기본 공개값을 `true`로 동기화한다. 기존 71종의 정의와 D1 설정 JSON은 변경하지 않는다. 서버에서 받은 explicit override가 있으면 그것을 우선한다.
+- 5종은 custom Canvas renderers이고 문장피드 CSS 배경 후보는 아니므로 `QUOTE_FEED_CSS_KEYS`와 피드 공개 기본값에는 추가하지 않는다. 운영 KV/D1 쓰기·스키마 변경 없이 배포한다.
+- 배포본 `public/index.html` 캐시 키와 `public/version.json`을 v10.36으로 맞추고 `HISTORY.md`의 실제 커밋 기반 자동 재생성을 유지한다.
+
 ## v10.35 문장 이미지 신규 Canvas 프리셋 5종
 
 - 사용자 문장 이미지 배경 카탈로그에 **안개 산수(misty-ink-landscape) / 노을 한옥문(hanok-sunset-gate) / 블루 VHS 스카이(blue-vhs-sky) / 빈티지 뉴스 콜라주(vintage-news-collage) / 키치 그리드 메모(kitsch-grid-memo)**를 추가한다. 모두 기존과 같은 프리셋 객체(`name/key/background/text/meta/accent`)를 가지며 `defaultVisible: false`로 시작한다.
