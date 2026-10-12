@@ -5042,6 +5042,20 @@ function saveReaderProgress() {
   const item = state.activeReaderItem;
   if (!item || !els.readerPanel) return null;
 
+  // An untouched opening position is not a new reading position.  Some
+  // browsers dispatch late scroll/layout events after initial loading; while
+  // the resume choice is still visible, never replace a saved nonzero point
+  // with that temporary 0% position.  Real scrolling/page navigation still
+  // saves normally.
+  if (state.readerResumeSaved && els.readerResume && !els.readerResume.hidden) {
+    const untouchedPage = state.readerDisplayMode === "page" &&
+      !state.readerPageHasNavigated &&
+      Math.max(0, Number(state.readerPageStart || 0)) === 0;
+    const untouchedScroll = state.readerDisplayMode !== "page" &&
+      Math.max(0, Number(els.readerPanel.scrollTop || 0)) < READER_MIN_MEANINGFUL_SCROLL_PX;
+    if (untouchedPage || untouchedScroll) return null;
+  }
+
   let saved = null;
 
   if (
@@ -8273,23 +8287,26 @@ async function resumeScrollReaderFromSaved(saved, item) {
     const maxScroll = Math.max(0, panel.scrollHeight - panel.clientHeight);
     const storedScrollTop = Number(saved.scrollTop);
 
-    if (Number.isFinite(storedScrollTop) && storedScrollTop > 0) {
+    if (Number.isFinite(storedScrollTop) && storedScrollTop > 0 &&
+        maxScroll >= READER_MIN_MEANINGFUL_SCROLL_PX) {
       // A progress record created in scroll mode already has the exact native
-      // scroller coordinate. Keep using it so the verified v7.44+ scroll
-      // resume path remains unchanged.
+      // scroller coordinate. Do not clamp it to 0 and call that a successful
+      // resume when the scroll body has not yet acquired its real height.
       targetTop = Math.max(0, Math.min(maxScroll, storedScrollTop));
     } else {
-      // Page mode stores the shared text-based percentage but intentionally
-      // has no scrollTop. Converting that percentage back through scroll
-      // height drifts because text ratio and pixel-height ratio are not the
-      // same coordinate system. Restore the actual text offset instead.
+      // When the scroll extent is still unavailable, or the progress came
+      // from page mode (which has no scrollTop), try the saved text percentage
+      // rather than silently accepting a 0px native scroll as success.
       const textOffset = savedProgressToReaderOffset(saved);
-
       if (textOffset > 0) {
         directTextResumeResult = await scrollReaderToTextOffset(
           textOffset,
           { releaseProgressSave: false }
         );
+        ready = false;
+      } else if (Number(saved.percent) > 0 || storedScrollTop > 0) {
+        // Keep the retry banner and the stored point intact when content is
+        // missing or the saved coordinate cannot yet be mapped.
         ready = false;
       } else {
         targetTop = 0;
@@ -8344,6 +8361,14 @@ async function resumeScrollReaderFromSaved(saved, item) {
         ? result.actual < READER_MIN_MEANINGFUL_SCROLL_PX
         : Math.abs(panel.scrollTop - result.target) <= tolerance &&
           panel.scrollTop >= READER_MIN_MEANINGFUL_SCROLL_PX;
+  }
+
+  // On an incompletely laid-out scroller a zero jump used to pass the
+  // native scroll tolerance check. Never acknowledge it for a meaningful
+  // saved reading point; that would hide the resume action and may save 0%.
+  if (reached && Number(saved.percent) >= 1 &&
+      Math.max(0, Number(panel.scrollTop || 0)) < READER_MIN_MEANINGFUL_SCROLL_PX) {
+    reached = false;
   }
 
   if (!reached && els.readerResume) {
