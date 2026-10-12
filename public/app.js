@@ -12288,43 +12288,49 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     const scale = width / 1200;
     const quote = String(model.text || '');
     const sky = ctx.createLinearGradient(0, 0, 0, height);
-    sky.addColorStop(0, '#7f7aa6'); sky.addColorStop(.38, '#c9acc0'); sky.addColorStop(.62, '#f8d4ae'); sky.addColorStop(1, '#f1eee7');
+    sky.addColorStop(0, '#7b78a1'); sky.addColorStop(.34, '#bea9bf'); sky.addColorStop(.6, '#f2cea7'); sky.addColorStop(1, '#f3ede3');
     ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
-    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.filter = `blur(${18 * scale}px)`;
-    for (let i = 0; i < 22; i++) { ctx.beginPath(); ctx.arc((0.05 + i * 0.043) * width, (0.06 + (i % 5) * 0.08) * height, (2 + (i % 3)) * scale, 0, Math.PI * 2); ctx.fill(); }
+    ctx.save();
+    const glow = ctx.createRadialGradient(width * .5, height * .34, 0, width * .5, height * .34, width * .34);
+    glow.addColorStop(0, 'rgba(255,247,235,.88)'); glow.addColorStop(.55, 'rgba(255,233,207,.34)'); glow.addColorStop(1, 'rgba(255,233,207,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0, 0, width, height);
     ctx.restore();
-    ctx.fillStyle = 'rgba(255,245,238,.55)'; ctx.fillRect(0, height * .72, width, height * .28);
-    ctx.fillStyle = '#4d403a'; ctx.fillRect(width * .08, height * .58, width * .84, height * .28);
-    ctx.fillStyle = '#dbd2c7'; ctx.fillRect(width * .1, height * .63, width * .3, height * .15);
-    ctx.fillStyle = '#50423b'; for (let i = 0; i < 9; i++) ctx.fillRect(width * (.14 + i * .026), height * .64, width * .018, height * .06);
-    ctx.fillStyle = '#564843'; ctx.fillRect(width * .43, height * .5, width * .39, height * .31);
-    ctx.fillStyle = '#6d5a50'; ctx.fillRect(width * .47, height * .54, width * .31, height * .18);
-    ctx.fillStyle = '#3d302a'; ctx.fillRect(width * .55, height * .61, width * .14, height * .2);
-    ctx.fillRect(width * .49, height * .53, width * .016, height * .23); ctx.fillRect(width * .71, height * .53, width * .016, height * .23);
-    ctx.fillRect(width * .43, height * .5, width * .39, height * .018); ctx.fillRect(width * .43, height * .535, width * .39, height * .014);
-    ctx.fillStyle = '#ece6de'; ctx.fillRect(width * .53, height * .66, width * .18, height * .11);
-    ctx.fillStyle = '#251c1a'; ctx.font = `700 ${32 * scale}px Gowun Batang, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('龍  虎', width * .62, height * .715);
-    // roof tiles
-    ctx.strokeStyle = '#5c504a'; ctx.lineWidth = 9 * scale; ctx.beginPath(); ctx.moveTo(width * .08, height * .58); ctx.lineTo(width * .31, height * .48); ctx.lineTo(width * .93, height * .48); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(width * .08, height * .58); ctx.lineTo(width * .42, height * .58); ctx.stroke();
-    ctx.strokeStyle = '#d8ccb9'; ctx.lineWidth = 2 * scale;
-    for (let i = 0; i < 19; i++) { const x = width * (.11 + i * .036); ctx.beginPath(); ctx.moveTo(x, height * .56); ctx.quadraticCurveTo(x + 18 * scale, height * .53, x + 32 * scale, height * .57); ctx.stroke(); }
-    for (let i = 0; i < 8; i++) { const x = width * (.44 + i * .045); ctx.beginPath(); ctx.moveTo(x, height * .545); ctx.quadraticCurveTo(x + 20 * scale, height * .515, x + 40 * scale, height * .55); ctx.stroke(); }
-    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .09, height * .075);
+    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.32)'; ctx.filter = `blur(${18 * scale}px)`;
+    for (let i = 0; i < 20; i++) { ctx.beginPath(); ctx.arc((0.06 + i * 0.042) * width, (0.08 + (i % 5) * 0.085) * height, (2 + (i % 3)) * scale, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    const ridge = ctx.createLinearGradient(0, height * .64, 0, height * .92);
+    ridge.addColorStop(0, 'rgba(108,90,86,.08)'); ridge.addColorStop(1, 'rgba(92,77,72,.22)');
+    ctx.fillStyle = ridge;
+    ctx.beginPath();
+    ctx.moveTo(0, height * .77);
+    ctx.quadraticCurveTo(width * .18, height * .72, width * .34, height * .78);
+    ctx.quadraticCurveTo(width * .5, height * .84, width * .66, height * .76);
+    ctx.quadraticCurveTo(width * .82, height * .69, width, height * .75);
+    ctx.lineTo(width, height);
+    ctx.lineTo(0, height);
+    ctx.closePath();
+    ctx.fill();
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,251,244,.62)'; ctx.lineWidth = 2.2 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .12, height * .16); ctx.lineTo(width * .88, height * .16); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width * .12, height * .82); ctx.lineTo(width * .88, height * .82); ctx.stroke();
+    ctx.restore();
+    drawSeal(ctx, width * .12, height * .12, 74 * scale, '門');
+    ctx.fillStyle = 'rgba(255,255,255,.82)'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, width * .1, height * .075);
     ctx.textAlign = 'right'; ctx.font = `600 ${16 * scale}px Pretendard, sans-serif`; ctx.fillText(fitSingleLine(ctx, title, width * .36, 'Pretendard, sans-serif', 600, 16 * scale), width * .9, height * .078);
-    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .12, height * .14, width * .76, height * .26);
-    fillRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.35)');
-    strokeRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.55)', 2 * scale);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .22, width * .78, height * .44);
+    fillRR(ctx, quoteBox.x - 28 * scale, quoteBox.y - 28 * scale, quoteBox.w + 56 * scale, quoteBox.h + 56 * scale, 32 * scale, 'rgba(255,249,242,.43)');
+    strokeRR(ctx, quoteBox.x - 28 * scale, quoteBox.y - 28 * scale, quoteBox.w + 56 * scale, quoteBox.h + 56 * scale, 32 * scale, 'rgba(255,249,242,.68)', 2 * scale);
     const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Gowun Batang, serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
-    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 52 * scale, 25 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.54), model.autoWrap);
-    let startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 52 * scale, 24 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.56), model.autoWrap);
+    const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
-      ctx.save(); ctx.fillStyle = '#2f2623'; ctx.shadowColor = 'rgba(255,255,255,.28)'; ctx.shadowBlur = 5 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+      ctx.save(); ctx.fillStyle = '#2f2623'; ctx.shadowColor = 'rgba(255,255,255,.34)'; ctx.shadowBlur = 5 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
     });
-    fillRR(ctx, width * .14, height * .86, width * .72, 58 * scale, 29 * scale, 'rgba(255,248,239,.56)');
+    fillRR(ctx, width * .14, height * .855, width * .72, 58 * scale, 29 * scale, 'rgba(255,248,239,.58)');
     ctx.fillStyle = '#4b3a31'; ctx.font = `600 ${19 * scale}px Gowun Batang, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .63, 'Gowun Batang, serif', 600, 19 * scale), width / 2, height * .888);
+    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .63, 'Gowun Batang, serif', 600, 19 * scale), width / 2, height * .883);
   }
   function drawBlueVhs(ctx, width, height, model) {
     const { brand, title, author } = titleMeta(model);
@@ -12345,7 +12351,6 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     ctx.fillStyle = '#111214'; ctx.fillRect(0, height * .88, width, height * .12);
     ctx.fillStyle = '#f6fbff'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.font = `700 ${22 * scale}px "Courier New", monospace`;
     ctx.fillText('CAMERA1', width * .07, height * .08); ctx.fillText('PLAY ▷', width * .07, height * .115); ctx.fillText('00:18:03', width * .07, height * .15);
-    ctx.textAlign = 'right'; ctx.fillText('SOURCE', width * .92, height * .08); ctx.fillText('IPHONE', width * .92, height * .115);
     const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .1, height * .28, width * .8, height * .43);
     const spacing = getReaderShareCustomLetterSpacing(model, width);
     const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 700);
@@ -12436,7 +12441,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     ctx.fillStyle = '#5e6274'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(brand, width * .36, height * .242);
     fillRR(ctx, width * .56, height * .22, width * .22, 36 * scale, 18 * scale, '#f6d6d7');
     ctx.fillStyle = '#7a6f65'; ctx.font = `600 ${15 * scale}px Pretendard, sans-serif`; ctx.fillText('memo page', width * .67, height * .24);
-    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .24, height * .31, width * .52, height * .29);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .295, width * .56, height * .335);
     const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
     const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 50 * scale, 24 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.5), model.autoWrap);
     const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);

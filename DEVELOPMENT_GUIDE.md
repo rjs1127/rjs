@@ -1,3 +1,12 @@
+# v10.37 작업 메모
+
+- 문장 이미지 신규 Canvas 프리셋 후속 보정은 **기존 프리셋 키/공개 상태를 건드리지 않고 `public/app.js`의 전용 렌더러만 최소 수정**하는 것을 원칙으로 합니다.
+- `hanok-sunset-gate`는 배경 일러스트 단순화 요청이므로 서버 프리셋 카탈로그 변경 없이 Canvas 도형만 수정합니다.
+- `blue-vhs-sky`의 OSD 텍스트 제거처럼 저장 이미지 내부 문구만 바뀌는 경우에도 `public/index.html`과 `public/version.json`의 캐시 키는 함께 갱신합니다.
+- `HISTORY.md`는 GitHub `main` 실제 커밋 기준 자동 생성 구조를 유지하며 수동 수정하지 않습니다.
+
+---
+
 ## v10.36 신규 Canvas 프리셋 5종 공개 목록 등록
 
 - 프리셋을 추가할 때는 사용자 `READER_SHARE_BACKGROUNDS`와 최종 `renderReaderShareCanvas()`의 렌더러 맵뿐 아니라 **서버 `QUOTE_IMAGE_PRESET_CATALOG`에도 동일한 키·이름·defaultVisible**을 반드시 등록해야 한다. 관리자 공개 Y/N과 사용자 공개 API는 서버 카탈로그가 기준이다.
