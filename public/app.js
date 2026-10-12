@@ -10788,7 +10788,7 @@ const PRESETS=[
 const NEW_COUNT=PRESETS.length;
 
 /* ============ 렌더링 ============ */
-  const SELECTED_KEYS = new Set(["moire-ultra", "dither-violet", "citrus-slice", "stained-rose"]);
+  const SELECTED_KEYS = new Set(["moire-ultra", "dither-violet", "stained-rose"]);
   const selectedSourcePresets = PRESETS.filter((preset) => SELECTED_KEYS.has(preset.key));
   const presets = selectedSourcePresets.map((preset) => ({
     name: preset.name,
@@ -10912,7 +10912,7 @@ function fontFor(p){return families[selectedFont||p.font];}
 function quoteShapes(i,H){const p=presets[i],f=fontFor(p),y=H*.48-3*35*1.9/2;const t=(s,x,y,size,weight=400)=>({t:'t',s,x,y,size,weight,fill:p.text,family:f,align:'center'});return [...lines.map((s,j)=>t(s,500,y+j*35*1.9,35,i===1?500:400)),t('어느 계절의 기록',500,y+4*35*1.9+12,20),t('예시 작가',500,y+4*35*1.9+44,17),t('셩냥책',500,H*.92,16)];}
 function fullScene(i,H){let sc=scene(i,H);sc.shapes.push(...quoteShapes(i,H));return sc;}
 function renderCanvas(canvas,i,width=800){const H=1000*ratio;canvas.width=width;canvas.height=Math.round(width*ratio);let c=canvas.getContext('2d');c.save();c.scale(width/1000,width/1000);drawScene(c,fullScene(i,H));c.restore();canvas.style.aspectRatio=`1 / ${ratio}`;}
-  const SELECTED_KEYS = new Set(["red-edition", "optic-pleats", "acrylic-step", "blind-press"]);
+  const SELECTED_KEYS = new Set(["red-edition", "acrylic-step", "blind-press"]);
   function withAlpha(hex, alpha) {
     const clean = String(hex || '').trim();
     const match = clean.match(/^#([0-9a-fA-F]{6})$/);
@@ -10930,7 +10930,9 @@ function renderCanvas(canvas,i,width=800){const H=1000*ratio;canvas.width=width;
     name: preset.name,
     key: preset.key,
     defaultVisible: false,
-    background: "linear-gradient(150deg,#ece5db 0%,#d8cec2 100%)",
+    background: ["optic-pleats", "acrylic-step"].includes(preset.key)
+      ? `url("data:image/svg+xml,${encodeURIComponent(svgScene(scene(sourceIndex, 1000)))}") center / cover`
+      : "linear-gradient(150deg,#ece5db 0%,#d8cec2 100%)",
     text: preset.text,
     meta: withAlpha(preset.text, 0.58),
     accent: preset.palette?.[1] || preset.text,
@@ -11166,10 +11168,10 @@ function drawTerrazzo(c,w,h){
 // v10.10: Gemini 신규 4종. 썸네일 CSS와 최종 Canvas를 최대한 맞추기 위해
 // 전용 렌더러를 추가하되, 기존 글꼴 선택/저장/복사/관리자 갤러리 경로는 유지한다.
 // v10.28: independent-preset text controls use the existing Canvas renderers.
-// Default settings follow their original paths to preserve their existing output.
+// Keep each renderer's layout while slightly widening its default text area.
 function getReaderShareCustomQuoteBox(model, width, height, x, y, w, h) {
-  const dx = Number(model.paddingX || 0) * width / 100;
-  const dy = Number(model.paddingY || 0) * height / 100;
+  const dx = (Number(model.paddingX || 0) - 1) * width / 100;
+  const dy = (Number(model.paddingY || 0) - 2) * height / 100;
   if (!dx && !dy) return { x, y, w, h };
   // Preserve the renderer's unique panel and protect at least one line of space.
   return { x: x + dx, y: y + dy, w: Math.max(width * .22, w - 2 * dx), h: Math.max(height * .12, h - 2 * dy) };
@@ -12882,16 +12884,6 @@ const READER_SHARE_BACKGROUNDS = [
     effect: "ripple-pool",
   },
   {
-    name: "크래프트",
-    key: "kraft",
-    defaultVisible: false,
-    background: "radial-gradient(rgba(90,60,30,.12) 1px, transparent 1.5px) 0 0/9px 9px, linear-gradient(135deg, #cba77c 0%, #b8946a 100%)",
-    text: "#2b1d10",
-    meta: "#6d5138",
-    accent: "#8c5f36",
-    effect: "kraft",
-  },
-  {
     name: "벨럼",
     key: "vellum",
     defaultVisible: false,
@@ -13023,9 +13015,9 @@ function formatReaderShareRangeValue(value, { suffix = "", zeroLabel = "기본",
 }
 
 function getReaderShareTextInsets(ratio, paddingX = 0, paddingY = 0) {
-  const baseTop = ratio === "2:3" ? 11.5 : ratio === "4:5" ? 12 : 13;
-  const baseBottom = ratio === "2:3" ? 11.5 : ratio === "4:5" ? 13 : 15;
-  const baseSide = 7;
+  const baseTop = ratio === "2:3" ? 9.5 : ratio === "4:5" ? 10 : 11;
+  const baseBottom = ratio === "2:3" ? 9.5 : ratio === "4:5" ? 11 : 13;
+  const baseSide = 6;
   const side = clampReaderShareNumber(baseSide + Number(paddingX || 0), 3, 22, baseSide);
   const top = clampReaderShareNumber(baseTop + Number(paddingY || 0), 6, 24, baseTop);
   const bottom = clampReaderShareNumber(baseBottom + Number(paddingY || 0), 7, 26, baseBottom);
@@ -13470,8 +13462,8 @@ function ensureReaderShareUi() {
         radial-gradient(circle at 82% 22%, rgba(255,255,255,.86) 0 9%, transparent 10%),
         radial-gradient(circle at 18% 86%, rgba(255,255,255,.95) 0 14%, transparent 15%),
         radial-gradient(circle at 82% 84%, rgba(255,255,255,.95) 0 14%, transparent 15%),
-        linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,251,255,.92));
-      box-shadow:inset 0 0 0 1px rgba(74,120,173,.14);
+        linear-gradient(180deg,rgba(255,255,255,.05),rgba(247,251,255,.03));
+      filter:blur(5px);
     }
     .reader-share-css-art[data-share-css-art="vellum"]::before {
       left:13%; top:12%; width:48%; height:58%; border-radius:14px; transform:rotate(-7deg);
@@ -13481,12 +13473,11 @@ function ensureReaderShareUi() {
       right:9%; top:0; width:26%; height:26%; clip-path:polygon(0 0,100% 0,100% 100%); background:rgba(118,126,134,.16);
     }
     .reader-share-css-art[data-share-css-art="kraft"]::before {
-      left:10%; top:13%; width:80%; height:70%; border-radius:16px;
-      background:linear-gradient(180deg,#f0e7d3,#e8ddc6); box-shadow:inset 0 0 0 1px rgba(31,35,22,.12);
+      display:none;
     }
     .reader-share-css-art[data-share-css-art="kraft"]::after {
       left:16%; top:9%; width:30%; height:10%; border-radius:3px; transform:rotate(-3deg);
-      background:rgba(255,255,255,.36); box-shadow:46px 0 0 rgba(216,205,177,.72), 132px 95px 0 68px rgba(255,255,255,.10);
+      background:rgba(255,255,255,.36); box-shadow:46px 0 0 rgba(216,205,177,.72);
     }
     .reader-share-css-art[data-share-css-art="citrus-slice"]::before {
       inset:0; background:
@@ -13496,16 +13487,16 @@ function ensureReaderShareUi() {
         linear-gradient(145deg,#fffdf3,#eefbe5);
     }
     .reader-share-css-art[data-share-css-art="citrus-slice"]::after {
-      left:13%; right:18%; top:21%; bottom:17%; border-radius:18px; background:rgba(255,255,255,.84); box-shadow:inset 0 0 0 1px rgba(92,64,31,.08);
+      display:none;
     }
     .reader-share-css-art[data-share-css-art="wabi-sabi-washi"]::before {
-      inset:0; background:
+      inset:0; background: url("data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22180%22%20height%3D%22180%22%3E%3Cg%20fill%3D%22none%22%20stroke-width%3D%22.7%22%20stroke-linecap%3D%22round%22%3E%3Cpath%20d%3D%22M49.9%20141.4%20q1.1%20-1.8%202.4%20-7.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M159.1%2014.5%20q-3.3%206.1%20-7.3%207.5%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M68.6%2067.9%20q2.5%208.5%205.6%2011.9%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M49.7%20126.1%20q4.7%20-3.9%2010.4%20-10.8%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M175.7%2074.6%20q-5.3%205.4%20-11.8%206.2%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M134.0%20156.0%20q1.2%20-0.6%202.6%20-4.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M153.9%2037.2%20q-2.9%201.0%20-6.4%20-1.8%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M180.0%2011.1%20q-2.3%207.4%20-5.1%209.9%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M164.0%2090.2%20q3.1%205.9%206.9%207.1%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M72.5%20106.5%20q-1.4%20-4.3%20-3.0%20-11.5%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M113.3%2064.7%20q-1.2%206.8%20-2.6%208.8%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M26.7%2073.5%20q2.9%20-4.0%206.5%20-11.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M61.8%20168.2%20q5.3%201.6%2011.8%20-0.7%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M150.7%20100.3%20q4.7%205.9%2010.4%207.2%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M73.6%2092.2%20q-1.8%20-3.8%20-4.1%20-10.5%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M139.0%20123.0%20q3.6%20-1.6%207.9%20-6.6%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M2.5%2043.2%20q-4.8%202.9%20-10.6%201.6%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M44.6%2098.0%20q1.6%205.9%203.6%207.1%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M113.0%20113.5%20q-3.8%20-3.0%20-8.4%20-9.1%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M66.7%2073.8%20q-0.2%20-0.9%20-0.4%20-5.3%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M155.3%2050.9%20q-2.2%200.1%20-4.9%20-3.5%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M108.7%2082.7%20q-2.2%202.6%20-4.8%201.1%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M54.9%20159.5%20q-3.3%20-4.1%20-7.3%20-11.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M149.1%2013.2%20q3.3%208.4%207.3%2011.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M120.2%2066.1%20q0.8%20-1.8%201.7%20-7.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M50.8%20108.0%20q1.0%205.1%202.3%205.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M175.4%2040.3%20q3.0%202.9%206.7%201.6%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M62.9%2015.6%20q-1.4%200.3%20-3.1%20-3.1%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M29.0%2076.5%20q-1.2%204.0%20-2.6%203.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M71.8%2046.0%20q-2.2%204.9%20-5.0%205.2%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M93.7%20153.9%20q0.2%205.3%200.4%206.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M67.6%20121.6%20q1.4%203.8%203.0%203.4%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M134.1%2036.3%20q-4.9%20-4.4%20-10.9%20-11.6%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M46.6%2097.3%20q2.3%207.6%205.0%2010.1%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M115.0%20112.1%20q0.9%20-0.2%201.9%20-3.9%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M40.0%2024.6%20q-2.8%203.9%20-6.1%203.5%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M36.7%2071.3%20q4.7%208.5%2010.5%2011.8%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M34.1%20141.7%20q-4.6%200.7%20-10.3%20-2.4%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M119.0%2099.9%20q0.5%206.5%201.1%208.2%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M44.9%2056.2%20q-5.3%202.9%20-11.9%201.6%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M47.6%20112.8%20q4.8%202.4%2010.6%200.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M150.1%2041.0%20q0.9%202.0%201.9%20-0.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M127.2%2061.0%20q3.8%202.5%208.5%201.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M123.1%20154.7%20q1.3%200.5%202.9%20-2.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M21.9%2073.1%20q-0.0%208.1%20-0.1%2011.1%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M115.4%20149.3%20q-1.2%20-2.5%20-2.6%20-8.2%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M19.2%202.3%20q-2.0%201.2%20-4.4%20-1.4%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M173.5%2067.7%20q0.9%202.7%202.0%201.3%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M3.2%20111.7%20q-2.7%206.3%20-6.1%207.9%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M92.6%2032.8%20q1.4%201.2%203.1%20-1.4%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M82.4%2092.4%20q2.4%206.3%205.3%207.8%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M128.7%20136.4%20q0.3%200.3%200.7%20-3.1%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M8.5%20160.0%20q5.4%20-2.9%2011.9%20-8.8%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M66.1%2047.4%20q2.7%202.5%206.1%201.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M79.0%2078.8%20q-4.9%205.8%20-10.9%206.9%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M59.0%2028.2%20q-1.6%20-1.8%20-3.6%20-7.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M157.3%20109.7%20q4.3%20-2.4%209.5%20-8.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M29.2%2014.4%20q-2.2%202.0%20-4.8%20-0.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M109.6%2069.2%20q2.2%202.0%204.9%20-0.1%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M140.9%20165.5%20q3.2%20-4.3%207.1%20-11.4%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M154.3%2073.5%20q-3.3%203.4%20-7.4%202.6%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M76.6%2030.1%20q-3.2%203.1%20-7.1%202.0%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M133.4%20169.0%20q-1.2%20-3.4%20-2.8%20-9.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3Cpath%20d%3D%22M60.7%2087.4%20q2.4%203.1%205.4%202.0%22%20stroke%3D%22%23315850%22%20opacity%3D%22.13%22%2F%3E%3Cpath%20d%3D%22M173.4%2045.7%20q3.0%20-3.9%206.6%20-10.7%22%20stroke%3D%22%23edf7ed%22%20opacity%3D%22.32%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E"),
         linear-gradient(90deg, rgba(223,232,227,.95) 0 19%, transparent 19%),
         radial-gradient(circle at 74% 26%, rgba(81,98,91,.16) 0 10%, rgba(81,98,91,0) 30%),
-        linear-gradient(145deg,#e8efe9,#d8e1db);
+        linear-gradient(145deg,#c9dedb,#7daca7);
     }
     .reader-share-css-art[data-share-css-art="wabi-sabi-washi"]::after {
-      left:16%; top:27%; width:58%; height:34%; border-radius:18px; background:rgba(250,252,250,.76); box-shadow:inset 10px 0 0 rgba(114,140,128,.42);
+      left:10%; top:27%; width:80%; height:34%; border-radius:18px; background:rgba(241,250,243,.48); box-shadow:inset 10px 0 0 rgba(114,140,128,.42);
     }
     .reader-share-css-art[data-share-css-art="blind-press"]::before {
       inset:0; background:linear-gradient(145deg,#2d302b,#181a17);
@@ -13519,21 +13510,22 @@ function ensureReaderShareUi() {
       inset:0; background:linear-gradient(180deg,#ece5db,#d8cec2);
     }
     .reader-share-css-art[data-share-css-art="vintage-news-collage"]::after {
-      left:14%; top:20%; width:72%; height:50%; background:rgba(250,246,240,.94); border-radius:10px;
+      left:6%; top:20%; width:88%; height:54%; background:rgba(250,246,240,.94); border-radius:10px;
       box-shadow:-26px -22px 0 -8px rgba(241,236,228,.9), 32px -14px 0 -8px rgba(230,222,210,.92), -34px 90px 0 -12px rgba(230,222,210,.9);
     }
     .reader-share-css-art[data-share-css-art="burgundy-leather"]::before {
-      inset:0; background:radial-gradient(circle at 50% 28%, rgba(133,27,57,.35), rgba(10,0,4,.4)), linear-gradient(135deg,#5b1024,#310714);
+      inset:0; background:repeating-linear-gradient(18deg, rgba(230,156,174,.045) 0 1px, transparent 1px 4px), radial-gradient(ellipse at 45% 32%,#681f36,#3c1020 55%,#180910);
     }
     .reader-share-css-art[data-share-css-art="burgundy-leather"]::after {
-      left:18%; top:20%; width:64%; height:46%; border-radius:56px 56px 14px 14px; border:1.6px solid rgba(243,217,143,.55);
-      box-shadow:inset 0 0 0 1px rgba(243,217,143,.22), 0 0 0 1px rgba(0,0,0,.18);
+      left:10%; top:12%; width:80%; height:63%; border-radius:48% 48% 2px 2px / 38% 38% 2px 2px;
+      clip-path:polygon(0 100%,0 38%,10% 25%,30% 13%,50% 0,70% 13%,90% 25%,100% 38%,100% 100%);
+      background:rgba(17,4,11,.17); box-shadow:inset 0 0 0 1.5px #b99a70, inset 0 0 0 5px rgba(185,154,112,.15);
     }
     .reader-share-css-art[data-share-css-art="forest-haze"]::before {
-      inset:0; background:linear-gradient(180deg,#cfe8cc 0%, #87c497 52%, #446e5d 100%);
+      inset:0; background:linear-gradient(180deg,#9eafc2 0%, #94b9b1 52%, #344f55 100%);
     }
     .reader-share-css-art[data-share-css-art="forest-haze"]::after {
-      left:15%; top:22%; width:70%; height:46%; border-radius:16px; background:rgba(255,252,244,.88);
+      left:11%; top:23%; width:78%; height:42%; border-radius:16px; background:rgba(255,252,244,.58);
       box-shadow:0 45px 0 -18px rgba(77,110,88,.95), -16px 54px 0 -20px rgba(58,101,74,.86), 18px 58px 0 -20px rgba(58,101,74,.86);
     }
     .reader-share-thumb .reader-share-css-art[data-share-css-art="blue-vhs-sky"]::before { font-size:5px; }
@@ -16275,7 +16267,7 @@ const READER_SHARE_REDESIGN_OVERRIDES = {
     customLayout: "citrus-slice",
   },
   "wabi-sabi-washi": {
-    background: "radial-gradient(circle at 74% 26%, rgba(78,89,82,.18) 0 9%, rgba(78,89,82,.06) 16%, rgba(78,89,82,0) 36%), linear-gradient(90deg, rgba(226,236,230,.92) 0 18%, rgba(226,236,230,0) 18% 100%), radial-gradient(circle at 0 0, rgba(76,83,80,.09) 0 .8px, transparent 1px), radial-gradient(circle at 14px 14px, rgba(76,83,80,.05) 0 .8px, transparent 1px), linear-gradient(145deg, #e8efe9 0%, #d8e1db 100%)",
+    background: "radial-gradient(circle at 74% 26%, rgba(78,89,82,.18) 0 9%, rgba(78,89,82,.06) 16%, rgba(78,89,82,0) 36%), linear-gradient(90deg, rgba(226,236,230,.92) 0 18%, rgba(226,236,230,0) 18% 100%), radial-gradient(circle at 0 0, rgba(76,83,80,.09) 0 .8px, transparent 1px), radial-gradient(circle at 14px 14px, rgba(76,83,80,.05) 0 .8px, transparent 1px), linear-gradient(145deg, #c9dedb 0%, #7daca7 100%)",
     text: "#23312d",
     meta: "#5f6c68",
     accent: "#728c80",
@@ -16412,7 +16404,7 @@ const READER_SHARE_REDESIGN8 = (() => {
     ctx.strokeStyle = 'rgba(230,246,244,.08)'; ctx.lineWidth = 1 * scale;
     for (let x = 0; x <= width; x += 72 * scale) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
     for (let y = 0; y <= height; y += 72 * scale) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
-    const cx = width * .79, cy = height * .28, r = width * .18;
+    const cx = width * .82, cy = height * .13, r = width * .10;
     ctx.strokeStyle = 'rgba(255,226,160,.42)';
     [1, .72, .48].forEach((mul) => { ctx.beginPath(); ctx.arc(cx, cy, r * mul, 0, Math.PI * 2); ctx.stroke(); });
     for (let i = 0; i < 8; i += 1) { const a = (Math.PI * 2 / 8) * i; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.stroke(); }
@@ -16421,10 +16413,10 @@ const READER_SHARE_REDESIGN8 = (() => {
     ctx.fillStyle = 'rgba(255,226,160,.65)'; ctx.font = `600 ${14 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('ASTRAL NAVIGATION · NIGHT ROUTE', width * .085, height * .112);
     ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.3 * scale;
     ctx.beginPath(); ctx.moveTo(width * .085, height * .18); ctx.lineTo(width * .50, height * .18); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(width * .085, height * .66); ctx.lineTo(width * .60, height * .66); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width * .085, height * .64); ctx.lineTo(width * .60, height * .64); ctx.stroke();
     ctx.fillStyle = 'rgba(237,247,245,.16)';
-    fillRoundRect(ctx, width * .085, height * .24, width * .5, height * .36, 28 * scale, 'rgba(8,22,29,.20)');
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .26, width * .46, height * .32); quoteRect.canvasWidth = width;
+    fillRoundRect(ctx, width * .085, height * .24, width * .83, height * .40, 28 * scale, 'rgba(8,22,29,.20)');
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .26, width * .78, height * .36); quoteRect.canvasWidth = width;
     const spacing = getReaderShareCustomLetterSpacing(model, width);
     const fontSize = (model.sizePx * (width / 380)) * 1.06;
     const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
@@ -16436,35 +16428,46 @@ const READER_SHARE_REDESIGN8 = (() => {
       ctx.fillStyle = '#edf7f5'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
     }
     ctx.fillStyle = 'rgba(255,226,160,.72)'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`;
-    ctx.fillText('LAT 37°34′ N  ·  SEA ROUTE ALPHA', width * .11, height * .605);
-    ctx.fillText('LOOKOUT  /  CONSTELLATION LOG', width * .11, height * .63);
+    ctx.fillText('LAT 37°34′ N  ·  SEA ROUTE ALPHA', width * .11, height * .68);
+    ctx.fillText('LOOKOUT  /  CONSTELLATION LOG', width * .11, height * .705);
     ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.moveTo(width * .085, height * .76); ctx.lineTo(width * .92, height * .76); ctx.stroke();
     ctx.fillStyle = '#edf7f5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .085, height * .79);
     ctx.fillStyle = '#9bbabb'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .085, height * .826);
   }
   
 function drawCloud(ctx, x, y, w, h, color) {
-    ctx.save(); ctx.translate(x, y); ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(w * .28, h * .56, w * .22, h * .2, 0, 0, Math.PI * 2); ctx.ellipse(w * .47, h * .4, w * .24, h * .25, 0, 0, Math.PI * 2); ctx.ellipse(w * .68, h * .56, w * .22, h * .18, 0, 0, Math.PI * 2); ctx.fillRect(w * .18, h * .56, w * .56, h * .18); ctx.fill(); ctx.restore();
+    ctx.save(); ctx.translate(x, y); ctx.scale(w, h);
+    for (let layer = 0; layer < 3; layer += 1) {
+      ctx.globalAlpha = .30; ctx.fillStyle = color;
+      ctx.shadowColor = 'rgba(255,255,255,.38)'; ctx.shadowBlur = w * .045;
+      const drift = layer * .012;
+      ctx.beginPath(); ctx.moveTo(-.04, .73 + drift);
+      ctx.bezierCurveTo(-.09, .48, .10, .32, .23, .44);
+      ctx.bezierCurveTo(.21, .07 + drift, .53, -.04, .61, .30);
+      ctx.bezierCurveTo(.78, .08, 1.03, .30, .91, .59);
+      ctx.bezierCurveTo(1.12, .69, 1.02, .94, .83, .94);
+      ctx.bezierCurveTo(.58, 1.07, .12, 1.02, -.04, .73 + drift);
+      ctx.closePath(); ctx.fill();
+    }
+    ctx.restore();
   }
   function renderCumulus(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model);
     const scale = width / 1200;
     const sky = ctx.createLinearGradient(0, 0, 0, height); sky.addColorStop(0, '#7ebcf3'); sky.addColorStop(1, '#dff0ff'); ctx.fillStyle = sky; ctx.fillRect(0,0,width,height);
-    drawCloud(ctx, width * .05, height * .12, width * .28, height * .12, 'rgba(255,255,255,.55)');
-    drawCloud(ctx, width * .68, height * .1, width * .24, height * .1, 'rgba(255,255,255,.52)');
-    drawCloud(ctx, width * .08, height * .78, width * .26, height * .12, 'rgba(255,255,255,.78)');
-    drawCloud(ctx, width * .7, height * .74, width * .28, height * .14, 'rgba(255,255,255,.84)');
-    ctx.fillStyle = 'rgba(255,255,255,.42)'; ctx.beginPath(); ctx.arc(width * .5, height * .22, width * .11, 0, Math.PI * 2); ctx.fill();
+    drawCloud(ctx, width * .05, height * .12, width * .44, height * .12, 'rgba(255,255,255,.55)');
+    drawCloud(ctx, width * .64, height * .1, width * .36, height * .1, 'rgba(255,255,255,.52)');
+    drawCloud(ctx, width * .08, height * .78, width * .38, height * .12, 'rgba(255,255,255,.78)');
+    drawCloud(ctx, width * .64, height * .74, width * .40, height * .14, 'rgba(255,255,255,.84)');
+    const paper = quoteTestRng(6613);
+    for (let i = 0; i < 700; i += 1) {
+      ctx.fillStyle = i % 2 ? 'rgba(255,255,255,.09)' : 'rgba(54,87,116,.025)';
+      ctx.fillRect(paper() * width, paper() * height, (1 + paper() * 3) * scale, .8 * scale);
+    }
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    fillRoundRect(ctx, width * .19, height * .13, width * .62, 38 * scale, 19 * scale, 'rgba(255,255,255,.86)');
     ctx.fillStyle = '#244571'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .5, height * .145);
-    ctx.fillStyle = '#6a88ae'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('CLOUD LETTER · DAYLIGHT NOTE', width * .5, height * .185);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .28, width * .68, height * .28); quoteRect.canvasWidth = width;
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .13, height * .25, width * .74, height * .40); quoteRect.canvasWidth = width;
     drawQuotePanel(ctx, model, quoteRect, '#244571', { align: 'center', fontScale: 1.10, lineHeight: 1.56 });
-    fillRoundRect(ctx, width * .22, height * .61, width * .56, 24 * scale, 12 * scale, 'rgba(255,255,255,.76)');
-    ctx.fillStyle = '#7ca7d6'; ctx.fillRect(width * .26, height * .64, width * .48, 2.5 * scale);
-    fillRoundRect(ctx, width * .18, height * .72, width * .64, height * .12, 26 * scale, 'rgba(255,255,255,.94)');
-    strokeRoundRect(ctx, width * .18, height * .72, width * .64, height * .12, 26 * scale, 'rgba(74,120,173,.12)', 2 * scale);
     ctx.fillStyle = '#244571'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .5, height * .765);
     ctx.fillStyle = '#6a88ae'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .5, height * .801);
     ctx.textAlign = 'left';
@@ -16481,8 +16484,13 @@ function renderVellum(ctx, width, height, model) {
     for (const [x, y, w, h, rot, fill] of sheets) { ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); fillRoundRect(ctx, -w / 2, -h / 2, w, h, 22 * scale, fill); strokeRoundRect(ctx, -w / 2, -h / 2, w, h, 22 * scale, 'rgba(120,130,140,.16)', 1.5 * scale); ctx.restore(); }
     ctx.fillStyle = '#6c7177'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .11, height * .1);
     ctx.fillStyle = 'rgba(118,126,134,.16)'; ctx.beginPath(); ctx.moveTo(width * .72, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .26); ctx.closePath(); ctx.fill();
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .24, height * .26, width * .42, height * .36); quoteRect.canvasWidth = width;
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .24, width * .46, height * .40); quoteRect.canvasWidth = width;
+    const [panelX, panelY, panelWidth, panelHeight, panelAngle] = sheets[2];
+    const panelCenterX = panelX + panelWidth / 2, panelCenterY = panelY + panelHeight / 2;
+    ctx.save();
+    ctx.translate(panelCenterX, panelCenterY); ctx.rotate(panelAngle); ctx.translate(-panelCenterX, -panelCenterY);
     drawQuotePanel(ctx, model, quoteRect, '#30343a', { fontScale: 1.06, lineHeight: 1.58 });
+    ctx.restore();
     ctx.strokeStyle = 'rgba(118,126,134,.18)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .1, height * .78); ctx.lineTo(width * .9, height * .78); ctx.stroke();
     ctx.fillStyle = '#30343a'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .12, height * .80);
     ctx.fillStyle = '#717980'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .12, height * .835);
@@ -16492,16 +16500,10 @@ function renderKraft(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
     const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#88926b'); bg.addColorStop(1, '#6c7654'); ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = 'rgba(31,35,22,.08)'; for (let i = 0; i < 3200; i += 1) ctx.fillRect((i * 31 % 1200) * scale, (i * 53 % 1800) * scale, 1.2 * scale, 1.2 * scale);
-    ctx.save(); ctx.translate(width * .16, height * .15); ctx.rotate(-0.04); fillRoundRect(ctx, 0, 0, width * .24, 34 * scale, 4 * scale, 'rgba(255,255,255,.36)'); ctx.restore();
-    ctx.save(); ctx.translate(width * .68, height * .16); ctx.rotate(0.05); fillRoundRect(ctx, 0, 0, width * .12, 16 * scale, 4 * scale, '#d8cdb1'); ctx.restore();
-    fillRoundRect(ctx, width * .16, height * .2, width * .68, height * .54, 20 * scale, '#efe6d2');
-    strokeRoundRect(ctx, width * .16, height * .2, width * .68, height * .54, 20 * scale, 'rgba(31,35,22,.14)', 2 * scale);
     ctx.fillStyle = '#435036'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .22, height * .25);
     ctx.fillStyle = '#8c9a70'; ctx.font = `600 ${12 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('FIELD NOTE · HANDMADE LABEL', width * .22, height * .275);
     const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .32, width * .56, height * .28); quoteRect.canvasWidth = width;
     drawQuotePanel(ctx, model, quoteRect, '#1f2316', { fontScale: 1.08, lineHeight: 1.56 });
-    fillRoundRect(ctx, width * .22, height * .64, width * .36, 18 * scale, 9 * scale, 'rgba(255,255,255,.46)');
-    fillRoundRect(ctx, width * .16, height * .77, width * .68, height * .1, 16 * scale, 'rgba(239,230,210,.82)');
     ctx.strokeStyle = 'rgba(31,35,22,.14)'; ctx.beginPath(); ctx.moveTo(width * .2, height * .81); ctx.lineTo(width * .8, height * .81); ctx.stroke();
     ctx.fillStyle = '#1f2316'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .2, height * .818);
     ctx.fillStyle = '#556145'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .2, height * .852);
@@ -16521,23 +16523,30 @@ function renderKraft(ctx, width, height, model) {
     ctx.fillStyle = '#92745d'; ctx.font = `600 ${12 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('CITRUS MARKET · FRESH DAY', width * .16, height * .212);
     const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .17, height * .28, width * .62, height * .30); quoteRect.canvasWidth = width;
     drawQuotePanel(ctx, model, quoteRect, '#53401f', { align: 'left', fontScale: 1.08, lineHeight: 1.52 });
-    fillRoundRect(ctx, width * .16, height * .71, width * .68, height * .12, 24 * scale, 'rgba(255,250,232,.96)');
-    strokeRoundRect(ctx, width * .16, height * .71, width * .68, height * .12, 24 * scale, 'rgba(92,64,31,.08)', 2 * scale);
     ctx.fillStyle = '#53401f'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, width * .21, height * .755);
     ctx.fillStyle = '#92745d'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .21, height * .792);
   }
   function renderWabi(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
-    const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#e8efe9'); bg.addColorStop(1, '#d8e1db'); ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+    const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#c9dedb'); bg.addColorStop(1, '#7daca7'); ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = 'rgba(76,83,80,.06)'; for (let i = 0; i < 3200; i += 1) ctx.fillRect((i * 37 % 1200) * scale, (i * 83 % 1800) * scale, (i % 4 + 1) * .5 * scale, (i % 3 + 1) * .5 * scale);
-    ctx.fillStyle = '#dde6e0'; ctx.fillRect(width * .08, 0, width * .16, height);
+    ctx.fillStyle = '#b3cbc8'; ctx.fillRect(width * .08, 0, width * .16, height);
     const wash = ctx.createRadialGradient(width * .73, height * .28, 12 * scale, width * .73, height * .28, width * .24);
     wash.addColorStop(0, 'rgba(81,98,91,.18)'); wash.addColorStop(.5, 'rgba(81,98,91,.06)'); wash.addColorStop(1, 'rgba(81,98,91,0)'); ctx.fillStyle = wash; ctx.fillRect(0,0,width,height);
     ctx.strokeStyle = 'rgba(104,122,114,.08)'; ctx.lineWidth = 1 * scale; for (let i = 0; i < 80; i += 1) { const sx = (i * 83 % 1200) * scale; const sy = (i * 109 % 1800) * scale; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + 24 * scale, sy + 6 * scale, sx + 54 * scale, sy - 8 * scale); ctx.stroke(); }
+    const fibers = quoteTestRng(7319);
+    ctx.lineCap = 'round';
+    for (let i = 0; i < 2200; i += 1) {
+      const x = fibers() * width, y = fibers() * height, length = (6 + fibers() * 34) * scale;
+      ctx.strokeStyle = i % 3 ? 'rgba(250,255,246,.28)' : 'rgba(27,69,65,.14)';
+      ctx.lineWidth = (.5 + fibers() * 1.1) * scale;
+      const angle = fibers() * Math.PI * 2, dx = Math.cos(angle) * length, dy = Math.sin(angle) * length;
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + dx * .45 - 3 * scale, y + dy * .45 + 3 * scale, x + dx, y + dy); ctx.stroke();
+    }
     ctx.fillStyle = '#23312d'; ctx.font = `700 ${22 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .7, height * .09);
-    fillRoundRect(ctx, width * .16, height * .24, width * .62, height * .42, 24 * scale, 'rgba(250,252,250,.74)');
+    fillRoundRect(ctx, width * .10, height * .24, width * .80, height * .42, 24 * scale, 'rgba(241,250,243,.48)');
     ctx.fillStyle = 'rgba(114,140,128,.44)'; ctx.fillRect(width * .16, height * .24, 10 * scale, height * .42);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .21, height * .29, width * .52, height * .32); quoteRect.canvasWidth = width;
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .14, height * .28, width * .72, height * .35); quoteRect.canvasWidth = width;
     drawQuotePanel(ctx, model, quoteRect, '#23312d', { fontScale: 1.06, lineHeight: 1.62 });
     ctx.strokeStyle = 'rgba(60,72,67,.16)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .16, height * .77); ctx.lineTo(width * .84, height * .77); ctx.stroke();
     ctx.fillStyle = '#1a2521'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .16, height * .80);
@@ -16549,19 +16558,21 @@ function renderBlindPress(ctx, width, height, model) {
     const bg = ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0, '#2d302b'); bg.addColorStop(1, '#181a17'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
     ctx.fillStyle = 'rgba(255,255,255,.016)'; for (let i = 0; i < 2400; i += 1) ctx.fillRect((i * 29 % 1200) * scale, (i * 43 % 1800) * scale, 1 * scale, 1 * scale);
     ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.font = `800 ${420 * scale}px Georgia, serif`; ctx.fillText('B', -60 * scale, 340 * scale); ctx.fillText('P', width - 280 * scale, height + 18 * scale);
-    fillRoundRect(ctx, width * .12, height * .18, width * .76, height * .5, 34 * scale, 'rgba(26,28,25,.72)');
-    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 2 * scale; rrPath(ctx, width * .12, height * .18, width * .76, height * .5, 34 * scale); ctx.stroke();
+    fillRoundRect(ctx, width * .07, height * .18, width * .86, height * .5, 34 * scale, 'rgba(26,28,25,.72)');
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 2 * scale; rrPath(ctx, width * .07, height * .18, width * .86, height * .5, 34 * scale); ctx.stroke();
     ctx.fillStyle = 'rgba(240,239,229,.56)'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(brand, width * .5, height * .15);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .28, width * .56, height * .30); quoteRect.canvasWidth = width;
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .12, height * .23, width * .76, height * .40); quoteRect.canvasWidth = width;
     const spacing = getReaderShareCustomLetterSpacing(model, width);
     const fontSize = (model.sizePx * (width / 380)) * 1.06; const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
     ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
     const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
     let y = quoteRect.y + Math.max(0, (quoteRect.h - lines.length * lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    const centerX = quoteRect.x + quoteRect.w / 2;
     for (const line of lines) {
-      ctx.fillStyle = 'rgba(255,255,255,.13)'; readerShareCustomDrawText(ctx, line, quoteRect.x - 1.2 * scale, y - 1.2 * scale, spacing);
-      ctx.fillStyle = 'rgba(0,0,0,.42)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 1.8 * scale, y + 2 * scale, spacing);
-      ctx.fillStyle = '#d8d4c4'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+      ctx.fillStyle = 'rgba(255,255,255,.32)'; readerShareCustomDrawText(ctx, line, centerX - 2 * scale, y - 1.2 * scale, spacing);
+      ctx.fillStyle = 'rgba(0,0,0,.42)'; readerShareCustomDrawText(ctx, line, centerX + 2.5 * scale, y + 2 * scale, spacing);
+      ctx.fillStyle = '#b9bbae'; readerShareCustomDrawText(ctx, line, centerX, y, spacing); y += lineHeight;
     }
     ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.beginPath(); ctx.moveTo(width * .18, height * .76); ctx.lineTo(width * .82, height * .76); ctx.stroke();
     ctx.fillStyle = '#f0efe5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .5, height * .79);
@@ -16575,37 +16586,70 @@ function renderBlindPress(ctx, width, height, model) {
     scraps.forEach(([rx,ry,rw,rh,rot], idx)=>{const x=width*rx,y=height*ry,w=width*rw,h=height*rh;ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate(rot);ctx.fillStyle=idx%2?'rgba(241,236,228,.94)':'rgba(230,222,210,.92)';ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeStyle='rgba(82,61,42,.1)';ctx.lineWidth=1.4*scale;ctx.strokeRect(-w/2,-h/2,w,h);ctx.fillStyle='rgba(58,43,30,.28)';for(let yy=-h/2+24*scale;yy<h/2-10*scale;yy+=9*scale){ctx.fillRect(-w/2+12*scale,yy,w*(.46+rng()*.35),1.2*scale)}ctx.restore();});
     ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='#35261c'; ctx.font=`700 ${28*scale}px Georgia, serif`; ctx.fillText(brand.toUpperCase(),width/2,height*.09); ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('ARCHIVE QUOTE REVIEW',width/2,height*.126);
     ctx.strokeStyle='rgba(73,54,38,.22)'; ctx.lineWidth=1.2*scale; ctx.beginPath(); ctx.moveTo(width*.12,height*.16); ctx.lineTo(width*.88,height*.16); ctx.stroke();
-    fillRoundRect(ctx,width*.14,height*.22,width*.72,height*.5,16*scale,'rgba(248,243,235,.95)'); strokeRoundRect(ctx,width*.14,height*.22,width*.72,height*.5,16*scale,'rgba(79,56,35,.10)',2*scale);
-    ctx.textAlign='left'; ctx.fillStyle='#5a4433'; ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('FEATURE ESSAY',width*.19,height*.28);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.19,height*.33,width*.62,height*.28); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#2d2016',{fontScale:1.05,lineHeight:1.5});
+    fillRoundRect(ctx,width*.06,height*.20,width*.88,height*.54,16*scale,'rgba(248,243,235,.95)'); strokeRoundRect(ctx,width*.06,height*.20,width*.88,height*.54,16*scale,'rgba(79,56,35,.10)',2*scale);
+    ctx.textAlign='left'; ctx.fillStyle='#5a4433'; ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('FEATURE ESSAY',width*.12,height*.25);
+    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.10,height*.29,width*.80,height*.40); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#2d2016',{fontScale:1.05,lineHeight:1.5});
     ctx.strokeStyle='rgba(73,54,38,.18)'; ctx.beginPath(); ctx.moveTo(width*.18,height*.76); ctx.lineTo(width*.82,height*.76); ctx.stroke();
     ctx.fillStyle='#35261c'; ctx.font=`700 ${28*scale}px ${quoteFont}`; ctx.fillText(title,width*.18,height*.79); ctx.fillStyle='#6e5949'; ctx.font=`500 ${21*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.18,height*.824);
   }
   function renderBurgundyLeather(ctx, width, height, model) {
-    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
-    const bg = ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#5b1024'); bg.addColorStop(1,'#310714'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
-    drawBurgundy(ctx,width,height);
-    ctx.strokeStyle='rgba(243,217,143,.52)'; ctx.lineWidth=2.2*scale;
-    ctx.beginPath(); ctx.moveTo(width*.26,height*.22); ctx.lineTo(width*.74,height*.22); ctx.lineTo(width*.71,height*.29); ctx.quadraticCurveTo(width*.5,height*.16,width*.29,height*.29); ctx.closePath(); ctx.stroke();
-    fillRoundRect(ctx,width*.19,height*.24,width*.62,height*.42,34*scale,'rgba(46,7,20,.40)'); strokeRoundRect(ctx,width*.19,height*.24,width*.62,height*.42,34*scale,'rgba(243,217,143,.32)',2*scale);
-    ctx.fillStyle='#f3d98f'; ctx.textAlign='center'; ctx.font=`700 ${20*scale}px Pretendard, sans-serif`; ctx.fillText(brand.toUpperCase(), width*.5, height*.255);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.26,height*.33,width*.48,height*.22); quoteRect.canvasWidth=width;
-    const spacing=getReaderShareCustomLetterSpacing(model,width); const fontSize=(model.sizePx*(width/380))*1.05; const lineHeight=fontSize*getReaderShareCustomLineHeight(model,1.56); ctx.font=`${Number(model.fontWeight||500)} ${fontSize}px ${quoteFont}`; const lines=makeLines(ctx,String(model.text||''),quoteRect.w,lineHeight,quoteRect.h,model.autoWrap,spacing); let y=quoteRect.y+Math.max(0,(quoteRect.h-lines.length*lineHeight)/2); for(const line of lines){ctx.fillStyle='rgba(0,0,0,.4)'; readerShareCustomDrawText(ctx,line,quoteRect.x+1.6*scale,y+2*scale,spacing); ctx.fillStyle='rgba(255,240,200,.18)'; readerShareCustomDrawText(ctx,line,quoteRect.x-1*scale,y-1*scale,spacing); ctx.fillStyle='#f7e9b8'; readerShareCustomDrawText(ctx,line,quoteRect.x,y,spacing); y+=lineHeight;}
-    ctx.strokeStyle='rgba(243,217,143,.22)'; ctx.beginPath(); ctx.moveTo(width*.22,height*.76); ctx.lineTo(width*.78,height*.76); ctx.stroke();
-    ctx.fillStyle='#f3d98f'; ctx.font=`700 ${30*scale}px ${quoteFont}`; ctx.fillText(title,width*.5,height*.79); ctx.fillStyle='rgba(243,217,143,.78)'; ctx.font=`500 ${22*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.5,height*.826); ctx.textAlign='left';
+    const { title, author, brand, quoteFont } = textInfo(model);
+    const scale = width / 1200, random = quoteTestRng(4409);
+    const leather = ctx.createRadialGradient(width * .45, height * .32, 0, width * .5, height * .5, height * .85);
+    leather.addColorStop(0, '#681f36'); leather.addColorStop(.55, '#3c1020'); leather.addColorStop(1, '#180910');
+    ctx.fillStyle = leather; ctx.fillRect(0, 0, width, height);
+    for (let i = 0; i < 2600; i += 1) {
+      const x = random() * width, y = random() * height, r = (.6 + random() * 1.8) * scale;
+      ctx.fillStyle = i % 3 ? 'rgba(10,0,4,.26)' : 'rgba(229,150,165,.13)';
+      ctx.beginPath(); ctx.ellipse(x, y, r * 1.6, r, random() * Math.PI, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.lineWidth = .9 * scale;
+    for (let i = 0; i < 210; i += 1) {
+      const x = random() * width, y = random() * height, length = (12 + random() * 55) * scale;
+      ctx.strokeStyle = i % 2 ? 'rgba(0,0,0,.14)' : 'rgba(238,165,178,.055)';
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.quadraticCurveTo(x + length * .4, y - 5 * scale, x + length, y + 8 * scale); ctx.stroke();
+    }
+    ctx.save(); ctx.setLineDash([3 * scale, 9 * scale]);
+    strokeRoundRect(ctx, width * .045, height * .035, width * .91, height * .93, 10 * scale, 'rgba(173,126,105,.38)', 1.6 * scale); ctx.restore();
+    const arch = (inset = 0) => {
+      ctx.beginPath(); ctx.moveTo(width * .10 + inset, height * .75);
+      ctx.lineTo(width * .10 + inset, height * .35);
+      ctx.bezierCurveTo(width * .10 + inset, height * .25, width * .36, height * .20, width * .5, height * .12 + inset);
+      ctx.bezierCurveTo(width * .64, height * .20, width * .90 - inset, height * .25, width * .90 - inset, height * .35);
+      ctx.lineTo(width * .90 - inset, height * .75); ctx.closePath();
+    };
+    arch(); ctx.fillStyle = 'rgba(17,4,11,.17)'; ctx.fill();
+    ctx.save(); ctx.translate(2 * scale, 3 * scale); arch(); ctx.strokeStyle = 'rgba(0,0,0,.62)'; ctx.lineWidth = 4 * scale; ctx.stroke(); ctx.restore();
+    arch(); ctx.strokeStyle = '#b99a70'; ctx.lineWidth = 2 * scale; ctx.stroke();
+    arch(10 * scale); ctx.strokeStyle = 'rgba(209,171,118,.28)'; ctx.lineWidth = 1 * scale; ctx.stroke();
+    for (const x of [.075, .925]) {
+      ctx.strokeStyle = 'rgba(185,154,112,.45)'; ctx.lineWidth = 1.2 * scale;
+      ctx.beginPath(); ctx.moveTo(width * x, height * .27); ctx.lineTo(width * x, height * .77); ctx.stroke();
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#cfb28b'; ctx.font = `700 ${22 * scale}px Georgia, serif`; ctx.fillText(brand, width * .5, height * .235);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .32, width * .68, height * .34); quoteRect.canvasWidth = width;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.7)'; ctx.shadowOffsetY = 2 * scale;
+    drawQuotePanel(ctx, model, quoteRect, '#ead9bd', { align: 'center', fontScale: 1.05, lineHeight: 1.56 }); ctx.restore();
+    ctx.strokeStyle = 'rgba(185,154,112,.45)'; ctx.lineWidth = 1.2 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .5, height * .775); ctx.lineTo(width * .512, height * .79); ctx.lineTo(width * .5, height * .805); ctx.lineTo(width * .488, height * .79); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle = '#cfb28b'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .5, height * .83);
+    ctx.fillStyle = '#b49483'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .5, height * .865);
+    ctx.textAlign = 'left';
   }
+
   function renderForestHaze(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200; const rng = quoteTestRng(6184);
-    const sky = ctx.createLinearGradient(0,0,0,height); sky.addColorStop(0,'#cfe8cc'); sky.addColorStop(.52,'#87c497'); sky.addColorStop(1,'#446e5d'); ctx.fillStyle=sky; ctx.fillRect(0,0,width,height);
+    const sky = ctx.createLinearGradient(0,0,0,height); sky.addColorStop(0,'#9eafc2'); sky.addColorStop(.52,'#94b9b1'); sky.addColorStop(1,'#344f55'); ctx.fillStyle=sky; ctx.fillRect(0,0,width,height);
     ctx.fillStyle='rgba(255,255,255,.16)'; ctx.beginPath(); ctx.arc(width*.18,height*.12,width*.14,0,Math.PI*2); ctx.fill();
     const hill=(y,c1,c2)=>{const g=ctx.createLinearGradient(0,height*y,0,height); g.addColorStop(0,c1); g.addColorStop(1,c2); ctx.fillStyle=g; ctx.beginPath(); ctx.moveTo(0,height*(y+.08)); ctx.bezierCurveTo(width*.18,height*(y-.06),width*.34,height*(y+.12),width*.5,height*(y+.02)); ctx.bezierCurveTo(width*.64,height*(y-.06),width*.82,height*(y+.08),width,height*(y-.01)); ctx.lineTo(width,height); ctx.lineTo(0,height); ctx.closePath(); ctx.fill();};
     hill(.54,'rgba(153,198,145,.85)','rgba(95,145,103,.96)'); hill(.7,'rgba(83,130,88,.94)','rgba(55,95,76,1)');
     const drawTree=(x,base,scaleMul)=>{ctx.save(); ctx.translate(x,base); const s=scaleMul*scale; ctx.fillStyle='rgba(58,101,74,.95)'; ctx.beginPath(); ctx.arc(0,-92*s,60*s,0,Math.PI*2); ctx.arc(-42*s,-60*s,50*s,0,Math.PI*2); ctx.arc(40*s,-56*s,48*s,0,Math.PI*2); ctx.arc(0,-28*s,64*s,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(86,63,41,.86)'; ctx.fillRect(-8*s,-24*s,16*s,86*s); ctx.restore();};
     [120,300,500,720,910,1080].forEach((x,i)=>drawTree(x*scale, height*(.72 + (i%2)*.02), 1 + (i%3)*.08));
     for(let i=0;i<24;i++){const x=width*(.06+rng()*.88),y=height*(.14+rng()*.58),r=(2+rng()*2.2)*scale; const g=ctx.createRadialGradient(x,y,0,x,y,r*6); g.addColorStop(0,'rgba(247,255,179,.42)'); g.addColorStop(1,'rgba(247,255,179,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*6,0,Math.PI*2); ctx.fill();}
-    fillRoundRect(ctx,width*.16,height*.23,width*.68,height*.4,26*scale,'rgba(255,252,244,.90)'); strokeRoundRect(ctx,width*.16,height*.23,width*.68,height*.4,26*scale,'rgba(106,137,111,.18)',2*scale);
+    fillRoundRect(ctx,width*.11,height*.23,width*.78,height*.42,26*scale,'rgba(255,252,244,.58)'); strokeRoundRect(ctx,width*.11,height*.23,width*.78,height*.42,26*scale,'rgba(106,137,111,.18)',2*scale);
     ctx.fillStyle='#4d6e58'; ctx.fillRect(width*.23,height*.21,width*.18,20*scale); ctx.fillStyle='#ffffff'; ctx.font=`700 ${18*scale}px Pretendard, sans-serif`; ctx.textAlign='left'; ctx.fillText(brand,width*.25,height*.205);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.22,height*.32,width*.56,height*.24); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#335142',{align:'center',fontScale:1.08,lineHeight:1.56});
+    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.16,height*.29,width*.68,height*.32); quoteRect.canvasWidth=width; ctx.save(); ctx.shadowColor='rgba(57,89,102,.23)'; ctx.shadowBlur=2*scale; ctx.shadowOffsetY=1.5*scale; drawQuotePanel(ctx,model,quoteRect,'#294955',{align:'center',fontScale:1.08,lineHeight:1.56}); ctx.restore();
     fillRoundRect(ctx,width*.19,height*.73,width*.62,height*.1,18*scale,'rgba(255,251,241,.82)'); ctx.strokeStyle='rgba(77,110,88,.18)'; ctx.beginPath(); ctx.moveTo(width*.23,height*.78); ctx.lineTo(width*.77,height*.78); ctx.stroke();
     ctx.fillStyle='#335142'; ctx.font=`700 ${30*scale}px ${quoteFont}`; ctx.textAlign='center'; ctx.fillText(title,width*.5,height*.795); ctx.fillStyle='#6a8878'; ctx.font=`500 ${22*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.5,height*.83); ctx.textAlign='left';
   }

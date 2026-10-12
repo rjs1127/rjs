@@ -1,3 +1,11 @@
+## v10.45 — 프리셋 보정·기본 문장 영역
+
+- 기본 좌우 여백은 기존보다 1%p, 상하 여백은 2%p 작게 유지한다. 공통 렌더러는 getReaderShareTextInsets(), 전용 렌더러는 getReaderShareCustomQuoteBox()를 재사용하며 사용자 여백 조절값은 이 기본값에 더한다. 본문 뷰어·이어보기·문장 저장 위치 계산은 변경하지 않는다.
+- 벨럼 문장은 sheets[2]의 중심과 회전값을 그대로 사용해 그린 뒤 Canvas 상태를 복원한다. 출처·브랜드와 다른 프리셋에 회전을 전달하지 않는다.
+- 크래프트/kraft, 시트러스 슬라이스/citrus-slice, 옵틱 플리츠/optic-pleats는 사용자 및 서버 카탈로그에서 제거한다. 기존 D1/KV override와 즐겨찾기/최근 사용 데이터는 직접 삭제하지 않고 기존 키 필터를 유지한다.
+- 아크릴 스텝 CSS 배경은 기존 scene()/svgScene()의 벡터 장면을 재사용한다. 한지 CSS의 섬유는 인라인 SVG이며 외부 이미지 요청이나 썸네일 Canvas 생성을 추가하지 않는다. 로컬 preset-review 테스트 페이지는 배포 파일에 포함하지 않는다.
+- HISTORY.md는 기존 관리자 배포의 GitHub main 실제 커밋 자동 생성 구조를 유지한다.
+
 ## v10.41 — 문장 이미지 선택 썸네일 CSS 전환
 
 - `READER_SHARE_REFERENCE_SET5.presets[].background`는 신규 5종의 CSS 배경이다. 가로 빠른 선택 목록과 전체보기는 해당 CSS 및 `.reader-share-css-art` 의사요소만 사용한다. **선택 썸네일 때문에 5종 Canvas renderer 또는 `toDataURL()`을 호출하지 않는다.**
