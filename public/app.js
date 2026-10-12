@@ -11340,29 +11340,21 @@ const READER_SHARE_GEMINI4 = (() => {
   }
 
   function renderWabi(ctx, width, height, model) {
-    const quote = String(model.text || ''), title = String(model.item?.title || '제목 정보 없음'), author = String(model.item?.author || ''), brand = String(model.brand || '셩냥책');
-    const quoteFont = model.font?.css || 'serif', quoteWeight = model.fontWeight || model.font?.weight || 400, scale = width / 1200, rand = quoteTestRng(8261 + Math.round(height));
-    ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, width, height); ctx.fillStyle = 'rgba(60, 50, 40, 0.016)';
-    for (let i = 0; i < 2800; i++) { const rx = rand() * width, ry = rand() * height, rw = (rand() * 3.4 + 1) * scale, rh = (rand() * 3.4 + 1) * scale; ctx.fillRect(rx, ry, rw, rh); }
-    ctx.strokeStyle = 'rgba(80, 60, 45, 0.055)'; ctx.lineWidth = 1 * scale;
-    for (let i = 0; i < 110; i++) { const sx = rand() * width, sy = rand() * height; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + (rand() * 30 - 15) * scale, sy + (rand() * 30 - 15) * scale, sx + (rand() * 50 - 25) * scale, sy + (rand() * 50 - 25) * scale); ctx.stroke(); }
-    const washGrad = ctx.createRadialGradient(width * 0.72, height * 0.28, 20 * scale, width * 0.72, height * 0.28, Math.min(width, height) * 0.42);
-    washGrad.addColorStop(0, 'rgba(35, 30, 25, 0.12)'); washGrad.addColorStop(.5, 'rgba(45, 40, 35, 0.05)'); washGrad.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = washGrad; ctx.beginPath(); ctx.arc(width * 0.72, height * 0.28, Math.min(width, height) * 0.42, 0, Math.PI * 2); ctx.fill();
-    const pad = width * 0.1;
-    ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad, pad + 6 * scale);
-    const stampX = width - pad - 62 * scale, stampY = pad;
-    ctx.strokeStyle = '#a33223'; ctx.lineWidth = 3 * scale; ctx.strokeRect(stampX, stampY, 60 * scale, 60 * scale); ctx.fillStyle = '#a33223'; ctx.font = `700 ${20 * scale}px ${quoteFont}`; ctx.fillText('餘白', stampX + 10 * scale, stampY + 16 * scale);
-    const { x: quoteBoxX, y: quoteBoxY, w: quoteBoxW, h: quoteBoxH } =
-      getReaderShareCustomQuoteBox(model, width, height, pad, height * 0.3, width - pad * 2, height * 0.42);
-    const spacing = getReaderShareCustomLetterSpacing(model, width);
-    const fontSize = (model.sizePx * (width / 380)) * 1.02, lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.7);
-    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, quote, quoteBoxW, lineHeight, quoteBoxH, model.autoWrap, spacing);
-    const totalHeight = lines.length * lineHeight; let y = quoteBoxY + Math.max(0, (quoteBoxH - totalHeight) / 2);
-    ctx.fillStyle = '#22201f'; drawLines(ctx, lines, quoteBoxX, y, lineHeight, 'left', spacing);
-    ctx.strokeStyle = 'rgba(60,50,40,.2)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(pad, height - pad - 90 * scale); ctx.lineTo(width - pad, height - pad - 90 * scale); ctx.stroke();
-    ctx.fillStyle = '#1a1817'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, pad, height - pad - 54 * scale); ctx.fillStyle = '#59534e'; ctx.font = `500 ${24 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad, height - pad - 16 * scale);
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#e8efe9'); bg.addColorStop(1, '#d8e1db'); ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(76,83,80,.06)'; for (let i = 0; i < 3200; i += 1) ctx.fillRect((i * 37 % 1200) * scale, (i * 83 % 1800) * scale, (i % 4 + 1) * .5 * scale, (i % 3 + 1) * .5 * scale);
+    ctx.fillStyle = '#dde6e0'; ctx.fillRect(width * .08, 0, width * .16, height);
+    const wash = ctx.createRadialGradient(width * .73, height * .28, 12 * scale, width * .73, height * .28, width * .24);
+    wash.addColorStop(0, 'rgba(81,98,91,.18)'); wash.addColorStop(.5, 'rgba(81,98,91,.06)'); wash.addColorStop(1, 'rgba(81,98,91,0)'); ctx.fillStyle = wash; ctx.fillRect(0,0,width,height);
+    ctx.strokeStyle = 'rgba(104,122,114,.08)'; ctx.lineWidth = 1 * scale; for (let i = 0; i < 80; i += 1) { const sx = (i * 83 % 1200) * scale; const sy = (i * 109 % 1800) * scale; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + 24 * scale, sy + 6 * scale, sx + 54 * scale, sy - 8 * scale); ctx.stroke(); }
+    ctx.fillStyle = '#23312d'; ctx.font = `700 ${22 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .7, height * .09);
+    fillRoundRect(ctx, width * .16, height * .24, width * .62, height * .42, 24 * scale, 'rgba(250,252,250,.74)');
+    ctx.fillStyle = 'rgba(114,140,128,.44)'; ctx.fillRect(width * .16, height * .24, 10 * scale, height * .42);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .21, height * .29, width * .52, height * .32); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#23312d', { fontScale: 1.06, lineHeight: 1.62 });
+    ctx.strokeStyle = 'rgba(60,72,67,.16)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .16, height * .77); ctx.lineTo(width * .84, height * .77); ctx.stroke();
+    ctx.fillStyle = '#1a2521'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .16, height * .80);
+    ctx.fillStyle = '#5f6c68'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .16, height * .835);
   }
 
   function renderBauhaus(ctx, width, height, model) {
@@ -12487,11 +12479,17 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
 
 // v10.41: Reference preset selection thumbnails use lightweight CSS art only.
 // Their final preview/export continues through the unchanged Canvas renderers.
-function isReaderShareReferencePreset(background) {
-  return Boolean(READER_SHARE_REFERENCE_SET5.renderers[getReaderShareBackgroundKey(background)]);
+const READER_SHARE_CSS_PREVIEW_ART_KEYS = new Set([
+  ...Object.keys(READER_SHARE_REFERENCE_SET5.renderers),
+  "ink-echo", "star-chart", "cumulus", "vellum", "kraft",
+  "citrus-slice", "wabi-sabi-washi", "blind-press",
+  "vintage-news-collage", "burgundy-leather", "forest-haze"
+]);
+function hasReaderShareCssPreviewArt(background) {
+  return READER_SHARE_CSS_PREVIEW_ART_KEYS.has(getReaderShareBackgroundKey(background));
 }
 function makeReaderShareCssPreviewArt(background) {
-  if (!isReaderShareReferencePreset(background)) return null;
+  if (!hasReaderShareCssPreviewArt(background)) return null;
   const art = document.createElement("span");
   art.className = "reader-share-css-art";
   art.dataset.shareCssArt = getReaderShareBackgroundKey(background);
@@ -13441,6 +13439,102 @@ function ensureReaderShareUi() {
     .reader-share-css-art[data-share-css-art="kitsch-grid-memo"]::after {
       left:9%; top:6%; width:24%; height:8%; transform:rotate(-10deg);
       background:rgba(238,191,194,.8);
+    }
+    .reader-share-css-art[data-share-css-art="ink-echo"]::before {
+      inset:10% 10% 12% 14%; border-radius:14px;
+      background:linear-gradient(180deg,rgba(255,255,255,.78),rgba(244,240,233,.92));
+      box-shadow:inset 0 0 0 1px rgba(49,74,106,.10);
+    }
+    .reader-share-css-art[data-share-css-art="ink-echo"]::after {
+      left:14%; top:14%; width:7%; height:54%; border-radius:999px;
+      background:linear-gradient(180deg,#314a6a,#58708e); box-shadow:26px 0 0 rgba(49,74,106,.08), 38px 44px 0 0 rgba(49,74,106,.16);
+    }
+    .reader-share-css-art[data-share-css-art="star-chart"]::before {
+      inset:0; background:
+        radial-gradient(circle at 16% 22%, rgba(255,255,255,.9) 0 1.4px, transparent 1.8px),
+        radial-gradient(circle at 76% 22%, rgba(255,226,160,.92) 0 1.6px, transparent 2px),
+        radial-gradient(circle at 64% 56%, rgba(255,255,255,.7) 0 1px, transparent 1.5px),
+        linear-gradient(150deg,#0d2b39,#07131d);
+    }
+    .reader-share-css-art[data-share-css-art="star-chart"]::after {
+      left:54%; top:17%; width:28%; height:28%; border-radius:50%; border:1.5px solid rgba(255,226,160,.55);
+      box-shadow:0 0 0 7px rgba(255,255,255,.05), 0 0 0 16px rgba(255,255,255,.03), -33px 33px 0 -28px rgba(255,255,255,.18);
+    }
+    .reader-share-css-art[data-share-css-art="cumulus"]::before {
+      inset:0; background:linear-gradient(180deg,#7ebcf3,#dff0ff);
+    }
+    .reader-share-css-art[data-share-css-art="cumulus"]::after {
+      left:12%; right:12%; top:22%; bottom:18%; border-radius:18px;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(255,255,255,.9) 0 10%, transparent 11%),
+        radial-gradient(circle at 82% 22%, rgba(255,255,255,.86) 0 9%, transparent 10%),
+        radial-gradient(circle at 18% 86%, rgba(255,255,255,.95) 0 14%, transparent 15%),
+        radial-gradient(circle at 82% 84%, rgba(255,255,255,.95) 0 14%, transparent 15%),
+        linear-gradient(180deg,rgba(255,255,255,.98),rgba(247,251,255,.92));
+      box-shadow:inset 0 0 0 1px rgba(74,120,173,.14);
+    }
+    .reader-share-css-art[data-share-css-art="vellum"]::before {
+      left:13%; top:12%; width:48%; height:58%; border-radius:14px; transform:rotate(-7deg);
+      background:rgba(255,255,255,.35); box-shadow:0 0 0 1px rgba(120,130,140,.12), 20px -6px 0 0 rgba(255,255,255,.22), 34px 8px 0 0 rgba(255,255,255,.68);
+    }
+    .reader-share-css-art[data-share-css-art="vellum"]::after {
+      right:9%; top:0; width:26%; height:26%; clip-path:polygon(0 0,100% 0,100% 100%); background:rgba(118,126,134,.16);
+    }
+    .reader-share-css-art[data-share-css-art="kraft"]::before {
+      left:10%; top:13%; width:80%; height:70%; border-radius:16px;
+      background:linear-gradient(180deg,#f0e7d3,#e8ddc6); box-shadow:inset 0 0 0 1px rgba(31,35,22,.12);
+    }
+    .reader-share-css-art[data-share-css-art="kraft"]::after {
+      left:16%; top:9%; width:30%; height:10%; border-radius:3px; transform:rotate(-3deg);
+      background:rgba(255,255,255,.36); box-shadow:46px 0 0 rgba(216,205,177,.72), 132px 95px 0 68px rgba(255,255,255,.10);
+    }
+    .reader-share-css-art[data-share-css-art="citrus-slice"]::before {
+      inset:0; background:
+        radial-gradient(circle at 12% 12%, #ffd46b 0 10%, #ffad34 10.5% 13%, transparent 13.5%),
+        radial-gradient(circle at 87% 15%, #c8f067 0 9%, #7ec64c 9.5% 12%, transparent 12.5%),
+        radial-gradient(circle at 88% 86%, #ffb0a2 0 8.5%, #ff846c 9% 11%, transparent 11.5%),
+        linear-gradient(145deg,#fffdf3,#eefbe5);
+    }
+    .reader-share-css-art[data-share-css-art="citrus-slice"]::after {
+      left:13%; right:18%; top:21%; bottom:17%; border-radius:18px; background:rgba(255,255,255,.84); box-shadow:inset 0 0 0 1px rgba(92,64,31,.08);
+    }
+    .reader-share-css-art[data-share-css-art="wabi-sabi-washi"]::before {
+      inset:0; background:
+        linear-gradient(90deg, rgba(223,232,227,.95) 0 19%, transparent 19%),
+        radial-gradient(circle at 74% 26%, rgba(81,98,91,.16) 0 10%, rgba(81,98,91,0) 30%),
+        linear-gradient(145deg,#e8efe9,#d8e1db);
+    }
+    .reader-share-css-art[data-share-css-art="wabi-sabi-washi"]::after {
+      left:16%; top:27%; width:58%; height:34%; border-radius:18px; background:rgba(250,252,250,.76); box-shadow:inset 10px 0 0 rgba(114,140,128,.42);
+    }
+    .reader-share-css-art[data-share-css-art="blind-press"]::before {
+      inset:0; background:linear-gradient(145deg,#2d302b,#181a17);
+    }
+    .reader-share-css-art[data-share-css-art="blind-press"]::after {
+      left:11%; top:18%; width:78%; height:52%; border-radius:18px;
+      background:linear-gradient(145deg,rgba(27,29,26,.90),rgba(22,24,21,.88));
+      box-shadow:inset 0 0 0 1px rgba(255,255,255,.07), inset 4px 4px 0 rgba(255,255,255,.03), inset -4px -4px 0 rgba(0,0,0,.32);
+    }
+    .reader-share-css-art[data-share-css-art="vintage-news-collage"]::before {
+      inset:0; background:linear-gradient(180deg,#ece5db,#d8cec2);
+    }
+    .reader-share-css-art[data-share-css-art="vintage-news-collage"]::after {
+      left:14%; top:20%; width:72%; height:50%; background:rgba(250,246,240,.94); border-radius:10px;
+      box-shadow:-26px -22px 0 -8px rgba(241,236,228,.9), 32px -14px 0 -8px rgba(230,222,210,.92), -34px 90px 0 -12px rgba(230,222,210,.9);
+    }
+    .reader-share-css-art[data-share-css-art="burgundy-leather"]::before {
+      inset:0; background:radial-gradient(circle at 50% 28%, rgba(133,27,57,.35), rgba(10,0,4,.4)), linear-gradient(135deg,#5b1024,#310714);
+    }
+    .reader-share-css-art[data-share-css-art="burgundy-leather"]::after {
+      left:18%; top:20%; width:64%; height:46%; border-radius:56px 56px 14px 14px; border:1.6px solid rgba(243,217,143,.55);
+      box-shadow:inset 0 0 0 1px rgba(243,217,143,.22), 0 0 0 1px rgba(0,0,0,.18);
+    }
+    .reader-share-css-art[data-share-css-art="forest-haze"]::before {
+      inset:0; background:linear-gradient(180deg,#cfe8cc 0%, #87c497 52%, #446e5d 100%);
+    }
+    .reader-share-css-art[data-share-css-art="forest-haze"]::after {
+      left:15%; top:22%; width:70%; height:46%; border-radius:16px; background:rgba(255,252,244,.88);
+      box-shadow:0 45px 0 -18px rgba(77,110,88,.95), -16px 54px 0 -20px rgba(58,101,74,.86), 18px 58px 0 -20px rgba(58,101,74,.86);
     }
     .reader-share-thumb .reader-share-css-art[data-share-css-art="blue-vhs-sky"]::before { font-size:5px; }
     .reader-share-thumb::after { z-index:2; }
@@ -16310,38 +16404,43 @@ const READER_SHARE_REDESIGN8 = (() => {
     const bg = ctx.createLinearGradient(0, 0, width, height);
     bg.addColorStop(0, '#0d2b39'); bg.addColorStop(1, '#07131d');
     ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
-    for (let i = 0; i < 140; i += 1) {
-      const x = rng() * width, y = rng() * height * .92, r = (1 + rng() * 2.4) * scale;
-      ctx.fillStyle = i % 7 === 0 ? 'rgba(255,226,160,.85)' : `rgba(255,255,255,${0.18 + rng() * 0.45})`;
+    for (let i = 0; i < 160; i += 1) {
+      const x = rng() * width, y = rng() * height * .94, r = (1 + rng() * 2.5) * scale;
+      ctx.fillStyle = i % 8 === 0 ? 'rgba(255,226,160,.9)' : `rgba(255,255,255,${0.16 + rng() * 0.46})`;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
     }
     ctx.strokeStyle = 'rgba(230,246,244,.08)'; ctx.lineWidth = 1 * scale;
     for (let x = 0; x <= width; x += 72 * scale) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
     for (let y = 0; y <= height; y += 72 * scale) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
-    const cx = width * .76, cy = height * .28, r = width * .18;
+    const cx = width * .79, cy = height * .28, r = width * .18;
     ctx.strokeStyle = 'rgba(255,226,160,.42)';
     [1, .72, .48].forEach((mul) => { ctx.beginPath(); ctx.arc(cx, cy, r * mul, 0, Math.PI * 2); ctx.stroke(); });
     for (let i = 0; i < 8; i += 1) { const a = (Math.PI * 2 / 8) * i; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.stroke(); }
-    ctx.fillStyle = 'rgba(237,247,245,.8)'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .085, height * .085);
-    ctx.fillStyle = 'rgba(255,226,160,.62)'; ctx.font = `600 ${14 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('ASTRAL / NAVIGATION MAP', width * .085, height * .112);
-    fillRoundRect(ctx, width * .08, height * .22, width * .5, height * .47, 30 * scale, 'rgba(246,251,249,.94)');
-    strokeRoundRect(ctx, width * .08, height * .22, width * .5, height * .47, 30 * scale, 'rgba(15,47,56,.12)', 2 * scale);
-    ctx.fillStyle = '#0f2f38'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText('STAR CHART / LOGBOOK', width * .115, height * .265);
-    ctx.fillStyle = '#5c807f'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('LAT 37°34′  •  SEA ROUTE ALPHA  •  MIDNIGHT OBS.', width * .115, height * .292);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .115, height * .33, width * .41, height * .28); quoteRect.canvasWidth = width;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillStyle = '#edf7f5'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .085, height * .082);
+    ctx.fillStyle = 'rgba(255,226,160,.65)'; ctx.font = `600 ${14 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('ASTRAL NAVIGATION · NIGHT ROUTE', width * .085, height * .112);
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 1.3 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .085, height * .18); ctx.lineTo(width * .50, height * .18); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width * .085, height * .66); ctx.lineTo(width * .60, height * .66); ctx.stroke();
+    ctx.fillStyle = 'rgba(237,247,245,.16)';
+    fillRoundRect(ctx, width * .085, height * .24, width * .5, height * .36, 28 * scale, 'rgba(8,22,29,.20)');
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .26, width * .46, height * .32); quoteRect.canvasWidth = width;
     const spacing = getReaderShareCustomLetterSpacing(model, width);
-    const fontSize = (model.sizePx * (width / 380)) * 1.04;
-    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.56);
+    const fontSize = (model.sizePx * (width / 380)) * 1.06;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
     ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
     const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
     let y = quoteRect.y + Math.max(0, (quoteRect.h - lines.length * lineHeight) / 2);
     for (const line of lines) {
-      ctx.fillStyle = 'rgba(15,47,56,.12)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 1.5 * scale, y + 1.5 * scale, spacing);
-      ctx.fillStyle = '#0f2f38'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+      ctx.fillStyle = 'rgba(15,47,56,.22)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 1.8 * scale, y + 1.8 * scale, spacing);
+      ctx.fillStyle = '#edf7f5'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
     }
-    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.moveTo(width * .08, height * .76); ctx.lineTo(width * .92, height * .76); ctx.stroke();
-    ctx.fillStyle = '#edf7f5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .08, height * .79);
-    ctx.fillStyle = '#9bbabb'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .08, height * .826);
+    ctx.fillStyle = 'rgba(255,226,160,.72)'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`;
+    ctx.fillText('LAT 37°34′ N  ·  SEA ROUTE ALPHA', width * .11, height * .605);
+    ctx.fillText('LOOKOUT  /  CONSTELLATION LOG', width * .11, height * .63);
+    ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.beginPath(); ctx.moveTo(width * .085, height * .76); ctx.lineTo(width * .92, height * .76); ctx.stroke();
+    ctx.fillStyle = '#edf7f5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .085, height * .79);
+    ctx.fillStyle = '#9bbabb'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .085, height * .826);
   }
   
 function drawCloud(ctx, x, y, w, h, color) {
@@ -16351,21 +16450,23 @@ function drawCloud(ctx, x, y, w, h, color) {
     const { title, author, brand, quoteFont } = textInfo(model);
     const scale = width / 1200;
     const sky = ctx.createLinearGradient(0, 0, 0, height); sky.addColorStop(0, '#7ebcf3'); sky.addColorStop(1, '#dff0ff'); ctx.fillStyle = sky; ctx.fillRect(0,0,width,height);
-    drawCloud(ctx, width * .05, height * .1, width * .28, height * .12, 'rgba(255,255,255,.55)');
-    drawCloud(ctx, width * .62, height * .14, width * .26, height * .11, 'rgba(255,255,255,.52)');
-    drawCloud(ctx, width * .02, height * .8, width * .34, height * .16, 'rgba(255,255,255,.9)');
-    drawCloud(ctx, width * .64, height * .76, width * .34, height * .18, 'rgba(255,255,255,.88)');
-    const cardX = width * .13, cardY = height * .19, cardW = width * .74, cardH = height * .57;
-    ctx.save(); ctx.translate(cardX + cardW / 2, cardY + cardH / 2); ctx.rotate(-0.028); fillRoundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 28 * scale, 'rgba(255,255,255,.96)'); strokeRoundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 28 * scale, 'rgba(74,120,173,.18)', 2 * scale); ctx.restore();
-    ctx.fillStyle = '#79aee2'; ctx.fillRect(cardX + 30 * scale, cardY + 26 * scale, cardW - 60 * scale, 10 * scale);
-    ctx.fillStyle = '#244571'; ctx.font = `700 ${22 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(brand, cardX + cardW / 2, cardY + 60 * scale);
-    ctx.fillStyle = '#6a88ae'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('CLOUD LETTER / DAYLIGHT NOTE', cardX + cardW / 2, cardY + 86 * scale);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, cardX + 80 * scale, cardY + 122 * scale, cardW - 160 * scale, cardH - 244 * scale); quoteRect.canvasWidth = width;
-    drawQuotePanel(ctx, model, quoteRect, '#244571', { align: 'center', fontScale: 1.06, lineHeight: 1.54 });
-    const footerY = cardY + cardH - 116 * scale;
-    ctx.strokeStyle = 'rgba(36,69,113,.14)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.moveTo(cardX + 56 * scale, footerY - 26 * scale); ctx.lineTo(cardX + cardW - 56 * scale, footerY - 26 * scale); ctx.stroke();
-    ctx.fillStyle = '#244571'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, cardX + cardW / 2, footerY);
-    ctx.fillStyle = '#6a88ae'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', cardX + cardW / 2, footerY + 36 * scale);
+    drawCloud(ctx, width * .05, height * .12, width * .28, height * .12, 'rgba(255,255,255,.55)');
+    drawCloud(ctx, width * .68, height * .1, width * .24, height * .1, 'rgba(255,255,255,.52)');
+    drawCloud(ctx, width * .08, height * .78, width * .26, height * .12, 'rgba(255,255,255,.78)');
+    drawCloud(ctx, width * .7, height * .74, width * .28, height * .14, 'rgba(255,255,255,.84)');
+    ctx.fillStyle = 'rgba(255,255,255,.42)'; ctx.beginPath(); ctx.arc(width * .5, height * .22, width * .11, 0, Math.PI * 2); ctx.fill();
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    fillRoundRect(ctx, width * .19, height * .13, width * .62, 38 * scale, 19 * scale, 'rgba(255,255,255,.86)');
+    ctx.fillStyle = '#244571'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .5, height * .145);
+    ctx.fillStyle = '#6a88ae'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('CLOUD LETTER · DAYLIGHT NOTE', width * .5, height * .185);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .28, width * .68, height * .28); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#244571', { align: 'center', fontScale: 1.10, lineHeight: 1.56 });
+    fillRoundRect(ctx, width * .22, height * .61, width * .56, 24 * scale, 12 * scale, 'rgba(255,255,255,.76)');
+    ctx.fillStyle = '#7ca7d6'; ctx.fillRect(width * .26, height * .64, width * .48, 2.5 * scale);
+    fillRoundRect(ctx, width * .18, height * .72, width * .64, height * .12, 26 * scale, 'rgba(255,255,255,.94)');
+    strokeRoundRect(ctx, width * .18, height * .72, width * .64, height * .12, 26 * scale, 'rgba(74,120,173,.12)', 2 * scale);
+    ctx.fillStyle = '#244571'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .5, height * .765);
+    ctx.fillStyle = '#6a88ae'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .5, height * .801);
     ctx.textAlign = 'left';
   }
   
@@ -16373,36 +16474,37 @@ function renderVellum(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
     const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#edf0f2'); bg.addColorStop(1, '#dfe4e6'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
     const sheets = [
-      [width * .14, height * .16, width * .56, height * .46, -0.06, 'rgba(255,255,255,.3)'],
-      [width * .29, height * .12, width * .46, height * .53, 0.09, 'rgba(255,255,255,.24)'],
-      [width * .17, height * .22, width * .62, height * .5, 0.02, 'rgba(255,255,255,.72)'],
+      [width * .14, height * .14, width * .42, height * .52, -0.08, 'rgba(255,255,255,.26)'],
+      [width * .34, height * .12, width * .38, height * .58, 0.07, 'rgba(255,255,255,.22)'],
+      [width * .2, height * .18, width * .5, height * .56, 0.02, 'rgba(255,255,255,.72)'],
     ];
     for (const [x, y, w, h, rot, fill] of sheets) { ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); fillRoundRect(ctx, -w / 2, -h / 2, w, h, 22 * scale, fill); strokeRoundRect(ctx, -w / 2, -h / 2, w, h, 22 * scale, 'rgba(120,130,140,.16)', 1.5 * scale); ctx.restore(); }
-    ctx.fillStyle = '#6c7177'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .11, height * .1);
-    ctx.fillStyle = 'rgba(118,126,134,.18)'; ctx.beginPath(); ctx.moveTo(width * .7, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .28); ctx.closePath(); ctx.fill();
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .3, width * .48, height * .28); quoteRect.canvasWidth = width;
-    drawQuotePanel(ctx, model, quoteRect, '#30343a', { fontScale: 1.03, lineHeight: 1.56 });
-    fillRoundRect(ctx, width * .09, height * .73, width * .82, height * .12, 18 * scale, 'rgba(255,255,255,.78)');
-    ctx.strokeStyle = 'rgba(118,126,134,.18)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .12, height * .78); ctx.lineTo(width * .88, height * .78); ctx.stroke();
-    ctx.fillStyle = '#30343a'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .13, height * .79);
-    ctx.fillStyle = '#717980'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .13, height * .823);
+    ctx.fillStyle = '#6c7177'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .11, height * .1);
+    ctx.fillStyle = 'rgba(118,126,134,.16)'; ctx.beginPath(); ctx.moveTo(width * .72, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .26); ctx.closePath(); ctx.fill();
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .24, height * .26, width * .42, height * .36); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#30343a', { fontScale: 1.06, lineHeight: 1.58 });
+    ctx.strokeStyle = 'rgba(118,126,134,.18)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .1, height * .78); ctx.lineTo(width * .9, height * .78); ctx.stroke();
+    ctx.fillStyle = '#30343a'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .12, height * .80);
+    ctx.fillStyle = '#717980'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .12, height * .835);
   }
   
 function renderKraft(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
     const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#88926b'); bg.addColorStop(1, '#6c7654'); ctx.fillStyle = bg; ctx.fillRect(0, 0, width, height);
     ctx.fillStyle = 'rgba(31,35,22,.08)'; for (let i = 0; i < 3200; i += 1) ctx.fillRect((i * 31 % 1200) * scale, (i * 53 % 1800) * scale, 1.2 * scale, 1.2 * scale);
-    fillRoundRect(ctx, width * .12, height * .17, width * .76, height * .55, 24 * scale, '#f2ead7');
-    strokeRoundRect(ctx, width * .12, height * .17, width * .76, height * .55, 24 * scale, 'rgba(31,35,22,.14)', 2.2 * scale);
-    ctx.fillStyle = 'rgba(255,255,255,.3)'; ctx.fillRect(width * .17, height * .13, width * .28, 34 * scale);
-    ctx.fillStyle = '#435036'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .19, height * .145);
-    ctx.fillStyle = '#d8cdb1'; ctx.fillRect(width * .77, height * .14, width * .09, 10 * scale);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .18, height * .28, width * .64, height * .31); quoteRect.canvasWidth = width;
-    drawQuotePanel(ctx, model, quoteRect, '#1f2316', { fontScale: 1.05, lineHeight: 1.56 });
-    fillRoundRect(ctx, width * .16, height * .75, width * .68, height * .11, 16 * scale, 'rgba(242,234,215,.75)');
-    ctx.strokeStyle = 'rgba(31,35,22,.14)'; ctx.beginPath(); ctx.moveTo(width * .2, height * .8); ctx.lineTo(width * .8, height * .8); ctx.stroke();
-    ctx.fillStyle = '#1f2316'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .2, height * .81);
-    ctx.fillStyle = '#556145'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .2, height * .845);
+    ctx.save(); ctx.translate(width * .16, height * .15); ctx.rotate(-0.04); fillRoundRect(ctx, 0, 0, width * .24, 34 * scale, 4 * scale, 'rgba(255,255,255,.36)'); ctx.restore();
+    ctx.save(); ctx.translate(width * .68, height * .16); ctx.rotate(0.05); fillRoundRect(ctx, 0, 0, width * .12, 16 * scale, 4 * scale, '#d8cdb1'); ctx.restore();
+    fillRoundRect(ctx, width * .16, height * .2, width * .68, height * .54, 20 * scale, '#efe6d2');
+    strokeRoundRect(ctx, width * .16, height * .2, width * .68, height * .54, 20 * scale, 'rgba(31,35,22,.14)', 2 * scale);
+    ctx.fillStyle = '#435036'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .22, height * .25);
+    ctx.fillStyle = '#8c9a70'; ctx.font = `600 ${12 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('FIELD NOTE · HANDMADE LABEL', width * .22, height * .275);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .32, width * .56, height * .28); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#1f2316', { fontScale: 1.08, lineHeight: 1.56 });
+    fillRoundRect(ctx, width * .22, height * .64, width * .36, 18 * scale, 9 * scale, 'rgba(255,255,255,.46)');
+    fillRoundRect(ctx, width * .16, height * .77, width * .68, height * .1, 16 * scale, 'rgba(239,230,210,.82)');
+    ctx.strokeStyle = 'rgba(31,35,22,.14)'; ctx.beginPath(); ctx.moveTo(width * .2, height * .81); ctx.lineTo(width * .8, height * .81); ctx.stroke();
+    ctx.fillStyle = '#1f2316'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .2, height * .818);
+    ctx.fillStyle = '#556145'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .2, height * .852);
   }
   function drawCitrusSlice(ctx, cx, cy, r, rind, flesh, pith, segments) {
     ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = rind; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.fillStyle = pith; ctx.beginPath(); ctx.arc(0,0,r * .84,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = flesh; ctx.lineWidth = r * .18; ctx.beginPath(); ctx.arc(0,0,r * .57,0,Math.PI*2); ctx.stroke(); ctx.lineWidth = r * .04; for(let i=0;i<segments;i++){const a = Math.PI * 2 * i / segments; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*r*.72, Math.sin(a)*r*.72); ctx.stroke(); } ctx.restore();
@@ -16410,21 +16512,19 @@ function renderKraft(ctx, width, height, model) {
   function renderCitrus(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
     const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#fffdf3'); bg.addColorStop(1, '#eefbe5'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
-    drawCitrusSlice(ctx, width * .11, height * .12, width * .12, '#ffad34', '#ffd46b', '#fff6d8', 10);
-    drawCitrusSlice(ctx, width * .87, height * .14, width * .11, '#7ec64c', '#c8f067', '#f8ffe4', 8);
-    drawCitrusSlice(ctx, width * .9, height * .86, width * .1, '#ff846c', '#ffb0a2', '#fff0e7', 9);
-    drawCitrusSlice(ctx, width * .15, height * .85, width * .08, '#ffd341', '#fff07d', '#fff9d8', 9);
-    ctx.strokeStyle = 'rgba(111,158,72,.28)'; ctx.lineWidth = 4 * scale; ctx.beginPath(); ctx.arc(width * .86, height * .14, width * .15, Math.PI * .92, Math.PI * 1.28); ctx.stroke();
-    const posterX = width * .14, posterY = height * .17, posterW = width * .7, posterH = height * .6;
-    fillRoundRect(ctx, posterX, posterY, posterW, posterH, 34 * scale, 'rgba(255,255,255,.82)');
-    strokeRoundRect(ctx, posterX, posterY, posterW, posterH, 34 * scale, 'rgba(92,64,31,.08)', 2 * scale);
-    ctx.fillStyle = '#ffad34'; ctx.fillRect(posterX + 36 * scale, posterY + 38 * scale, 104 * scale, 10 * scale);
-    ctx.fillStyle = '#53401f'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, posterX + 36 * scale, posterY + 70 * scale);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, posterX + 60 * scale, posterY + 126 * scale, posterW - 120 * scale, posterH - 238 * scale); quoteRect.canvasWidth = width;
-    drawQuotePanel(ctx, model, quoteRect, '#53401f', { align: 'center', fontScale: 1.06, lineHeight: 1.52 });
-    fillRoundRect(ctx, posterX + 36 * scale, posterY + posterH - 112 * scale, posterW - 72 * scale, 80 * scale, 18 * scale, 'rgba(255,250,232,.96)');
-    ctx.fillStyle = '#53401f'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, posterX + 56 * scale, posterY + posterH - 82 * scale);
-    ctx.fillStyle = '#92745d'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', posterX + 56 * scale, posterY + posterH - 46 * scale);
+    drawCitrusSlice(ctx, width * .12, height * .12, width * .11, '#ffad34', '#ffd46b', '#fff6d8', 10);
+    drawCitrusSlice(ctx, width * .87, height * .16, width * .1, '#7ec64c', '#c8f067', '#f8ffe4', 8);
+    drawCitrusSlice(ctx, width * .88, height * .84, width * .09, '#ff846c', '#ffb0a2', '#fff0e7', 9);
+    drawCitrusSlice(ctx, width * .17, height * .82, width * .08, '#ffd341', '#fff07d', '#fff9d8', 9);
+    ctx.fillStyle = '#ffad34'; ctx.fillRect(width * .16, height * .16, width * .18, 8 * scale);
+    ctx.fillStyle = '#53401f'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .16, height * .185);
+    ctx.fillStyle = '#92745d'; ctx.font = `600 ${12 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('CITRUS MARKET · FRESH DAY', width * .16, height * .212);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .17, height * .28, width * .62, height * .30); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#53401f', { align: 'left', fontScale: 1.08, lineHeight: 1.52 });
+    fillRoundRect(ctx, width * .16, height * .71, width * .68, height * .12, 24 * scale, 'rgba(255,250,232,.96)');
+    strokeRoundRect(ctx, width * .16, height * .71, width * .68, height * .12, 24 * scale, 'rgba(92,64,31,.08)', 2 * scale);
+    ctx.fillStyle = '#53401f'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, width * .21, height * .755);
+    ctx.fillStyle = '#92745d'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .21, height * .792);
   }
   function renderWabi(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
@@ -16434,14 +16534,14 @@ function renderKraft(ctx, width, height, model) {
     const wash = ctx.createRadialGradient(width * .73, height * .28, 12 * scale, width * .73, height * .28, width * .24);
     wash.addColorStop(0, 'rgba(81,98,91,.18)'); wash.addColorStop(.5, 'rgba(81,98,91,.06)'); wash.addColorStop(1, 'rgba(81,98,91,0)'); ctx.fillStyle = wash; ctx.fillRect(0,0,width,height);
     ctx.strokeStyle = 'rgba(104,122,114,.08)'; ctx.lineWidth = 1 * scale; for (let i = 0; i < 80; i += 1) { const sx = (i * 83 % 1200) * scale; const sy = (i * 109 % 1800) * scale; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + 24 * scale, sy + 6 * scale, sx + 54 * scale, sy - 8 * scale); ctx.stroke(); }
-    ctx.fillStyle = '#23312d'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(brand, width * .7, height * .09);
-    fillRoundRect(ctx, width * .18, height * .28, width * .58, height * .34, 22 * scale, 'rgba(250,252,250,.78)');
-    ctx.fillStyle = 'rgba(114,140,128,.48)'; ctx.fillRect(width * .18, height * .28, 10 * scale, height * .34);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .23, height * .33, width * .48, height * .25); quoteRect.canvasWidth = width;
-    drawQuotePanel(ctx, model, quoteRect, '#23312d', { fontScale: 1.04, lineHeight: 1.62 });
-    ctx.strokeStyle = 'rgba(60,72,67,.16)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .18, height * .76); ctx.lineTo(width * .82, height * .76); ctx.stroke();
-    ctx.fillStyle = '#1a2521'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .18, height * .79);
-    ctx.fillStyle = '#5f6c68'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .18, height * .825);
+    ctx.fillStyle = '#23312d'; ctx.font = `700 ${22 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .7, height * .09);
+    fillRoundRect(ctx, width * .16, height * .24, width * .62, height * .42, 24 * scale, 'rgba(250,252,250,.74)');
+    ctx.fillStyle = 'rgba(114,140,128,.44)'; ctx.fillRect(width * .16, height * .24, 10 * scale, height * .42);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .21, height * .29, width * .52, height * .32); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#23312d', { fontScale: 1.06, lineHeight: 1.62 });
+    ctx.strokeStyle = 'rgba(60,72,67,.16)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .16, height * .77); ctx.lineTo(width * .84, height * .77); ctx.stroke();
+    ctx.fillStyle = '#1a2521'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .16, height * .80);
+    ctx.fillStyle = '#5f6c68'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .16, height * .835);
   }
   
 function renderBlindPress(ctx, width, height, model) {
@@ -16449,50 +16549,50 @@ function renderBlindPress(ctx, width, height, model) {
     const bg = ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0, '#2d302b'); bg.addColorStop(1, '#181a17'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
     ctx.fillStyle = 'rgba(255,255,255,.016)'; for (let i = 0; i < 2400; i += 1) ctx.fillRect((i * 29 % 1200) * scale, (i * 43 % 1800) * scale, 1 * scale, 1 * scale);
     ctx.fillStyle = 'rgba(255,255,255,.035)'; ctx.font = `800 ${420 * scale}px Georgia, serif`; ctx.fillText('B', -60 * scale, 340 * scale); ctx.fillText('P', width - 280 * scale, height + 18 * scale);
-    fillRoundRect(ctx, width * .1, height * .18, width * .8, height * .52, 36 * scale, 'rgba(27,29,26,.82)');
-    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 2 * scale; rrPath(ctx, width * .1, height * .18, width * .8, height * .52, 36 * scale); ctx.stroke();
-    ctx.strokeStyle = 'rgba(0,0,0,.42)'; ctx.lineWidth = 8 * scale; rrPath(ctx, width * .105, height * .185, width * .79, height * .51, 34 * scale); ctx.stroke();
-    ctx.fillStyle = 'rgba(240,239,229,.56)'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .16, height * .16);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .18, height * .29, width * .64, height * .27); quoteRect.canvasWidth = width;
+    fillRoundRect(ctx, width * .12, height * .18, width * .76, height * .5, 34 * scale, 'rgba(26,28,25,.72)');
+    ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = 2 * scale; rrPath(ctx, width * .12, height * .18, width * .76, height * .5, 34 * scale); ctx.stroke();
+    ctx.fillStyle = 'rgba(240,239,229,.56)'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.fillText(brand, width * .5, height * .15);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .22, height * .28, width * .56, height * .30); quoteRect.canvasWidth = width;
     const spacing = getReaderShareCustomLetterSpacing(model, width);
-    const fontSize = (model.sizePx * (width / 380)) * 1.06; const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.56);
+    const fontSize = (model.sizePx * (width / 380)) * 1.06; const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
     ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
     const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
     let y = quoteRect.y + Math.max(0, (quoteRect.h - lines.length * lineHeight) / 2);
     for (const line of lines) {
-      ctx.fillStyle = 'rgba(0,0,0,.62)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 2 * scale, y + 2.4 * scale, spacing);
-      ctx.fillStyle = 'rgba(255,255,255,.16)'; readerShareCustomDrawText(ctx, line, quoteRect.x - 1.2 * scale, y - 1.2 * scale, spacing);
-      ctx.fillStyle = '#f0efe5'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+      ctx.fillStyle = 'rgba(255,255,255,.13)'; readerShareCustomDrawText(ctx, line, quoteRect.x - 1.2 * scale, y - 1.2 * scale, spacing);
+      ctx.fillStyle = 'rgba(0,0,0,.42)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 1.8 * scale, y + 2 * scale, spacing);
+      ctx.fillStyle = '#d8d4c4'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
     }
-    fillRoundRect(ctx, width * .16, height * .74, width * .68, height * .11, 18 * scale, 'rgba(255,255,255,.04)');
-    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(width * .2, height * .785); ctx.lineTo(width * .8, height * .785); ctx.stroke();
-    ctx.fillStyle = '#f0efe5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .2, height * .804);
-    ctx.fillStyle = 'rgba(240,239,229,.6)'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .2, height * .839);
+    ctx.strokeStyle = 'rgba(255,255,255,.09)'; ctx.beginPath(); ctx.moveTo(width * .18, height * .76); ctx.lineTo(width * .82, height * .76); ctx.stroke();
+    ctx.fillStyle = '#f0efe5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .5, height * .79);
+    ctx.fillStyle = 'rgba(240,239,229,.6)'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .5, height * .826);
+    ctx.textAlign = 'left';
   }
   function renderVintageNews(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200; const rng = quoteTestRng(7851);
     const bg = ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#ece5db'); bg.addColorStop(1,'#d8cec2'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
-    const scraps = [[.07,.12,.24,.16,-.05],[.35,.1,.24,.2,.03],[.66,.13,.24,.16,-.04],[.08,.77,.24,.12,.04],[.38,.79,.2,.1,-.03],[.67,.74,.21,.16,.05]];
-    scraps.forEach(([rx,ry,rw,rh,rot], idx)=>{const x=width*rx,y=height*ry,w=width*rw,h=height*rh;ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate(rot);ctx.fillStyle=idx%2?'rgba(241,236,228,.94)':'rgba(230,222,210,.92)';ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeStyle='rgba(82,61,42,.1)';ctx.lineWidth=1.4*scale;ctx.strokeRect(-w/2,-h/2,w,h);ctx.fillStyle='rgba(58,43,30,.32)';for(let yy=-h/2+32*scale;yy<h/2-10*scale;yy+=10*scale){ctx.fillRect(-w/2+12*scale,yy,w*(.46+rng()*.35),1.3*scale)}ctx.restore();});
-    fillRoundRect(ctx,width*.15,height*.22,width*.7,height*.52,18*scale,'rgba(250,246,240,.97)'); strokeRoundRect(ctx,width*.15,height*.22,width*.7,height*.52,18*scale,'rgba(79,56,35,.12)',2*scale);
-    ctx.fillStyle='#35261c'; ctx.textAlign='center'; ctx.textBaseline='top'; ctx.font=`700 ${28*scale}px Georgia, serif`; ctx.fillText(brand.toUpperCase(),width/2,height*.09); ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('ARCHIVE QUOTE REVIEW',width/2,height*.126);
-    ctx.strokeStyle='rgba(73,54,38,.26)'; ctx.lineWidth=1.2*scale; ctx.beginPath(); ctx.moveTo(width*.14,height*.158); ctx.lineTo(width*.86,height*.158); ctx.stroke();
-    ctx.textAlign='left'; ctx.fillStyle='#5a4433'; ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('EDITORIAL ESSAY',width*.2,height*.28);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.21,height*.33,width*.58,height*.27); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#2d2016',{fontScale:1.02,lineHeight:1.5});
-    fillRoundRect(ctx,width*.19,height*.65,width*.62,height*.09,12*scale,'rgba(234,227,217,.88)'); ctx.strokeStyle='rgba(73,54,38,.18)'; ctx.beginPath(); ctx.moveTo(width*.22,height*.688); ctx.lineTo(width*.78,height*.688); ctx.stroke();
-    ctx.fillStyle='#35261c'; ctx.font=`700 ${28*scale}px ${quoteFont}`; ctx.fillText(title,width*.23,height*.7); ctx.fillStyle='#6e5949'; ctx.font=`500 ${21*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.23,height*.733);
+    const scraps = [[.08,.11,.22,.14,-.06],[.68,.12,.19,.13,.04],[.1,.76,.24,.12,.05],[.68,.74,.18,.14,-.03]];
+    scraps.forEach(([rx,ry,rw,rh,rot], idx)=>{const x=width*rx,y=height*ry,w=width*rw,h=height*rh;ctx.save();ctx.translate(x+w/2,y+h/2);ctx.rotate(rot);ctx.fillStyle=idx%2?'rgba(241,236,228,.94)':'rgba(230,222,210,.92)';ctx.fillRect(-w/2,-h/2,w,h);ctx.strokeStyle='rgba(82,61,42,.1)';ctx.lineWidth=1.4*scale;ctx.strokeRect(-w/2,-h/2,w,h);ctx.fillStyle='rgba(58,43,30,.28)';for(let yy=-h/2+24*scale;yy<h/2-10*scale;yy+=9*scale){ctx.fillRect(-w/2+12*scale,yy,w*(.46+rng()*.35),1.2*scale)}ctx.restore();});
+    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.fillStyle='#35261c'; ctx.font=`700 ${28*scale}px Georgia, serif`; ctx.fillText(brand.toUpperCase(),width/2,height*.09); ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('ARCHIVE QUOTE REVIEW',width/2,height*.126);
+    ctx.strokeStyle='rgba(73,54,38,.22)'; ctx.lineWidth=1.2*scale; ctx.beginPath(); ctx.moveTo(width*.12,height*.16); ctx.lineTo(width*.88,height*.16); ctx.stroke();
+    fillRoundRect(ctx,width*.14,height*.22,width*.72,height*.5,16*scale,'rgba(248,243,235,.95)'); strokeRoundRect(ctx,width*.14,height*.22,width*.72,height*.5,16*scale,'rgba(79,56,35,.10)',2*scale);
+    ctx.textAlign='left'; ctx.fillStyle='#5a4433'; ctx.font=`600 ${15*scale}px Georgia, serif`; ctx.fillText('FEATURE ESSAY',width*.19,height*.28);
+    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.19,height*.33,width*.62,height*.28); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#2d2016',{fontScale:1.05,lineHeight:1.5});
+    ctx.strokeStyle='rgba(73,54,38,.18)'; ctx.beginPath(); ctx.moveTo(width*.18,height*.76); ctx.lineTo(width*.82,height*.76); ctx.stroke();
+    ctx.fillStyle='#35261c'; ctx.font=`700 ${28*scale}px ${quoteFont}`; ctx.fillText(title,width*.18,height*.79); ctx.fillStyle='#6e5949'; ctx.font=`500 ${21*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.18,height*.824);
   }
   function renderBurgundyLeather(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
     const bg = ctx.createLinearGradient(0,0,width,height); bg.addColorStop(0,'#5b1024'); bg.addColorStop(1,'#310714'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
     drawBurgundy(ctx,width,height);
-    fillRoundRect(ctx,width*.17,height*.19,width*.66,height*.48,28*scale,'rgba(46,7,20,.42)'); strokeRoundRect(ctx,width*.17,height*.19,width*.66,height*.48,28*scale,'rgba(243,217,143,.5)',2.4*scale);
-    ctx.strokeStyle='rgba(243,217,143,.28)'; ctx.lineWidth=1.3*scale; ctx.beginPath(); ctx.moveTo(width*.27,height*.24); ctx.lineTo(width*.73,height*.24); ctx.lineTo(width*.7,height*.28); ctx.lineTo(width*.3,height*.28); ctx.closePath(); ctx.stroke();
-    ctx.fillStyle='#f3d98f'; ctx.textAlign='center'; ctx.font=`700 ${20*scale}px Pretendard, sans-serif`; ctx.fillText(brand.toUpperCase(), width*.5, height*.235);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.24,height*.31,width*.52,height*.22); quoteRect.canvasWidth=width; const spacing=getReaderShareCustomLetterSpacing(model,width); const fontSize=(model.sizePx*(width/380))*1.04; const lineHeight=fontSize*getReaderShareCustomLineHeight(model,1.54); ctx.font=`${Number(model.fontWeight||500)} ${fontSize}px ${quoteFont}`; const lines=makeLines(ctx,String(model.text||''),quoteRect.w,lineHeight,quoteRect.h,model.autoWrap,spacing); let y=quoteRect.y+Math.max(0,(quoteRect.h-lines.length*lineHeight)/2); for(const line of lines){ctx.fillStyle='rgba(0,0,0,.42)'; readerShareCustomDrawText(ctx,line,quoteRect.x+1.6*scale,y+2*scale,spacing); ctx.fillStyle='#f7e9b8'; readerShareCustomDrawText(ctx,line,quoteRect.x,y,spacing); y+=lineHeight;}
-    fillRoundRect(ctx,width*.2,height*.74,width*.6,height*.1,18*scale,'rgba(62,10,25,.55)'); ctx.strokeStyle='rgba(243,217,143,.22)'; ctx.beginPath(); ctx.moveTo(width*.24,height*.79); ctx.lineTo(width*.76,height*.79); ctx.stroke();
-    ctx.fillStyle='#f3d98f'; ctx.font=`700 ${30*scale}px ${quoteFont}`; ctx.fillText(title,width*.5,height*.804); ctx.fillStyle='rgba(243,217,143,.78)'; ctx.font=`500 ${22*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.5,height*.839);
-    ctx.textAlign='left';
+    ctx.strokeStyle='rgba(243,217,143,.52)'; ctx.lineWidth=2.2*scale;
+    ctx.beginPath(); ctx.moveTo(width*.26,height*.22); ctx.lineTo(width*.74,height*.22); ctx.lineTo(width*.71,height*.29); ctx.quadraticCurveTo(width*.5,height*.16,width*.29,height*.29); ctx.closePath(); ctx.stroke();
+    fillRoundRect(ctx,width*.19,height*.24,width*.62,height*.42,34*scale,'rgba(46,7,20,.40)'); strokeRoundRect(ctx,width*.19,height*.24,width*.62,height*.42,34*scale,'rgba(243,217,143,.32)',2*scale);
+    ctx.fillStyle='#f3d98f'; ctx.textAlign='center'; ctx.font=`700 ${20*scale}px Pretendard, sans-serif`; ctx.fillText(brand.toUpperCase(), width*.5, height*.255);
+    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.26,height*.33,width*.48,height*.22); quoteRect.canvasWidth=width;
+    const spacing=getReaderShareCustomLetterSpacing(model,width); const fontSize=(model.sizePx*(width/380))*1.05; const lineHeight=fontSize*getReaderShareCustomLineHeight(model,1.56); ctx.font=`${Number(model.fontWeight||500)} ${fontSize}px ${quoteFont}`; const lines=makeLines(ctx,String(model.text||''),quoteRect.w,lineHeight,quoteRect.h,model.autoWrap,spacing); let y=quoteRect.y+Math.max(0,(quoteRect.h-lines.length*lineHeight)/2); for(const line of lines){ctx.fillStyle='rgba(0,0,0,.4)'; readerShareCustomDrawText(ctx,line,quoteRect.x+1.6*scale,y+2*scale,spacing); ctx.fillStyle='rgba(255,240,200,.18)'; readerShareCustomDrawText(ctx,line,quoteRect.x-1*scale,y-1*scale,spacing); ctx.fillStyle='#f7e9b8'; readerShareCustomDrawText(ctx,line,quoteRect.x,y,spacing); y+=lineHeight;}
+    ctx.strokeStyle='rgba(243,217,143,.22)'; ctx.beginPath(); ctx.moveTo(width*.22,height*.76); ctx.lineTo(width*.78,height*.76); ctx.stroke();
+    ctx.fillStyle='#f3d98f'; ctx.font=`700 ${30*scale}px ${quoteFont}`; ctx.fillText(title,width*.5,height*.79); ctx.fillStyle='rgba(243,217,143,.78)'; ctx.font=`500 ${22*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.5,height*.826); ctx.textAlign='left';
   }
   function renderForestHaze(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200; const rng = quoteTestRng(6184);
@@ -16503,10 +16603,10 @@ function renderBlindPress(ctx, width, height, model) {
     const drawTree=(x,base,scaleMul)=>{ctx.save(); ctx.translate(x,base); const s=scaleMul*scale; ctx.fillStyle='rgba(58,101,74,.95)'; ctx.beginPath(); ctx.arc(0,-92*s,60*s,0,Math.PI*2); ctx.arc(-42*s,-60*s,50*s,0,Math.PI*2); ctx.arc(40*s,-56*s,48*s,0,Math.PI*2); ctx.arc(0,-28*s,64*s,0,Math.PI*2); ctx.fill(); ctx.fillStyle='rgba(86,63,41,.86)'; ctx.fillRect(-8*s,-24*s,16*s,86*s); ctx.restore();};
     [120,300,500,720,910,1080].forEach((x,i)=>drawTree(x*scale, height*(.72 + (i%2)*.02), 1 + (i%3)*.08));
     for(let i=0;i<24;i++){const x=width*(.06+rng()*.88),y=height*(.14+rng()*.58),r=(2+rng()*2.2)*scale; const g=ctx.createRadialGradient(x,y,0,x,y,r*6); g.addColorStop(0,'rgba(247,255,179,.42)'); g.addColorStop(1,'rgba(247,255,179,0)'); ctx.fillStyle=g; ctx.beginPath(); ctx.arc(x,y,r*6,0,Math.PI*2); ctx.fill();}
-    fillRoundRect(ctx,width*.15,height*.25,width*.7,height*.4,30*scale,'rgba(255,252,244,.9)'); strokeRoundRect(ctx,width*.15,height*.25,width*.7,height*.4,30*scale,'rgba(106,137,111,.18)',2*scale);
-    ctx.fillStyle='#4d6e58'; ctx.fillRect(width*.22,height*.22,width*.17,20*scale); ctx.fillStyle='#ffffff'; ctx.font=`700 ${18*scale}px Pretendard, sans-serif`; ctx.fillText(brand,width*.24,height*.215);
-    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.22,height*.34,width*.56,height*.24); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#335142',{align:'center',fontScale:1.05,lineHeight:1.56});
-    fillRoundRect(ctx,width*.17,height*.73,width*.66,height*.1,18*scale,'rgba(255,251,241,.82)'); ctx.strokeStyle='rgba(77,110,88,.18)'; ctx.beginPath(); ctx.moveTo(width*.22,height*.78); ctx.lineTo(width*.78,height*.78); ctx.stroke();
+    fillRoundRect(ctx,width*.16,height*.23,width*.68,height*.4,26*scale,'rgba(255,252,244,.90)'); strokeRoundRect(ctx,width*.16,height*.23,width*.68,height*.4,26*scale,'rgba(106,137,111,.18)',2*scale);
+    ctx.fillStyle='#4d6e58'; ctx.fillRect(width*.23,height*.21,width*.18,20*scale); ctx.fillStyle='#ffffff'; ctx.font=`700 ${18*scale}px Pretendard, sans-serif`; ctx.textAlign='left'; ctx.fillText(brand,width*.25,height*.205);
+    const quoteRect=getReaderShareCustomQuoteBox(model,width,height,width*.22,height*.32,width*.56,height*.24); quoteRect.canvasWidth=width; drawQuotePanel(ctx,model,quoteRect,'#335142',{align:'center',fontScale:1.08,lineHeight:1.56});
+    fillRoundRect(ctx,width*.19,height*.73,width*.62,height*.1,18*scale,'rgba(255,251,241,.82)'); ctx.strokeStyle='rgba(77,110,88,.18)'; ctx.beginPath(); ctx.moveTo(width*.23,height*.78); ctx.lineTo(width*.77,height*.78); ctx.stroke();
     ctx.fillStyle='#335142'; ctx.font=`700 ${30*scale}px ${quoteFont}`; ctx.textAlign='center'; ctx.fillText(title,width*.5,height*.795); ctx.fillStyle='#6a8878'; ctx.font=`500 ${22*scale}px ${quoteFont}`; ctx.fillText(author||'작자 미상',width*.5,height*.83); ctx.textAlign='left';
   }
   const renderers = {
