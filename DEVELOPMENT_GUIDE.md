@@ -1,3 +1,10 @@
+## v10.35 문장 이미지 신규 Canvas 프리셋 5종
+
+- 사용자 문장 이미지 배경 카탈로그에 **안개 산수(misty-ink-landscape) / 노을 한옥문(hanok-sunset-gate) / 블루 VHS 스카이(blue-vhs-sky) / 빈티지 뉴스 콜라주(vintage-news-collage) / 키치 그리드 메모(kitsch-grid-memo)**를 추가한다. 모두 기존과 같은 프리셋 객체(`name/key/background/text/meta/accent`)를 가지며 `defaultVisible: false`로 시작한다.
+- 최종 PNG는 `renderReaderShareCanvas()` 내부 custom renderer 경로에서 처리한다. 즉 CSS 카드 배경은 빠른 미리보기용이고, 저장/공유되는 실제 이미지는 각 전용 Canvas 렌더러가 브랜드명·문장·작품명·작가명·장식 요소를 직접 그린다. 새 프리셋을 단순 `drawReaderShareThemeEffect()`용 CSS-only 효과로 축약하지 않는다.
+- 기존 텍스트 설정(글꼴·굵기·자간·행간·좌우/상하 여백)과 `getReaderShareCustomQuoteBox()`를 그대로 사용한다. 새 프리셋에서도 텍스트 영역은 장식을 피하는 안전 구역 안에서만 조정하며, 기존 저장/공유/클립보드/즐겨찾기·최근 사용 키 및 공개 Y/N 필터는 그대로 유지한다.
+- 배포본 `public/index.html`의 앱 JS 캐시 키와 `public/version.json`은 v10.35로 맞춘다. `HISTORY.md`는 실제 GitHub main 커밋 기준 자동 재생성을 유지한다.
+
 ## v10.34 문장 이미지 배경 갤러리 방문 기록 및 버튼 배치
 
 - 사용자 문장 이미지 팝업의 기존 `rjsReaderShare` history 단계 위에 전체보기 갤러리용 `rjsReaderShareGallery` 단계를 추가한다. 시스템/브라우저 뒤로가기 시 갤러리만 닫고 편집기는 유지한다. 갤러리의 닫기·선택·Escape는 `history.back()`으로 해당 단계만 소비하며 popstate는 history를 추가 조작하지 않는다. 브라우저 앞으로가기도 갤러리 화면과 일치하게 갱신한다.

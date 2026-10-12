@@ -12088,6 +12088,378 @@ function getReaderShareCssBackground(background, ratio = "1:1") {
   }
 }
 
+
+// v10.35 — Five new reader-share presets grounded on user-supplied reference images.
+// Final exported images are always rendered by Canvas; CSS cards only provide quick previews.
+const READER_SHARE_REFERENCE_SET5 = (() => {
+  const presets = [
+    {
+      name: '안개 산수',
+      key: 'misty-ink-landscape',
+      defaultVisible: false,
+      background: 'linear-gradient(180deg, #e5dccb 0%, #d9cfbd 100%)',
+      text: '#4e483d',
+      meta: '#716759',
+      accent: '#92816a',
+    },
+    {
+      name: '노을 한옥문',
+      key: 'hanok-sunset-gate',
+      defaultVisible: false,
+      background: 'linear-gradient(180deg, #8d84a6 0%, #efb89f 56%, #efe2d2 100%)',
+      text: '#372a25',
+      meta: '#6f5246',
+      accent: '#efb48d',
+    },
+    {
+      name: '블루 VHS 스카이',
+      key: 'blue-vhs-sky',
+      defaultVisible: false,
+      background: 'linear-gradient(180deg, #738cf1 0%, #8286d0 46%, #5167b4 100%)',
+      text: '#f8fbff',
+      meta: 'rgba(244,247,255,.78)',
+      accent: '#dfe8ff',
+    },
+    {
+      name: '빈티지 뉴스 콜라주',
+      key: 'vintage-news-collage',
+      defaultVisible: false,
+      background: 'repeating-linear-gradient(0deg, rgba(44,30,20,.05) 0 2px, rgba(255,255,255,0) 2px 8px), linear-gradient(145deg, #e8dcc6 0%, #d7c6af 100%)',
+      text: '#302216',
+      meta: '#6d5845',
+      accent: '#8a6a45',
+    },
+    {
+      name: '키치 그리드 메모',
+      key: 'kitsch-grid-memo',
+      defaultVisible: false,
+      background: 'linear-gradient(0deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(90deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(160deg, #f4efe8 0%, #f0e6df 100%)',
+      text: '#60554b',
+      meta: '#8c7c6c',
+      accent: '#f0c9bb',
+    },
+  ];
+
+  function rrPath(ctx, x, y, width, height, radius) {
+    const r = Math.max(0, Math.min(radius, width / 2, height / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + width - r, y);
+    ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+    ctx.lineTo(x + width, y + height - r);
+    ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    ctx.lineTo(x + r, y + height);
+    ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
+  function fillRR(ctx, x, y, width, height, radius, fillStyle) {
+    ctx.save(); rrPath(ctx, x, y, width, height, radius); ctx.fillStyle = fillStyle; ctx.fill(); ctx.restore();
+  }
+  function strokeRR(ctx, x, y, width, height, radius, strokeStyle, lineWidth) {
+    ctx.save(); rrPath(ctx, x, y, width, height, radius); ctx.strokeStyle = strokeStyle; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.restore();
+  }
+  function drawCenteredText(ctx, lines, x, startY, lineHeight, spacing, drawLine) {
+    let y = startY;
+    for (const line of lines) {
+      drawLine(line, x, y, spacing);
+      y += lineHeight;
+    }
+  }
+  function makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap, spacing = 0) {
+    let lines = fitShareLinesToWidth(ctx, String(text || ''), maxWidth, autoWrap, spacing);
+    const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      let last = lines[maxLines - 1] || '';
+      while (last && readerShareCustomMeasureText(ctx, `${last}…`, spacing) > maxWidth) last = readerShareTrimLastGrapheme(last);
+      lines[maxLines - 1] = `${String(last).replace(/[.…\s]+$/u, '')}…`;
+    }
+    return lines;
+  }
+  function fitQuote(ctx, text, maxWidth, maxHeight, maxFont, minFont, family, weight, spacing, heightFactor, autoWrap) {
+    for (let size = maxFont; size >= minFont; size -= 1) {
+      ctx.font = `${weight} ${size}px ${family}`;
+      const lineHeight = size * heightFactor;
+      const lines = makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap, spacing);
+      if (lines.length * lineHeight <= maxHeight) return { lines, lineHeight, size };
+    }
+    ctx.font = `${weight} ${minFont}px ${family}`;
+    return { lines: makeLines(ctx, text, maxWidth, minFont * heightFactor, maxHeight, autoWrap, spacing), lineHeight: minFont * heightFactor, size: minFont };
+  }
+  function fitSingleLine(ctx, text, maxWidth, family, weight, size) {
+    ctx.font = `${weight} ${size}px ${family}`;
+    let value = String(text || '');
+    while (value && ctx.measureText(`${value}…`).width > maxWidth) value = readerShareTrimLastGrapheme(value);
+    return value === text ? value : `${String(value).replace(/[.…\s]+$/u, '')}…`;
+  }
+  function titleMeta(model) {
+    const brand = String(model.brand || '셩냥책');
+    const title = String(model.item?.title || '').trim() || '제목 정보 없음';
+    const author = String(model.item?.author || '').trim() || '작자 미상';
+    return { brand, title, author, credit: `${author} · ${title}` };
+  }
+  function drawSeal(ctx, x, y, size, text) {
+    fillRR(ctx, x, y, size, size, size * .12, 'rgba(156,66,54,.9)');
+    ctx.save(); ctx.fillStyle = 'rgba(255,247,233,.92)'; ctx.font = `700 ${size * .32}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x + size / 2, y + size / 2 + size * .02); ctx.restore();
+  }
+  function drawCloud(ctx, x, y, width, height, fillStyle) {
+    ctx.save();
+    ctx.fillStyle = fillStyle;
+    ctx.beginPath();
+    ctx.ellipse(x + width * .22, y + height * .6, width * .23, height * .24, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width * .45, y + height * .46, width * .26, height * .26, 0, 0, Math.PI * 2);
+    ctx.ellipse(x + width * .7, y + height * .58, width * .24, height * .22, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  function drawStickerStar(ctx, x, y, size, fill, stroke) {
+    ctx.save(); ctx.translate(x, y); ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+      const a = -Math.PI / 2 + i * (Math.PI * 2 / 5);
+      const b = a + Math.PI / 5;
+      const ox = Math.cos(a) * size;
+      const oy = Math.sin(a) * size;
+      const ix = Math.cos(b) * size * .46;
+      const iy = Math.sin(b) * size * .46;
+      if (i === 0) ctx.moveTo(ox, oy); else ctx.lineTo(ox, oy);
+      ctx.lineTo(ix, iy);
+    }
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill(); ctx.lineWidth = size * .09; ctx.strokeStyle = stroke; ctx.stroke(); ctx.restore();
+  }
+  function drawTornPaper(ctx, x, y, width, height, fill, shadow = 'rgba(0,0,0,.08)') {
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x + 18, y);
+    ctx.quadraticCurveTo(x + width * .25, y + 10, x + width * .55, y + 2);
+    ctx.quadraticCurveTo(x + width * .8, y + 16, x + width - 14, y + 6);
+    ctx.quadraticCurveTo(x + width + 5, y + height * .3, x + width - 6, y + height - 18);
+    ctx.quadraticCurveTo(x + width * .72, y + height + 10, x + width * .5, y + height - 2);
+    ctx.quadraticCurveTo(x + width * .22, y + height + 16, x + 10, y + height - 12);
+    ctx.quadraticCurveTo(x - 6, y + height * .5, x + 18, y);
+    ctx.closePath();
+    ctx.shadowColor = shadow; ctx.shadowBlur = 24; ctx.shadowOffsetY = 10;
+    ctx.fillStyle = fill; ctx.fill();
+    ctx.restore();
+  }
+  function drawMistyInk(ctx, width, height, model) {
+    const { brand, title, author, credit } = titleMeta(model);
+    const scale = width / 1200;
+    const quote = String(model.text || '');
+    ctx.fillStyle = '#e5dccb'; ctx.fillRect(0, 0, width, height);
+    const paper = ctx.createLinearGradient(0, 0, width, height);
+    paper.addColorStop(0, '#e7dfd0'); paper.addColorStop(.55, '#e1d6c4'); paper.addColorStop(1, '#d4cab7');
+    ctx.fillStyle = paper; ctx.fillRect(0, 0, width, height);
+    const rng = quoteTestRng(1961 + Math.round(height));
+    ctx.fillStyle = 'rgba(70,62,54,.025)';
+    for (let i = 0; i < 3200; i++) ctx.fillRect(rng() * width, rng() * height, 1.2 * scale, 1.2 * scale);
+    const mist = (x, y, rx, ry, alpha) => { ctx.save(); ctx.filter = `blur(${28 * scale}px)`; ctx.fillStyle = `rgba(120,122,116,${alpha})`; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2); ctx.fill(); ctx.restore(); };
+    mist(width * .18, height * .72, width * .18, height * .07, .12);
+    mist(width * .5, height * .46, width * .24, height * .06, .1);
+    mist(width * .75, height * .26, width * .22, height * .06, .09);
+    const mountain = (pts, fill) => { ctx.save(); ctx.fillStyle = fill; ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); for (const p of pts.slice(1)) ctx.lineTo(p[0], p[1]); ctx.closePath(); ctx.fill(); ctx.restore(); };
+    mountain([[0, height*.9],[width*.13,height*.78],[width*.19,height*.83],[width*.3,height*.74],[width*.39,height*.84],[width*.5,height*.72],[width*.62,height*.82],[width*.8,height*.68],[width,height*.8],[width,height],[0,height]], 'rgba(118,122,118,.22)');
+    mountain([[0,height*.58],[width*.07,height*.47],[width*.12,height*.52],[width*.2,height*.45],[width*.28,height*.53],[width*.38,height*.4],[width*.48,height*.5],[width*.61,height*.41],[width*.71,height*.48],[width*.82,height*.36],[width,height*.44],[width,height*.64],[0,height*.64]], 'rgba(126,128,120,.12)');
+    ctx.strokeStyle = 'rgba(87,84,75,.22)'; ctx.lineWidth = 3 * scale;
+    ctx.beginPath(); ctx.moveTo(width * .1, height * .87); ctx.quadraticCurveTo(width * .17, height * .77, width * .24, height * .86); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width * .77, height * .77); ctx.quadraticCurveTo(width * .86, height * .69, width * .92, height * .79); ctx.stroke();
+    drawSeal(ctx, width * .11, height * .1, 72 * scale, '詩');
+    ctx.fillStyle = 'rgba(74,68,59,.88)'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = `700 ${24 * scale}px Gowun Batang, serif`; ctx.fillText(brand, width / 2, height * .08);
+    ctx.font = `500 ${16 * scale}px Gowun Batang, serif`; ctx.fillText(fitSingleLine(ctx, title, width * .6, 'Gowun Batang, serif', 500, 16 * scale), width / 2, height * .12);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .24, width * .68, height * .46);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const family = model.font?.css || 'Gowun Batang, serif';
+    const weight = Number(model.fontWeight || model.font?.weight || 500);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 50 * scale, 25 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.62), model.autoWrap);
+    const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
+      ctx.save(); ctx.fillStyle = 'rgba(53,49,43,.92)'; ctx.shadowColor = 'rgba(255,255,255,.35)'; ctx.shadowBlur = 1.5 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+    });
+    ctx.strokeStyle = 'rgba(113,103,89,.4)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.moveTo(width * .19, height * .83); ctx.lineTo(width * .81, height * .83); ctx.stroke();
+    ctx.fillStyle = 'rgba(97,86,74,.9)'; ctx.font = `600 ${20 * scale}px Gowun Batang, serif`; ctx.fillText(fitSingleLine(ctx, credit, width * .62, 'Gowun Batang, serif', 600, 20 * scale), width / 2, height * .85);
+    ctx.font = `500 ${14 * scale}px Gowun Batang, serif`; ctx.fillText(author, width / 2, height * .89);
+  }
+  function drawHanokSunset(ctx, width, height, model) {
+    const { brand, title, author } = titleMeta(model);
+    const scale = width / 1200;
+    const quote = String(model.text || '');
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#7f7aa6'); sky.addColorStop(.38, '#c9acc0'); sky.addColorStop(.62, '#f8d4ae'); sky.addColorStop(1, '#f1eee7');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+    ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.filter = `blur(${18 * scale}px)`;
+    for (let i = 0; i < 22; i++) { ctx.beginPath(); ctx.arc((0.05 + i * 0.043) * width, (0.06 + (i % 5) * 0.08) * height, (2 + (i % 3)) * scale, 0, Math.PI * 2); ctx.fill(); }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,245,238,.55)'; ctx.fillRect(0, height * .72, width, height * .28);
+    ctx.fillStyle = '#4d403a'; ctx.fillRect(width * .08, height * .58, width * .84, height * .28);
+    ctx.fillStyle = '#dbd2c7'; ctx.fillRect(width * .1, height * .63, width * .3, height * .15);
+    ctx.fillStyle = '#50423b'; for (let i = 0; i < 9; i++) ctx.fillRect(width * (.14 + i * .026), height * .64, width * .018, height * .06);
+    ctx.fillStyle = '#564843'; ctx.fillRect(width * .43, height * .5, width * .39, height * .31);
+    ctx.fillStyle = '#6d5a50'; ctx.fillRect(width * .47, height * .54, width * .31, height * .18);
+    ctx.fillStyle = '#3d302a'; ctx.fillRect(width * .55, height * .61, width * .14, height * .2);
+    ctx.fillRect(width * .49, height * .53, width * .016, height * .23); ctx.fillRect(width * .71, height * .53, width * .016, height * .23);
+    ctx.fillRect(width * .43, height * .5, width * .39, height * .018); ctx.fillRect(width * .43, height * .535, width * .39, height * .014);
+    ctx.fillStyle = '#ece6de'; ctx.fillRect(width * .53, height * .66, width * .18, height * .11);
+    ctx.fillStyle = '#251c1a'; ctx.font = `700 ${32 * scale}px Gowun Batang, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('龍  虎', width * .62, height * .715);
+    // roof tiles
+    ctx.strokeStyle = '#5c504a'; ctx.lineWidth = 9 * scale; ctx.beginPath(); ctx.moveTo(width * .08, height * .58); ctx.lineTo(width * .31, height * .48); ctx.lineTo(width * .93, height * .48); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(width * .08, height * .58); ctx.lineTo(width * .42, height * .58); ctx.stroke();
+    ctx.strokeStyle = '#d8ccb9'; ctx.lineWidth = 2 * scale;
+    for (let i = 0; i < 19; i++) { const x = width * (.11 + i * .036); ctx.beginPath(); ctx.moveTo(x, height * .56); ctx.quadraticCurveTo(x + 18 * scale, height * .53, x + 32 * scale, height * .57); ctx.stroke(); }
+    for (let i = 0; i < 8; i++) { const x = width * (.44 + i * .045); ctx.beginPath(); ctx.moveTo(x, height * .545); ctx.quadraticCurveTo(x + 20 * scale, height * .515, x + 40 * scale, height * .55); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .09, height * .075);
+    ctx.textAlign = 'right'; ctx.font = `600 ${16 * scale}px Pretendard, sans-serif`; ctx.fillText(fitSingleLine(ctx, title, width * .36, 'Pretendard, sans-serif', 600, 16 * scale), width * .9, height * .078);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .12, height * .14, width * .76, height * .26);
+    fillRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.35)');
+    strokeRR(ctx, quoteBox.x - 24 * scale, quoteBox.y - 26 * scale, quoteBox.w + 48 * scale, quoteBox.h + 52 * scale, 28 * scale, 'rgba(255,247,244,.55)', 2 * scale);
+    const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Gowun Batang, serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 52 * scale, 25 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.54), model.autoWrap);
+    let startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
+      ctx.save(); ctx.fillStyle = '#2f2623'; ctx.shadowColor = 'rgba(255,255,255,.28)'; ctx.shadowBlur = 5 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+    });
+    fillRR(ctx, width * .14, height * .86, width * .72, 58 * scale, 29 * scale, 'rgba(255,248,239,.56)');
+    ctx.fillStyle = '#4b3a31'; ctx.font = `600 ${19 * scale}px Gowun Batang, serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .63, 'Gowun Batang, serif', 600, 19 * scale), width / 2, height * .888);
+  }
+  function drawBlueVhs(ctx, width, height, model) {
+    const { brand, title, author } = titleMeta(model);
+    const scale = width / 1200;
+    const quote = String(model.text || '');
+    const sky = ctx.createLinearGradient(0, 0, 0, height);
+    sky.addColorStop(0, '#6f88ec'); sky.addColorStop(.48, '#7f83cd'); sky.addColorStop(.77, '#7967b5'); sky.addColorStop(1, '#3f426b');
+    ctx.fillStyle = sky; ctx.fillRect(0, 0, width, height);
+    ctx.save(); ctx.fillStyle = 'rgba(255,216,209,.42)'; ctx.filter = `blur(${42 * scale}px)`; ctx.fillRect(-40, height * .6, width + 80, height * .18); ctx.restore();
+    const rng = quoteTestRng(2281 + Math.round(height));
+    ctx.fillStyle = 'rgba(255,255,255,.78)';
+    for (let i = 0; i < 30; i++) { ctx.beginPath(); ctx.arc(rng() * width, rng() * height * .78, (1.2 + rng() * 2) * scale, 0, Math.PI * 2); ctx.fill(); }
+    ctx.strokeStyle = 'rgba(255,255,255,.06)'; ctx.lineWidth = 1;
+    for (let y = 0; y < height; y += 6 * scale) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+    ctx.save(); ctx.globalAlpha = .1; ctx.fillStyle = '#ffffff';
+    for (let i = 0; i < 18; i++) ctx.fillRect(rng() * width, rng() * height, 140 * scale, 2 * scale);
+    ctx.restore();
+    ctx.fillStyle = '#111214'; ctx.fillRect(0, height * .88, width, height * .12);
+    ctx.fillStyle = '#f6fbff'; ctx.textBaseline = 'top'; ctx.textAlign = 'left'; ctx.font = `700 ${22 * scale}px "Courier New", monospace`;
+    ctx.fillText('CAMERA1', width * .07, height * .08); ctx.fillText('PLAY ▷', width * .07, height * .115); ctx.fillText('00:18:03', width * .07, height * .15);
+    ctx.textAlign = 'right'; ctx.fillText('SOURCE', width * .92, height * .08); ctx.fillText('IPHONE', width * .92, height * .115);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .1, height * .28, width * .8, height * .43);
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 700);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 54 * scale, 26 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.44), model.autoWrap);
+    const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
+      ctx.save(); ctx.fillStyle = 'rgba(255,255,255,.92)'; ctx.shadowColor = 'rgba(163, 212, 255, .82)'; ctx.shadowBlur = 14 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.shadowColor = 'rgba(255,155,210,.38)'; ctx.shadowBlur = 26 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+    });
+    ctx.textAlign = 'left'; ctx.font = `700 ${20 * scale}px "Courier New", monospace`; ctx.fillStyle = '#f5f8ff'; ctx.fillText(brand.toUpperCase(), width * .07, height * .82);
+    ctx.font = `600 ${18 * scale}px "Courier New", monospace`; ctx.textAlign = 'right'; ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .54, '"Courier New", monospace', 600, 18 * scale), width * .93, height * .91);
+    ctx.textAlign = 'left'; ctx.fillText('21:18', width * .07, height * .9); ctx.fillText('29.04.1992 WED', width * .07, height * .935);
+  }
+  function drawNewsCollage(ctx, width, height, model) {
+    const { brand, title, author } = titleMeta(model);
+    const scale = width / 1200;
+    const quote = String(model.text || '');
+    ctx.fillStyle = '#d9c7ae'; ctx.fillRect(0, 0, width, height);
+    const rng = quoteTestRng(3501 + Math.round(height));
+    const pieces = [
+      [0, 0, .55, .28, '#e9ddc9'], [.52, 0, .48, .22, '#dfcfba'], [0, .19, .42, .19, '#eadfcb'], [.3, .26, .33, .18, '#e4d5c0'], [.61, .22, .39, .2, '#efe5d4'],
+      [0, .42, .35, .18, '#ddcbb4'], [.32, .45, .29, .18, '#e8dcc8'], [.58, .42, .42, .24, '#e3d4bf'], [0, .61, .47, .18, '#eadfcc'], [.44, .65, .27, .15, '#dcc7ac'], [.69, .64, .31, .16, '#efe4d3'], [0, .78, .36, .22, '#e1cfb8'], [.34, .8, .34, .2, '#e6d6c2'], [.67, .8, .33, .2, '#f0e7da']
+    ];
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const [rx, ry, rw, rh, color] of pieces) {
+      const x = width * rx, y = height * ry, w = width * rw, h = height * rh;
+      ctx.save();
+      ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
+      ctx.strokeStyle = 'rgba(61,42,24,.12)'; ctx.lineWidth = 2 * scale; ctx.strokeRect(x, y, w, h);
+      const colCount = Math.max(2, Math.floor(w / (120 * scale)));
+      const gutter = 14 * scale;
+      const colW = (w - gutter * (colCount - 1) - 24 * scale) / colCount;
+      let bx = x + 12 * scale;
+      for (let c = 0; c < colCount; c++) {
+        let by = y + 16 * scale;
+        while (by < y + h - 18 * scale) {
+          const seg = (10 + rng() * 12) * scale;
+          ctx.fillStyle = 'rgba(58,43,30,.6)';
+          ctx.fillRect(bx, by, colW * (0.6 + rng() * 0.4), 1.8 * scale);
+          by += seg;
+        }
+        bx += colW + gutter;
+      }
+      ctx.font = `700 ${Math.max(12, 17 * scale)}px Georgia, serif`; ctx.fillStyle = 'rgba(53,36,22,.78)';
+      ctx.fillText(['OLD TOWN','MORNING POST','CITY GAZETTE','DAILY NOTE'][Math.floor(rng()*4)], x + 12 * scale, y + 10 * scale);
+      ctx.restore();
+    }
+    drawTornPaper(ctx, width * .13, height * .29, width * .74, height * .36, 'rgba(246,239,225,.94)');
+    drawTornPaper(ctx, width * .18, height * .68, width * .64, height * .12, 'rgba(245,236,220,.92)', 'rgba(0,0,0,.06)');
+    ctx.fillStyle = '#35261c'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.font = `700 ${28 * scale}px Georgia, serif`; ctx.fillText(brand.toUpperCase(), width / 2, height * .08);
+    ctx.font = `600 ${16 * scale}px Georgia, serif`; ctx.fillText('SPECIAL QUOTE EDITION', width / 2, height * .115);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .21, height * .39, width * .58, height * .18);
+    const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Paperlogy, Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 700);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 48 * scale, 24 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.48), model.autoWrap);
+    let startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
+      ctx.save(); ctx.fillStyle = '#2d2016'; ctx.shadowColor = 'rgba(255,255,255,.26)'; ctx.shadowBlur = 2 * scale; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+    });
+    ctx.textBaseline = 'middle'; ctx.font = `600 ${18 * scale}px Georgia, serif`; ctx.fillStyle = '#493626'; ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .54, 'Georgia, serif', 600, 18 * scale), width / 2, height * .735);
+  }
+  function drawKitschGrid(ctx, width, height, model) {
+    const { brand, title, author } = titleMeta(model);
+    const scale = width / 1200;
+    const quote = String(model.text || '');
+    ctx.fillStyle = '#f3eee7'; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(172,161,151,.28)'; ctx.lineWidth = 2 * scale;
+    const step = 40 * scale;
+    for (let x = 0; x <= width; x += step) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+    for (let y = 0; y <= height; y += step) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y,); ctx.stroke(); }
+    // torn pastel corners
+    ctx.fillStyle = '#b9d5a2'; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(width*.18,0); ctx.quadraticCurveTo(width*.14,height*.08,0,height*.14); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f0d4d6'; ctx.beginPath(); ctx.moveTo(width*.22,0); ctx.lineTo(width*.7,0); ctx.lineTo(width*.7,height*.08); ctx.quadraticCurveTo(width*.5,height*.06,width*.22,height*.1); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#f3d89e'; ctx.beginPath(); ctx.moveTo(0,height*.92); ctx.lineTo(width*.3,height*.86); ctx.lineTo(width*.34,height); ctx.lineTo(0,height); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#8cb29b'; ctx.beginPath(); ctx.moveTo(width*.58,height); ctx.quadraticCurveTo(width*.8,height*.88,width,height*.9); ctx.lineTo(width,height); ctx.closePath(); ctx.fill();
+    ctx.save(); ctx.rotate(-0.18); fillRR(ctx, width*.05, height*.12, width*.18, 28*scale, 12*scale, '#eecbc9'); ctx.restore();
+    fillRR(ctx, width * .16, height * .18, width * .68, height * .58, 36 * scale, 'rgba(251,247,241,.96)');
+    strokeRR(ctx, width * .16, height * .18, width * .68, height * .58, 36 * scale, 'rgba(202,187,171,.55)', 3 * scale);
+    drawStickerStar(ctx, width * .14, height * .16, 22 * scale, '#ffe9a8', '#5e6274');
+    drawStickerStar(ctx, width * .82, height * .63, 22 * scale, '#ffe9a8', '#5e6274');
+    ['#f7f2f0','#f6ecee','#fcf7f2','#f8eef2'].forEach((color, i) => {
+      const cx = [width*.25,width*.71,width*.22,width*.68][i], cy=[height*.58,height*.3,height*.78,height*.88][i];
+      fillRR(ctx, cx - 18*scale, cy - 14*scale, 36*scale, 28*scale, 14*scale, color);
+      ctx.fillStyle = '#d4b7bf'; ctx.beginPath(); ctx.arc(cx - 6*scale, cy - 4*scale, 2.6*scale, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + 6*scale, cy - 4*scale, 2.6*scale, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#d4b7bf'; ctx.lineWidth = 1.6*scale; ctx.beginPath(); ctx.arc(cx, cy + 2*scale, 5*scale, .2, Math.PI - .2); ctx.stroke();
+    });
+    fillRR(ctx, width * .22, height * .22, width * .28, 40 * scale, 20 * scale, '#fff8da');
+    ctx.fillStyle = '#5e6274'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(brand, width * .36, height * .242);
+    fillRR(ctx, width * .56, height * .22, width * .22, 36 * scale, 18 * scale, '#f6d6d7');
+    ctx.fillStyle = '#7a6f65'; ctx.font = `600 ${15 * scale}px Pretendard, sans-serif`; ctx.fillText('memo page', width * .67, height * .24);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .24, height * .31, width * .52, height * .29);
+    const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
+    const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 50 * scale, 24 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.5), model.autoWrap);
+    const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
+      ctx.save(); ctx.fillStyle = '#60554b'; readerShareCustomDrawText(ctx, line, x + 1.4 * scale, y + 1.8 * scale, sp); ctx.fillStyle = '#fff7ef'; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.fillStyle = '#60554b'; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
+    });
+    fillRR(ctx, width * .23, height * .68, width * .54, 54 * scale, 27 * scale, '#fff8f5');
+    strokeRR(ctx, width * .23, height * .68, width * .54, 54 * scale, 27 * scale, 'rgba(202,187,171,.55)', 2.5 * scale);
+    ctx.fillStyle = '#7d6c62'; ctx.font = `600 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .48, 'Pretendard, sans-serif', 600, 18 * scale), width / 2, height * .705);
+  }
+
+  const renderers = {
+    'misty-ink-landscape': drawMistyInk,
+    'hanok-sunset-gate': drawHanokSunset,
+    'blue-vhs-sky': drawBlueVhs,
+    'vintage-news-collage': drawNewsCollage,
+    'kitsch-grid-memo': drawKitschGrid,
+  };
+  return { presets, renderers };
+})();
+
 const READER_SHARE_BACKGROUNDS = [
   {
     name: "베이지",
@@ -12520,6 +12892,7 @@ const READER_SHARE_BACKGROUNDS = [
   ...READER_SHARE_GEMINI_SELECT3.presets,
   ...READER_SHARE_GEMINI_OS70_72.presets,
   ...READER_SHARE_PIXEL_FOLDER_A.presets,
+  ...READER_SHARE_REFERENCE_SET5.presets,
 ];
 
 const READER_SHARE_FONTS = [
@@ -15917,6 +16290,7 @@ async function renderReaderShareCanvas() {
     ...READER_SHARE_GEMINI_SELECT3.renderers,
     ...READER_SHARE_GEMINI_OS70_72.renderers,
     ...READER_SHARE_PIXEL_FOLDER_A.renderers,
+    ...READER_SHARE_REFERENCE_SET5.renderers,
   };
   const customRenderer = customRenderers[getReaderShareBackgroundKey(model.background)];
   if (typeof customRenderer === "function") {
