@@ -12803,7 +12803,10 @@ function syncReaderShareBackgroundSelection() {
   if (ui.presetName) ui.presetName.textContent = background?.name || "배경 선택";
   if (ui.presetFavorite) {
     const selected = getReaderShareFavoriteKeys().includes(key);
-    ui.presetFavorite.textContent = selected ? "★" : "☆";
+    const star = ui.presetFavorite.querySelector("[data-share-favorite-icon]");
+    const label = ui.presetFavorite.querySelector("[data-share-favorite-text]");
+    if (star) star.textContent = selected ? "★" : "☆";
+    if (label) label.textContent = selected ? "즐겨찾기됨" : "즐겨찾기";
     ui.presetFavorite.setAttribute("aria-pressed", selected ? "true" : "false");
     ui.presetFavorite.setAttribute("aria-label", `${background?.name || "선택한 배경"} 즐겨찾기 ${selected ? "해제" : "추가"}`);
   }
@@ -12831,8 +12834,20 @@ function renderReaderShareBackgroundThumbs(thumbs) {
 
   const fragment = document.createDocumentFragment();
   const delayed = [];
-  for (const { background, index } of getVisibleReaderShareBackgroundEntries()) {
+  const favorites = getReaderShareFavoriteKeys();
+  const favoriteOrder = new Map(favorites.map((key, position) => [key, position]));
+  const recentOrder = new Map(getReaderShareRecentKeys().map((key, position) => [key, position]));
+  const ordered = getVisibleReaderShareBackgroundEntries().sort((a, b) => {
+    const aKey = getReaderShareBackgroundKey(a.background);
+    const bKey = getReaderShareBackgroundKey(b.background);
+    const aRank = favoriteOrder.has(aKey) ? 0 : recentOrder.has(aKey) ? 1 : 2;
+    const bRank = favoriteOrder.has(bKey) ? 0 : recentOrder.has(bKey) ? 1 : 2;
+    return aRank - bRank || (aRank === 0 ? favoriteOrder.get(aKey) - favoriteOrder.get(bKey) :
+      aRank === 1 ? recentOrder.get(aKey) - recentOrder.get(bKey) : a.index - b.index);
+  });
+  for (const { background, index } of ordered) {
     const button = document.createElement("button");
+    button.classList.toggle("is-favorite", favoriteOrder.has(getReaderShareBackgroundKey(background)));
     button.type = "button";
     button.className = "reader-share-thumb";
     button.dataset.shareBackground = String(index);
@@ -13033,6 +13048,90 @@ function ensureReaderShareUi() {
       .reader-share-card[data-ratio="2:3"] { width:min(30vw,250px); }
       .reader-share-card[data-ratio="4:5"] { width:min(40vw,320px); }
     }
+    /* v10.33: compact editor-first layout, readable dark controls, favorite-first shortcuts. */
+    .reader-share-sheet { --share-ink:#28242b; --share-muted:#716672; --share-surface:#fffdfb;
+      --share-panel:#f6f2ef; --share-control:#ffffff; --share-line:#ded6d1; --share-accent:#51453e;
+      --share-contrast:#ffffff; background:var(--share-surface); color:var(--share-ink); }
+    html.theme-dark .reader-share-sheet { --share-ink:#f7f2ed; --share-muted:#c6b9b0; --share-surface:#231f22;
+      --share-panel:#2f292d; --share-control:#393139; --share-line:#64565c; --share-accent:#e4c69d;
+      --share-contrast:#211b20; }
+    .reader-share-head { background:var(--share-surface); border-color:var(--share-line); color:var(--share-ink); }
+    .reader-share-close { color:var(--share-ink); background:var(--share-panel); }
+    .reader-share-preview-stage { display:grid; justify-items:center; gap:10px; margin:2px 0 7px;
+      border:1px solid var(--share-line); border-radius:18px; background:var(--share-panel); padding:16px 10px 14px; }
+    .reader-share-preview-stage .reader-share-preview-wrap { padding:0; width:100%; }
+    .reader-share-preview-stage .reader-share-card { width:min(65vw,270px); }
+    .reader-share-preview-stage .reader-share-card[data-ratio="4:5"] { width:min(57vw,245px); }
+    .reader-share-preview-stage .reader-share-card[data-ratio="2:3"] { width:min(51vw,215px); }
+    .reader-share-ratio-section { display:flex; justify-content:center; width:100%; }
+    .reader-share-ratio-section .reader-share-options { justify-content:center; gap:6px; }
+    .reader-share-ratio-section .reader-share-chip { border-radius:999px; min-height:33px; padding:6px 11px; }
+    .reader-share-section { border-color:var(--share-line); }
+    .reader-share-preset-heading { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+    .reader-share-preset-copy { display:grid; gap:3px; min-width:0; }
+    .reader-share-preset-copy strong, .reader-share-actions-title { font-size:14px; font-weight:800; color:var(--share-ink); }
+    .reader-share-preset-copy small { font-size:10px; line-height:1.35; color:var(--share-muted); }
+    .reader-share-preset-browse { display:inline-flex; align-items:center; justify-content:center; gap:7px;
+      border:1px solid var(--share-line); border-radius:11px; background:var(--share-control);
+      color:var(--share-ink); font-size:12px; padding:8px 11px; min-height:37px; }
+    .reader-share-preset-browse svg { width:15px; height:15px; }
+    .reader-share-thumbs { gap:9px; padding:3px 3px 7px; scroll-snap-type:x proximity; }
+    .reader-share-thumb { flex:0 0 clamp(58px,17.5%,78px); width:clamp(58px,17.5%,78px);
+      height:66px; border-radius:12px; border-color:transparent; scroll-snap-align:start; }
+    .reader-share-thumb.active { border-color:var(--share-accent); box-shadow:0 0 0 2px var(--share-accent); }
+    .reader-share-thumb.is-favorite::before { content:'★'; position:absolute; z-index:1; top:2px; right:4px;
+      color:#ffd47a; font-size:12px; text-shadow:0 1px 3px #292027; }
+    .reader-share-selected-row { display:flex; align-items:center; justify-content:space-between; gap:10px;
+      padding:8px 10px; margin-top:9px; border:1px solid var(--share-line); border-radius:12px; background:var(--share-panel); }
+    .reader-share-selected-copy { display:flex; flex-wrap:wrap; align-items:center; gap:5px; font-size:11px; color:var(--share-muted); min-width:0; }
+    .reader-share-preset-name { font-size:12px; color:var(--share-ink); }
+    .reader-share-preset-favorite { display:inline-flex; gap:6px; align-items:center; justify-content:center;
+      flex:none; width:auto; height:34px; min-width:90px; padding:0 10px; border-radius:10px;
+      border:1px solid var(--share-line); background:var(--share-control); color:var(--share-ink);
+      font-size:11px; font-weight:750; }
+    .reader-share-preset-favorite [data-share-favorite-icon] { font-size:19px; color:#b28348; line-height:1; }
+    .reader-share-preset-favorite[aria-pressed="true"] { background:var(--share-control); border-color:#ac874e; }
+    .reader-share-preset-favorite[aria-pressed="true"] [data-share-favorite-icon] { color:#bc8a43; }
+    .reader-share-label, .reader-share-setting-title { color:var(--share-muted); }
+    .reader-share-chip, .reader-share-action.secondary, .reader-share-text-toggle-action,
+    .reader-share-gallery-tab, .reader-share-gallery-close { background:var(--share-control); color:var(--share-ink); border-color:var(--share-line); }
+    .reader-share-chip.active { color:var(--share-contrast); background:var(--share-accent); border-color:var(--share-accent); box-shadow:none; }
+    .reader-share-gallery { background:var(--share-surface); color:var(--share-ink); }
+    .reader-share-gallery-head { border-color:var(--share-line); }
+    .reader-share-gallery-title strong { color:var(--share-ink); }
+    .reader-share-gallery-title small { color:var(--share-muted); }
+    .reader-share-gallery-search { background:var(--share-control); color:var(--share-ink); border-color:var(--share-line); }
+    .reader-share-gallery-search::placeholder { color:var(--share-muted); opacity:1; }
+    .reader-share-gallery-tab[aria-pressed="true"] { background:var(--share-accent); color:var(--share-contrast); border-color:var(--share-accent); }
+    .reader-share-gallery-name { color:var(--share-ink); }
+    .reader-share-gallery-item.is-selected .reader-share-gallery-swatch { border-color:var(--share-accent); outline-color:var(--share-accent); }
+    .reader-share-gallery-star, html.theme-dark .reader-share-gallery-star { width:29px; height:29px;
+      background:#fff9f0; color:#66503e; border:1px solid #d4bd9d; font-size:17px; box-shadow:0 2px 5px rgba(0,0,0,.12); }
+    .reader-share-gallery-star[aria-pressed="true"], html.theme-dark .reader-share-gallery-star[aria-pressed="true"] {
+      color:#6c431d; background:#fbe2b6; border-color:#c99b58; }
+    .reader-share-gallery-empty { color:var(--share-muted); }
+    .reader-share-text-toggle-action, .reader-share-setting-value { color:var(--share-ink); background:var(--share-control); border:1px solid var(--share-line); }
+    .reader-share-input { background:var(--share-control); color:var(--share-ink); border-color:var(--share-line); }
+    .reader-share-input::placeholder { color:var(--share-muted); opacity:1; }
+    .reader-share-actions-title { margin:0 0 10px; }
+    .reader-share-actions { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .reader-share-action { min-height:43px; }
+    .reader-share-action.primary { background:var(--share-accent); color:var(--share-contrast); border-color:var(--share-accent); }
+    .reader-share-action.secondary { background:var(--share-control); }
+    .reader-share-preset-browse:focus-visible, .reader-share-preset-favorite:focus-visible,
+    .reader-share-gallery button:focus-visible { outline:2px solid var(--share-accent); outline-offset:2px; }
+    @media(max-width:380px) {
+      .reader-share-preview-stage { padding:11px 6px; }
+      .reader-share-preset-copy small { font-size:9px; }
+      .reader-share-ratio-section .reader-share-chip { font-size:11px; padding:6px 8px; }
+    }
+    @media(min-width:720px) {
+      .reader-share-sheet { width:min(calc(100% - 24px),620px); }
+      .reader-share-preview-stage .reader-share-card { width:min(40vw,280px); }
+      .reader-share-preview-stage .reader-share-card[data-ratio="4:5"] { width:min(36vw,250px); }
+      .reader-share-preview-stage .reader-share-card[data-ratio="2:3"] { width:min(32vw,222px); }
+      .reader-share-actions { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
     html.quote-admin-embed, html.quote-admin-embed body { min-height:100%; height:100%; background:var(--bg,#f4f7fb); overflow:hidden; }
     html.quote-admin-embed body > :not(.reader-share-backdrop):not(.reader-selection-actions) { display:none !important; }
     html.quote-admin-embed .reader-selection-actions { display:none !important; }
@@ -13077,8 +13176,9 @@ function ensureReaderShareUi() {
           <button type="button" class="reader-share-close" aria-label="닫기">×</button>
         </div>
 
-        <div class="reader-share-preview-wrap">
-          <div class="reader-share-card" data-ratio="1:1">
+        <div class="reader-share-preview-stage">
+          <div class="reader-share-preview-wrap">
+            <div class="reader-share-card" data-ratio="1:1">
             <img class="reader-share-card-render" alt="문장 이미지 미리보기" hidden />
             <div class="reader-share-render-loading" aria-label="문장 이미지 생성 중"><span class="spinner" aria-hidden="true"></span></div>
             <div class="reader-share-card-brand">
@@ -13089,27 +13189,29 @@ function ensureReaderShareUi() {
             </div>
             <div class="reader-share-card-quote"><span class="reader-share-card-quote-text"></span></div>
             <div class="reader-share-card-meta"></div>
+            </div>
           </div>
-        </div>
-
-        <div class="reader-share-section">
-          <div class="reader-share-preset-bar">
-            <span class="reader-share-label">배경</span>
-            <span class="reader-share-preset-name" data-share-preset-name></span>
-            <button type="button" class="reader-share-preset-favorite" data-share-preset-favorite aria-pressed="false" aria-label="선택한 배경 즐겨찾기 추가">☆</button>
-            <button type="button" class="reader-share-preset-browse" data-share-gallery-open>전체보기</button>
-          </div>
-          <div class="reader-share-thumbs" aria-label="배경 빠른 선택"></div>
-        </div>
-
-        <div class="reader-share-section">
-          <div class="reader-share-row">
-            <span class="reader-share-label">비율</span>
+          <div class="reader-share-ratio-section" aria-label="이미지 비율">
             <div class="reader-share-options">
               <button type="button" class="reader-share-chip" data-share-ratio="1:1">1:1 정방형</button>
               <button type="button" class="reader-share-chip" data-share-ratio="4:5">4:5 세로형</button>
               <button type="button" class="reader-share-chip" data-share-ratio="2:3">2:3 표지형</button>
             </div>
+          </div>
+        </div>
+
+        <div class="reader-share-section reader-share-preset-section">
+          <div class="reader-share-preset-heading">
+            <div class="reader-share-preset-copy"><strong>배경 디자인</strong><small>즐겨찾기와 최근 사용을 먼저 보여드려요</small></div>
+            <button type="button" class="reader-share-preset-browse" data-share-gallery-open>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+              전체보기
+            </button>
+          </div>
+          <div class="reader-share-thumbs" aria-label="배경 빠른 선택, 즐겨찾기 우선"></div>
+          <div class="reader-share-selected-row">
+            <div class="reader-share-selected-copy">선택한 배경 <strong class="reader-share-preset-name" data-share-preset-name></strong></div>
+            <button type="button" class="reader-share-preset-favorite" data-share-preset-favorite aria-pressed="false" aria-label="선택한 배경 즐겨찾기 추가"><span data-share-favorite-icon aria-hidden="true">☆</span><span data-share-favorite-text>즐겨찾기</span></button>
           </div>
         </div>
 
@@ -13170,12 +13272,13 @@ function ensureReaderShareUi() {
         </div>
 
         <div class="reader-share-section">
+          <div class="reader-share-actions-title">저장과 공유</div>
           <div class="reader-share-actions">
-            <button type="button" class="reader-share-action secondary" data-share-quote>문장 저장</button>
-            <button type="button" class="reader-share-action secondary" data-share-save>이미지 저장</button>
-            <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
-            <button type="button" class="reader-share-action secondary" data-share-work-link>작품 링크 복사</button>
+            <button type="button" class="reader-share-action primary" data-share-save>이미지 저장</button>
             <button type="button" class="reader-share-action primary" data-share-system>공유하기</button>
+            <button type="button" class="reader-share-action secondary" data-share-clipboard>클립보드 복사</button>
+            <button type="button" class="reader-share-action secondary" data-share-quote>문장 저장</button>
+            <button type="button" class="reader-share-action secondary" data-share-work-link>작품 링크 복사</button>
           </div>
           <div class="reader-share-saved-panel" data-share-saved-panel hidden>
             <div class="reader-share-saved-head"><span class="reader-share-saved-check">✓</span><span>문장을 저장했어요</span></div>
@@ -13295,6 +13398,18 @@ function ensureReaderShareUi() {
     const recent = getReaderShareRecentKeys();
     const search = String(gallerySearch.value || "").trim().toLocaleLowerCase();
     let entries = getVisibleReaderShareBackgroundEntries();
+    if (galleryFilter === "all") {
+      const favoriteOrder = new Map([...favorites].map((key, position) => [key, position]));
+      const recentOrder = new Map(recent.map((key, position) => [key, position]));
+      entries.sort((a, b) => {
+        const aKey = getReaderShareBackgroundKey(a.background);
+        const bKey = getReaderShareBackgroundKey(b.background);
+        const aRank = favoriteOrder.has(aKey) ? 0 : recentOrder.has(aKey) ? 1 : 2;
+        const bRank = favoriteOrder.has(bKey) ? 0 : recentOrder.has(bKey) ? 1 : 2;
+        return aRank - bRank || (aRank === 0 ? favoriteOrder.get(aKey) - favoriteOrder.get(bKey) :
+          aRank === 1 ? recentOrder.get(aKey) - recentOrder.get(bKey) : a.index - b.index);
+      });
+    }
     if (galleryFilter === "favorites") entries = entries.filter(({ background }) => favorites.has(getReaderShareBackgroundKey(background)));
     if (galleryFilter === "recent") {
       const order = new Map(recent.map((key, index) => [key, index]));
@@ -13375,7 +13490,7 @@ function ensureReaderShareUi() {
     gallerySearch.value = "";
     galleryScroll.scrollTop = 0;
     renderGallery();
-    gallerySearch.focus();
+    gallery.querySelector("[data-share-gallery-close]")?.focus({ preventScroll: true });
   };
   backdrop.querySelector("[data-share-gallery-open]")?.addEventListener("click", openGallery);
   backdrop.querySelector("[data-share-gallery-close]")?.addEventListener("click", () => closeGallery());
@@ -13391,7 +13506,8 @@ function ensureReaderShareUi() {
     const star = event.target.closest("[data-share-gallery-favorite]");
     if (star) {
       toggleReaderShareFavorite(star.dataset.shareGalleryFavorite);
-      syncReaderShareBackgroundSelection();
+      renderReaderShareBackgroundThumbs(thumbs);
+      thumbs.scrollLeft = 0;
       // Preserve scroll position when a filtered favorite disappears.
       const top = galleryScroll.scrollTop;
       renderGallery();
@@ -13415,7 +13531,8 @@ function ensureReaderShareUi() {
     const key = getReaderShareBackgroundKey(READER_SHARE_BACKGROUNDS[state.readerShareBackground]);
     if (!key) return;
     toggleReaderShareFavorite(key);
-    syncReaderShareBackgroundSelection();
+    renderReaderShareBackgroundThumbs(thumbs);
+    thumbs.scrollLeft = 0;
   });
   backdrop.addEventListener("keydown", (event) => {
     if (event.key !== "Escape" || gallery.hidden) return;
