@@ -1,3 +1,9 @@
+## v10.46 — 피드·PNG 준비 성능
+
+- loadQuoteFeed()는 공개 프리셋 조회를 병렬 시작하되 피드 표시를 기다리게 하지 않는다. 설정 도착 후 refreshQuoteFeedThemes()로 기존 카드 스타일만 갱신한다.
+- 최신순 좋아요 성공/실패는 updateQuoteFeedLikeButton()으로 해당 버튼만 갱신한다. 인기순 성공은 기존 서버 재조회 흐름을 유지한다.
+- 클립보드 PNG 준비는 createImageBitmap 지원 시 유효성을 확인하고 bitmap을 닫은 뒤 원래 PNG 바이트의 독립 Blob을 만든다. 두 번째 Canvas 그리기/인코딩은 하지 않는다. 클릭 순간 ClipboardItem/write()와 generation/Promise 동일성 보호는 유지한다. 모바일 실기기 붙여넣기 호환성은 별도 확인 대상이다.
+
 ## v10.45 — 프리셋 보정·기본 문장 영역
 
 - 기본 좌우 여백은 기존보다 1%p, 상하 여백은 2%p 작게 유지한다. 공통 렌더러는 getReaderShareTextInsets(), 전용 렌더러는 getReaderShareCustomQuoteBox()를 재사용하며 사용자 여백 조절값은 이 기본값에 더한다. 본문 뷰어·이어보기·문장 저장 위치 계산은 변경하지 않는다.

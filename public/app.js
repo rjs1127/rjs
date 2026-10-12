@@ -2672,6 +2672,27 @@ function getQuoteFeedJump(item) {
   };
 }
 
+function refreshQuoteFeedThemes() {
+  els.quoteFeedGrid?.querySelectorAll(".quote-feed-card").forEach((card, index) => {
+    const item = state.quoteFeedItems[index];
+    if (!item) return;
+    const theme = getQuoteFeedTheme(item);
+    card.style.setProperty("--quote-bg", theme.background);
+    card.style.setProperty("--quote-color", theme.text);
+  });
+}
+
+function updateQuoteFeedLikeButton(item) {
+  const button = els.quoteFeedGrid?.querySelector(`[data-quote-feed-like="${Number(item.quoteId)}"]`);
+  if (!button) return;
+  button.disabled = state.quoteFeedLikeSaving.has(String(item.quoteId));
+  button.classList.toggle("is-liked", item.liked === true);
+  button.setAttribute("aria-pressed", item.liked ? "true" : "false");
+  button.setAttribute("aria-label", `${item.liked ? "문장 좋아요 취소" : "문장 좋아요"}, ${item.likeCount}개`);
+  button.querySelector("span").textContent = item.liked ? "♥" : "♡";
+  button.querySelector("b").textContent = item.likeCount;
+}
+
 function renderQuoteFeed() {
   if (!els.quoteFeedGrid) return;
   const items = state.quoteFeedItems;
@@ -2689,7 +2710,6 @@ function renderQuoteFeed() {
     // CSS/SVG backgrounds may contain quotes (e.g. url("data:image/svg+xml,...")).
     // Set theme variables on DOM nodes after HTML parsing, as the detail view does.
     // Interpolating them into a quoted HTML style attribute truncates some feed cards.
-    const cardThemes = items.map(getQuoteFeedTheme);
     els.quoteFeedGrid.innerHTML = items.map((item) => {
       const sizes = getQuoteFeedCardSizes(item.quoteText);
       const saving = state.quoteFeedLikeSaving.has(String(item.quoteId));
@@ -2710,11 +2730,7 @@ function renderQuoteFeed() {
           </button>
         </article>`;
     }).join("");
-    els.quoteFeedGrid.querySelectorAll(".quote-feed-card").forEach((card, index) => {
-      const theme = cardThemes[index];
-      card.style.setProperty("--quote-bg", theme.background);
-      card.style.setProperty("--quote-color", theme.text);
-    });
+    refreshQuoteFeedThemes();
   }
 
   if (els.quoteFeedStatus && state.quoteFeedError) {
@@ -2750,7 +2766,7 @@ function renderQuoteFeed() {
 async function loadQuoteFeed({ append = false } = {}) {
   if (state.quoteFeedLoading) return;
   if (append && !state.quoteFeedNextCursor) return;
-  const presetVisibilityTask = loadReaderSharePresetVisibility().catch(() => null);
+  void loadReaderSharePresetVisibility().catch(() => null).then(refreshQuoteFeedThemes);
   state.quoteFeedLoading = true;
   state.quoteFeedError = "";
   renderQuoteFeed();
@@ -2772,7 +2788,6 @@ async function loadQuoteFeed({ append = false } = {}) {
     if (!append) state.quoteFeedItems = [];
     state.quoteFeedError = "문장 피드를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
   } finally {
-    await presetVisibilityTask;
     state.quoteFeedLoading = false;
     renderQuoteFeed();
   }
@@ -2787,7 +2802,7 @@ async function setQuoteFeedLike(item, liked) {
   const key = String(item.quoteId);
   if (state.quoteFeedLikeSaving.has(key)) return;
   state.quoteFeedLikeSaving.add(key);
-  renderQuoteFeed();
+  updateQuoteFeedLikeButton(item);
   let changed = false;
   try {
     const data = await userApi("/api/quote-like", {
@@ -2811,7 +2826,7 @@ async function setQuoteFeedLike(item, liked) {
       state.quoteFeedLoaded = false;
       await loadQuoteFeed();
     } else {
-      renderQuoteFeed();
+      updateQuoteFeedLikeButton(item);
     }
   }
 }
@@ -17098,36 +17113,18 @@ async function normalizeReaderShareClipboardBlob(blob) {
     throw new Error("clipboard_image_invalid");
   }
 
-  // Keep the proven click-time ClipboardItem path untouched. Normalize the
-  // prepared PNG beforehand so mobile clipboard receives a plain, decoded
-  // PNG blob instead of depending on the browser's canvas-backed blob internals.
+  // Validate the PNG when supported, then detach its encoded bytes without
+  // a second full-size Canvas draw/PNG encode. Keep click-time clipboard writes.
   if (typeof createImageBitmap === "function") {
     let bitmap = null;
     try {
       bitmap = await createImageBitmap(blob);
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.max(1, bitmap.width || 1);
-      canvas.height = Math.max(1, bitmap.height || 1);
-      const ctx = canvas.getContext("2d", { alpha: false });
-      if (!ctx) throw new Error("clipboard_canvas_unavailable");
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(bitmap, 0, 0);
-      return await new Promise((resolve, reject) => {
-        canvas.toBlob((value) => {
-          if (value instanceof Blob && value.type === "image/png" && value.size > 0) {
-            resolve(value);
-          } else {
-            reject(new Error("clipboard_image_invalid"));
-          }
-        }, "image/png");
-      });
+      if (!bitmap.width || !bitmap.height) throw new Error("clipboard_image_invalid");
     } finally {
       try { bitmap?.close?.(); } catch (_) {}
     }
   }
 
-  // Fallback still detaches the clipboard blob from the original canvas blob.
   const bytes = await blob.arrayBuffer();
   const normalized = new Blob([bytes], { type: "image/png" });
   if (!normalized.size) throw new Error("clipboard_image_invalid");
