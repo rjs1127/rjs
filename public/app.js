@@ -1709,23 +1709,6 @@ function openModal(modal) {
   focusModal(modal);
 }
 
-// 보조 팝업이 popstate에서 닫히기 전에 열린 상태를 확인한다.
-window.addEventListener("popstate", (event) => {
-  if (els.readerOverlay?.hidden || !state.activeReaderItem) return;
-
-  if (event.state?.rjsReaderOpen) {
-    // 직접 닫은 보조 팝업의 이력은 뷰어 이력으로 남는다.
-    // 열린 팝업이 없을 때만 건너뛰며, 실제 팝업 뒤로가기는 유지한다.
-    if (!getOpenSimpleModal() && (!readerShareUi || readerShareUi.backdrop.hidden)) {
-      history.back();
-    }
-    return;
-  }
-
-  state.readerHistoryActive = false;
-  closeReader({ fromHistory: true });
-}, { capture: true });
-
 window.addEventListener("popstate", (event) => {
   const openSimpleModal = getOpenSimpleModal();
   if (openSimpleModal && !event.state?.rjsSimpleModal) {
@@ -7858,6 +7841,18 @@ function closeReader(options = {}) {
   finalizeReaderClose();
 }
 
+
+window.addEventListener("popstate", (event) => {
+  if (
+    !els.readerOverlay?.hidden &&
+    state.activeReaderItem &&
+    !event.state?.rjsReaderOpen
+  ) {
+    state.readerHistoryActive = false;
+    closeReader({ fromHistory: true });
+  }
+});
+
 state.sort = normalizeSortValue(state.sort);
 localStorage.setItem("archiveSort", state.sort);
 
@@ -12752,12 +12747,76 @@ function getVisibleReaderShareBackgroundEntries() {
     });
 }
 
+// v10.32: local-only preset shortcuts; never store visibility or user text here.
+const READER_SHARE_GALLERY_FAVORITES_KEY = "rjsReaderShareFavoritesV1";
+const READER_SHARE_GALLERY_RECENTS_KEY = "rjsReaderShareRecentsV1";
+const READER_SHARE_GALLERY_RECENTS_LIMIT = 12;
+let readerShareFavoriteKeys = null;
+let readerShareRecentKeys = null;
+
+function readReaderShareGalleryKeys(storageKey, limit = READER_SHARE_BACKGROUNDS.length) {
+  try {
+    const value = JSON.parse(localStorage.getItem(storageKey) || "[]");
+    const known = new Set(READER_SHARE_BACKGROUNDS.map(getReaderShareBackgroundKey));
+    return Array.isArray(value) ? [...new Set(value.filter((key) => typeof key === "string" && known.has(key)))].slice(0, limit) : [];
+  } catch (_) { return []; }
+}
+
+function getReaderShareFavoriteKeys() {
+  if (!readerShareFavoriteKeys) readerShareFavoriteKeys = readReaderShareGalleryKeys(READER_SHARE_GALLERY_FAVORITES_KEY);
+  return readerShareFavoriteKeys;
+}
+
+function getReaderShareRecentKeys() {
+  if (!readerShareRecentKeys) readerShareRecentKeys = readReaderShareGalleryKeys(READER_SHARE_GALLERY_RECENTS_KEY, READER_SHARE_GALLERY_RECENTS_LIMIT);
+  return readerShareRecentKeys;
+}
+
+function writeReaderShareGalleryKeys(storageKey, keys) {
+  try { localStorage.setItem(storageKey, JSON.stringify(keys)); } catch (_) {}
+}
+
+function toggleReaderShareFavorite(key) {
+  const keys = getReaderShareFavoriteKeys();
+  const index = keys.indexOf(key);
+  if (index >= 0) keys.splice(index, 1);
+  else keys.push(key);
+  writeReaderShareGalleryKeys(READER_SHARE_GALLERY_FAVORITES_KEY, keys);
+}
+
+function recordReaderShareRecent(key) {
+  const keys = getReaderShareRecentKeys();
+  readerShareRecentKeys = [key, ...keys.filter((entry) => entry !== key)].slice(0, READER_SHARE_GALLERY_RECENTS_LIMIT);
+  writeReaderShareGalleryKeys(READER_SHARE_GALLERY_RECENTS_KEY, readerShareRecentKeys);
+}
+
+function syncReaderShareBackgroundSelection() {
+  const ui = readerShareUi;
+  if (!ui) return;
+  const background = READER_SHARE_BACKGROUNDS[state.readerShareBackground];
+  const key = getReaderShareBackgroundKey(background);
+  ui.thumbs.querySelectorAll("[data-share-background]").forEach((button) => {
+    const selected = Number(button.dataset.shareBackground) === state.readerShareBackground;
+    button.classList.toggle("active", selected);
+    button.setAttribute("aria-pressed", selected ? "true" : "false");
+  });
+  if (ui.presetName) ui.presetName.textContent = background?.name || "배경 선택";
+  if (ui.presetFavorite) {
+    const selected = getReaderShareFavoriteKeys().includes(key);
+    ui.presetFavorite.textContent = selected ? "★" : "☆";
+    ui.presetFavorite.setAttribute("aria-pressed", selected ? "true" : "false");
+    ui.presetFavorite.setAttribute("aria-label", `${background?.name || "선택한 배경"} 즐겨찾기 ${selected ? "해제" : "추가"}`);
+  }
+}
+
 function refreshReaderShareVisibleBackground() {
   if (!readerShareUi || readerShareUi.backdrop.hidden || readerShareAdminPreviewKey) return;
   const entries = getVisibleReaderShareBackgroundEntries();
   const changed = !entries.some(({ index }) => index === state.readerShareBackground);
   if (changed && entries.length) state.readerShareBackground = entries[0].index;
   renderReaderShareBackgroundThumbs(readerShareUi.thumbs);
+  syncReaderShareBackgroundSelection();
+  if (readerShareUi.refreshGallery) readerShareUi.refreshGallery();
   if (changed && entries.length) updateReaderSharePreview();
 }
 
@@ -12776,7 +12835,6 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "reader-share-thumb";
-    button.classList.toggle("active", index === state.readerShareBackground);
     button.dataset.shareBackground = String(index);
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
@@ -12792,6 +12850,7 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     fragment.appendChild(button);
   }
   thumbs.replaceChildren(fragment);
+  if (readerShareUi?.thumbs === thumbs) syncReaderShareBackgroundSelection();
   if (!delayed.length) return;
 
   const backgrounds = new Map(delayed);
@@ -12879,6 +12938,40 @@ function ensureReaderShareUi() {
     .reader-share-thumb { position:relative; flex:0 0 58px; width:58px; height:52px; padding:0; border:2px solid transparent; border-radius:11px; overflow:hidden; cursor:pointer; box-shadow:inset 0 0 0 1px rgba(70,55,75,.08); }
     .reader-share-thumb.active { border-color:#5a4e45; box-shadow:0 0 0 2px rgba(90,78,69,.14), inset 0 0 0 1px rgba(255,255,255,.22); }
     .reader-share-thumb::after { content:attr(data-theme-name); position:absolute; left:5px; right:5px; bottom:4px; font-size:8px; font-weight:800; line-height:1; text-align:center; color:var(--thumb-label,#fff); text-shadow:0 1px 3px rgba(0,0,0,.2); }
+    /* v10.32: browse all presets without expanding the editor or rendering new canvases. */
+    .reader-share-preset-bar { display:flex; align-items:center; gap:9px; min-width:0; margin-bottom:8px; }
+    .reader-share-preset-bar .reader-share-label { flex:none; }
+    .reader-share-preset-name { min-width:0; flex:1; font-size:12px; font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--text,#2c2630); }
+    .reader-share-preset-favorite { flex:none; width:32px; height:32px; border:1px solid rgba(91,75,99,.14); border-radius:10px; background:rgba(91,75,99,.035); color:#ae8350; font-size:21px; cursor:pointer; }
+    .reader-share-preset-favorite[aria-pressed="true"] { background:rgba(220,168,66,.13); }
+    .reader-share-preset-browse { flex:none; min-height:32px; padding:5px 11px; border:1px solid rgba(91,75,99,.19); border-radius:10px; background:var(--surface,#fff); color:var(--text,#2c2630); font-size:12px; font-weight:800; cursor:pointer; }
+    .reader-share-preset-browse:focus-visible, .reader-share-preset-favorite:focus-visible, .reader-share-gallery button:focus-visible { outline:2px solid #77695e; outline-offset:2px; }
+    .reader-share-gallery { position:absolute; inset:0; z-index:15; display:flex; flex-direction:column; background:var(--surface,#fff); overflow:hidden; }
+    .reader-share-gallery[hidden] { display:none !important; }
+    .reader-share-gallery-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:18px 16px 12px; border-bottom:1px solid rgba(91,75,99,.10); flex:none; }
+    .reader-share-gallery-title { display:grid; gap:3px; min-width:0; }
+    .reader-share-gallery-title strong { font-size:17px; }
+    .reader-share-gallery-title small { font-size:11px; color:var(--muted,#756d79); }
+    .reader-share-gallery-close { width:36px; height:36px; border:1px solid rgba(91,75,99,.13); border-radius:11px; background:transparent; color:inherit; font-size:21px; cursor:pointer; }
+    .reader-share-gallery-tools { display:grid; gap:10px; padding:12px 16px 9px; flex:none; }
+    .reader-share-gallery-search { width:100%; min-width:0; height:39px; box-sizing:border-box; padding:0 12px; border-radius:11px; border:1px solid rgba(91,75,99,.18); background:var(--surface,#fff); color:var(--text,#2c2630); font-size:13px; }
+    .reader-share-gallery-tabs { display:flex; gap:7px; flex-wrap:wrap; }
+    .reader-share-gallery-tab { min-height:31px; border:1px solid rgba(91,75,99,.15); background:transparent; color:var(--text,#2c2630); border-radius:999px; padding:5px 12px; font-size:12px; font-weight:750; cursor:pointer; }
+    .reader-share-gallery-tab[aria-pressed="true"] { color:#fff; background:#5a4e45; border-color:#5a4e45; }
+    .reader-share-gallery-scroll { flex:1; min-height:0; overflow-y:auto; overscroll-behavior:contain; padding:9px 16px calc(18px + env(safe-area-inset-bottom,0px)); }
+    .reader-share-gallery-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:13px 10px; }
+    .reader-share-gallery-item { position:relative; min-width:0; }
+    .reader-share-gallery-select { display:block; width:100%; padding:0; border:0; background:none; color:inherit; text-align:center; cursor:pointer; }
+    .reader-share-gallery-swatch { display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:4/5; border-radius:12px; overflow:hidden; border:2px solid transparent; box-sizing:border-box; box-shadow:inset 0 0 0 1px rgba(70,55,75,.10); }
+    .reader-share-gallery-item.is-selected .reader-share-gallery-swatch { border-color:#5a4e45; outline:2px solid rgba(90,78,69,.18); }
+    .reader-share-gallery-sample { display:block; max-width:88%; font-size:11px; font-weight:750; line-height:1.5; text-align:center; text-shadow:0 1px 4px rgba(0,0,0,.1); overflow-wrap:anywhere; }
+    .reader-share-gallery-name { display:block; margin-top:6px; font-size:11px; font-weight:700; line-height:1.4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+    .reader-share-gallery-star { position:absolute; right:6px; top:6px; display:grid; place-items:center; width:29px; height:29px; padding:0; border:1px solid rgba(60,50,60,.15); border-radius:50%; background:rgba(255,255,255,.88); color:#806041; box-shadow:0 2px 8px rgba(30,20,30,.1); font-size:19px; cursor:pointer; }
+    .reader-share-gallery-star[aria-pressed="true"] { color:#ae7b31; background:#fff6db; }
+    .reader-share-gallery-empty { padding:48px 10px; text-align:center; font-size:13px; line-height:1.7; color:var(--muted,#756d79); }
+    .reader-share-gallery-empty[hidden] { display:none !important; }
+    @media(max-width:360px) { .reader-share-gallery-grid { gap:10px 7px; } .reader-share-gallery-sample { font-size:9px; } .reader-share-gallery-name { font-size:10px; } }
+    html.theme-dark .reader-share-gallery-star { background:rgba(41,36,45,.9); color:#e0bd82; }
     .reader-share-input { width:100%; min-height:70px; max-height:120px; resize:vertical; box-sizing:border-box; border:1px solid rgba(90,74,98,.16); border-radius:12px; background:rgba(255,255,255,.66); color:inherit; padding:10px 11px; font:inherit; font-size:13px; line-height:1.5; outline:none; }
     .reader-share-input:focus { border-color:rgba(90,78,69,.45); box-shadow:0 0 0 3px rgba(90,78,69,.08); }
     .reader-share-actions { display:grid; grid-template-columns:repeat(var(--share-action-count, 4),minmax(0,1fr)); gap:8px; }
@@ -12946,7 +13039,7 @@ function ensureReaderShareUi() {
     html.quote-admin-embed .reader-share-backdrop { position:fixed; inset:0; z-index:1; background:transparent; display:block !important; }
     html.quote-admin-embed .reader-share-sheet { bottom:50%; width:min(calc(100% - 16px),560px); max-height:calc(100dvh - 12px); transform:translate(-50%,50%); border-radius:20px; box-shadow:0 10px 34px rgba(15,23,42,.12); }
     html.quote-admin-embed .reader-share-sheet-scroll { max-height:calc(100dvh - 12px); }
-    html.quote-admin-embed .reader-share-close { display:none; }
+    html.quote-admin-embed .reader-share-close, html.quote-admin-embed .reader-share-preset-browse, html.quote-admin-embed .reader-share-preset-favorite { display:none; }
   `;
   document.head.appendChild(style);
 
@@ -13000,10 +13093,13 @@ function ensureReaderShareUi() {
         </div>
 
         <div class="reader-share-section">
-          <div class="reader-share-row">
+          <div class="reader-share-preset-bar">
             <span class="reader-share-label">배경</span>
-            <div class="reader-share-thumbs"></div>
+            <span class="reader-share-preset-name" data-share-preset-name></span>
+            <button type="button" class="reader-share-preset-favorite" data-share-preset-favorite aria-pressed="false" aria-label="선택한 배경 즐겨찾기 추가">☆</button>
+            <button type="button" class="reader-share-preset-browse" data-share-gallery-open>전체보기</button>
           </div>
+          <div class="reader-share-thumbs" aria-label="배경 빠른 선택"></div>
         </div>
 
         <div class="reader-share-section">
@@ -13093,11 +13189,38 @@ function ensureReaderShareUi() {
           </div>
         </div>
       </div>
+      <div class="reader-share-gallery" data-share-gallery hidden role="region" aria-label="배경 전체보기">
+        <div class="reader-share-gallery-head">
+          <div class="reader-share-gallery-title"><strong>배경 선택</strong><small data-share-gallery-count>전체 배경</small></div>
+          <button type="button" class="reader-share-gallery-close" data-share-gallery-close aria-label="배경 전체보기 닫기">×</button>
+        </div>
+        <div class="reader-share-gallery-tools">
+          <input type="search" class="reader-share-gallery-search" data-share-gallery-search placeholder="배경 이름 검색" aria-label="배경 이름 검색" autocomplete="off" />
+          <div class="reader-share-gallery-tabs" role="group" aria-label="배경 분류">
+            <button type="button" class="reader-share-gallery-tab" data-share-gallery-filter="all" aria-pressed="true">전체</button>
+            <button type="button" class="reader-share-gallery-tab" data-share-gallery-filter="favorites" aria-pressed="false">★ 즐겨찾기</button>
+            <button type="button" class="reader-share-gallery-tab" data-share-gallery-filter="recent" aria-pressed="false">최근 사용</button>
+          </div>
+        </div>
+        <div class="reader-share-gallery-scroll" data-share-gallery-scroll>
+          <div class="reader-share-gallery-grid" data-share-gallery-grid></div>
+          <div class="reader-share-gallery-empty" data-share-gallery-empty hidden></div>
+        </div>
+      </div>
     </section>`;
   document.body.appendChild(backdrop);
 
   const sheet = backdrop.querySelector(".reader-share-sheet");
   const thumbs = backdrop.querySelector(".reader-share-thumbs");
+  const presetName = backdrop.querySelector("[data-share-preset-name]");
+  const presetFavorite = backdrop.querySelector("[data-share-preset-favorite]");
+  const gallery = backdrop.querySelector("[data-share-gallery]");
+  const editorScroll = backdrop.querySelector(".reader-share-sheet-scroll");
+  const galleryGrid = backdrop.querySelector("[data-share-gallery-grid]");
+  const galleryScroll = backdrop.querySelector("[data-share-gallery-scroll]");
+  const gallerySearch = backdrop.querySelector("[data-share-gallery-search]");
+  const galleryEmpty = backdrop.querySelector("[data-share-gallery-empty]");
+  const galleryCount = backdrop.querySelector("[data-share-gallery-count]");
   const input = backdrop.querySelector(".reader-share-input");
   const card = backdrop.querySelector(".reader-share-card");
   const renderImage = backdrop.querySelector(".reader-share-card-render");
@@ -13153,7 +13276,155 @@ function ensureReaderShareUi() {
     setTextSettingsOpen(textSettingsToggle.getAttribute("aria-expanded") !== "true");
   });
 
+  let galleryFilter = "all";
+  let galleryObserver = null;
+  let galleryReturnFocus = null;
+  const closeGallery = ({ restoreFocus = true } = {}) => {
+    if (gallery.hidden) return;
+    gallery.hidden = true;
+    editorScroll.inert = false;
+    galleryObserver?.disconnect();
+    galleryObserver = null;
+    if (restoreFocus && !backdrop.hidden) (galleryReturnFocus || backdrop.querySelector("[data-share-gallery-open]"))?.focus?.();
+  };
+  const renderGallery = () => {
+    if (gallery.hidden) return;
+    galleryObserver?.disconnect();
+    galleryObserver = null;
+    const favorites = new Set(getReaderShareFavoriteKeys());
+    const recent = getReaderShareRecentKeys();
+    const search = String(gallerySearch.value || "").trim().toLocaleLowerCase();
+    let entries = getVisibleReaderShareBackgroundEntries();
+    if (galleryFilter === "favorites") entries = entries.filter(({ background }) => favorites.has(getReaderShareBackgroundKey(background)));
+    if (galleryFilter === "recent") {
+      const order = new Map(recent.map((key, index) => [key, index]));
+      entries = entries.filter(({ background }) => order.has(getReaderShareBackgroundKey(background)))
+        .sort((a, b) => order.get(getReaderShareBackgroundKey(a.background)) - order.get(getReaderShareBackgroundKey(b.background)));
+    }
+    if (search) entries = entries.filter(({ background }) =>
+      `${background.name || ""} ${getReaderShareBackgroundKey(background)}`.toLocaleLowerCase().includes(search));
+    const fragment = document.createDocumentFragment();
+    const delayed = [];
+    for (const { background, index } of entries) {
+      const key = getReaderShareBackgroundKey(background);
+      const item = document.createElement("div");
+      item.className = "reader-share-gallery-item";
+      item.classList.toggle("is-selected", index === state.readerShareBackground);
+      const choose = document.createElement("button");
+      choose.type = "button";
+      choose.className = "reader-share-gallery-select";
+      choose.dataset.shareGallerySelect = String(index);
+      choose.setAttribute("aria-label", `${background.name} 배경 선택`);
+      choose.setAttribute("aria-pressed", index === state.readerShareBackground ? "true" : "false");
+      const swatch = document.createElement("span");
+      swatch.className = "reader-share-gallery-swatch";
+      const cssBackground = getReaderShareCssBackground(background);
+      if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+        swatch.style.backgroundColor = "#f4f1eb";
+        delayed.push([swatch, cssBackground]);
+      } else swatch.style.background = cssBackground;
+      const sample = document.createElement("span");
+      sample.className = "reader-share-gallery-sample";
+      sample.style.color = String(background.text || "#fff");
+      sample.textContent = "마음에 남은 문장";
+      swatch.appendChild(sample);
+      const name = document.createElement("span");
+      name.className = "reader-share-gallery-name";
+      name.textContent = String(background.name || "배경");
+      choose.append(swatch, name);
+      const favorite = document.createElement("button");
+      favorite.type = "button";
+      favorite.className = "reader-share-gallery-star";
+      favorite.dataset.shareGalleryFavorite = key;
+      const isFavorite = favorites.has(key);
+      favorite.textContent = isFavorite ? "★" : "☆";
+      favorite.setAttribute("aria-pressed", isFavorite ? "true" : "false");
+      favorite.setAttribute("aria-label", `${background.name} 즐겨찾기 ${isFavorite ? "해제" : "추가"}`);
+      item.append(choose, favorite);
+      fragment.appendChild(item);
+    }
+    galleryGrid.replaceChildren(fragment);
+    galleryCount.textContent = `${entries.length}개 디자인`;
+    galleryEmpty.hidden = entries.length > 0;
+    if (!entries.length) galleryEmpty.textContent = search ? "검색 결과가 없어요. 다른 이름으로 검색해 보세요." :
+      galleryFilter === "favorites" ? "아직 즐겨찾기가 없어요. ☆ 버튼으로 추가해 보세요." :
+      galleryFilter === "recent" ? "최근 선택한 디자인이 없어요." : "선택 가능한 배경이 없어요.";
+    gallery.querySelectorAll("[data-share-gallery-filter]").forEach((button) =>
+      button.setAttribute("aria-pressed", button.dataset.shareGalleryFilter === galleryFilter ? "true" : "false"));
+    if (delayed.length) {
+      const backgrounds = new Map(delayed);
+      galleryObserver = new IntersectionObserver((observed, observer) => {
+        for (const entry of observed) {
+          if (!entry.isIntersecting) continue;
+          const background = backgrounds.get(entry.target);
+          if (background) entry.target.style.background = background;
+          backgrounds.delete(entry.target);
+          observer.unobserve(entry.target);
+        }
+        if (!backgrounds.size) observer.disconnect();
+      }, { root: galleryScroll, rootMargin: "180px 0px" });
+      for (const [swatch] of delayed) galleryObserver.observe(swatch);
+    }
+  };
+  const openGallery = () => {
+    if (READER_SHARE_ADMIN_EMBED_MODE) return;
+    galleryReturnFocus = document.activeElement;
+    gallery.hidden = false;
+    editorScroll.inert = true;
+    galleryFilter = "all";
+    gallerySearch.value = "";
+    galleryScroll.scrollTop = 0;
+    renderGallery();
+    gallerySearch.focus();
+  };
+  backdrop.querySelector("[data-share-gallery-open]")?.addEventListener("click", openGallery);
+  backdrop.querySelector("[data-share-gallery-close]")?.addEventListener("click", () => closeGallery());
+  gallerySearch.addEventListener("input", () => { galleryScroll.scrollTop = 0; renderGallery(); });
+  gallery.addEventListener("click", (event) => {
+    const tab = event.target.closest("[data-share-gallery-filter]");
+    if (tab) {
+      galleryFilter = tab.dataset.shareGalleryFilter;
+      galleryScroll.scrollTop = 0;
+      renderGallery();
+      return;
+    }
+    const star = event.target.closest("[data-share-gallery-favorite]");
+    if (star) {
+      toggleReaderShareFavorite(star.dataset.shareGalleryFavorite);
+      syncReaderShareBackgroundSelection();
+      // Preserve scroll position when a filtered favorite disappears.
+      const top = galleryScroll.scrollTop;
+      renderGallery();
+      galleryScroll.scrollTop = top;
+      return;
+    }
+    const selected = event.target.closest("[data-share-gallery-select]");
+    if (selected) {
+      const index = Number(selected.dataset.shareGallerySelect);
+      if (!getVisibleReaderShareBackgroundEntries().some((entry) => entry.index === index)) return;
+      state.readerShareBackground = index;
+      recordReaderShareRecent(getReaderShareBackgroundKey(READER_SHARE_BACKGROUNDS[index]));
+      closeGallery({ restoreFocus: false });
+      updateReaderSharePreview();
+      const thumb = thumbs.querySelector(`[data-share-background="${index}"]`);
+      if (thumb) thumbs.scrollLeft = Math.max(0, thumb.offsetLeft - thumbs.offsetLeft - thumbs.clientWidth / 2 + thumb.clientWidth / 2);
+      backdrop.querySelector("[data-share-gallery-open]")?.focus();
+    }
+  });
+  presetFavorite?.addEventListener("click", () => {
+    const key = getReaderShareBackgroundKey(READER_SHARE_BACKGROUNDS[state.readerShareBackground]);
+    if (!key) return;
+    toggleReaderShareFavorite(key);
+    syncReaderShareBackgroundSelection();
+  });
+  backdrop.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape" || gallery.hidden) return;
+    event.preventDefault();
+    event.stopPropagation();
+    closeGallery();
+  });
   const close = ({ fromHistory = false } = {}) => {
+    closeGallery({ restoreFocus: false });
     backdrop.hidden = true;
     window.clearTimeout(readerSharePrepareTimer);
     window.clearTimeout(readerSharePreviewTimer);
@@ -13246,6 +13517,7 @@ function ensureReaderShareUi() {
       READER_SHARE_BACKGROUNDS.length - 1,
       Number(button.dataset.shareBackground || 0)
     ));
+    recordReaderShareRecent(getReaderShareBackgroundKey(READER_SHARE_BACKGROUNDS[state.readerShareBackground]));
     updateReaderSharePreview();
   });
 
@@ -13527,7 +13799,7 @@ function ensureReaderShareUi() {
     bd.querySelector("[data-memo-save]")?.addEventListener("click",async()=>{ const noteText=String(input?.value||"").trim(); if(!noteText)return input?.focus(); const item=state.activeReaderItem; const btn=bd.querySelector("[data-memo-save]"); btn.disabled=true; try{ const data=await userApi("/api/user/profile",{method:"POST",body:JSON.stringify({action:"note_save",workId:item.id,title:item.title,author:item.author,noteText,quoteText:text,startOffset:location.startOffset,endOffset:location.endOffset})}); state.readerNotes.unshift(normalizeReaderNote(data.note)); closeMemo(); }catch(error){alert(error.message||"메모를 저장하지 못했습니다."); btn.disabled=false;} });
   });
 
-readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, letterSpacingInput, lineHeightInput, paddingXInput, paddingYInput, letterSpacingValue, lineHeightValue, paddingXValue, paddingYValue, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
+readerShareUi = { style, floatButton, memoButton, selectionActions, backdrop, sheet, thumbs, presetName, presetFavorite, refreshGallery: renderGallery, closeGallery, input, card, renderImage, renderLoading, quote, quoteText, meta, brand, fonts, weights, sizes, letterSpacingInput, lineHeightInput, paddingXInput, paddingYInput, letterSpacingValue, lineHeightValue, paddingXValue, paddingYValue, actions, wrap, quoteSaveButton, saveButton, clipboardButton, workLinkButton, shareButton, savedPanel, publicToggle, close };
   return readerShareUi;
 }
 
@@ -15978,20 +16250,17 @@ function updateReaderSharePreview() {
   ui.meta.textContent = [item.title, item.author].filter(Boolean).join(" · ") || "제목 정보 없음";
   ui.brand.textContent = getReaderShareBrandName();
 
-  ui.thumbs.querySelectorAll("[data-share-background]").forEach((button) => {
-    button.classList.toggle("active", Number(button.dataset.shareBackground) === state.readerShareBackground);
-  });
+  syncReaderShareBackgroundSelection();
   ui.backdrop.querySelectorAll("[data-share-ratio]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareRatio === state.readerShareRatio);
   });
   ui.backdrop.querySelectorAll("[data-share-font]").forEach((button) => {
     button.classList.toggle("active", button.dataset.shareFont === state.readerShareFont);
   });
-  const displayedWeight = getReaderShareQuoteFontWeight(background, font);
   ui.backdrop.querySelectorAll("[data-share-weight]").forEach((button) => {
     const isLight = button.dataset.shareWeight === "light";
     button.disabled = isLight && !readerShareFontSupportsLight();
-    button.classList.toggle("active", READER_SHARE_WEIGHTS[button.dataset.shareWeight]?.weight === displayedWeight);
+    button.classList.toggle("active", button.dataset.shareWeight === state.readerShareWeight);
     if (button.disabled) {
       button.setAttribute("aria-label", "이 글꼴은 얇게 굵기를 지원하지 않음");
       button.title = "이 글꼴은 얇게 굵기를 지원하지 않아요";
@@ -16065,6 +16334,8 @@ async function openReaderShareSheet(options = {}) {
   }
   const ui = ensureReaderShareUi();
   renderReaderShareBackgroundThumbs(ui.thumbs);
+  ui.closeGallery?.({ restoreFocus: false });
+  syncReaderShareBackgroundSelection();
   ui.floatButton.hidden = true;
   if (ui.selectionActions) ui.selectionActions.hidden = true;
   try {

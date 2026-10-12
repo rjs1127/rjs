@@ -1,3 +1,11 @@
+# v10.32 — 문장 이미지 배경 선택 UI
+
+- 사용자 문장 이미지 팝업의 기존 슬라이드 썸네일과 Canvas 최종 결과를 유지하면서 배경 전체보기 갤러리·현재 배경 즐겨찾기·최근 사용·이름 검색만 추가한다. 관리자 iframe/프리셋 공개 검수에는 갤러리 버튼을 노출하지 않는다.
+- 프리셋 키 기반 즐겨찾기(`rjsReaderShareFavoritesV1`)와 최근 사용 최대 12개(`rjsReaderShareRecentsV1`)만 브라우저 `localStorage`에 저장하고, 문장 내용/이미지/로그인 정보는 저장하지 않는다. 계정 간 동기화나 Cloudflare D1/KV 쓰기는 추가하지 않는다.
+- 사용자 갤러리는 기존 서버 공개 Y/N을 그대로 필터로 적용한다. 관리자에 의해 숨김으로 바뀐 키는 로컬 즐겨찾기/최근 사용에 남더라도 공개되지 않는다. 기존 공개 API 캐시 정책과 재조회 빈도는 변경하지 않는다.
+- SVG CSS 배경은 가까운 갤러리 카드만 IntersectionObserver로 지연 로드한다. 이미지 생성 경로·PNG 데이터·브라우저 클립보드 직접 클릭 경로는 건드리지 않는다. 모바일/다크모드에서 갤러리는 기존 팝업 내부 UI로 열고 뒤쪽 편집 영역의 포커스를 일시적으로 막는다.
+- v10.31로 롤백하면 새로운 UI만 제거되며 브라우저 로컬 키는 무해하게 남는다. 관리자 ZIP 배포의 구버전 허용 여부는 기존 관리자 정책을 따른다. HISTORY.md는 실제 GitHub main 이력 자동 생성 구조를 유지한다.
+
 # v10.31 사용자 기록·프리셋 저장 정합성
 
 - 사용자 library/profile은 500행과 목록별 nextCursor를 반환하며 501번째 행은 후속 페이지 존재 확인에만 사용한다. 기존 날짜 내림차순과 file_id/work_id 오름차순·id 내림차순을 유지한 keyset 조건으로 앞 페이지 삭제에 따른 밀림을 방지한다. bootstrap도 items/likes 커서를 제공한다. 기존 offset 요청/응답은 호환용으로 유지하며 새 클라이언트는 커서를 우선한다. 추가 COUNT/쓰기/스냅샷 테이블 없이 기존 페이지 SELECT만 사용한다. 수집 중 같은 ID는 중복 추가하지 않고 반복 커서는 오류로 종료하며 완료 후 전체 상태를 적용한다. 동시 삭제된 이미 수집한 행이나 날짜가 변경된 행까지 완전한 스냅샷으로 고정하지는 않는다.
@@ -7,7 +15,7 @@
 ## v10.31 문장 이미지 프리셋 보완
 - 공개 설정 메모리 캐시는 성공 시 60초, 실패 fallback은 15초이며 기존 편집기/피드 진입에서만 만료를 확인한다. 진행 중 요청을 공유하고 이미지/피드 맵을 같이 갱신한다. 서버의 기존 max-age=60, stale-while-revalidate=300 정책은 그대로이므로 운영 설정의 반영 지연이 즉시 없어지는 것은 아니다. 공개 설정 갱신 시 열린 편집기의 숨겨진 선택 배경은 공개 목록의 첫 배경으로 전환한다. 서버 API/D1/KV 저장 구조와 sessionStorage fallback 형식은 변경하지 않는다.
 - 팝업 종료는 이전 렌더 Promise/키를 분리하고 generation을 증가시킨다. 완료/실패/정리에서 이전 작업이 새 Promise나 팝업을 변경하지 않도록 generation과 Promise 동일성을 확인한다.
-- bauhaus-constructivism/holographic-vaporwave/botanical-press/neon-matrix-terminal은 명시 선택 전 기본 굵기 700을 유지한다. 굵기 버튼 클릭 후에는 선택한 300/500/700을 사용하며 명시 선택 여부도 PNG 캐시 키에 포함한다. 편집기 재열기는 이 구분을 초기화하고 CSS/Canvas 모델과 굵기 버튼의 선택 표시는 같은 유효 굵기를 사용한다. 공개 설정 갱신 시 새 썸네일은 생성 시점에 현재 선택의 active 클래스를 적용하고, 선택 표시만 복구하기 위한 Canvas 재생성은 하지 않는다.
+- bauhaus-constructivism/holographic-vaporwave/botanical-press/neon-matrix-terminal은 명시 선택 전 기본 굵기 700을 유지한다. 굵기 버튼 클릭 후에는 선택한 300/500/700을 사용하며 명시 선택 여부도 PNG 캐시 키에 포함한다. 편집기 재열기는 이 구분을 초기화하고 CSS/Canvas 모델은 같은 유효 굵기를 사용한다.
 - 문장 이미지의 grapheme 분할기는 Intl.Segmenter 인스턴스 1개를 재사용하며 미지원 시 결합 문자·ZWJ·emoji modifier·regional indicator 쌍·한글 자모를 보수적으로 묶는다. fallback은 전체 Unicode grapheme 규칙을 구현한 외부 라이브러리가 아니다. 자간 0의 measureText/fillText 빠른 경로는 유지하고 줄바꿈·생략은 grapheme 경계를 보존한다. 본문 렌더링·이어보기 위치·사용자 저장 API는 변경하지 않는다.
 
 ## v10.30 프리셋 설정 롤백 절차
