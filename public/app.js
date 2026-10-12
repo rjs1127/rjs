@@ -12091,9 +12091,8 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
 const readerSharePixelFolderCssCache = new Map();
 function getReaderShareCssBackground(background, ratio = "1:1") {
   const backgroundKey = getReaderShareBackgroundKey(background);
-  if (READER_SHARE_REFERENCE_SET5.renderers[backgroundKey]) {
-    return getReaderShareReferenceCanvasThumbnail(background, ratio);
-  }
+  // The new reference presets use CSS artwork for selection thumbnails.
+  // Keep Canvas rendering exclusive to the actual quote-image preview/export.
   if (backgroundKey !== "pastel-pixel-folder-ui")
     return String(background?.background || "");
   const safeRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
@@ -12126,7 +12125,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
       name: '안개 산수',
       key: 'misty-ink-landscape',
       defaultVisible: true,
-      background: 'linear-gradient(180deg, #e5dccb 0%, #d9cfbd 100%)',
+      background: 'radial-gradient(ellipse 52% 12% at 49% 54%, rgba(249,245,232,.78), transparent 100%), radial-gradient(ellipse 38% 21% at 82% 66%, rgba(108,115,106,.16), transparent 100%), radial-gradient(ellipse 46% 16% at 20% 78%, rgba(108,115,106,.18), transparent 100%), linear-gradient(180deg, #e6decd 0%, #dcd2c1 64%, #cfc8b7 100%)',
       text: '#4e483d',
       meta: '#716759',
       accent: '#92816a',
@@ -12135,7 +12134,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
       name: '노을 한옥문',
       key: 'hanok-sunset-gate',
       defaultVisible: true,
-      background: 'linear-gradient(180deg, #8d84a6 0%, #efb89f 56%, #efe2d2 100%)',
+      background: 'radial-gradient(ellipse 76% 30% at 52% 55%, rgba(255,239,211,.80), transparent 100%), linear-gradient(180deg, #7f7aa6 0%, #c9acc0 38%, #f8d4ae 63%, #f1eee7 100%)',
       text: '#372a25',
       meta: '#6f5246',
       accent: '#efb48d',
@@ -12144,7 +12143,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
       name: '블루 VHS 스카이',
       key: 'blue-vhs-sky',
       defaultVisible: true,
-      background: 'linear-gradient(180deg, #738cf1 0%, #8286d0 46%, #5167b4 100%)',
+      background: 'repeating-linear-gradient(180deg, rgba(255,255,255,.045) 0 1px, transparent 1px 4px), radial-gradient(circle at 21% 24%, rgba(255,255,255,.86) 0 1px, transparent 2px), radial-gradient(circle at 77% 31%, rgba(255,255,255,.80) 0 1px, transparent 2px), radial-gradient(ellipse 110% 20% at 50% 77%, rgba(252,169,188,.34), transparent 100%), linear-gradient(180deg, #6f88ec 0%, #7f83cd 48%, #7967b5 77%, #3f426b 100%)',
       text: '#f8fbff',
       meta: 'rgba(244,247,255,.78)',
       accent: '#dfe8ff',
@@ -12153,7 +12152,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
       name: '빈티지 뉴스 콜라주',
       key: 'vintage-news-collage',
       defaultVisible: true,
-      background: 'repeating-linear-gradient(0deg, rgba(44,30,20,.05) 0 2px, rgba(255,255,255,0) 2px 8px), linear-gradient(145deg, #e8dcc6 0%, #d7c6af 100%)',
+      background: 'repeating-linear-gradient(90deg, transparent 0 26%, rgba(73,52,36,.1) 26% 27%, transparent 27% 52%), repeating-linear-gradient(0deg, rgba(83,62,43,.09) 0 1px, transparent 1px 6px), linear-gradient(145deg, #e9ddc9 0%, #d9c6ae 100%)',
       text: '#302216',
       meta: '#6d5845',
       accent: '#8a6a45',
@@ -12162,7 +12161,7 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
       name: '키치 그리드 메모',
       key: 'kitsch-grid-memo',
       defaultVisible: true,
-      background: 'linear-gradient(0deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(90deg, rgba(169,161,151,.28) 0 1px, transparent 1px 32px), linear-gradient(160deg, #f4efe8 0%, #f0e6df 100%)',
+      background: 'linear-gradient(140deg, rgba(178,207,162,.88) 0 15%, transparent 15%) top left/37% 25% no-repeat, linear-gradient(180deg, #efd0d4, #efd0d4) 50% 0/56% 13% no-repeat, linear-gradient(24deg, #f3d99e 0 36%, transparent 36%) bottom left/44% 18% no-repeat, linear-gradient(155deg, transparent 34%, #90b4a0 35%) bottom right/47% 16% no-repeat, repeating-linear-gradient(0deg, transparent 0 17px, rgba(155,141,128,.25) 17px 18px), repeating-linear-gradient(90deg, transparent 0 17px, rgba(155,141,128,.25) 17px 18px), #f3eee7',
       text: '#60554b',
       meta: '#8c7c6c',
       accent: '#f0c9bb',
@@ -12486,41 +12485,18 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
   return { presets, renderers };
 })();
 
-// v10.40: The five illustrated presets must be recognizable before selection.
-// Their gallery/strip thumbnails are tiny renders of the SAME Canvas functions
-// used for final PNG export. Generate only visible cards and cache by key+ratio.
-const readerShareReferenceThumbnailCache = new Map();
+// v10.41: Reference preset selection thumbnails use lightweight CSS art only.
+// Their final preview/export continues through the unchanged Canvas renderers.
 function isReaderShareReferencePreset(background) {
   return Boolean(READER_SHARE_REFERENCE_SET5.renderers[getReaderShareBackgroundKey(background)]);
 }
-function getReaderShareReferenceCanvasThumbnail(background, ratio = "1:1") {
-  const key = getReaderShareBackgroundKey(background);
-  const safeRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
-  const cacheKey = `${key}:${safeRatio}`;
-  if (readerShareReferenceThumbnailCache.has(cacheKey)) return readerShareReferenceThumbnailCache.get(cacheKey);
-  try {
-    const renderer = READER_SHARE_REFERENCE_SET5.renderers[key];
-    if (typeof renderer !== "function") return String(background?.background || "");
-    const canvas = document.createElement("canvas");
-    canvas.width = 300;
-    canvas.height = safeRatio === "2:3" ? 450 : safeRatio === "4:5" ? 375 : 300;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return String(background?.background || "");
-    renderer(ctx, canvas.width, canvas.height, {
-      text: "마음에 남은 문장",
-      brand: "셩냥책",
-      item: { title: "문장의 순간", author: "셩냥책" },
-      font: { css: "Pretendard, sans-serif", weight: 500 },
-      fontWeight: 500, sizePx: 20, autoWrap: true,
-      paddingX: 0, paddingY: 0, lineHeightMult: 1.42, letterSpacingPx: 0,
-    });
-    const css = `url("${canvas.toDataURL("image/png")}") center/100% 100% no-repeat`;
-    readerShareReferenceThumbnailCache.set(cacheKey, css);
-    return css;
-  } catch (error) {
-    console.warn("문장 프리셋 Canvas 썸네일 생성 실패", key, error);
-    return String(background?.background || "");
-  }
+function makeReaderShareCssPreviewArt(background) {
+  if (!isReaderShareReferencePreset(background)) return null;
+  const art = document.createElement("span");
+  art.className = "reader-share-css-art";
+  art.dataset.shareCssArt = getReaderShareBackgroundKey(background);
+  art.setAttribute("aria-hidden", "true");
+  return art;
 }
 
 const READER_SHARE_BACKGROUNDS = [
@@ -13290,17 +13266,14 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
     button.style.setProperty("--thumb-label", String(background.text || "#fff"));
-    if (isReaderShareReferencePreset(background) && typeof IntersectionObserver === "function") {
-      button.style.background = String(background.background || "#f4f1eb");
-      delayed.push([button, () => getReaderShareCssBackground(background)]);
-    } else {
-      const cssBackground = getReaderShareCssBackground(background);
-      if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
-        // Keep the correct base color until the nearby SVG thumbnail is painted.
-        button.style.backgroundColor = "#f4f1eb";
-        delayed.push([button, cssBackground]);
-      } else button.style.background = cssBackground;
-    }
+    const cssBackground = getReaderShareCssBackground(background);
+    if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+      // Delay only heavy inline vector images, never the new CSS previews.
+      button.style.backgroundColor = "#f4f1eb";
+      delayed.push([button, cssBackground]);
+    } else button.style.background = cssBackground;
+    const art = makeReaderShareCssPreviewArt(background);
+    if (art) button.appendChild(art);
     fragment.appendChild(button);
   }
   thumbs.replaceChildren(fragment);
@@ -13419,6 +13392,59 @@ function ensureReaderShareUi() {
     .reader-share-gallery-swatch { display:flex; align-items:center; justify-content:center; width:100%; aspect-ratio:4/5; border-radius:12px; overflow:hidden; border:2px solid transparent; box-sizing:border-box; box-shadow:inset 0 0 0 1px rgba(70,55,75,.10); }
     .reader-share-gallery-item.is-selected .reader-share-gallery-swatch { border-color:#5a4e45; outline:2px solid rgba(90,78,69,.18); }
     .reader-share-gallery-sample { display:block; max-width:88%; font-size:11px; font-weight:750; line-height:1.5; text-align:center; text-shadow:0 1px 4px rgba(0,0,0,.1); overflow-wrap:anywhere; }
+    /* v10.41 CSS-only thumbnail approximations: no Canvas/toDataURL during selection. */
+    .reader-share-gallery-swatch { position:relative; }
+    .reader-share-gallery-sample { position:relative; z-index:2; }
+    .reader-share-css-art { position:absolute; inset:0; display:block; overflow:hidden; border-radius:inherit; pointer-events:none; z-index:0; }
+    .reader-share-css-art::before, .reader-share-css-art::after { content:""; position:absolute; box-sizing:border-box; }
+    .reader-share-css-art[data-share-css-art="misty-ink-landscape"]::before {
+      left:-10%; right:-10%; bottom:-4%; height:43%;
+      background:rgba(94,101,89,.19);
+      clip-path:polygon(0 67%,11% 45%,18% 58%,30% 33%,43% 65%,56% 24%,67% 52%,83% 17%,100% 54%,100% 100%,0 100%);
+    }
+    .reader-share-css-art[data-share-css-art="misty-ink-landscape"]::after {
+      left:-5%; right:-5%; bottom:22%; height:29%;
+      background:rgba(111,119,110,.12);
+      clip-path:polygon(0 65%,18% 25%,33% 53%,52% 16%,70% 55%,87% 24%,100% 52%,100% 100%,0 100%);
+    }
+    .reader-share-css-art[data-share-css-art="hanok-sunset-gate"]::before {
+      left:8%; top:15%; width:84%; height:66%; background:rgba(255,247,241,.29);
+      border:1px solid rgba(255,250,246,.61); border-radius:9%;
+    }
+    .reader-share-css-art[data-share-css-art="hanok-sunset-gate"]::after {
+      left:12%; top:70%; width:76%; height:1px; background:rgba(255,251,244,.48);
+    }
+    .reader-share-css-art[data-share-css-art="blue-vhs-sky"]::before {
+      content:"CAMERA1\\A PLAY ▷"; white-space:pre; font:700 7px/1.5 monospace;
+      color:rgba(247,252,255,.94); text-shadow:1px 0 rgba(235,178,255,.35);
+      left:8%; top:7%;
+    }
+    .reader-share-css-art[data-share-css-art="blue-vhs-sky"]::after {
+      left:0; right:0; bottom:0; height:12%; background:rgba(14,17,29,.83);
+    }
+    .reader-share-css-art[data-share-css-art="vintage-news-collage"]::before {
+      inset:4%; opacity:.53;
+      background:repeating-linear-gradient(180deg, rgba(66,45,28,.34) 0 1px, transparent 1px 5px);
+      -webkit-mask-image:repeating-linear-gradient(90deg,#000 0 26%,transparent 26% 30%);
+      mask-image:repeating-linear-gradient(90deg,#000 0 26%,transparent 26% 30%);
+    }
+    .reader-share-css-art[data-share-css-art="vintage-news-collage"]::after {
+      left:12%; top:29%; width:76%; height:43%; background:rgba(246,237,220,.91);
+      box-shadow:0 3px 8px rgba(65,46,30,.13);
+      clip-path:polygon(0 4%,17% 1%,33% 4%,51% 0,69% 4%,85% 1%,100% 4%,98% 31%,100% 64%,98% 96%,81% 98%,65% 95%,49% 100%,30% 96%,13% 99%,0 96%,2% 63%,0 30%);
+    }
+    .reader-share-css-art[data-share-css-art="kitsch-grid-memo"]::before {
+      left:6%; top:10%; width:88%; height:81%; background:rgba(254,250,246,.95);
+      border:1px solid rgba(208,191,178,.6); border-radius:8%;
+      box-shadow:0 2px 7px rgba(95,76,71,.07);
+    }
+    .reader-share-css-art[data-share-css-art="kitsch-grid-memo"]::after {
+      left:9%; top:6%; width:24%; height:8%; transform:rotate(-10deg);
+      background:rgba(238,191,194,.8);
+    }
+    .reader-share-thumb .reader-share-css-art[data-share-css-art="blue-vhs-sky"]::before { font-size:5px; }
+    .reader-share-thumb::after { z-index:2; }
+
     .reader-share-gallery-name { display:block; margin-top:6px; font-size:11px; font-weight:700; line-height:1.4; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
     .reader-share-gallery-star { position:absolute; right:6px; top:6px; display:grid; place-items:center; width:29px; height:29px; padding:0; border:1px solid rgba(60,50,60,.15); border-radius:50%; background:rgba(255,255,255,.88); color:#806041; box-shadow:0 2px 8px rgba(30,20,30,.1); font-size:19px; cursor:pointer; }
     .reader-share-gallery-star[aria-pressed="true"] { color:#ae7b31; background:#fff6db; }
@@ -13884,24 +13910,18 @@ function ensureReaderShareUi() {
       choose.setAttribute("aria-pressed", index === state.readerShareBackground ? "true" : "false");
       const swatch = document.createElement("span");
       swatch.className = "reader-share-gallery-swatch";
-      const isCanvasThumbnail = isReaderShareReferencePreset(background);
-      if (isCanvasThumbnail && typeof IntersectionObserver === "function") {
-        swatch.style.background = String(background.background || "#f4f1eb");
-        delayed.push([swatch, () => getReaderShareCssBackground(background, "4:5")]);
-      } else {
-        const cssBackground = getReaderShareCssBackground(background, isCanvasThumbnail ? "4:5" : "1:1");
-        if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
-          swatch.style.backgroundColor = "#f4f1eb";
-          delayed.push([swatch, cssBackground]);
-        } else swatch.style.background = cssBackground;
-      }
-      if (!isCanvasThumbnail) {
-        const sample = document.createElement("span");
-        sample.className = "reader-share-gallery-sample";
-        sample.style.color = String(background.text || "#fff");
-        sample.textContent = "마음에 남은 문장";
-        swatch.appendChild(sample);
-      }
+      const cssBackground = getReaderShareCssBackground(background);
+      if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+        swatch.style.backgroundColor = "#f4f1eb";
+        delayed.push([swatch, cssBackground]);
+      } else swatch.style.background = cssBackground;
+      const art = makeReaderShareCssPreviewArt(background);
+      if (art) swatch.appendChild(art);
+      const sample = document.createElement("span");
+      sample.className = "reader-share-gallery-sample";
+      sample.style.color = String(background.text || "#fff");
+      sample.textContent = "마음에 남은 문장";
+      swatch.appendChild(sample);
       const name = document.createElement("span");
       name.className = "reader-share-gallery-name";
       name.textContent = String(background.name || "배경");

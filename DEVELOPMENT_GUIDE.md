@@ -1,3 +1,10 @@
+## v10.41 — 문장 이미지 선택 썸네일 CSS 전환
+
+- `READER_SHARE_REFERENCE_SET5.presets[].background`는 신규 5종의 CSS 배경이다. 가로 빠른 선택 목록과 전체보기는 해당 CSS 및 `.reader-share-css-art` 의사요소만 사용한다. **선택 썸네일 때문에 5종 Canvas renderer 또는 `toDataURL()`을 호출하지 않는다.**
+- 최종 1:1·4:5·2:3 PNG는 기존 `READER_SHARE_REFERENCE_SET5.renderers`를 `renderReaderShareCanvas()`에서 호출하여 만든다. 미리보기/최종 저장·공유에서만 Canvas가 동작한다.
+- 과거 `getReaderShareReferenceCanvasThumbnail()`와 메모리 PNG 캐시는 삭제했다. 기존 픽셀 폴더 프리셋의 전용 처리/지연 SVG 처리 및 관리자 서버 프리셋 공개 설정은 그대로 둔다.
+- `public/version.json`과 `public/index.html` 앱 JS 캐시 키를 `10.41`/`1041`로 맞춘다. HISTORY.md는 GitHub main 실커밋 이력으로 관리자에서 재생성하는 구조를 보존한다.
+
 ## v10.40 Canvas 프리셋 썸네일 및 키치 그리드 문장 패널
 
 - `READER_SHARE_REFERENCE_SET5.renderers`의 신규 5종은 기존 `renderReaderShareCanvas()`에서 최종 PNG를 생성한다. 사용자 프리셋 선택 목록과 전체보기 갤러리도 단순 CSS 그라데이션 대신 **동일 전용 렌더러를 소형 Canvas에 재사용**하여 색/장식/본문/메타가 예시로 보이게 한다.
