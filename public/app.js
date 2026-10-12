@@ -16135,6 +16135,331 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
   ctx.restore();
 }
 
+
+
+const READER_SHARE_REDESIGN_OVERRIDES = {
+  "ink-echo": {
+    background: "linear-gradient(90deg, rgba(34,50,74,.06) 0 10%, transparent 10% 100%), radial-gradient(circle at 76% 22%, rgba(46,67,96,.16) 0 11%, rgba(46,67,96,0) 34%), radial-gradient(circle at 24% 78%, rgba(196,202,210,.30) 0 16%, rgba(196,202,210,0) 46%), linear-gradient(145deg, #fbf7ef 0%, #f0ebe3 56%, #e8e3db 100%)",
+    text: "#233248",
+    meta: "#6b7583",
+    accent: "#314a6a",
+    customLayout: "ink-echo",
+  },
+  "star-chart": {
+    background: "radial-gradient(circle at 76% 28%, rgba(255,226,160,.18) 0 1.1%, rgba(255,226,160,0) 2.8%), radial-gradient(circle at 82% 36%, rgba(255,255,255,.54) 0 .9%, rgba(255,255,255,0) 2.1%), radial-gradient(circle at 20% 22%, rgba(255,255,255,.48) 0 .8%, rgba(255,255,255,0) 2.2%), radial-gradient(circle at 70% 30%, rgba(255,255,255,.05) 0 18%, transparent 19%), radial-gradient(circle at 70% 30%, rgba(255,255,255,.06) 0 26%, transparent 27%), linear-gradient(150deg, #0e2833 0%, #08161c 100%)",
+    text: "#eaf6f3",
+    meta: "#9bbabb",
+    accent: "#ffe2a0",
+    customLayout: "star-chart",
+  },
+  "cumulus": {
+    background: "radial-gradient(ellipse at 20% 18%, rgba(255,255,255,.55) 0 14%, rgba(255,255,255,0) 34%), radial-gradient(ellipse at 78% 28%, rgba(255,255,255,.45) 0 12%, rgba(255,255,255,0) 30%), radial-gradient(ellipse at 50% 88%, rgba(255,255,255,.92) 0 20%, rgba(255,255,255,0) 40%), linear-gradient(180deg, #78b9f0 0%, #d8ebfb 100%)",
+    text: "#1b3f6e",
+    meta: "#5f7fa9",
+    accent: "#7cb6f0",
+    customLayout: "cumulus",
+  },
+  "vellum": {
+    background: "linear-gradient(125deg, rgba(255,255,255,.12) 0 18%, rgba(255,255,255,0) 18% 100%), linear-gradient(130deg, transparent 0 45%, rgba(118,126,134,.16) 45% 46%, transparent 46% 100%), linear-gradient(160deg, rgba(255,255,255,.46) 0 35%, rgba(255,255,255,0) 35% 100%), linear-gradient(135deg, #f3f0eb 0%, #e0e4e7 100%)",
+    text: "#30343a",
+    meta: "#717980",
+    accent: "#8e97a0",
+    customLayout: "vellum",
+  },
+  "kraft": {
+    background: "radial-gradient(rgba(89,59,31,.10) 1px, transparent 1.45px) 0 0/8px 8px, linear-gradient(0deg, rgba(255,255,255,.04) 1px, transparent 1px) 0 0/100% 7px, linear-gradient(135deg, #caa57b 0%, #b88f61 100%)",
+    text: "#2b1c0f",
+    meta: "#6d5138",
+    accent: "#8f6036",
+    customLayout: "kraft",
+  },
+  "citrus-slice": {
+    background: "radial-gradient(circle at 12% 10%, rgba(255,160,42,.70) 0 12%, rgba(255,160,42,0) 13%), radial-gradient(circle at 86% 14%, rgba(120,184,60,.72) 0 11%, rgba(120,184,60,0) 12%), radial-gradient(circle at 88% 86%, rgba(242,112,106,.68) 0 10%, rgba(242,112,106,0) 11%), linear-gradient(145deg, #fff7ec 0%, #fff1de 100%)",
+    text: "#5c2a14",
+    meta: "#a06d57",
+    accent: "#ff9a1f",
+    customLayout: "citrus-slice",
+  },
+  "wabi-sabi-washi": {
+    background: "radial-gradient(circle at 72% 28%, rgba(50,42,34,.13) 0 9%, rgba(50,42,34,.06) 15%, rgba(50,42,34,0) 34%), linear-gradient(90deg, rgba(243,236,222,.94) 0 18%, rgba(243,236,222,0) 18% 100%), radial-gradient(circle at 0 0, rgba(44,42,41,.10) 0 .7px, transparent .9px), radial-gradient(circle at 14px 14px, rgba(44,42,41,.06) 0 .7px, transparent .9px), linear-gradient(145deg, #f4efe6 0%, #eee7da 100%)",
+    text: "#22201f",
+    meta: "#6a635d",
+    accent: "#8e6e4e",
+    customLayout: "wabi-sabi-washi",
+  },
+  "blind-press": {
+    background: "linear-gradient(180deg, rgba(255,255,255,.03), rgba(0,0,0,.03)), radial-gradient(circle at 18% 24%, rgba(255,255,255,.04) 0 10%, rgba(255,255,255,0) 24%), radial-gradient(circle at 86% 78%, rgba(255,255,255,.04) 0 12%, rgba(255,255,255,0) 24%), linear-gradient(145deg, #262826 0%, #171917 100%)",
+    text: "#f0efe5",
+    meta: "rgba(240,239,229,.56)",
+    accent: "#c8c6bc",
+    customLayout: "blind-press",
+  }
+};
+for (const background of READER_SHARE_BACKGROUNDS) {
+  const key = getReaderShareBackgroundKey(background);
+  if (Object.prototype.hasOwnProperty.call(READER_SHARE_REDESIGN_OVERRIDES, key)) {
+    Object.assign(background, READER_SHARE_REDESIGN_OVERRIDES[key]);
+  }
+}
+
+const READER_SHARE_REDESIGN8 = (() => {
+  function rrPath(ctx, x, y, w, h, r) {
+    const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+    ctx.beginPath();
+    ctx.moveTo(x + radius, y);
+    ctx.lineTo(x + w - radius, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + radius);
+    ctx.lineTo(x + w, y + h - radius);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - radius, y + h);
+    ctx.lineTo(x + radius, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - radius);
+    ctx.lineTo(x, y + radius);
+    ctx.quadraticCurveTo(x, y, x + radius, y);
+    ctx.closePath();
+  }
+  function fillRoundRect(ctx, x, y, w, h, r, fillStyle) {
+    ctx.save(); rrPath(ctx, x, y, w, h, r); ctx.fillStyle = fillStyle; ctx.fill(); ctx.restore();
+  }
+  function strokeRoundRect(ctx, x, y, w, h, r, strokeStyle, lineWidth) {
+    ctx.save(); rrPath(ctx, x, y, w, h, r); ctx.strokeStyle = strokeStyle; ctx.lineWidth = lineWidth; ctx.stroke(); ctx.restore();
+  }
+  function makeLines(ctx, text, maxWidth, lineHeight, maxHeight, autoWrap, spacing = 0) {
+    let lines = fitShareLinesToWidth(ctx, text, maxWidth, autoWrap, spacing);
+    const maxLines = Math.max(1, Math.floor(maxHeight / lineHeight));
+    if (lines.length > maxLines) {
+      lines = lines.slice(0, maxLines);
+      const last = lines.length - 1;
+      lines[last] = `${String(lines[last] || '').replace(/[.…\s]+$/u, '')}…`;
+    }
+    return lines;
+  }
+  function drawLines(ctx, lines, x, y, lineHeight, align, spacing = 0) {
+    ctx.textAlign = align || 'left';
+    ctx.textBaseline = 'top';
+    for (const line of lines) {
+      readerShareCustomDrawText(ctx, line, x, y, spacing);
+      y += lineHeight;
+    }
+  }
+  function textInfo(model) {
+    return {
+      quote: String(model.text || ''),
+      title: String(model.item?.title || '제목 정보 없음'),
+      author: String(model.item?.author || ''),
+      brand: String(model.brand || '셩냥책'),
+      quoteFont: model.font?.css || 'Pretendard, sans-serif',
+      quoteWeight: Number(model.fontWeight || model.font?.weight || 500),
+    };
+  }
+  function drawQuotePanel(ctx, model, rect, textColor, options = {}) {
+    const { quote, quoteFont, quoteWeight } = textInfo(model);
+    const spacing = getReaderShareCustomLetterSpacing(model, rect.canvasWidth || 1200);
+    const fontScale = options.fontScale || 1;
+    const lineBase = options.lineHeight || 1.5;
+    const fontSize = (model.sizePx * ((rect.canvasWidth || 1200) / 380)) * fontScale;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, lineBase);
+    ctx.font = `${quoteWeight} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, quote, rect.w, lineHeight, rect.h, model.autoWrap, spacing);
+    const total = lines.length * lineHeight;
+    let y = rect.y + Math.max(0, (rect.h - total) / 2);
+    ctx.fillStyle = textColor;
+    drawLines(ctx, lines, options.align === 'center' ? rect.x + rect.w / 2 : rect.x, y, lineHeight, options.align || 'left', spacing);
+    return { fontSize, lineHeight, lines };
+  }
+  function renderInkEcho(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model);
+    const scale = width / 1200;
+    ctx.fillStyle = '#fbf7ef'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(56, 68, 86, .04)';
+    for (let i = 0; i < 1600; i += 1) ctx.fillRect((i * 47 % 1200) * scale, (i * 67 % 1200) * scale, 1.2 * scale, 1.2 * scale);
+    const wash = ctx.createRadialGradient(width * .78, height * .24, 0, width * .78, height * .24, width * .24);
+    wash.addColorStop(0, 'rgba(42, 63, 94, .17)'); wash.addColorStop(.55, 'rgba(42, 63, 94, .07)'); wash.addColorStop(1, 'rgba(42, 63, 94, 0)');
+    ctx.fillStyle = wash; ctx.fillRect(0, 0, width, height);
+    ctx.strokeStyle = 'rgba(49,74,106,.17)'; ctx.lineCap = 'round';
+    ctx.lineWidth = 18 * scale; ctx.beginPath(); ctx.moveTo(width * .12, height * .72); ctx.bezierCurveTo(width * .26, height * .66, width * .44, height * .84, width * .68, height * .72); ctx.bezierCurveTo(width * .82, height * .64, width * .9, height * .7, width * .96, height * .64); ctx.stroke();
+    ctx.lineWidth = 7 * scale; ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.beginPath(); ctx.moveTo(width * .1, height * .705); ctx.bezierCurveTo(width * .28, height * .64, width * .46, height * .815, width * .7, height * .7); ctx.stroke();
+    const pad = width * .085;
+    ctx.fillStyle = '#233248'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.textAlign = 'left'; ctx.textBaseline = 'top'; ctx.fillText(brand, pad, pad * .78);
+    ctx.fillStyle = '#314a6a'; ctx.fillRect(pad, height * .22, 8 * scale, height * .42);
+    fillRoundRect(ctx, pad + 36 * scale, height * .25, width * .54, height * .33, 28 * scale, 'rgba(255,255,255,.72)');
+    strokeRoundRect(ctx, pad + 36 * scale, height * .25, width * .54, height * .33, 28 * scale, 'rgba(49,74,106,.12)', 2 * scale);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, pad + 74 * scale, height * .30, width * .46, height * .23);
+    quoteRect.canvasWidth = width;
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fontSize = (model.sizePx * (width / 380)) * 1.02;
+    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.6);
+    ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
+    const total = lines.length * lineHeight;
+    let y = quoteRect.y + Math.max(0, (quoteRect.h - total) / 2);
+    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    for (const line of lines) {
+      ctx.fillStyle = 'rgba(49,74,106,.14)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 3 * scale, y + 3 * scale, spacing);
+      ctx.fillStyle = '#233248'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+    }
+    const footerY = height - pad - 86 * scale;
+    ctx.strokeStyle = 'rgba(49,74,106,.18)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.moveTo(pad, footerY - 26 * scale); ctx.lineTo(width - pad, footerY - 26 * scale); ctx.stroke();
+    ctx.fillStyle = '#1f2936'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, pad, footerY);
+    ctx.fillStyle = '#6b7583'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', pad, footerY + 36 * scale);
+  }
+  function renderStarChart(ctx, width, height, model) {
+    const { title, author, brand, quoteFont, quoteWeight } = textInfo(model);
+    const scale = width / 1200;
+    ctx.fillStyle = '#08161c'; ctx.fillRect(0,0,width,height);
+    const glow = ctx.createRadialGradient(width * .72, height * .28, 0, width * .72, height * .28, width * .42);
+    glow.addColorStop(0,'rgba(22,72,82,.55)'); glow.addColorStop(.52,'rgba(17,56,66,.22)'); glow.addColorStop(1,'rgba(8,22,28,0)');
+    ctx.fillStyle = glow; ctx.fillRect(0,0,width,height);
+    ctx.strokeStyle = 'rgba(223,243,241,.09)'; ctx.lineWidth = 1 * scale;
+    for (let x = 0; x <= width; x += 60 * scale) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke(); }
+    for (let y = 0; y <= height; y += 60 * scale) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke(); }
+    const cx = width * .72, cy = height * .3, r = width * .22;
+    for (const rr of [r, r * .7, r * .42]) { ctx.strokeStyle = 'rgba(255,255,255,.18)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.arc(cx, cy, rr, 0, Math.PI * 2); ctx.stroke(); }
+    for (let i = 0; i < 12; i += 1) { const a = (Math.PI * 2 / 12) * i; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + Math.cos(a) * r, cy + Math.sin(a) * r); ctx.stroke(); }
+    const pts = [[-.64,-.28],[.08,-.5],[.34,-.18],[.55,.1],[.2,.42],[-.22,.2],[-.48,.48]].map(([x,y])=>[cx + x*r, cy + y*r]);
+    ctx.strokeStyle = 'rgba(255,226,160,.56)'; ctx.lineWidth = 2.1 * scale; ctx.beginPath(); pts.forEach(([x,y],i)=>i?ctx.lineTo(x,y):ctx.moveTo(x,y)); ctx.stroke();
+    for (const [x,y] of pts) { ctx.fillStyle = '#fff4ca'; ctx.beginPath(); ctx.arc(x,y,4.6 * scale,0,Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = 'rgba(234,246,243,.72)'; ctx.font = `700 ${24 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, width * .085, height * .085);
+    fillRoundRect(ctx, width * .08, height * .23, width * .45, height * .41, 28 * scale, 'rgba(248,252,251,.9)');
+    strokeRoundRect(ctx, width * .08, height * .23, width * .45, height * .41, 28 * scale, 'rgba(19,50,59,.12)', 2 * scale);
+    ctx.fillStyle = '#0f2f38'; ctx.font = `600 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText('CONSTELLATION NOTE', width * .11, height * .27);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .11, height * .32, width * .39, height * .24); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#0f2f38', { fontScale: 1.02, lineHeight: 1.58 });
+    const footerY = height - height * .13;
+    ctx.strokeStyle = 'rgba(255,255,255,.12)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .08, footerY - 30 * scale); ctx.lineTo(width * .92, footerY - 30 * scale); ctx.stroke();
+    ctx.fillStyle = '#eaf6f3'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .08, footerY);
+    ctx.fillStyle = '#9bbabb'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .08, footerY + 36 * scale);
+  }
+  function drawCloud(ctx, x, y, w, h, color) {
+    ctx.save(); ctx.translate(x, y); ctx.fillStyle = color; ctx.beginPath(); ctx.ellipse(w * .28, h * .56, w * .22, h * .2, 0, 0, Math.PI * 2); ctx.ellipse(w * .47, h * .4, w * .24, h * .25, 0, 0, Math.PI * 2); ctx.ellipse(w * .68, h * .56, w * .22, h * .18, 0, 0, Math.PI * 2); ctx.fillRect(w * .18, h * .56, w * .56, h * .18); ctx.fill(); ctx.restore();
+  }
+  function renderCumulus(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model);
+    const scale = width / 1200;
+    const sky = ctx.createLinearGradient(0, 0, 0, height); sky.addColorStop(0, '#78b9f0'); sky.addColorStop(1, '#d8ebfb'); ctx.fillStyle = sky; ctx.fillRect(0,0,width,height);
+    drawCloud(ctx, width * .06, height * .1, width * .28, height * .12, 'rgba(255,255,255,.55)');
+    drawCloud(ctx, width * .62, height * .14, width * .26, height * .11, 'rgba(255,255,255,.52)');
+    drawCloud(ctx, width * .02, height * .8, width * .34, height * .16, 'rgba(255,255,255,.9)');
+    drawCloud(ctx, width * .64, height * .76, width * .34, height * .18, 'rgba(255,255,255,.88)');
+    const cardX = width * .15, cardY = height * .2, cardW = width * .7, cardH = height * .54;
+    ctx.save(); ctx.translate(cardX + cardW / 2, cardY + cardH / 2); ctx.rotate(-0.035); fillRoundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 28 * scale, 'rgba(255,255,255,.94)'); strokeRoundRect(ctx, -cardW / 2, -cardH / 2, cardW, cardH, 28 * scale, 'rgba(74,120,173,.18)', 2 * scale); ctx.restore();
+    ctx.fillStyle = '#79aee2'; ctx.fillRect(cardX + 28 * scale, cardY + 28 * scale, cardW - 56 * scale, 10 * scale);
+    ctx.fillStyle = '#1b3f6e'; ctx.font = `700 ${22 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'left'; ctx.fillText(brand, cardX + 36 * scale, cardY + 48 * scale);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, cardX + 76 * scale, cardY + 120 * scale, cardW - 152 * scale, cardH - 240 * scale); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#1b3f6e', { align: 'center', fontScale: 1.05, lineHeight: 1.56 });
+    const footerY = cardY + cardH - 112 * scale;
+    ctx.strokeStyle = 'rgba(27,63,110,.14)'; ctx.lineWidth = 1.4 * scale; ctx.beginPath(); ctx.moveTo(cardX + 36 * scale, footerY - 26 * scale); ctx.lineTo(cardX + cardW - 36 * scale, footerY - 26 * scale); ctx.stroke();
+    ctx.fillStyle = '#1b3f6e'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, cardX + 36 * scale, footerY);
+    ctx.fillStyle = '#5f7fa9'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', cardX + 36 * scale, footerY + 36 * scale);
+  }
+  function renderVellum(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    const bg = ctx.createLinearGradient(0, 0, width, height); bg.addColorStop(0, '#f3f0eb'); bg.addColorStop(1, '#e0e4e7'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
+    const sheets = [
+      [width * .15, height * .16, width * .56, height * .46, -0.05, 'rgba(255,255,255,.34)'],
+      [width * .28, height * .12, width * .47, height * .52, 0.09, 'rgba(255,255,255,.3)'],
+      [width * .2, height * .24, width * .58, height * .48, 0.02, 'rgba(255,255,255,.58)'],
+    ];
+    for (const [x, y, w, h, rot, fill] of sheets) { ctx.save(); ctx.translate(x + w / 2, y + h / 2); ctx.rotate(rot); fillRoundRect(ctx, -w / 2, -h / 2, w, h, 20 * scale, fill); strokeRoundRect(ctx, -w / 2, -h / 2, w, h, 20 * scale, 'rgba(120,130,140,.18)', 1.5 * scale); ctx.restore(); }
+    ctx.fillStyle = '#6c7177'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .11, height * .1);
+    ctx.fillStyle = 'rgba(118,126,134,.22)'; ctx.beginPath(); ctx.moveTo(width * .68, 0); ctx.lineTo(width, 0); ctx.lineTo(width, height * .3); ctx.closePath(); ctx.fill();
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .25, height * .31, width * .42, height * .23); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#30343a', { fontScale: 1.02, lineHeight: 1.58 });
+    fillRoundRect(ctx, width * .09, height * .76, width * .82, height * .11, 18 * scale, 'rgba(255,255,255,.74)');
+    ctx.strokeStyle = 'rgba(118,126,134,.18)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .12, height * .81); ctx.lineTo(width * .88, height * .81); ctx.stroke();
+    ctx.fillStyle = '#30343a'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .13, height * .82);
+    ctx.fillStyle = '#717980'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .13, height * .855);
+  }
+  function renderKraft(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    ctx.fillStyle = '#caa57b'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(89,59,31,.10)'; for (let i = 0; i < 3400; i += 1) ctx.fillRect((i * 31 % 1200) * scale, (i * 53 % 1800) * scale, 1.2 * scale, 1.2 * scale);
+    fillRoundRect(ctx, width * .13, height * .18, width * .74, height * .52, 24 * scale, '#f5efdf');
+    strokeRoundRect(ctx, width * .13, height * .18, width * .74, height * .52, 24 * scale, 'rgba(43,29,16,.18)', 2.2 * scale);
+    ctx.strokeStyle = 'rgba(111,81,56,.24)'; ctx.lineWidth = 2 * scale; ctx.beginPath(); ctx.moveTo(width * .24, height * .17); ctx.quadraticCurveTo(width * .25, height * .09, width * .34, height * .11); ctx.stroke();
+    ctx.fillStyle = '#caa57b'; ctx.beginPath(); ctx.arc(width * .24, height * .17, 16 * scale, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = '#8f6036'; ctx.lineWidth = 3 * scale; ctx.stroke();
+    ctx.fillStyle = '#2b1c0f'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .68, height * .125);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .19, height * .28, width * .62, height * .29); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#2b1c0f', { fontScale: 1.03, lineHeight: 1.58 });
+    fillRoundRect(ctx, width * .13, height * .76, width * .74, height * .11, 16 * scale, 'rgba(247,240,226,.55)');
+    ctx.strokeStyle = 'rgba(43,29,16,.15)'; ctx.beginPath(); ctx.moveTo(width * .17, height * .81); ctx.lineTo(width * .83, height * .81); ctx.stroke();
+    ctx.fillStyle = '#2b1c0f'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .18, height * .82);
+    ctx.fillStyle = '#6d5138'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .18, height * .855);
+  }
+  function drawCitrusSlice(ctx, cx, cy, r, rind, flesh, pith, segments) {
+    ctx.save(); ctx.translate(cx, cy); ctx.fillStyle = rind; ctx.beginPath(); ctx.arc(0,0,r,0,Math.PI*2); ctx.fill(); ctx.fillStyle = pith; ctx.beginPath(); ctx.arc(0,0,r * .84,0,Math.PI*2); ctx.fill(); ctx.strokeStyle = flesh; ctx.lineWidth = r * .18; ctx.beginPath(); ctx.arc(0,0,r * .57,0,Math.PI*2); ctx.stroke(); ctx.lineWidth = r * .04; for(let i=0;i<segments;i++){const a = Math.PI * 2 * i / segments; ctx.beginPath(); ctx.moveTo(0,0); ctx.lineTo(Math.cos(a)*r*.72, Math.sin(a)*r*.72); ctx.stroke(); } ctx.restore();
+  }
+  function renderCitrus(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    ctx.fillStyle = '#fff6ea'; ctx.fillRect(0,0,width,height);
+    drawCitrusSlice(ctx, width * .11, height * .12, width * .13, '#ff9a1f', '#ffb347', '#fff1d6', 9);
+    drawCitrusSlice(ctx, width * .87, height * .14, width * .12, '#78b83c', '#c5e86a', '#f3ffd8', 8);
+    drawCitrusSlice(ctx, width * .9, height * .86, width * .11, '#f2706a', '#ff9a8f', '#ffe9e3', 10);
+    const posterX = width * .15, posterY = height * .18, posterW = width * .68, posterH = height * .58;
+    fillRoundRect(ctx, posterX, posterY, posterW, posterH, 32 * scale, 'rgba(255,255,255,.76)');
+    strokeRoundRect(ctx, posterX, posterY, posterW, posterH, 32 * scale, 'rgba(92,42,20,.10)', 2 * scale);
+    ctx.fillStyle = '#ff9a1f'; ctx.fillRect(posterX + 36 * scale, posterY + 40 * scale, 90 * scale, 10 * scale);
+    ctx.fillStyle = '#5c2a14'; ctx.font = `700 ${20 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, posterX + 36 * scale, posterY + 70 * scale);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, posterX + 62 * scale, posterY + 130 * scale, posterW - 124 * scale, posterH - 250 * scale); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#5c2a14', { align: 'center', fontScale: 1.06, lineHeight: 1.54 });
+    fillRoundRect(ctx, posterX + 36 * scale, posterY + posterH - 116 * scale, posterW - 72 * scale, 78 * scale, 18 * scale, 'rgba(255,243,214,.9)');
+    ctx.fillStyle = '#5c2a14'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, posterX + 56 * scale, posterY + posterH - 84 * scale);
+    ctx.fillStyle = '#a06d57'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', posterX + 56 * scale, posterY + posterH - 48 * scale);
+  }
+  function renderWabi(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    ctx.fillStyle = '#f4efe6'; ctx.fillRect(0, 0, width, height);
+    ctx.fillStyle = 'rgba(60, 50, 40, 0.016)'; for (let i = 0; i < 3000; i += 1) ctx.fillRect((i * 37 % 1200) * scale, (i * 83 % 1800) * scale, (i % 4 + 1) * .5 * scale, (i % 3 + 1) * .5 * scale);
+    ctx.fillStyle = '#efe5d3'; ctx.fillRect(width * .08, 0, width * .16, height);
+    const wash = ctx.createRadialGradient(width * .73, height * .28, 12 * scale, width * .73, height * .28, width * .24);
+    wash.addColorStop(0, 'rgba(42,34,28,.18)'); wash.addColorStop(.5, 'rgba(42,34,28,.07)'); wash.addColorStop(1, 'rgba(42,34,28,0)'); ctx.fillStyle = wash; ctx.fillRect(0,0,width,height);
+    ctx.strokeStyle = 'rgba(80,60,45,.08)'; ctx.lineWidth = 1 * scale; for (let i = 0; i < 80; i += 1) { const sx = (i * 83 % 1200) * scale; const sy = (i * 109 % 1800) * scale; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.quadraticCurveTo(sx + 24 * scale, sy + 6 * scale, sx + 54 * scale, sy - 8 * scale); ctx.stroke(); }
+    ctx.fillStyle = '#2c2a29'; ctx.font = `700 ${24 * scale}px ${quoteFont}`; ctx.fillText(brand, width * .74, height * .09);
+    fillRoundRect(ctx, width * .19, height * .3, width * .56, height * .28, 20 * scale, 'rgba(250,246,238,.82)');
+    ctx.fillStyle = 'rgba(166,138,108,.48)'; ctx.fillRect(width * .19, height * .3, 10 * scale, height * .28);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .25, height * .34, width * .44, height * .2); quoteRect.canvasWidth = width;
+    drawQuotePanel(ctx, model, quoteRect, '#22201f', { fontScale: 1.03, lineHeight: 1.66 });
+    ctx.strokeStyle = 'rgba(60,50,40,.18)'; ctx.lineWidth = 1.5 * scale; ctx.beginPath(); ctx.moveTo(width * .18, height * .77); ctx.lineTo(width * .82, height * .77); ctx.stroke();
+    ctx.fillStyle = '#1a1817'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .18, height * .80);
+    ctx.fillStyle = '#59534e'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .18, height * .836);
+  }
+  function renderBlindPress(ctx, width, height, model) {
+    const { title, author, brand, quoteFont } = textInfo(model); const scale = width / 1200;
+    const bg = ctx.createLinearGradient(0,0,0,height); bg.addColorStop(0, '#262826'); bg.addColorStop(1, '#171917'); ctx.fillStyle = bg; ctx.fillRect(0,0,width,height);
+    ctx.fillStyle = 'rgba(255,255,255,.018)'; for (let i = 0; i < 2400; i += 1) ctx.fillRect((i * 29 % 1200) * scale, (i * 43 % 1800) * scale, 1 * scale, 1 * scale);
+    ctx.fillStyle = 'rgba(255,255,255,.04)'; ctx.font = `800 ${420 * scale}px Georgia, serif`; ctx.fillText('a', -80 * scale, 330 * scale); ctx.fillText('&', width - 330 * scale, height + 22 * scale);
+    fillRoundRect(ctx, width * .12, height * .2, width * .76, height * .48, 34 * scale, 'rgba(21,23,20,.7)');
+    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.lineWidth = 2 * scale; rrPath(ctx, width * .12, height * .2, width * .76, height * .48, 34 * scale); ctx.stroke();
+    ctx.strokeStyle = 'rgba(0,0,0,.45)'; ctx.lineWidth = 8 * scale; rrPath(ctx, width * .125, height * .205, width * .75, height * .47, 32 * scale); ctx.stroke();
+    ctx.fillStyle = 'rgba(240,239,229,.56)'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .16, height * .16);
+    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .2, height * .31, width * .6, height * .21); quoteRect.canvasWidth = width;
+    const spacing = getReaderShareCustomLetterSpacing(model, width);
+    const fontSize = (model.sizePx * (width / 380)) * 1.05; const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
+    ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
+    const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
+    let y = quoteRect.y + Math.max(0, (quoteRect.h - lines.length * lineHeight) / 2);
+    for (const line of lines) {
+      ctx.fillStyle = 'rgba(0,0,0,.55)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 1.5 * scale, y + 2 * scale, spacing);
+      ctx.fillStyle = 'rgba(255,255,255,.12)'; readerShareCustomDrawText(ctx, line, quoteRect.x - 1 * scale, y - 1 * scale, spacing);
+      ctx.fillStyle = '#f0efe5'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
+    }
+    fillRoundRect(ctx, width * .16, height * .75, width * .68, height * .1, 18 * scale, 'rgba(255,255,255,.04)');
+    ctx.strokeStyle = 'rgba(255,255,255,.08)'; ctx.beginPath(); ctx.moveTo(width * .2, height * .79); ctx.lineTo(width * .8, height * .79); ctx.stroke();
+    ctx.fillStyle = '#f0efe5'; ctx.font = `700 ${30 * scale}px ${quoteFont}`; ctx.fillText(title, width * .2, height * .81);
+    ctx.fillStyle = 'rgba(240,239,229,.56)'; ctx.font = `500 ${22 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .2, height * .846);
+  }
+  const renderers = {
+    'ink-echo': renderInkEcho,
+    'star-chart': renderStarChart,
+    'cumulus': renderCumulus,
+    'vellum': renderVellum,
+    'kraft': renderKraft,
+    'citrus-slice': renderCitrus,
+    'wabi-sabi-washi': renderWabi,
+    'blind-press': renderBlindPress,
+  };
+  return { renderers };
+})();
+
 const READER_SHARE_DEFAULT_BOLD_KEYS = new Set([
   "bauhaus-constructivism", "holographic-vaporwave", "botanical-press", "neon-matrix-terminal",
 ]);
@@ -16385,6 +16710,7 @@ async function renderReaderShareCanvas() {
     ...READER_SHARE_GEMINI_OS70_72.renderers,
     ...READER_SHARE_PIXEL_FOLDER_A.renderers,
     ...READER_SHARE_REFERENCE_SET5.renderers,
+    ...READER_SHARE_REDESIGN8.renderers,
   };
   const customRenderer = customRenderers[getReaderShareBackgroundKey(model.background)];
   if (typeof customRenderer === "function") {
