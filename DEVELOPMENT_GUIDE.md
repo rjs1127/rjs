@@ -1,3 +1,10 @@
+## v10.40 Canvas 프리셋 썸네일 및 키치 그리드 문장 패널
+
+- `READER_SHARE_REFERENCE_SET5.renderers`의 신규 5종은 기존 `renderReaderShareCanvas()`에서 최종 PNG를 생성한다. 사용자 프리셋 선택 목록과 전체보기 갤러리도 단순 CSS 그라데이션 대신 **동일 전용 렌더러를 소형 Canvas에 재사용**하여 색/장식/본문/메타가 예시로 보이게 한다.
+- `getReaderShareCssBackground()`에서 5종만 `getReaderShareReferenceCanvasThumbnail()`을 사용한다. 키/비율별 `Map` 캐시 및 `IntersectionObserver` 지연 생성을 유지하고, 갤러리 카드의 별도 예시 문자와 이중 겹침이 생기지 않도록 5종에서는 CSS 예시 텍스트를 추가하지 않는다. 사용자 공유 PNG가 이 작은 썸네일로 대체되는 일이 없도록 한다.
+- `kitsch-grid-memo`는 실제 메모지 패널의 크기와 quoteBox 안전 공간을 함께 넓히고 장식을 바깥쪽으로 옮겼다. 다른 4종의 Canvas 외형 및 기존 quote/shared APIs는 변경하지 않는다.
+- `public/index.html`의 `/app.js?v=1040`과 `public/version.json` `10.40`을 일치시키고, HISTORY 자동 커밋 이력 구조는 유지한다.
+
 ## v10.39 이어보기 위치 보호
 
 - `resumeScrollReaderFromSaved()`는 스크롤 높이가 준비되지 않았을 때 저장된 `scrollTop`을 0에 클램프한 결과를 성공으로 판정하지 않는다. 의미 있는 저장 위치가 있는 경우 0px 이동에 성공 판정을 내리지 않고 배너를 다시 표시한다.

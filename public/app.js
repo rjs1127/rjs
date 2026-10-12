@@ -12090,7 +12090,11 @@ const READER_SHARE_PIXEL_FOLDER_A = (() => {
 // Reuses the PNG renderer's backgroundOnly path (never duplicates the illustration).
 const readerSharePixelFolderCssCache = new Map();
 function getReaderShareCssBackground(background, ratio = "1:1") {
-  if (getReaderShareBackgroundKey(background) !== "pastel-pixel-folder-ui")
+  const backgroundKey = getReaderShareBackgroundKey(background);
+  if (READER_SHARE_REFERENCE_SET5.renderers[backgroundKey]) {
+    return getReaderShareReferenceCanvasThumbnail(background, ratio);
+  }
+  if (backgroundKey !== "pastel-pixel-folder-ui")
     return String(background?.background || "");
   const safeRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
   if (readerSharePixelFolderCssCache.has(safeRatio)) return readerSharePixelFolderCssCache.get(safeRatio);
@@ -12444,20 +12448,21 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     ctx.fillStyle = '#f3d89e'; ctx.beginPath(); ctx.moveTo(0,height*.92); ctx.lineTo(width*.3,height*.86); ctx.lineTo(width*.34,height); ctx.lineTo(0,height); ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#8cb29b'; ctx.beginPath(); ctx.moveTo(width*.58,height); ctx.quadraticCurveTo(width*.8,height*.88,width,height*.9); ctx.lineTo(width,height); ctx.closePath(); ctx.fill();
     ctx.save(); ctx.rotate(-0.18); fillRR(ctx, width*.05, height*.12, width*.18, 28*scale, 12*scale, '#eecbc9'); ctx.restore();
-    fillRR(ctx, width * .16, height * .18, width * .68, height * .58, 36 * scale, 'rgba(251,247,241,.96)');
-    strokeRR(ctx, width * .16, height * .18, width * .68, height * .58, 36 * scale, 'rgba(202,187,171,.55)', 3 * scale);
-    drawStickerStar(ctx, width * .14, height * .16, 22 * scale, '#ffe9a8', '#5e6274');
-    drawStickerStar(ctx, width * .82, height * .63, 22 * scale, '#ffe9a8', '#5e6274');
+    // Enlarge the physical memo paper, not just quoteBox coordinates.
+    fillRR(ctx, width * .07, height * .12, width * .86, height * .76, 36 * scale, 'rgba(251,247,241,.96)');
+    strokeRR(ctx, width * .07, height * .12, width * .86, height * .76, 36 * scale, 'rgba(202,187,171,.55)', 3 * scale);
+    drawStickerStar(ctx, width * .09, height * .13, 20 * scale, '#ffe9a8', '#5e6274');
+    drawStickerStar(ctx, width * .91, height * .85, 20 * scale, '#ffe9a8', '#5e6274');
     ['#f7f2f0','#f6ecee','#fcf7f2','#f8eef2'].forEach((color, i) => {
-      const cx = [width*.25,width*.71,width*.22,width*.68][i], cy=[height*.58,height*.3,height*.78,height*.88][i];
+      const cx = [width*.13,width*.87,width*.14,width*.85][i], cy=[height*.79,height*.21,height*.85,height*.83][i];
       fillRR(ctx, cx - 18*scale, cy - 14*scale, 36*scale, 28*scale, 14*scale, color);
       ctx.fillStyle = '#d4b7bf'; ctx.beginPath(); ctx.arc(cx - 6*scale, cy - 4*scale, 2.6*scale, 0, Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.arc(cx + 6*scale, cy - 4*scale, 2.6*scale, 0, Math.PI*2); ctx.fill(); ctx.strokeStyle = '#d4b7bf'; ctx.lineWidth = 1.6*scale; ctx.beginPath(); ctx.arc(cx, cy + 2*scale, 5*scale, .2, Math.PI - .2); ctx.stroke();
     });
-    fillRR(ctx, width * .22, height * .22, width * .28, 40 * scale, 20 * scale, '#fff8da');
-    ctx.fillStyle = '#5e6274'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(brand, width * .36, height * .242);
-    fillRR(ctx, width * .56, height * .22, width * .22, 36 * scale, 18 * scale, '#f6d6d7');
-    ctx.fillStyle = '#7a6f65'; ctx.font = `600 ${15 * scale}px Pretendard, sans-serif`; ctx.fillText('memo page', width * .67, height * .24);
-    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .19, height * .275, width * .62, height * .39);
+    fillRR(ctx, width * .14, height * .16, width * .3, 40 * scale, 20 * scale, '#fff8da');
+    ctx.fillStyle = '#5e6274'; ctx.font = `700 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(brand, width * .29, height * .182);
+    fillRR(ctx, width * .65, height * .16, width * .2, 36 * scale, 18 * scale, '#f6d6d7');
+    ctx.fillStyle = '#7a6f65'; ctx.font = `600 ${15 * scale}px Pretendard, sans-serif`; ctx.fillText('memo page', width * .75, height * .18);
+    const quoteBox = getReaderShareCustomQuoteBox(model, width, height, width * .13, height * .245, width * .74, height * .5);
     const spacing = getReaderShareCustomLetterSpacing(model, width); const family = model.font?.css || 'Pretendard, sans-serif'; const weight = Number(model.fontWeight || model.font?.weight || 600);
     const fit = fitQuote(ctx, quote, quoteBox.w, quoteBox.h, 50 * scale, 24 * scale, family, weight, spacing, getReaderShareCustomLineHeight(model, 1.5), model.autoWrap);
     const startY = quoteBox.y + Math.max(0, (quoteBox.h - fit.lines.length * fit.lineHeight) / 2);
@@ -12465,10 +12470,10 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
     drawCenteredText(ctx, fit.lines, width / 2, startY, fit.lineHeight, spacing, (line, x, y, sp) => {
       ctx.save(); ctx.fillStyle = '#60554b'; readerShareCustomDrawText(ctx, line, x + 1.4 * scale, y + 1.8 * scale, sp); ctx.fillStyle = '#fff7ef'; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.fillStyle = '#60554b'; readerShareCustomDrawText(ctx, line, x, y, sp); ctx.restore();
     });
-    fillRR(ctx, width * .23, height * .68, width * .54, 54 * scale, 27 * scale, '#fff8f5');
-    strokeRR(ctx, width * .23, height * .68, width * .54, 54 * scale, 27 * scale, 'rgba(202,187,171,.55)', 2.5 * scale);
+    fillRR(ctx, width * .16, height * .785, width * .68, 54 * scale, 27 * scale, '#fff8f5');
+    strokeRR(ctx, width * .16, height * .785, width * .68, 54 * scale, 27 * scale, 'rgba(202,187,171,.55)', 2.5 * scale);
     ctx.fillStyle = '#7d6c62'; ctx.font = `600 ${18 * scale}px Pretendard, sans-serif`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .48, 'Pretendard, sans-serif', 600, 18 * scale), width / 2, height * .705);
+    ctx.fillText(fitSingleLine(ctx, `${author} · ${title}`, width * .6, 'Pretendard, sans-serif', 600, 18 * scale), width / 2, height * .807);
   }
 
   const renderers = {
@@ -12480,6 +12485,43 @@ const READER_SHARE_REFERENCE_SET5 = (() => {
   };
   return { presets, renderers };
 })();
+
+// v10.40: The five illustrated presets must be recognizable before selection.
+// Their gallery/strip thumbnails are tiny renders of the SAME Canvas functions
+// used for final PNG export. Generate only visible cards and cache by key+ratio.
+const readerShareReferenceThumbnailCache = new Map();
+function isReaderShareReferencePreset(background) {
+  return Boolean(READER_SHARE_REFERENCE_SET5.renderers[getReaderShareBackgroundKey(background)]);
+}
+function getReaderShareReferenceCanvasThumbnail(background, ratio = "1:1") {
+  const key = getReaderShareBackgroundKey(background);
+  const safeRatio = ["1:1", "4:5", "2:3"].includes(ratio) ? ratio : "1:1";
+  const cacheKey = `${key}:${safeRatio}`;
+  if (readerShareReferenceThumbnailCache.has(cacheKey)) return readerShareReferenceThumbnailCache.get(cacheKey);
+  try {
+    const renderer = READER_SHARE_REFERENCE_SET5.renderers[key];
+    if (typeof renderer !== "function") return String(background?.background || "");
+    const canvas = document.createElement("canvas");
+    canvas.width = 300;
+    canvas.height = safeRatio === "2:3" ? 450 : safeRatio === "4:5" ? 375 : 300;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return String(background?.background || "");
+    renderer(ctx, canvas.width, canvas.height, {
+      text: "마음에 남은 문장",
+      brand: "셩냥책",
+      item: { title: "문장의 순간", author: "셩냥책" },
+      font: { css: "Pretendard, sans-serif", weight: 500 },
+      fontWeight: 500, sizePx: 20, autoWrap: true,
+      paddingX: 0, paddingY: 0, lineHeightMult: 1.42, letterSpacingPx: 0,
+    });
+    const css = `url("${canvas.toDataURL("image/png")}") center/100% 100% no-repeat`;
+    readerShareReferenceThumbnailCache.set(cacheKey, css);
+    return css;
+  } catch (error) {
+    console.warn("문장 프리셋 Canvas 썸네일 생성 실패", key, error);
+    return String(background?.background || "");
+  }
+}
 
 const READER_SHARE_BACKGROUNDS = [
   {
@@ -13248,13 +13290,16 @@ function renderReaderShareBackgroundThumbs(thumbs) {
     button.dataset.themeName = String(background.name || "");
     button.setAttribute("aria-label", `${background.name} 테마`);
     button.style.setProperty("--thumb-label", String(background.text || "#fff"));
-    const cssBackground = getReaderShareCssBackground(background);
-    if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
-      // Keep the correct base color until the nearby SVG thumbnail is painted.
-      button.style.backgroundColor = "#f4f1eb";
-      delayed.push([button, cssBackground]);
+    if (isReaderShareReferencePreset(background) && typeof IntersectionObserver === "function") {
+      button.style.background = String(background.background || "#f4f1eb");
+      delayed.push([button, () => getReaderShareCssBackground(background)]);
     } else {
-      button.style.background = cssBackground;
+      const cssBackground = getReaderShareCssBackground(background);
+      if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+        // Keep the correct base color until the nearby SVG thumbnail is painted.
+        button.style.backgroundColor = "#f4f1eb";
+        delayed.push([button, cssBackground]);
+      } else button.style.background = cssBackground;
     }
     fragment.appendChild(button);
   }
@@ -13266,8 +13311,8 @@ function renderReaderShareBackgroundThumbs(thumbs) {
   readerShareThumbObserver = new IntersectionObserver((entries, observer) => {
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
-      const cssBackground = backgrounds.get(entry.target);
-      if (cssBackground) entry.target.style.background = cssBackground;
+      const pendingBackground = backgrounds.get(entry.target);
+      if (pendingBackground) entry.target.style.background = typeof pendingBackground === "function" ? pendingBackground() : pendingBackground;
       backgrounds.delete(entry.target);
       observer.unobserve(entry.target);
     }
@@ -13839,16 +13884,24 @@ function ensureReaderShareUi() {
       choose.setAttribute("aria-pressed", index === state.readerShareBackground ? "true" : "false");
       const swatch = document.createElement("span");
       swatch.className = "reader-share-gallery-swatch";
-      const cssBackground = getReaderShareCssBackground(background);
-      if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
-        swatch.style.backgroundColor = "#f4f1eb";
-        delayed.push([swatch, cssBackground]);
-      } else swatch.style.background = cssBackground;
-      const sample = document.createElement("span");
-      sample.className = "reader-share-gallery-sample";
-      sample.style.color = String(background.text || "#fff");
-      sample.textContent = "마음에 남은 문장";
-      swatch.appendChild(sample);
+      const isCanvasThumbnail = isReaderShareReferencePreset(background);
+      if (isCanvasThumbnail && typeof IntersectionObserver === "function") {
+        swatch.style.background = String(background.background || "#f4f1eb");
+        delayed.push([swatch, () => getReaderShareCssBackground(background, "4:5")]);
+      } else {
+        const cssBackground = getReaderShareCssBackground(background, isCanvasThumbnail ? "4:5" : "1:1");
+        if (cssBackground.includes("data:image/svg+xml") && typeof IntersectionObserver === "function") {
+          swatch.style.backgroundColor = "#f4f1eb";
+          delayed.push([swatch, cssBackground]);
+        } else swatch.style.background = cssBackground;
+      }
+      if (!isCanvasThumbnail) {
+        const sample = document.createElement("span");
+        sample.className = "reader-share-gallery-sample";
+        sample.style.color = String(background.text || "#fff");
+        sample.textContent = "마음에 남은 문장";
+        swatch.appendChild(sample);
+      }
       const name = document.createElement("span");
       name.className = "reader-share-gallery-name";
       name.textContent = String(background.name || "배경");
@@ -13877,8 +13930,8 @@ function ensureReaderShareUi() {
       galleryObserver = new IntersectionObserver((observed, observer) => {
         for (const entry of observed) {
           if (!entry.isIntersecting) continue;
-          const background = backgrounds.get(entry.target);
-          if (background) entry.target.style.background = background;
+          const pendingBackground = backgrounds.get(entry.target);
+          if (pendingBackground) entry.target.style.background = typeof pendingBackground === "function" ? pendingBackground() : pendingBackground;
           backgrounds.delete(entry.target);
           observer.unobserve(entry.target);
         }
