@@ -1179,6 +1179,9 @@ const els = {
   emptyState: document.getElementById("emptyState"),
   resultCount: document.getElementById("resultCount"),
   recentPostypeGuideNote: document.getElementById("recentPostypeGuideNote"),
+  workCatalogButton: document.getElementById("workCatalogButton"),
+  workCatalogPage: document.getElementById("workCatalogPage"),
+  workCatalogBackButton: document.getElementById("workCatalogBackButton"),
   quoteFeedButton: document.getElementById("quoteFeedButton"),
   quoteFeedPage: document.getElementById("quoteFeedPage"),
   quoteFeedBackButton: document.getElementById("quoteFeedBackButton"),
@@ -2842,6 +2845,55 @@ function changeQuoteFeedSort(sort) {
   loadQuoteFeed();
 }
 
+// v10.49: 작품 도감은 별도 데이터 API 없이 안내 화면만 제공한다.
+let workCatalogOpen = false;
+function updateMobileBottomNav() {
+  const active = workCatalogOpen ? "catalog" : state.quoteFeedOpen ? "feed" : state.profileOpen ? "profile" : "home";
+  document.querySelectorAll("[data-mobile-nav]").forEach((button) => {
+    const selected = button.dataset.mobileNav === active;
+    button.classList.toggle("is-active", selected);
+    if (selected) button.setAttribute("aria-current", "page");
+    else button.removeAttribute("aria-current");
+  });
+}
+function showWorkCatalogPage() {
+  if (workCatalogOpen) return;
+  if (!state.quoteFeedOpen && !state.profileOpen) state.contentPageReturnScrollY = Math.max(0, window.scrollY || 0);
+  if (state.quoteFeedOpen) hideQuoteFeedPage({ clearHistoryMarker: true });
+  if (state.profileOpen) hideProfilePage({ clearHistoryMarker: true });
+  if (!history.state?.rjsWorkCatalogPage) history.pushState({ ...(history.state || {}), rjsWorkCatalogPage: true }, "", location.href);
+  workCatalogOpen = true;
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) if (el) el.hidden = true;
+  if (els.workCatalogPage) els.workCatalogPage.hidden = false;
+  updateMobileBottomNav();
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+function hideWorkCatalogPage({ fromHistory = false } = {}) {
+  if (!workCatalogOpen) return;
+  workCatalogOpen = false;
+  if (els.workCatalogPage) els.workCatalogPage.hidden = true;
+  for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) if (el) el.hidden = false;
+  if (!fromHistory && history.state?.rjsWorkCatalogPage) {
+    const next = { ...(history.state || {}) }; delete next.rjsWorkCatalogPage;
+    history.replaceState(next, "", location.href);
+  }
+  updateMobileBottomNav();
+}
+function navigateMobileBottomNav(destination) {
+  if (destination === "profile" && !state.user) {
+    openAuthModal("login", "마이페이지를 보려면 로그인해 주세요.");
+    return;
+  }
+  if (destination === "catalog") { showWorkCatalogPage(); return; }
+  if (workCatalogOpen) hideWorkCatalogPage();
+  if (destination === "feed") { if (!state.quoteFeedOpen) showQuoteFeedPage(); return; }
+  if (destination === "profile") { if (!state.profileOpen) showProfilePage("bookmarks"); return; }
+  if (state.quoteFeedOpen) hideQuoteFeedPage({ clearHistoryMarker: true });
+  if (state.profileOpen) hideProfilePage({ clearHistoryMarker: true });
+  updateMobileBottomNav();
+  restoreContentPageScroll();
+}
+
 function getHistoryStateWithoutQuoteFeed() {
   const next = { ...(history.state || {}) };
   delete next.rjsQuoteFeedPage;
@@ -2849,6 +2901,7 @@ function getHistoryStateWithoutQuoteFeed() {
 }
 
 function showQuoteFeedPage() {
+  if (workCatalogOpen) hideWorkCatalogPage();
   if (!state.quoteFeedOpen && !state.profileOpen) {
     state.contentPageReturnScrollY = Math.max(0, window.scrollY || 0);
   }
@@ -2857,6 +2910,7 @@ function showQuoteFeedPage() {
   }
   if (state.profileOpen) hideProfilePage({ clearHistoryMarker: true });
   state.quoteFeedOpen = true;
+  updateMobileBottomNav();
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
     if (el) el.hidden = true;
   }
@@ -2869,6 +2923,7 @@ function showQuoteFeedPage() {
 
 function hideQuoteFeedPage({ fromHistory = false, clearHistoryMarker = false } = {}) {
   state.quoteFeedOpen = false;
+  updateMobileBottomNav();
   if (els.quoteFeedPage) els.quoteFeedPage.hidden = true;
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
     if (el) el.hidden = false;
@@ -2992,6 +3047,7 @@ function getHistoryStateWithoutProfile() {
 }
 
 function showProfilePage(tab = "bookmarks") {
+  if (workCatalogOpen && state.user) hideWorkCatalogPage();
   if (!state.user) {
     openAuthModal("login", "내 정보를 보려면 로그인해 주세요.");
     return;
@@ -3006,6 +3062,7 @@ function showProfilePage(tab = "bookmarks") {
     history.pushState({ ...(history.state || {}), rjsProfilePage: true }, "", location.href);
   }
   state.profileOpen = true;
+  updateMobileBottomNav();
   state.profileTab = ["bookmarks","recent","likes","library"].includes(tab) ? tab : "bookmarks";
   state.profileSearch = "";
   state.profileVisibleLimit = 15;
@@ -3024,6 +3081,7 @@ function showProfilePage(tab = "bookmarks") {
 
 function hideProfilePage({ fromHistory = false, clearHistoryMarker = false } = {}) {
   state.profileOpen = false;
+  updateMobileBottomNav();
   if (els.profilePage) els.profilePage.hidden = true;
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) {
     if (el) el.hidden = false;
@@ -9144,6 +9202,21 @@ document.addEventListener("click", (event) => {
   document.querySelectorAll("details[data-list-more][open]").forEach((details) => {
     details.open = false;
   });
+});
+
+els.workCatalogButton?.addEventListener("click", showWorkCatalogPage);
+els.workCatalogBackButton?.addEventListener("click", () => {
+  hideWorkCatalogPage();
+  restoreContentPageScroll();
+});
+document.querySelectorAll("[data-mobile-nav]").forEach(button => {
+  button.addEventListener("click", () => navigateMobileBottomNav(button.dataset.mobileNav));
+});
+window.addEventListener("popstate", event => {
+  if (workCatalogOpen && !event.state?.rjsWorkCatalogPage) {
+    hideWorkCatalogPage({ fromHistory: true });
+    restoreContentPageScroll();
+  }
 });
 
 els.quoteFeedButton?.addEventListener("click", () => {

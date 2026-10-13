@@ -73,7 +73,7 @@
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="manifest" href="/manifest.webmanifest?v=935" />
   <link rel="stylesheet" href="/design-tokens.css?v=974" />
-  <link rel="stylesheet" href="/style.css?v=1017" />
+  <link rel="stylesheet" href="/style.css?v=1049" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="/theme.css?v=1017" />
   <link rel="stylesheet" href="/user-next.css?v=984" />
@@ -393,6 +393,7 @@
             <h2>콘텐츠</h2>
           </div>
           <div class="section-head-actions" aria-label="콘텐츠 보조 기능">
+            <button id="workCatalogButton" class="quote-feed-entry-button work-catalog-entry-button" type="button">▤ <span>작품 도감</span></button>
             <button id="quoteFeedButton" class="quote-feed-entry-button" type="button">
               <span class="quote-feed-entry-icon" aria-hidden="true">✦</span>
               <span>문장 피드</span>
@@ -437,6 +438,20 @@
           <h3>검색 결과가 없습니다.</h3>
           <p>검색어나 필터를 바꿔보세요.</p>
           <button id="resetFiltersButton" class="empty-reset-button" type="button">검색·필터 초기화</button>
+        </div>
+      </section>
+
+      <section id="workCatalogPage" class="work-catalog-page" hidden aria-labelledby="workCatalogTitle">
+        <div class="quote-feed-head">
+          <div><p class="section-kicker">WORK ENCYCLOPEDIA</p><h2 id="workCatalogTitle">작품 도감</h2>
+          <p class="quote-feed-description">작품 정보를 함께 채우고 취향에 맞는 소설을 발견하는 공간</p></div>
+          <button id="workCatalogBackButton" class="profile-secondary-button" type="button">콘텐츠로 돌아가기</button>
+        </div>
+        <div class="work-catalog-welcome" role="status">
+          <span class="work-catalog-welcome-icon" aria-hidden="true">▤</span>
+          <h3>작품 도감을 준비하고 있어요</h3>
+          <p>앞으로 작품별 장르·줄거리·서브커플·추천 대상을 함께 등록하고 확인할 수 있어요.</p>
+          <p class="work-catalog-notice">현재는 메뉴와 기본 화면만 제공돼요. 작품 검색·정보 등록·수정은 아직 지원하지 않습니다.</p>
         </div>
       </section>
 
@@ -535,8 +550,15 @@
       </section>
     </main>
 
+    <nav id="mobileBottomNav" class="mobile-bottom-nav" aria-label="모바일 주요 메뉴">
+      <button type="button" data-mobile-nav="home" class="is-active" aria-current="page"><span class="mobile-nav-icon" aria-hidden="true">⌂</span><span>메인</span></button>
+      <button type="button" data-mobile-nav="catalog"><span class="mobile-nav-icon" aria-hidden="true">▤</span><span>작품도감</span></button>
+      <button type="button" data-mobile-nav="feed"><span class="mobile-nav-icon" aria-hidden="true">❝</span><span>문장피드</span></button>
+      <button type="button" data-mobile-nav="profile"><span class="mobile-nav-icon" aria-hidden="true">♙</span><span>마이페이지</span></button>
+    </nav>
+
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.48</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.49</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -1176,6 +1198,6 @@
     </section>
   </div>
 
-  <script src="/app.js?v=1048" defer></script>
+  <script src="/app.js?v=1049" defer></script>
 </body>
 </html>

@@ -4645,3 +4645,25 @@ body:not(.simple-modal-open) #readerPageText {
   .reader-header-actions .reader-work-share-button { width:32px; height:32px; padding:0; justify-content:center; }
   .reader-work-share-menu { right:34px; }
 }
+
+/* v10.49: compact desktop entry + mobile navigation; no reader overlay changes. */
+.work-catalog-entry-button { font-size: 11px; padding: 5px 10px; min-height: 29px; }
+.work-catalog-page[hidden], .mobile-bottom-nav[hidden] { display: none !important; }
+.work-catalog-page { padding: 4px 0 36px; }
+.work-catalog-welcome { max-width: 610px; margin: 24px auto 0; padding: 50px 25px; border: 1px solid var(--theme-line, #e2dfd9); border-radius: 18px; text-align: center; background: var(--theme-surface-strong, #fff); color: var(--theme-text, #242424); }
+.work-catalog-welcome-icon { font-size: 35px; color: var(--theme-accent, #64759a); }
+.work-catalog-welcome h3 { margin: 12px 0 8px; font-size: 20px; }
+.work-catalog-welcome p { line-height: 1.7; font-size: 13px; color: var(--theme-muted, #777); }
+.work-catalog-welcome .work-catalog-notice { margin-top: 20px; font-size: 12px; }
+.mobile-bottom-nav { display: none; }
+@media (max-width: 640px) {
+  .mobile-bottom-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); position: fixed; bottom: 0; left: 0; right: 0; z-index: 95; padding: 5px 7px calc(5px + env(safe-area-inset-bottom, 0px)); background: var(--theme-surface-strong, #fff); border-top: 1px solid var(--theme-line, #e2dfd9); box-shadow: 0 -4px 20px rgba(0,0,0,.05); }
+  .mobile-bottom-nav button { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; min-height: 48px; padding: 3px 0; border: 0; border-radius: 9px; background: transparent; color: var(--theme-muted, #777); font: inherit; font-size: 10px; cursor: pointer; }
+  .mobile-bottom-nav button.is-active { background: var(--theme-surface, #f6f5f2); color: var(--theme-text, #242424); font-weight: 700; }
+  .mobile-bottom-nav button:focus-visible { outline: 2px solid var(--theme-accent, #567); outline-offset: -2px; }
+  .mobile-nav-icon { font-size: 22px; line-height: 23px; }
+  body:not(.reader-open) .app-shell { padding-bottom: calc(65px + env(safe-area-inset-bottom, 0px)); }
+  body.reader-open .mobile-bottom-nav, body.simple-modal-open .mobile-bottom-nav, body.mobile-filter-sheet-open .mobile-bottom-nav { display: none !important; }
+  .content-section .work-catalog-entry-button, .section-head-actions .work-catalog-entry-button { display: none !important; }
+  .work-catalog-welcome { padding: 35px 18px; }
+}
