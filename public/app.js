@@ -2854,6 +2854,8 @@ function changeQuoteFeedSort(sort) {
 let workCatalogOpen = false;
 function updateMobileBottomNav() {
   const active = workCatalogOpen ? "catalog" : state.quoteFeedOpen ? "feed" : state.profileOpen ? "profile" : "home";
+  // The compact header search belongs to the main content list, not subpages.
+  els.siteHeader?.classList.toggle("is-secondary-page", active !== "home");
   document.querySelectorAll("[data-mobile-nav]").forEach((button) => {
     const selected = button.dataset.mobileNav === active;
     button.classList.toggle("is-active", selected);
@@ -9227,6 +9229,23 @@ document.addEventListener("click", (event) => {
   });
 });
 
+// A logo click must open the real main page, not reload the current history entry
+// and accidentally restore the previously open catalog/feed/profile page.
+els.brandLink?.addEventListener("click", (event) => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  if (state.activeReaderItem) {
+    state.readerReturnToMyLibrary = false;
+    closeReader({ fromHistory: true });
+  }
+  navigateMobileBottomNav("home");
+  // Remove stale page flags so a refresh stays on the main screen.
+  const next = { ...(history.state || {}) };
+  for (const key of ["rjsWorkCatalogPage", "rjsWorkCatalogDetailId", "rjsQuoteFeedPage", "rjsProfilePage", "rjsReaderOpen"]) delete next[key];
+  history.replaceState(next, "", location.href);
+  window.scrollTo({ top: 0, behavior: "auto" });
+  updateCompactHeader();
+});
 els.workCatalogButton?.addEventListener("click", showWorkCatalogPage);
 els.workCatalogBackButton?.addEventListener("click", () => {
   hideWorkCatalogPage();

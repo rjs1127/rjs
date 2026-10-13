@@ -250,3 +250,15 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .work-catalog-page .wc-edit-form {padding:17px;}
   .work-catalog-page .wc-inline-edit {margin-left:5px;min-height:30px;}
 }
+
+/* v10.61 — show secondary relationship details only when requested. */
+.work-catalog-page .wc-detail-facts dl {margin-bottom:0;}
+.work-catalog-page .wc-extra-facts {border-top:1px solid var(--wc-line);padding:12px 0 0;}
+.work-catalog-page .wc-extra-facts > summary {display:flex;align-items:center;justify-content:space-between;gap:12px;cursor:pointer;font-size:12px;font-weight:700;line-height:1.6;}
+.work-catalog-page .wc-extra-facts > summary span {color:var(--wc-muted);font-size:11px;font-weight:500;}
+.work-catalog-page .wc-extra-facts-body {padding:12px 0 1px;}
+.work-catalog-page .wc-extra-facts-row {display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px;}
+.work-catalog-page .wc-extra-facts-row > span {color:var(--wc-muted);}
+.work-catalog-page .wc-extra-facts-row strong {font-size:12px;}
+.work-catalog-page .wc-extra-facts .wc-side-edit-actions {margin:10px 0 0;}
+.work-catalog-page .wc-extra-facts .wc-inline-edit {font-size:10px;min-height:26px;padding:3px 9px;}

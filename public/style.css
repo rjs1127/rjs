@@ -4720,3 +4720,12 @@ body:not(.simple-modal-open) #readerPageText {
   .site-header.compact-mode #viewerSettingsButton { margin:0; flex:0 0 27px; }
   .site-header.compact-mode .mobile-header-logout-button:not([hidden]) { margin:0; flex:0 0 32px; }
 }
+
+/* v10.61 — compact header search is only relevant on the main content screen. */
+.site-header.compact-mode.is-secondary-page .compact-header-search {
+  display: none !important;
+}
+@media (max-width: 760px) {
+  /* Preserve the empty flexible middle column when the compact search is hidden. */
+  .site-header.compact-mode.is-secondary-page .header-actions { grid-column: 3; }
+}

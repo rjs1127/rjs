@@ -76,7 +76,7 @@
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
       ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading">${title}</span><span class="wc-card-author">${author}</span>${mainCp?`<span class="wc-card-author">CP · ${mainCp}</span>`:''}
       <span class="wc-card-tags">${[...genres,...tagLabels.map(t=>'#'+t)].map(tag=>`<span>${escapeHtml(tag)}</span>`).join('') || '<span>분류 정보 미등록</span>'}</span>
-      <span class="wc-card-bottom"><span>${escapeHtml(statusLabel[work.completion]||'미확인')} · 서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span><span class="wc-card-arrow">↗</span></span></span></button></article>`;
+      <span class="wc-card-bottom"><span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span class="wc-card-arrow">↗</span></span></span></button></article>`;
   }
   function renderItems() {
     refs.cards.innerHTML=data.items.map(makeCard).join('');
@@ -167,16 +167,21 @@
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
     refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button></div>
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
-      <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span>서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span></div></div></div>
+      <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span></div></div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개 <button type="button" class="wc-inline-edit" data-wc-edit="synopsis_set">수정</button></h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드 <button type="button" class="wc-inline-edit" data-wc-edit="tag_add">키워드 추가</button></h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
         <div class="wc-detail-tag-label">취향 키워드</div><div class="wc-detail-tagline">${tagsList.length?tagRows(tagsList,'#'):'<span class="wc-muted">키워드 미등록</span>'}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">03 / FOR READERS</span><h4>이런 독자에게 추천해요 <button type="button" class="wc-inline-edit" data-wc-edit="recommendation_add">추가</button></h4>${recommendations.length?`<ul class="wc-recommendations">${recommendations.map(line=>`<li>${escapeHtml(line)}</li>`).join('')}</ul>`:'<p class="wc-muted">추천 대상 정보가 아직 없어요.</p>'}</section>
         <section class="wc-detail-section"><span class="wc-section-num">04 / QUOTES</span><h4>작품 속 문장</h4><div id="wcWorkQuotes" aria-live="polite"></div></section>
-      </div><aside class="wc-detail-side"><section class="wc-detail-facts"><span class="wc-section-num">INFORMATION</span><h4>한눈에 보는 작품</h4>
-        <div class="wc-side-edit-actions"><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_set">서브커플 상태</button><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_note_set">설명 수정</button></div><dl><div><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div><div><dt>서브커플</dt><dd>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</dd></div></dl>
-        ${subNote?`<details class="wc-spoiler"><summary>서브커플 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
+      </div><aside class="wc-detail-side"><section class="wc-detail-facts"><span class="wc-section-num">INFORMATION</span><h4>작품 기본 정보</h4>
+        <dl><div><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div></dl>
+        <details class="wc-extra-facts"><summary>부가 정보 <span>서브커플 등</span></summary>
+          <div class="wc-extra-facts-body"><div class="wc-extra-facts-row"><span>서브커플</span><strong>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</strong></div>
+            <div class="wc-side-edit-actions"><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_set">상태 수정</button><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_note_set">설명 수정</button></div>
+            ${subNote?`<details class="wc-spoiler"><summary>상세 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
+          </div>
+        </details>
         ${alertText?`<details class="wc-spoiler"><summary>주의 요소 보기 <span>내용 포함</span></summary><p>${escapeHtml(alertText)}</p></details>`:''}</section>
         <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>읽은 작품의 정보를 함께 기록해요. 로그인 후 수정하면 승인 대기 없이 도감에 반영됩니다.</p><button type="button" class="wc-edit-entry" data-wc-edit="tag_add">+ 작품 정보 보완하기</button></div>
       </aside></div>`;
