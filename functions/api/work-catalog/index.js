@@ -48,7 +48,7 @@ export async function onRequestGet(context) {
     const rows = await db.prepare(`${CATALOG_CP_CTE} SELECT catalog_works.*, (SELECT json_group_array(cp) FROM work_cp WHERE work_id=catalog_works.id) AS main_couples_json FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21 OFFSET ?`)
       .bind(await catalogCpSources(context.env),...args,(page-1)*20).all();
     const results = rows.results || [];
-    return jsonResponse({ items:results.slice(0,20).map(row=>withCatalogCp(publicCatalogWork(row),row)),page,hasMore:results.length>20 },200,{'cache-control':'public,max-age=30'});
+    return jsonResponse({ items:results.slice(0,20).map(row=>withCatalogCp(publicCatalogWork(row),row)),page,hasMore:results.length>20 },200,{'cache-control':'no-store'});
   } catch(e) {
     if (/no such table/i.test(e?.message||'')) return jsonResponse({items:[],page:1,hasMore:false},200,{'cache-control':'no-store'});
     return jsonResponse({error:e.message||'작품 도감 조회에 실패했습니다.'},e.status||500,{'cache-control':'no-store'});

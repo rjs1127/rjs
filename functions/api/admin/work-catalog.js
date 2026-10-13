@@ -128,6 +128,7 @@ export async function onRequestPost(context){
               .bind(id,...proposalIds,id,token)
           : db.prepare(`DELETE FROM catalog_proposals WHERE work_id=? AND ${guarded}`).bind(id,id,token),
         db.prepare(`DELETE FROM catalog_source_links WHERE work_id=? AND ${guarded}`).bind(id,id,token),
+        db.prepare(`DELETE FROM catalog_direct_edits WHERE work_id=? AND ${guarded}`).bind(id,id,token),
         db.prepare(`DELETE FROM catalog_audit WHERE work_id=? AND ${guarded}`).bind(id,id,token),
         db.prepare('DELETE FROM catalog_works WHERE id=? AND last_mutation_token=?').bind(id,token),
       ];

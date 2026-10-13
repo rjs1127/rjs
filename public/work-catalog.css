@@ -219,3 +219,34 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
 .wc-work-quote summary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
 .wc-work-quote p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.8; }
 @media(max-width:700px) { .wc-work-quote summary span { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; } }
+
+/* v10.60: reader contributed information. Keyboard focus on a programmatically
+   targeted noninteractive heading must not create a transient browser outline. */
+.work-catalog-page #wcDetailHeading:focus {outline:none;}
+.work-catalog-page .wc-inline-edit {display:inline-flex;align-items:center;vertical-align:middle;min-height:28px;margin-left:8px;padding:4px 9px;border:1px solid var(--wc-line);border-radius:999px;background:var(--wc-soft);color:var(--wc-muted);font-size:11px;font-weight:650;line-height:1.3;white-space:nowrap;}
+.work-catalog-page .wc-inline-edit:hover {color:var(--wc-ink);background:var(--wc-tint);}
+.work-catalog-page .wc-side-edit-actions {display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px;}
+.work-catalog-page .wc-side-edit-actions .wc-inline-edit {margin:0;}
+.work-catalog-page .wc-edit-entry {margin-top:12px;padding:8px 14px;min-height:36px;border:1px solid var(--wc-line);border-radius:10px;background:var(--wc-bg);color:var(--wc-ink);font-size:12px;font-weight:750;}
+.work-catalog-page .wc-edit-dialog {width:min(460px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:min(88dvh,680px);overflow-y:auto;margin:auto;padding:0;border:1px solid var(--wc-line);border-radius:18px;background:var(--wc-bg);color:var(--wc-ink);box-shadow:0 22px 65px rgba(0,0,0,.2);}
+.work-catalog-page .wc-edit-dialog::backdrop {background:rgba(17,20,27,.52);}
+.work-catalog-page .wc-edit-form {display:flex;flex-direction:column;gap:14px;padding:22px;}
+.work-catalog-page .wc-edit-head {display:flex;align-items:start;justify-content:space-between;gap:12px;}
+.work-catalog-page .wc-edit-head h3 {margin:5px 0 0;font-size:20px;letter-spacing:-.04em;}
+.work-catalog-page .wc-edit-close {flex-shrink:0;width:32px;height:32px;border:1px solid var(--wc-line);border-radius:50%;background:var(--wc-soft);color:var(--wc-ink);font-size:21px;line-height:1;}
+.work-catalog-page .wc-edit-description {margin:0;color:var(--wc-muted);font-size:12px;line-height:1.7;}
+.work-catalog-page .wc-edit-field {display:flex;flex-direction:column;gap:7px;color:var(--wc-ink);font-size:12px;font-weight:750;}
+.work-catalog-page .wc-edit-field textarea,.work-catalog-page .wc-edit-field select {width:100%;box-sizing:border-box;padding:11px 12px;border:1px solid var(--wc-line);border-radius:10px;background:var(--wc-soft);color:var(--wc-ink);font:inherit;font-size:13px;font-weight:450;line-height:1.65;resize:vertical;}
+.work-catalog-page .wc-edit-field[hidden] {display:none;}
+.work-catalog-page .wc-edit-message {min-height:18px;margin:0;color:var(--wc-muted);font-size:12px;line-height:1.6;}
+.work-catalog-page .wc-edit-message button {border:0;background:transparent;color:var(--wc-ink);text-decoration:underline;font-size:12px;font-weight:750;}
+.work-catalog-page .wc-edit-actions {display:flex;gap:8px;justify-content:flex-end;}
+.work-catalog-page .wc-edit-actions button {min-height:40px;padding:9px 15px;border-radius:10px;border:1px solid var(--wc-line);font-size:12px;font-weight:750;}
+.work-catalog-page .wc-edit-cancel {background:var(--wc-soft);color:var(--wc-muted);}
+.work-catalog-page #wcEditSave {background:var(--wc-ink);border-color:var(--wc-ink);color:var(--wc-bg);}
+.work-catalog-page #wcEditSave:disabled {opacity:.55;cursor:wait;}
+@media(max-width:640px) {
+  .work-catalog-page .wc-edit-dialog {width:calc(100vw - 22px);max-height:82dvh;border-radius:15px;}
+  .work-catalog-page .wc-edit-form {padding:17px;}
+  .work-catalog-page .wc-inline-edit {margin-left:5px;min-height:30px;}
+}

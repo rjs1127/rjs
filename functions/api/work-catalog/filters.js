@@ -16,7 +16,7 @@ export async function onRequestGet(context) {
       db.prepare(`${CATALOG_CP_CTE} SELECT c.cp AS value,COUNT(*) AS count FROM work_cp c JOIN catalog_works w ON w.id=c.work_id WHERE w.status='published' GROUP BY c.cp ORDER BY c.cp`).bind(await catalogCpSources(context.env)).all()
     ]);
     const pick = rows => (rows.results || []).map(r=>({value:String(r.value),count:Number(r.count)||0}));
-    return jsonResponse({genres:pick(genres),tags:pick(tags),couples:pick(couples)},200,{'cache-control':'public,max-age=120'});
+    return jsonResponse({genres:pick(genres),tags:pick(tags),couples:pick(couples)},200,{'cache-control':'no-store'});
   } catch (e) {
     if (/no such table/i.test(e?.message||'')) return jsonResponse({genres:[],tags:[],couples:[]},200,{'cache-control':'no-store'});
     return jsonResponse({error:'도감 필터를 불러오지 못했습니다.'},500,{'cache-control':'no-store'});

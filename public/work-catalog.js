@@ -1,4 +1,4 @@
-/* v10.55 · Read-only public work encyclopedia. No personal file/quote data is used here. */
+/* v10.60 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -19,7 +19,7 @@
     genres:[], tagOptions:[], items:[], nextPage:1, hasMore:false,
     loaded:false, loading:false, seq:0, abort:null, filtersLoaded:false, detailId:'',
     quoteItems:[], quoteCursor:null, quoteAbort:null, quoteLoading:false,
-    detailSeq:0, detailAbort:null, previousScroll:0, lastFocus:null, debounce:null
+    detailSeq:0, detailAbort:null, currentWork:null, editSaving:false, previousScroll:0, lastFocus:null, debounce:null
   };
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const statusLabel = {unknown:'미확인',ongoing:'연재 중',completed:'완결',hiatus:'휴재'};
@@ -169,16 +169,16 @@
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
       <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span>서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span></div></div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
-        <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개</h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
-        <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드</h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
+        <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개 <button type="button" class="wc-inline-edit" data-wc-edit="synopsis_set">수정</button></h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
+        <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드 <button type="button" class="wc-inline-edit" data-wc-edit="tag_add">키워드 추가</button></h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
         <div class="wc-detail-tag-label">취향 키워드</div><div class="wc-detail-tagline">${tagsList.length?tagRows(tagsList,'#'):'<span class="wc-muted">키워드 미등록</span>'}</div></section>
-        <section class="wc-detail-section"><span class="wc-section-num">03 / FOR READERS</span><h4>이런 독자에게 추천해요</h4>${recommendations.length?`<ul class="wc-recommendations">${recommendations.map(line=>`<li>${escapeHtml(line)}</li>`).join('')}</ul>`:'<p class="wc-muted">추천 대상 정보가 아직 없어요.</p>'}</section>
+        <section class="wc-detail-section"><span class="wc-section-num">03 / FOR READERS</span><h4>이런 독자에게 추천해요 <button type="button" class="wc-inline-edit" data-wc-edit="recommendation_add">추가</button></h4>${recommendations.length?`<ul class="wc-recommendations">${recommendations.map(line=>`<li>${escapeHtml(line)}</li>`).join('')}</ul>`:'<p class="wc-muted">추천 대상 정보가 아직 없어요.</p>'}</section>
         <section class="wc-detail-section"><span class="wc-section-num">04 / QUOTES</span><h4>작품 속 문장</h4><div id="wcWorkQuotes" aria-live="polite"></div></section>
       </div><aside class="wc-detail-side"><section class="wc-detail-facts"><span class="wc-section-num">INFORMATION</span><h4>한눈에 보는 작품</h4>
-        <dl><div><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div><div><dt>서브커플</dt><dd>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</dd></div></dl>
+        <div class="wc-side-edit-actions"><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_set">서브커플 상태</button><button type="button" class="wc-inline-edit" data-wc-edit="subcouple_note_set">설명 수정</button></div><dl><div><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div><div><dt>서브커플</dt><dd>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</dd></div></dl>
         ${subNote?`<details class="wc-spoiler"><summary>서브커플 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
         ${alertText?`<details class="wc-spoiler"><summary>주의 요소 보기 <span>내용 포함</span></summary><p>${escapeHtml(alertText)}</p></details>`:''}</section>
-        <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>이 정보는 공개 승인된 작품 데이터예요. 정보 추가·수정 제안 기능은 다음 업데이트에서 제공할 예정이에요.</p></div>
+        <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>읽은 작품의 정보를 함께 기록해요. 로그인 후 수정하면 승인 대기 없이 도감에 반영됩니다.</p><button type="button" class="wc-edit-entry" data-wc-edit="tag_add">+ 작품 정보 보완하기</button></div>
       </aside></div>`;
   }
   function renderWorkQuotes(message='',error=false) {
@@ -225,6 +225,7 @@
       const json=await response.json();
       if(!response.ok||!json.work)throw Error(json.error||'작품 상세 조회 실패');
       if(sequence!==data.detailSeq||!isOpen())return;
+      data.currentWork=json.work;
       renderDetail(json.work);
       data.quoteItems=[];data.quoteCursor=null;loadWorkQuotes();
       refs.detail.querySelector('#wcDetailHeading')?.focus({preventScroll:true});
@@ -233,15 +234,83 @@
       refs.detail.innerHTML='<button class="wc-detail-back" data-wc-back type="button">← 작품 목록으로</button><p class="wc-catalog-status" role="alert">작품 정보를 불러오지 못했어요. 비공개로 변경되었거나 일시적인 오류가 발생했을 수 있어요.</p>';
     }
   }
+  const editor=$('wcEditDialog'),editForm=$('wcEditForm');
+  const editOperation=$('wcEditOperation'),editValue=$('wcEditValue'),editChoice=$('wcEditChoice');
+  const editMessage=$('wcEditMessage'),editSave=$('wcEditSave');
+  function updateEditFields(reset=true) {
+    const op=editOperation.value;
+    const select=op==='subcouple_set';
+    $('wcEditChoiceField').hidden=!select;
+    $('wcEditValueField').hidden=select;
+    editValue.required=!select;
+    if(reset) {
+      editValue.value=op==='synopsis_set'?String(data.currentWork?.synopsis||''):
+        op==='subcouple_note_set'?String(data.currentWork?.subcouple_note||''):'';
+      editChoice.value=data.currentWork?.subcouple||'unknown';
+    }
+    editValue.maxLength=op==='synopsis_set'?3000:op==='subcouple_note_set'?700:op==='tag_add'?30:1500;
+    editValue.rows=op==='synopsis_set'?7:op==='subcouple_note_set'?4:2;
+    $('wcEditValueField').firstChild.textContent=({tag_add:'추가할 키워드',synopsis_set:'줄거리',subcouple_note_set:'서브커플 설명',recommendation_add:'추천할 독자'})[op]||'내용';
+    editMessage.textContent='';
+  }
+  function openEditor(operation='tag_add') {
+    if(!data.currentWork || !editor) return;
+    editOperation.value=operation;
+    updateEditFields();
+    editor.showModal();
+    (operation==='subcouple_set'?editChoice:editValue).focus();
+  }
+  function closeEditor() {if(editor?.open&&!data.editSaving)editor.close();}
+  editOperation?.addEventListener('change',()=>updateEditFields());
+  editor?.querySelectorAll('[data-wc-edit-close]').forEach(button=>button.addEventListener('click',closeEditor));
+  editor?.addEventListener('cancel',event=>{if(data.editSaving)event.preventDefault();});
+  editForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(data.editSaving||!data.currentWork) return;
+    const op=editOperation.value;
+    const value=(op==='subcouple_set'?editChoice.value:editValue.value).trim();
+    if(!value) {editMessage.textContent='내용을 입력해 주세요.';return;}
+    data.editSaving=true;editSave.disabled=true;editOperation.disabled=true;editValue.disabled=true;editChoice.disabled=true;
+    editMessage.textContent='저장하는 중…';
+    try {
+      const response=await fetch('/api/work-catalog/edit',{
+        method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json'},
+        body:JSON.stringify({work_id:data.currentWork.id,base_revision:data.currentWork.revision,
+          request_id:crypto.randomUUID(),operation:op,change:{value}})
+      });
+      const json=await response.json();
+      if(!response.ok) {
+        if(response.status===401){editMessage.innerHTML='로그인이 필요해요. <button type="button" data-wc-login>로그인하기</button>';return;}
+        if(response.status===409){editMessage.innerHTML='정보가 변경되었어요. <button type="button" data-wc-reload>최신 정보 확인</button>';return;}
+        throw new Error(json.error||'저장하지 못했어요.');
+      }
+      const newWork=json.work || (await (await fetch(`/api/work-catalog/${encodeURIComponent(data.currentWork.id)}?updated=${Date.now()}`,{cache:'no-store'})).json()).work;
+      if(newWork && data.detailId===newWork.id){
+        data.currentWork={...data.currentWork,...newWork};
+        renderDetail(data.currentWork);
+        renderWorkQuotes();
+        // The catalog index/filter results may have changed with a new tag.
+        data.loaded=false;data.filtersLoaded=false;
+      }
+      editor.close();
+    }catch(error){editMessage.textContent=error.message||'저장에 실패했어요. 다시 시도해 주세요.';}
+    finally{data.editSaving=false;editSave.disabled=false;editOperation.disabled=false;editValue.disabled=false;editChoice.disabled=false;}
+  });
+  editor?.addEventListener('click',event=>{
+    if(event.target.closest('[data-wc-login]')){closeEditor();document.getElementById('loginButton')?.click();}
+    if(event.target.closest('[data-wc-reload]')){closeEditor();if(data.detailId)openDetail(data.detailId,{push:false});}
+  });
   function closeDetail({fromHistory=false,restoreScroll=true}={}) {
     if(!data.detailId)return;
     data.quoteAbort?.abort();data.quoteLoading=false;data.quoteItems=[];data.quoteCursor=null;
-    data.detailId='';data.detailSeq++;data.detailAbort?.abort();
+    data.detailId='';data.currentWork=null;data.detailSeq++;data.detailAbort?.abort();
+    if(editor?.open)editor.close();
     refs.detail.hidden=true;refs.browse.hidden=false;refs.detail.innerHTML='';
     if(!fromHistory&&history.state?.rjsWorkCatalogDetailId) {
       const next={...history.state};delete next.rjsWorkCatalogDetailId;
       history.replaceState(next,'',location.href);
     }
+    if(isOpen()&&restoreScroll&&!data.loaded) {loadItems();if(!data.filtersLoaded)loadFilters();}
     if(restoreScroll)requestAnimationFrame(()=>{window.scrollTo({top:data.previousScroll,behavior:'auto'});data.lastFocus?.focus({preventScroll:true});});
   }
   refs.form.addEventListener('submit',event=>{event.preventDefault();data.query=refs.query.value.trim().slice(0,80);changed();});
@@ -277,7 +346,7 @@
   });
   refs.moreButton.addEventListener('click',()=>loadItems({append:true}));
   refs.cards.addEventListener('click',event=>{const button=event.target.closest('[data-wc-open]');if(button)openDetail(button.dataset.wcOpen);});
-  refs.detail.addEventListener('click',event=>{if(event.target.closest('[data-wc-back]'))closeDetail();else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});});
+  refs.detail.addEventListener('click',event=>{const edit=event.target.closest('[data-wc-edit]');if(edit)openEditor(edit.dataset.wcEdit);else if(event.target.closest('[data-wc-back]'))closeDetail();else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});});
   refs.filterToggle.addEventListener('click',()=>{
     const expanded=refs.filter.classList.toggle('is-mobile-open');
     refs.filterToggle.setAttribute('aria-expanded',String(expanded));

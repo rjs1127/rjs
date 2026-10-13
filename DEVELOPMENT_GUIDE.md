@@ -1,3 +1,12 @@
+# v10.60 — 작품 도감 사용자 즉시 편집 안전 규칙
+
+- 로그인한 회원은 **공개(`published`) 작품의 허용된 단일 항목만** `POST /api/work-catalog/edit`로 즉시 반영한다. 지원 범위는 `tag_add`, `synopsis_set`, `subcouple_set`, `subcouple_note_set`, `recommendation_add`. 기존 전체 정보 덮어쓰기 또는 기존 관리자 승인 기능과 합치지 않는다.
+- `catalogOperation()`의 필드 화이트리스트·제한값을 재사용한다. `catalog_works.revision` 조건 UPDATE, `last_mutation_token` 소유권 검사, `catalog_direct_edits` 요청 이력 및 `catalog_audit` 관리자 감사 이력은 한 D1 `db.batch()`에 묶는다. 업데이트 실패 시 감사 이력만 단독으로 생성되면 안 된다.
+- 직접 편집은 Origin 검사, 기존 사용자 세션 인증, 요청 UUID 중복 방지, 최근 24시간 12건 제한, 비공개 작품 차단 적용. 입력 문자열을 DOM에 HTML로 직접 삽입하지 않고 escape 처리한다. 기존 `catalog_proposals` 및 관리자 수동 수정/승인 시스템은 남긴다.
+- 운영 DB는 기존 `ensureWorkCatalogSchema()`에서 `catalog_direct_edits`/인덱스를 `IF NOT EXISTS`로 추가하고 기존 사용자 문장/서재/원본 데이터에는 관여하지 않는다. 관리자 작품 완전 삭제 시 전용 이력만 함께 정리한다.
+- 공개 도감 상세·목록·필터 GET 캐시는 즉시 공개 요구에 따라 `no-store`. 성능/DB 읽기 증가를 감시한다. 프로그래밍 포커스를 받는 비대화형 `#wcDetailHeading`에만 outline을 제거하고 기존 키보드 포커스 표시를 유지한다.
+- 실제 운영 D1 및 모바일 실기기 검증은 배포 후 수행한다. HISTORY.md 수동 편집 금지.
+
 # v10.59 — 도감 CP와 공개 문장 연결 규칙
 
 - CP는 공개 인덱스의 combination과 catalog_source_links 원본 ID로 읽는다. 별도 CP 컬럼이나 제목 기반 자동 병합을 추가하지 않는다.
