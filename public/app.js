@@ -2850,7 +2850,7 @@ function changeQuoteFeedSort(sort) {
   loadQuoteFeed();
 }
 
-// v10.49: 작품 도감은 별도 데이터 API 없이 안내 화면만 제공한다.
+// v10.55: 도감 페이지는 기존 전환 상태를 재사용하고 별도 공개 조회 컨트롤러에서 UI를 관리한다.
 let workCatalogOpen = false;
 function updateMobileBottomNav() {
   const active = workCatalogOpen ? "catalog" : state.quoteFeedOpen ? "feed" : state.profileOpen ? "profile" : "home";
@@ -2862,7 +2862,7 @@ function updateMobileBottomNav() {
   });
 }
 function showWorkCatalogPage() {
-  if (workCatalogOpen) return;
+  if (workCatalogOpen) { window.RJSWorkCatalog?.onShow?.(); return; }
   if (!state.quoteFeedOpen && !state.profileOpen) state.contentPageReturnScrollY = Math.max(0, window.scrollY || 0);
   if (state.quoteFeedOpen) hideQuoteFeedPage({ clearHistoryMarker: true });
   if (state.profileOpen) hideProfilePage({ clearHistoryMarker: true });
@@ -2870,12 +2870,14 @@ function showWorkCatalogPage() {
   workCatalogOpen = true;
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) if (el) el.hidden = true;
   if (els.workCatalogPage) els.workCatalogPage.hidden = false;
+  window.RJSWorkCatalog?.onShow?.();
   updateMobileBottomNav();
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 function hideWorkCatalogPage({ fromHistory = false } = {}) {
   if (!workCatalogOpen) return;
   workCatalogOpen = false;
+  window.RJSWorkCatalog?.onHide?.();
   if (els.workCatalogPage) els.workCatalogPage.hidden = true;
   for (const el of [els.heroSection, document.querySelector(".controls"), document.querySelector(".content-section")]) if (el) el.hidden = false;
   if (!fromHistory && history.state?.rjsWorkCatalogPage) {

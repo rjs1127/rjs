@@ -73,9 +73,10 @@
   <link id="siteAppleTouchIcon" rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png?v=632" />
   <link rel="manifest" href="/manifest.webmanifest?v=935" />
   <link rel="stylesheet" href="/design-tokens.css?v=974" />
-  <link rel="stylesheet" href="/style.css?v=1054" />
+  <link rel="stylesheet" href="/style.css?v=1055" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-  <link rel="stylesheet" href="/theme.css?v=1054" />
+  <link rel="stylesheet" href="/theme.css?v=1055" />
+  <link rel="stylesheet" href="/work-catalog.css?v=1055" />
   <link rel="stylesheet" href="/user-next.css?v=984" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
@@ -448,12 +449,43 @@
           <p class="quote-feed-description">작품 정보를 함께 채우고 취향에 맞는 소설을 발견하는 공간</p></div>
           <button id="workCatalogBackButton" class="profile-secondary-button" type="button">콘텐츠로 돌아가기</button>
         </div>
-        <div class="work-catalog-welcome" role="status">
-          <span class="work-catalog-welcome-icon" aria-hidden="true">▤</span>
-          <h3>작품 도감을 준비하고 있어요</h3>
-          <p>앞으로 작품별 장르·줄거리·서브커플·추천 대상을 함께 등록하고 확인할 수 있어요.</p>
-          <p class="work-catalog-notice">현재는 메뉴와 기본 화면만 제공돼요. 작품 검색·정보 등록·수정은 아직 지원하지 않습니다.</p>
+        <div class="wc-browser" id="wcCatalogBrowser">
+          <div class="wc-hero">
+            <div class="wc-hero-copy">
+              <span class="wc-overline">READ · DISCOVER · COLLECT</span>
+              <h3>다음에 읽을 이야기를,<br><em>취향으로 찾아보세요.</em></h3>
+              <p>장르부터 인물의 관계, 작은 취향까지. 독자들이 함께 채운 작품 정보를 둘러보세요.</p>
+            </div>
+            <div class="wc-hero-art" aria-hidden="true"><span>RRR</span><span>작품<br>도감</span><span>VOL. 01</span></div>
+          </div>
+          <form id="wcSearchForm" class="wc-search" role="search">
+            <span class="wc-search-symbol" aria-hidden="true">⌕</span>
+            <input id="wcSearchInput" type="search" maxlength="80" autocomplete="off" placeholder="작품명 · 작가 · 원제 · 키워드 검색" aria-label="작품 도감 검색" />
+            <button type="submit">검색</button>
+          </form>
+          <div class="wc-discovery" id="wcGenreChoices" aria-label="장르 빠른 선택"><button class="wc-genre is-active" type="button" data-wc-genre="">전체 작품</button></div>
+          <div class="wc-mobile-filter-row"><button id="wcFilterToggle" class="wc-filter-toggle" type="button" aria-controls="wcFilterPanel" aria-expanded="false">☷ 상세 필터 <span id="wcFilterBadge"></span></button></div>
+          <div class="wc-layout">
+            <aside class="wc-filter-panel" id="wcFilterPanel" aria-label="상세 작품 필터">
+              <div class="wc-panel-title"><strong>취향 필터</strong><button type="button" id="wcResetFilters">초기화 ↺</button></div>
+              <div class="wc-filter-block"><div class="wc-filter-heading"><strong>키워드</strong><small>최대 5개</small></div>
+                <div id="wcTagChoices" class="wc-tag-choices"><p class="wc-filter-hint">키워드를 불러오는 중…</p></div>
+                <div class="wc-mode" role="group" aria-label="선택 키워드 조건"><button type="button" data-wc-mode="all" class="is-active">모두 포함</button><button type="button" data-wc-mode="any">하나라도 포함</button></div>
+              </div>
+              <div class="wc-filter-block"><label for="wcCompletionFilter">연재 상태</label><select id="wcCompletionFilter"><option value="">전체</option><option value="unknown">미확인</option><option value="ongoing">연재 중</option><option value="completed">완결</option><option value="hiatus">휴재</option></select></div>
+              <div class="wc-filter-block"><label for="wcSubcoupleFilter">서브커플</label><select id="wcSubcoupleFilter"><option value="">전체</option><option value="yes">있음</option><option value="no">없음</option><option value="unknown">미확인</option></select></div>
+              <p class="wc-filter-footnote">도감에서 확인된 공개 정보만 검색해요. 미확인은 '없음'과 달라요.</p>
+            </aside>
+            <div class="wc-results">
+              <div class="wc-results-head"><div><span class="wc-results-kicker">EXPLORE LIBRARY</span><h3>작품 둘러보기</h3><p id="wcResultsMeta" aria-live="polite">공개 작품을 불러오는 중…</p></div><label class="wc-sort-label">정렬 <select id="wcSortSelect"><option value="recent">최근 정보순</option><option value="title">작품명순</option></select></label></div>
+              <div id="wcActiveFilters" class="wc-active-filters" hidden></div>
+              <div id="wcCatalogStatus" class="wc-catalog-status" role="status" aria-live="polite" hidden></div>
+              <div id="wcCatalogCards" class="wc-cards"></div>
+              <div class="wc-more-wrap" id="wcMoreWrap" hidden><button class="wc-more-button" type="button" id="wcMoreButton">작품 더 보기 ↓</button></div>
+            </div>
+          </div>
         </div>
+        <div id="wcCatalogDetail" class="wc-detail" hidden aria-live="polite"></div>
       </section>
 
       <section id="quoteFeedPage" class="quote-feed-page" hidden aria-labelledby="quoteFeedTitle">
@@ -559,7 +591,7 @@
     </nav>
 
     <footer class="site-footer" aria-label="사이트 정보">
-      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.54</span>
+      <span id="publicVersion" class="site-footer-version" title="문제 신고 시 이 버전 정보를 함께 알려주세요.">v10.55</span>
       <span class="site-footer-divider" aria-hidden="true">·</span>
       <button id="copyIssueInfoButton" class="site-footer-link" type="button">문제 신고 정보 복사</button>
       <span class="site-footer-divider" aria-hidden="true">·</span>
@@ -1199,6 +1231,7 @@
     </section>
   </div>
 
-  <script src="/app.js?v=1054" defer></script>
+  <script src="/app.js?v=1055" defer></script>
+  <script src="/work-catalog.js?v=1055" defer></script>
 </body>
 </html>
