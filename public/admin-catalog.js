@@ -1,4 +1,4 @@
-// v10.52: original TXT/POSTYPE registered items -> catalogue edit dialog.
+// v10.53: source-linked catalogue editor with keyword chips and independent recommendation lines.
 // Original source data is read only; all writes use the dedicated catalogue D1 tables.
 (() => {
   const $ = id => document.getElementById(id);
@@ -8,6 +8,49 @@
   const fields = ['title','author','original_title','country','completion','genres','tags','synopsis','subcouple','subcouple_note','recommendation','warnings'];
   let sources = [], works = [], links = [], proposals = [], current = null, opener = null;
   let sourceErrors = [], shown = 50, busy = false, loaded = false, loadId = 0, dialogId = 0;
+  let tagTokens = [], recommendationRows = [];
+  const cleanToken = value => String(value||'').normalize('NFKC').trim().replace(/^#+\s*/, '').trim();
+  function renderTags(){
+    const list=$('catalogTagList');list.replaceChildren();
+    tagTokens.forEach((tag,i)=>{
+      const pill=document.createElement('span');pill.className='catalog-tag-chip';
+      const text=document.createElement('span');text.textContent=`#${tag}`;
+      const del=document.createElement('button');del.type='button';del.dataset.removeTag=String(i);del.textContent='×';del.setAttribute('aria-label',`키워드 ${tag} 제거`);
+      pill.append(text,del);list.append(pill);
+    });
+    form.elements.namedItem('tags').value=tagTokens.join(', ');
+  }
+  function addTags(value){
+    const raw=String(value||'').trim();if(!raw)return true;
+    const parts=raw.includes(',')?raw.split(','):
+      /^#[^\s#]+(?:\s+#[^\s#]+)+$/.test(raw)?raw.match(/#[^\s#]+/g):[raw];
+    const next=[...tagTokens];
+    for(const part of parts){
+      const token=cleanToken(part);if(!token)continue;
+      if(token.length>30){message('키워드는 각각 30자 이내로 입력해 주세요.',true,true);return false;}
+      if(!next.includes(token))next.push(token);
+      if(next.length>20){message('키워드는 최대 20개까지 등록할 수 있습니다.',true,true);return false;}
+    }
+    tagTokens=next;renderTags();$('catalogTagEntry').value='';message('',false,true);return true;
+  }
+  function recommendationValue(){return recommendationRows.map(v=>v.trim()).filter(Boolean).join('\n\n');}
+  function refreshRecommendationCount(){
+    const len=recommendationValue().length;
+    $('catalogRecommendationCount').textContent=`${len.toLocaleString('ko-KR')} / 1,500자`;
+    $('catalogRecommendationCount').classList.toggle('is-over-limit',len>1500);
+    form.elements.namedItem('recommendation').value=recommendationValue();
+  }
+  function renderRecommendations(){
+    const list=$('catalogRecommendationList');list.replaceChildren();
+    recommendationRows.forEach((value,i)=>{
+      const row=document.createElement('div');row.className='catalog-recommendation-row';
+      const label=document.createElement('label');label.textContent=`추천 ${i+1}`;
+      const textarea=document.createElement('textarea');textarea.rows=2;textarea.maxLength=1500;textarea.dataset.recommendationIndex=String(i);textarea.value=value;
+      const del=document.createElement('button');del.type='button';del.className='catalog-recommendation-remove';del.dataset.removeRecommendation=String(i);del.textContent='삭제';del.setAttribute('aria-label',`추천 ${i+1} 삭제`);
+      label.append(textarea);row.append(label,del);list.append(row);
+    });
+    refreshRecommendationCount();
+  }
 
   function message(text, error=false, inDialog=false) {
     const el=$(inDialog?'catalogDialogMessage':'catalogMessage');
@@ -136,8 +179,15 @@
     for(const field of fields){
       const el=form.elements.namedItem(field);if(!el)continue;
       el.value=work?(['genres','tags'].includes(field)?(work[field]||[]).join(', '):(work[field]??'')):
-        (field==='title'?source?.title||'':field==='author'?source?.author||'':field==='genres'?source?.genre||'':'');
+        (field==='title'?source?.title||'':field==='author'?source?.author||'':field==='genres'?source?.genre||'':
+          (field==='completion'||field==='subcouple')?'unknown':'');
     }
+    // Existing country values stay in the hidden field; the public schema remains compatible.
+    form.elements.namedItem('completion').value=work?.completion||'unknown';
+    form.elements.namedItem('subcouple').value=work?.subcouple||'unknown';
+    tagTokens=(Array.isArray(work?.tags)?work.tags:[]).map(cleanToken).filter(Boolean);renderTags();
+    recommendationRows=work?.recommendation?String(work.recommendation).split(/\n\s*\n/):[''];
+    renderRecommendations();
     $('catalogStatus').value=work?.status||'draft';
     $('catalogDelete').hidden=!work;
     $('catalogEditorTitle').textContent=work?'작품 도감 정보 수정':'작품 도감 정보 등록';
@@ -163,7 +213,8 @@
   function getForm(){
     const work={};
     for(const f of fields){const input=form.elements.namedItem(f);
-      work[f]=['genres','tags'].includes(f)?input.value.split(',').map(x=>x.trim()).filter(Boolean):input.value;
+      work[f]=f==='tags'?[...tagTokens]:f==='genres'?input.value.split(',').map(x=>x.trim()).filter(Boolean):
+        f==='recommendation'?recommendationValue():input.value;
     }
     return work;
   }
@@ -184,11 +235,35 @@
   }
   form.addEventListener('submit',async e=>{
     e.preventDefault();if(!current||current.loading||busy)return;
+    if(!addTags($('catalogTagEntry').value))return;
+    if(recommendationValue().length>1500){message('추천 문구는 전체 1,500자 이내로 입력해 주세요.',true,true);return;}
     const work=getForm(),status=$('catalogStatus').value;
     const payload=current.source?{action:'upsert_source',source_type:current.source.type,source_id:current.source.id,work,status}:
       {action:'save_work',id:current.work?.id,work,status};
     if(status==='published'&&current.work?.status!=='published'&&!confirm('이 작품 정보를 공개 조회 API에 게시할까요?'))return;
     await mutate(payload,'도감 정보를 저장했습니다.',true);
+  });
+  $('catalogTagAdd').addEventListener('click',()=>addTags($('catalogTagEntry').value));
+  $('catalogTagEntry').addEventListener('keydown',e=>{
+    if(e.key==='Enter'||e.key===','){e.preventDefault();addTags($('catalogTagEntry').value);}
+  });
+  $('catalogTagList').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-remove-tag]');if(!b)return;
+    tagTokens.splice(Number(b.dataset.removeTag),1);renderTags();
+  });
+  $('catalogRecommendationAdd').addEventListener('click',()=>{
+    if(recommendationRows.length>=10){message('추천 문구는 최대 10개까지 입력할 수 있습니다.',true,true);return;}
+    recommendationRows.push('');renderRecommendations();
+    $('catalogRecommendationList').querySelector('.catalog-recommendation-row:last-child textarea')?.focus();
+  });
+  $('catalogRecommendationList').addEventListener('input',e=>{
+    const index=e.target.dataset.recommendationIndex;if(index===undefined)return;
+    recommendationRows[Number(index)]=e.target.value;refreshRecommendationCount();
+  });
+  $('catalogRecommendationList').addEventListener('click',e=>{
+    const b=e.target.closest('button[data-remove-recommendation]');if(!b)return;
+    recommendationRows.splice(Number(b.dataset.removeRecommendation),1);
+    if(!recommendationRows.length)recommendationRows=[''];renderRecommendations();
   });
   $('catalogDelete').addEventListener('click',async()=>{
     if(!current?.work||current.loading||busy)return;

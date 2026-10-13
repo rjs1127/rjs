@@ -4712,3 +4712,11 @@ body:not(.simple-modal-open) #readerPageText {
     background:#42252D; border-color:#C97B87; color:#FFD0D6;
   }
 }
+
+/* v10.53 — optical icon centering and compact header action spacing. */
+@media (max-width:760px) {
+  .site-header .mobile-header-logout-button svg { display:block; width:18px; height:18px; margin:0; flex:none; }
+  .site-header.compact-mode .header-actions { gap:11px; }
+  .site-header.compact-mode #viewerSettingsButton { margin:0; flex:0 0 27px; }
+  .site-header.compact-mode .mobile-header-logout-button:not([hidden]) { margin:0; flex:0 0 32px; }
+}
