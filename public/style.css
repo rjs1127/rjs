@@ -4667,3 +4667,30 @@ body:not(.simple-modal-open) #readerPageText {
   .content-section .work-catalog-entry-button, .section-head-actions .work-catalog-entry-button { display: none !important; }
   .work-catalog-welcome { padding: 35px 18px; }
 }
+
+
+/* v10.50 — mobile header: dedicated compact logout action; desktop account unchanged. */
+.mobile-header-logout-button { display:none; }
+@media (max-width:760px) {
+  #loginButton.logged-in { display:none !important; }
+  .mobile-header-logout-button:not([hidden]) {
+    display:inline-flex; align-items:center; justify-content:center; gap:5px;
+    box-sizing:border-box; flex:0 0 auto; min-height:30px;
+    padding:5px 9px; border:1px solid #A04D56; border-radius:999px;
+    background:#FCECEF; color:#923E49; cursor:pointer;
+    font:inherit; font-size:10px; font-weight:800; line-height:1.1; white-space:nowrap;
+  }
+  .mobile-header-logout-button svg {
+    width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:1.8;
+    stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto;
+  }
+  .mobile-header-logout-button:hover { background:#F7DCE2; }
+  .mobile-header-logout-button:focus-visible { outline:2px solid currentColor; outline-offset:2px; }
+  html.theme-dark .mobile-header-logout-button:not([hidden]) {
+    border-color:#C97B87; background:#42252D; color:#FFD0D6;
+  }
+  html.theme-dark .mobile-header-logout-button:hover { background:#55303A; }
+  .site-header.compact-mode .mobile-header-logout-button:not([hidden]) {
+    min-height:28px; padding:4px 7px; font-size:9px;
+  }
+}

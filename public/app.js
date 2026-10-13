@@ -1294,6 +1294,7 @@ const els = {
   appInstallHelpSection: document.getElementById("appInstallHelpSection"),
   signupButton: document.getElementById("signupButton"),
   loginButton: document.getElementById("loginButton"),
+  mobileHeaderLogoutButton: document.getElementById("mobileHeaderLogoutButton"),
   readerBookmarkButton: document.getElementById("readerBookmarkButton"),
   readerLikeButton: document.getElementById("readerLikeButton"),
   readerDownloadButton: document.getElementById("readerDownloadButton"),
@@ -1853,6 +1854,10 @@ function updateAccountUi() {
     }
 
     els.loginButton.classList.toggle("logged-in", loggedIn);
+  }
+
+  if (els.mobileHeaderLogoutButton) {
+    els.mobileHeaderLogoutButton.hidden = !loggedIn;
   }
 
   if (els.signupButton) {
@@ -8679,6 +8684,10 @@ els.signupNudgeSignup?.addEventListener("click", () => {
   recordSignupNudgeAction("signup");
   hideSignupNudge();
   openSignupModal();
+});
+
+els.mobileHeaderLogoutButton?.addEventListener("click", () => {
+  if (state.user) els.logoutButton?.click();
 });
 
 els.loginButton?.addEventListener("click", () => {
