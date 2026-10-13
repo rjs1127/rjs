@@ -1,4 +1,4 @@
-/* v10.62 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
+/* v10.63 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -167,7 +167,8 @@
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
     refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button></div>
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
-      <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span></div></div></div>
+      <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span></div>
+      <div id="wcOriginalLinks" class="wc-source-links" aria-live="polite"></div></div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개 <button type="button" class="wc-inline-edit" data-wc-edit="synopsis_set">수정</button></h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드 <button type="button" class="wc-inline-edit" data-wc-edit="tag_add">키워드 추가</button></h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
@@ -185,6 +186,18 @@
         ${alertText?`<details class="wc-spoiler"><summary>주의 요소 보기 <span>내용 포함</span></summary><p>${escapeHtml(alertText)}</p></details>`:''}</section>
         <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>읽은 작품의 정보를 함께 기록해요. 로그인 후 수정하면 승인 대기 없이 도감에 반영됩니다.</p><button type="button" class="wc-edit-entry" data-wc-edit="tag_add">+ 작품 정보 보완하기</button></div>
       </aside></div>`;
+  }
+  async function loadSourceLinks(workId) {
+    const element=$('wcOriginalLinks');if(!element)return;
+    element.textContent='보러가기 연결을 확인하는 중…';
+    try {
+      const response=await fetch(`/api/work-catalog/links?id=${encodeURIComponent(workId)}`,{credentials:'same-origin',cache:'no-store'});
+      const json=await response.json();
+      if(!response.ok || !Array.isArray(json.items))throw Error();
+      if(workId!==data.detailId || element!==$('wcOriginalLinks'))return;
+      const links=json.items.filter(v=>['drive','postype'].includes(v.source_type)&&typeof v.source_id==='string');
+      element.innerHTML=links.length?links.map(v=>`<button type="button" class="wc-source-open" data-wc-source-type="${escapeHtml(v.source_type)}" data-wc-source-id="${escapeHtml(v.source_id)}">${links.length>1?(v.source_type==='drive'?'TXT로 보기 ↗':'POSTYPE 보기 ↗'):'보러가기 ↗'}</button>`).join(''):'<span class="wc-source-note">연결된 원본 작품이 없습니다.</span>';
+    }catch(error){if(workId===data.detailId && element===$('wcOriginalLinks'))element.textContent='연결된 원본을 확인하지 못했어요.';}
   }
   function renderWorkQuotes(message='',error=false) {
     const box=$('wcWorkQuotes');if(!box)return;
@@ -232,6 +245,7 @@
       if(sequence!==data.detailSeq||!isOpen())return;
       data.currentWork=json.work;
       renderDetail(json.work);
+      loadSourceLinks(json.work.id);
       data.quoteItems=[];data.quoteCursor=null;loadWorkQuotes();
       refs.detail.querySelector('#wcDetailHeading')?.focus({preventScroll:true});
     }catch(error){
@@ -239,65 +253,101 @@
       refs.detail.innerHTML='<button class="wc-detail-back" data-wc-back type="button">← 작품 목록으로</button><p class="wc-catalog-status" role="alert">작품 정보를 불러오지 못했어요. 비공개로 변경되었거나 일시적인 오류가 발생했을 수 있어요.</p>';
     }
   }
-  // Reader-contributed new works. A distinct dialog keeps existing item edits unchanged.
+  // Search the existing public site index first; never accept free-text registration.
   const createDialog=$('wcCreateDialog'),createForm=$('wcCreateForm');
   const createOpen=$('wcCreateOpen'),createSave=$('wcCreateSave'),createMessage=$('wcCreateMessage');
-  const createName=$('wcCreateName'),createAuthor=$('wcCreateAuthor'),createOriginal=$('wcCreateOriginal');
-  let createSaving=false,createRequestId='';
-  function closeCreate() {if(createDialog?.open&&!createSaving)createDialog.close();}
+  const createName=$('wcCreateName'),createMatches=$('wcCreateMatches'),createSelected=$('wcCreateSelected');
+  let createSaving=false,createRequestId='',selectedSource=null,sourceSeq=0,sourceController=null,sourceTimer=null;
+  function clearSourceSelection() {
+    selectedSource=null;createRequestId='';createSave.disabled=true;createSelected.hidden=true;
+    createSelected.textContent='';
+  }
+  function stopSourceSearch() {
+    sourceSeq++;sourceController?.abort();sourceController=null;
+    if(sourceTimer)clearTimeout(sourceTimer);sourceTimer=null;
+  }
+  function closeCreate() {if(createDialog?.open&&!createSaving){stopSourceSearch();createDialog.close();}}
+  function showSourceResults(items) {
+    createMatches.hidden=false;
+    createName.setAttribute('aria-expanded','true');
+    createMatches.innerHTML=items.length?items.map((item,index)=>`<button type="button" role="option" data-wc-source-index="${index}">
+      <span><strong>${escapeHtml(item.title)}</strong><small>${escapeHtml(item.author||'작가 미확인')}</small></span>
+      <em>${item.source_type==='postype'?'POSTYPE':'TXT'}</em></button>`).join(''):
+      '<p class="wc-create-empty">사이트에 등록된 검색 결과가 없어요.</p>';
+    createMatches._results=items;
+  }
+  async function searchSources() {
+    stopSourceSearch();clearSourceSelection();
+    const q=createName.value.trim().slice(0,80);
+    createMatches.hidden=true;createName.setAttribute('aria-expanded','false');
+    if(!q){createMessage.textContent='작품명이나 작가를 입력하면 사이트에 있는 작품을 검색해요.';return;}
+    const seq=sourceSeq;sourceController=new AbortController();
+    createMessage.textContent='검색하는 중…';
+    try {
+      const response=await fetch(`/api/work-catalog/sources?q=${encodeURIComponent(q)}`,{credentials:'same-origin',cache:'no-store',signal:sourceController.signal});
+      const json=await response.json();
+      if(!response.ok||!Array.isArray(json.items))throw Error(json.error||'검색 오류');
+      if(seq!==sourceSeq||!createDialog.open)return;
+      showSourceResults(json.items);
+      createMessage.textContent=json.items.length?'검색 결과에서 작품을 선택해 주세요.':'입력한 작품은 현재 사이트 목록에 없어요.';
+    }catch(error){if(seq===sourceSeq&&!sourceController?.signal.aborted)createMessage.textContent='검색에 실패했어요. 다시 입력해 주세요.';}
+  }
   createOpen?.addEventListener('click',()=>{
-    createForm.reset();createMessage.textContent='';createRequestId='';
+    stopSourceSearch();createForm.reset();clearSourceSelection();
+    createMatches.hidden=true;createMatches.innerHTML='';createName.setAttribute('aria-expanded','false');
+    createMessage.textContent='작품명이나 작가를 입력하면 사이트에 등록된 작품을 찾아드려요.';
     createDialog.showModal();createName.focus();
   });
   createDialog?.querySelectorAll('[data-wc-create-close]').forEach(button=>button.addEventListener('click',closeCreate));
-  createDialog?.addEventListener('cancel',event=>{if(createSaving)event.preventDefault();});
-  [createName,createAuthor,createOriginal].forEach(input=>input?.addEventListener('input',()=>{
-    if(!createSaving){createRequestId='';createMessage.textContent='';}
-  }));
+  createDialog?.addEventListener('cancel',event=>{if(createSaving)event.preventDefault();else stopSourceSearch();});
+  createName?.addEventListener('input',()=>{
+    stopSourceSearch();clearSourceSelection();createMatches.hidden=true;createName.setAttribute('aria-expanded','false');
+    sourceTimer=setTimeout(searchSources,220);
+  });
+  createMatches?.addEventListener('click',event=>{
+    const button=event.target.closest('[data-wc-source-index]');if(!button)return;
+    const source=createMatches._results?.[Number(button.dataset.wcSourceIndex)];if(!source)return;
+    if(!['drive','postype'].includes(source.source_type)||!source.source_id)return;
+    selectedSource={source_type:source.source_type,source_id:source.source_id};
+    createRequestId='';createSave.disabled=false;
+    createSelected.hidden=false;
+    createSelected.innerHTML=`<strong>선택한 작품</strong><span>${escapeHtml(source.title)} · ${escapeHtml(source.author||'작가 미확인')} <small>${source.source_type==='postype'?'POSTYPE':'TXT'}</small></span>`;
+    createMatches.hidden=true;createName.setAttribute('aria-expanded','false');
+    createName.value=source.title;
+    createMessage.textContent='선택한 작품만 등록할 수 있어요.';
+  });
   createForm?.addEventListener('submit',async event=>{
-    event.preventDefault();
-    if(createSaving)return;
-    const title=createName.value.trim(),author=createAuthor.value.trim(),original_title=createOriginal.value.trim();
-    if(!title){createMessage.textContent='작품 제목을 입력해 주세요.';createName.focus();return;}
-    createSaving=true;createSave.disabled=true;
-    [createName,createAuthor,createOriginal].forEach(input=>input.disabled=true);
+    event.preventDefault();if(createSaving)return;
+    if(!selectedSource){createMessage.textContent='아래 검색 결과에서 작품을 선택해 주세요.';createName.focus();return;}
+    createSaving=true;createSave.disabled=true;createName.disabled=true;
     createMessage.textContent='작품을 등록하는 중…';
     try {
       if(!createRequestId)createRequestId=crypto.randomUUID();
       const response=await fetch('/api/work-catalog/create',{
-        method:'POST',credentials:'same-origin',cache:'no-store',
-        headers:{'content-type':'application/json'},
-        body:JSON.stringify({title,author,original_title,request_id:createRequestId})
+        method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json'},
+        body:JSON.stringify({...selectedSource,request_id:createRequestId})
       });
       const json=await response.json();
       if(!response.ok){
         if(response.status===401){createMessage.innerHTML='로그인이 필요해요. <button type="button" data-wc-create-login>로그인하기</button>';return;}
         if(response.status===409&&validId(json.existing_public_id)){
-          createMessage.innerHTML=`이미 공개된 작품이에요. <button type="button" data-wc-create-existing="${escapeHtml(json.existing_public_id)}">기존 작품 보기</button>`;
-          return;
+          createMessage.innerHTML=`이미 공개된 작품이에요. <button type="button" data-wc-create-existing="${escapeHtml(json.existing_public_id)}">기존 작품 보기</button>`;return;
         }
-        throw new Error(json.error||'작품을 등록하지 못했어요.');
+        throw Error(json.error||'등록하지 못했어요.');
       }
-      if(!validId(json.work_id))throw new Error('등록 응답을 확인할 수 없어요. 새로고침 후 검색해 주세요.');
-      createDialog.close();
-      createRequestId='';
+      if(!validId(json.work_id))throw Error('등록 응답을 확인할 수 없어요.');
+      stopSourceSearch();createDialog.close();createRequestId='';
       data.filtersLoaded=false;data.loaded=false;
-      // Clear restrictive filters so the new work is visible after returning to the list.
       data.query='';data.cp='';data.genre='';data.tags=[];data.tagMode='all';data.completion='';data.subcouple='';data.sort='recent';
       refs.query.value='';refs.cp.value='';refs.completion.value='';refs.subcouple.value='';refs.sort.value='recent';
-      updateFilters();
-      await openDetail(json.work_id);
-    } catch(error) {createMessage.textContent=error.message||'등록하지 못했어요. 잠시 후 다시 시도해 주세요.';}
-    finally {createSaving=false;createSave.disabled=false;[createName,createAuthor,createOriginal].forEach(input=>input.disabled=false);}
+      updateFilters();await openDetail(json.work_id);
+    }catch(error){createMessage.textContent=error.message||'등록하지 못했어요. 다시 시도해 주세요.';}
+    finally {createSaving=false;createSave.disabled=!selectedSource;createName.disabled=false;}
   });
   createDialog?.addEventListener('click',event=>{
-    if(event.target.closest('[data-wc-create-login]')){
-      closeCreate();document.getElementById('loginButton')?.click();
-    }
+    if(event.target.closest('[data-wc-create-login]')){closeCreate();document.getElementById('loginButton')?.click();}
     const open=event.target.closest('[data-wc-create-existing]');
-    if(open&&validId(open.dataset.wcCreateExisting)){
-      closeCreate();openDetail(open.dataset.wcCreateExisting);
-    }
+    if(open&&validId(open.dataset.wcCreateExisting)){closeCreate();openDetail(open.dataset.wcCreateExisting);}
   });
   const editor=$('wcEditDialog'),editForm=$('wcEditForm');
   const editOperation=$('wcEditOperation'),editValue=$('wcEditValue'),editChoice=$('wcEditChoice');
@@ -353,6 +403,7 @@
       if(newWork && data.detailId===newWork.id){
         data.currentWork={...data.currentWork,...newWork};
         renderDetail(data.currentWork);
+        loadSourceLinks(data.currentWork.id);
         renderWorkQuotes();
         // The catalog index/filter results may have changed with a new tag.
         data.loaded=false;data.filtersLoaded=false;
@@ -411,7 +462,17 @@
   });
   refs.moreButton.addEventListener('click',()=>loadItems({append:true}));
   refs.cards.addEventListener('click',event=>{const button=event.target.closest('[data-wc-open]');if(button)openDetail(button.dataset.wcOpen);});
-  refs.detail.addEventListener('click',event=>{const edit=event.target.closest('[data-wc-edit]');if(edit)openEditor(edit.dataset.wcEdit);else if(event.target.closest('[data-wc-back]'))closeDetail();else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});});
+  refs.detail.addEventListener('click',event=>{
+    const edit=event.target.closest('[data-wc-edit]');
+    const source=event.target.closest('[data-wc-source-id]');
+    if(edit)openEditor(edit.dataset.wcEdit);
+    else if(source){
+      const ok=window.RJSOpenCatalogSource?.(source.dataset.wcSourceType,source.dataset.wcSourceId);
+      if(!ok){const place=$('wcOriginalLinks');if(place)place.insertAdjacentHTML('beforeend','<span class="wc-source-note">목록을 불러오는 중이거나 원본을 찾지 못했어요. 잠시 후 다시 시도해 주세요.</span>');}
+    }
+    else if(event.target.closest('[data-wc-back]'))closeDetail();
+    else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});
+  });
   refs.filterToggle.addEventListener('click',()=>{
     const expanded=refs.filter.classList.toggle('is-mobile-open');
     refs.filterToggle.setAttribute('aria-expanded',String(expanded));

@@ -10101,6 +10101,18 @@ function openContentItem(item) {
   openReader(item);
 }
 
+// Open a linked catalog source using the same reader/POSTYPE handler as the main list.
+// The catalog stays in place behind the TXT reader overlay; closing restores its detail.
+window.RJSOpenCatalogSource = (sourceType, sourceId) => {
+  if(!['drive','postype'].includes(sourceType) || !sourceId)return false;
+  const item=state.items.find(entry=>String(entry.id)===String(sourceId) &&
+    (entry.source==='postype'?'postype':'drive')===sourceType);
+  if(!item)return false;
+  if(sourceType==='postype' && !(typeof item.url==='string' && /^https:\/\//i.test(item.url)))return false;
+  openContentItem(item);
+  return true;
+};
+
 function handleContentOpenClick(event) {
   const likeButton = event.target.closest("[data-item-like]");
   if (likeButton) {

@@ -1,3 +1,11 @@
+# v10.63 — 도감 등록 원본 검증 및 뷰어 링크 안전 규칙
+
+- 신규 공개 도감은 **현행 `PUBLIC_ARCHIVE_INDEX_KEY`에 있는 TXT 또는 POSTYPE 원본 선택을 필수**로 한다. 클라이언트가 보낸 title/author/url을 신뢰하여 도감 작품을 생성하지 않는다. 공개 인덱스가 없거나 원본이 사라진 경우 등록을 거부한다.
+- `POST /api/work-catalog/create`는 서버에서 `source_type`+`source_id`로 원본 존재를 확인하고 원본 메타로 제목/작가를 확정한다. 등록과 `catalog_source_links` 링크, 중복 요청 이력, 감사 이력은 동일 D1 batch에 포함한다. 링크의 UNIQUE 충돌은 batch rollback되어야 한다.
+- `GET /api/work-catalog/sources`는 현재 공개 인덱스에서 최소 정보만 12건까지 검색한다. `GET /api/work-catalog/links`는 `published` 도감의 연결 중 현재 공개 원본만 내보내며, 비공개/관리자 원본 정보는 노출하지 않는다.
+- 도감 상세 `보러가기`는 원본 ID를 기존 사용자 메인 콘텐츠 `state.items`에서 찾아 `openContentItem()`로 연다. TXT는 현재 화면에 기존 뷰어 오버레이를 띄우며 메인 화면으로 이동하지 않는다. POSTYPE은 기존 `noopener,noreferrer` 외부 새 탭 처리를 재사용한다.
+- 기존 연결 없는 도감에 제목/작가 유사도만으로 임의 원본 링크를 만들지 않는다. README, 도움말, version.json, index.html 정적 캐시 키를 같은 버전으로 맞춘다. HISTORY는 GitHub main 실제 커밋 자동 생성 원본 그대로 포함한다.
+
 # v10.62 — 신규 작품 즉시 등록 안전 규칙
 
 - 독자 등록은 로그인·동일 Origin을 요구하는 `POST /api/work-catalog/create` 전용 경로로 분리한다. 기존 작품 항목별 직접 수정(`edit`)과 승인 대기(`proposals`) API는 변경하지 않는다.
