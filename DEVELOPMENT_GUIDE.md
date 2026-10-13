@@ -1,3 +1,11 @@
+# v10.59 — 도감 CP와 공개 문장 연결 규칙
+
+- CP는 공개 인덱스의 combination과 catalog_source_links 원본 ID로 읽는다. 별도 CP 컬럼이나 제목 기반 자동 병합을 추가하지 않는다.
+- 관리자 POST /api/admin/work-catalog-import는 세션 검사 후 미등록 원본을 최대 20건 공개 등록한다. 기존 도감은 덮어쓰지 않는다. INSERT 조건과 D1 batch로 동시 실행/재시도의 중복 및 고아 작품을 방지한다. 운영 등록은 관리자가 버튼을 실행할 때만 수행한다.
+- shared_quotes.work_id는 원본 ID이며 도감 UUID와 다르다. 원본 공개 인덱스에 없는 ID, 같은 ID의 모호한 원본은 등록에서 제외한다. 제목/작가는 현재 원본에서, 다른 정보는 공란/unknown으로 초기화한다.
+- 04 공개 문장은 catalog_source_links를 통해 현재 shared_quotes에서만 조회하며 사용자 기록과 작성자 식별 정보는 응답하지 않는다. no-store, 5건 cursor 조회, 공개 도감 검사 및 실패 후 재시도를 유지한다. 열린 화면의 자동 실시간 갱신은 하지 않는다.
+- 사이트 버전 10.59 / 정적 캐시 1059. HISTORY.md 수동 변경 금지.
+
 # v10.58 — 도감 UI 및 페이지 복원
 
 - 페이지 복원은 기존 history.state의 rjsWorkCatalogPage/rjsQuoteFeedPage/rjsProfilePage 표식을 재사용합니다. DOMContentLoaded 이후 도감 스크립트가 준비되고 인증 복원이 끝난 뒤 기존 show 함수를 호출합니다.

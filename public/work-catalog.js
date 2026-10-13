@@ -9,15 +9,16 @@
     form: $('wcSearchForm'), query: $('wcSearchInput'), genres: $('wcGenreChoices'),
     tags: $('wcTagChoices'), filter: $('wcFilterPanel'), filterToggle: $('wcFilterToggle'),
     filterBadge: $('wcFilterBadge'), completion: $('wcCompletionFilter'),
-    subcouple: $('wcSubcoupleFilter'), sort: $('wcSortSelect'),
+    cp: $('wcCpFilter'), subcouple: $('wcSubcoupleFilter'), sort: $('wcSortSelect'),
     reset: $('wcResetFilters'), active: $('wcActiveFilters'),
     status: $('wcCatalogStatus'), cards: $('wcCatalogCards'),
     more: $('wcMoreWrap'), moreButton: $('wcMoreButton'), meta: $('wcResultsMeta')
   };
   const data = {
-    query:'', genre:'', tags:[], tagMode:'all', completion:'', subcouple:'', sort:'recent',
+    query:'', cp:'', genre:'', tags:[], tagMode:'all', completion:'', subcouple:'', sort:'recent',
     genres:[], tagOptions:[], items:[], nextPage:1, hasMore:false,
     loaded:false, loading:false, seq:0, abort:null, filtersLoaded:false, detailId:'',
+    quoteItems:[], quoteCursor:null, quoteAbort:null, quoteLoading:false,
     detailSeq:0, detailAbort:null, previousScroll:0, lastFocus:null, debounce:null
   };
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -57,6 +58,7 @@
   }
   function activeFilters() {
     const entries=[];
+    if (data.cp) entries.push(['cp',`CP ${data.cp}`]);
     if (data.genre) entries.push(['genre',data.genre]);
     for(const tag of data.tags) entries.push(['tag',`#${tag}`,tag]);
     if(data.completion) entries.push(['completion',statusLabel[data.completion]||data.completion]);
@@ -69,9 +71,10 @@
   function makeCard(work,index) {
     const title=escapeHtml(work.title || '제목 미상');
     const author=escapeHtml(work.author || '작가 미확인');
+    const mainCp=arr(work.main_couples).map(escapeHtml).join(' · ');
     const genres=arr(work.genres).slice(0,2), tagLabels=arr(work.tags).slice(0,3);
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
-      ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading">${title}</span><span class="wc-card-author">${author}</span>
+      ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading">${title}</span><span class="wc-card-author">${author}</span>${mainCp?`<span class="wc-card-author">CP · ${mainCp}</span>`:''}
       <span class="wc-card-tags">${[...genres,...tagLabels.map(t=>'#'+t)].map(tag=>`<span>${escapeHtml(tag)}</span>`).join('') || '<span>분류 정보 미등록</span>'}</span>
       <span class="wc-card-bottom"><span>${escapeHtml(statusLabel[work.completion]||'미확인')} · 서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span><span class="wc-card-arrow">↗</span></span></span></button></article>`;
   }
@@ -82,12 +85,13 @@
     announceMeta();
     if(!data.items.length && !data.loading && !refs.status.hidden) return;
     if(!data.items.length && !data.loading) {
-      const filtered=Boolean(data.query||data.genre||data.tags.length||data.completion||data.subcouple);
+      const filtered=Boolean(data.query||data.cp||data.genre||data.tags.length||data.completion||data.subcouple);
       showStatus(filtered?'검색 조건에 맞는 공개 작품이 없어요. 필터를 바꿔보세요.':'아직 공개된 작품 정보가 없어요. 작품 정보는 관리자 공개 후 이곳에 표시돼요.','empty');
     }
   }
   function queryParams(page) {
     const params = new URLSearchParams({page:String(page),sort:data.sort});
+    if(data.cp) params.set('cp',data.cp);
     if(data.query) params.set('q',data.query);
     if(data.genre) params.set('genre',data.genre);
     data.tags.forEach(tag=>params.append('tag',tag));
@@ -133,6 +137,8 @@
       const response=await fetch('/api/work-catalog/filters',{credentials:'same-origin'});
       const json=await response.json();
       if(!response.ok) throw Error();
+      refs.cp.innerHTML='<option value="">전체</option>'+(Array.isArray(json.couples)?json.couples:[]).map(row=>`<option value="${escapeHtml(row.value)}">${escapeHtml(row.value)}</option>`).join('');
+      refs.cp.value=data.cp;
       data.genres=Array.isArray(json.genres)?json.genres.filter(row=>row && typeof row.value==='string').slice(0,24):[];
       data.tagOptions=Array.isArray(json.tags)?json.tags.filter(row=>row&&typeof row.value==='string').slice(0,36):[];
       data.filtersLoaded=true;
@@ -148,7 +154,7 @@
     data.debounce=setTimeout(()=>{data.debounce=null;if(isOpen())loadItems();},220);
   }
   function resetFilters() {
-    data.genre='';data.tags=[];data.tagMode='all';data.completion='';data.subcouple='';data.sort='recent';data.query='';
+    data.cp='';refs.cp.value='';data.genre='';data.tags=[];data.tagMode='all';data.completion='';data.subcouple='';data.sort='recent';data.query='';
     refs.query.value='';refs.completion.value='';refs.subcouple.value='';refs.sort.value='recent';
     changed();
   }
@@ -161,24 +167,52 @@
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
     refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button></div>
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
-      <div class="wc-detail-properties"><span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span>서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span></div></div></div>
+      <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span>서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span></div></div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개</h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드</h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
         <div class="wc-detail-tag-label">취향 키워드</div><div class="wc-detail-tagline">${tagsList.length?tagRows(tagsList,'#'):'<span class="wc-muted">키워드 미등록</span>'}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">03 / FOR READERS</span><h4>이런 독자에게 추천해요</h4>${recommendations.length?`<ul class="wc-recommendations">${recommendations.map(line=>`<li>${escapeHtml(line)}</li>`).join('')}</ul>`:'<p class="wc-muted">추천 대상 정보가 아직 없어요.</p>'}</section>
+        <section class="wc-detail-section"><span class="wc-section-num">04 / QUOTES</span><h4>작품 속 문장</h4><div id="wcWorkQuotes" aria-live="polite"></div></section>
       </div><aside class="wc-detail-side"><section class="wc-detail-facts"><span class="wc-section-num">INFORMATION</span><h4>한눈에 보는 작품</h4>
-        <dl><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div><div><dt>서브커플</dt><dd>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</dd></div></dl>
+        <dl><div><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[work.completion]||'미확인')}</dd></div><div><dt>서브커플</dt><dd>${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</dd></div></dl>
         ${subNote?`<details class="wc-spoiler"><summary>서브커플 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
         ${alertText?`<details class="wc-spoiler"><summary>주의 요소 보기 <span>내용 포함</span></summary><p>${escapeHtml(alertText)}</p></details>`:''}</section>
         <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>이 정보는 공개 승인된 작품 데이터예요. 정보 추가·수정 제안 기능은 다음 업데이트에서 제공할 예정이에요.</p></div>
       </aside></div>`;
+  }
+  function renderWorkQuotes(message='',error=false) {
+    const box=$('wcWorkQuotes');if(!box)return;
+    box.innerHTML=data.quoteItems.map(quote=>`<details class="wc-work-quote"><summary><span>${escapeHtml(String(quote.quote_text||'').replace(/\s+/g,' '))}</span></summary><p>${escapeHtml(quote.quote_text)}</p></details>`).join('')+
+      (message?`<p class="wc-muted" ${error?'role="alert"':''}>${escapeHtml(message)}</p>`:'')+
+      (!data.quoteItems.length&&!message?'<p class="wc-muted">아직 공개된 문장이 없습니다.</p>':'')+
+      (data.quoteCursor||error?`<button class="wc-detail-back" type="button" data-wc-quotes-more ${data.quoteLoading?'disabled':''}>${error?'다시 시도':'문장 더 보기'}</button>`:'');
+  }
+  async function loadWorkQuotes({append=false}={}) {
+    if(data.quoteLoading||!data.detailId)return;
+    const id=data.detailId,sequence=data.detailSeq;
+    data.quoteAbort?.abort();const controller=new AbortController();data.quoteAbort=controller;
+    data.quoteLoading=true;renderWorkQuotes('공개 문장을 불러오는 중…');
+    try {
+      const params=new URLSearchParams({id});
+      if(append&&data.quoteCursor)params.set('cursor',data.quoteCursor);
+      const response=await fetch('/api/work-catalog/quotes?'+params,{signal:controller.signal,credentials:'same-origin',cache:'no-store'});
+      const json=await response.json();
+      if(!response.ok||!Array.isArray(json.items))throw Error('문장 조회 실패');
+      if(sequence!==data.detailSeq||id!==data.detailId)return;
+      data.quoteItems=append?[...data.quoteItems,...json.items.filter(q=>!data.quoteItems.some(old=>old.quote_id===q.quote_id))]:json.items;
+      data.quoteCursor=json.nextCursor||null;data.quoteLoading=false;renderWorkQuotes();
+    }catch(error){
+      if(controller.signal.aborted||sequence!==data.detailSeq)return;
+      data.quoteLoading=false;renderWorkQuotes('공개 문장을 불러오지 못했어요. 다시 시도해 주세요.',true);
+    }
   }
   async function openDetail(id,{push=true}={}) {
     if(!validId(id))return;
     const active=root.querySelector(`[data-wc-open="${CSS.escape(id)}"]`);
     if(active)data.lastFocus=active;
     data.previousScroll=Math.max(0,window.scrollY||0);
+    data.quoteAbort?.abort();data.quoteLoading=false;
     data.detailId=id;
     refs.browse.hidden=true;refs.detail.hidden=false;
     refs.detail.innerHTML='<p class="wc-catalog-status">작품 정보를 불러오는 중…</p>';
@@ -192,6 +226,7 @@
       if(!response.ok||!json.work)throw Error(json.error||'작품 상세 조회 실패');
       if(sequence!==data.detailSeq||!isOpen())return;
       renderDetail(json.work);
+      data.quoteItems=[];data.quoteCursor=null;loadWorkQuotes();
       refs.detail.querySelector('#wcDetailHeading')?.focus({preventScroll:true});
     }catch(error){
       if(controller.signal.aborted||sequence!==data.detailSeq)return;
@@ -200,6 +235,7 @@
   }
   function closeDetail({fromHistory=false,restoreScroll=true}={}) {
     if(!data.detailId)return;
+    data.quoteAbort?.abort();data.quoteLoading=false;data.quoteItems=[];data.quoteCursor=null;
     data.detailId='';data.detailSeq++;data.detailAbort?.abort();
     refs.detail.hidden=true;refs.browse.hidden=false;refs.detail.innerHTML='';
     if(!fromHistory&&history.state?.rjsWorkCatalogDetailId) {
@@ -223,6 +259,7 @@
     changed();
   });
   root.querySelectorAll('[data-wc-mode]').forEach(button=>button.addEventListener('click',()=>{data.tagMode=button.dataset.wcMode;changed();}));
+  refs.cp.addEventListener('change',()=>{data.cp=refs.cp.value;changed();});
   refs.completion.addEventListener('change',()=>{data.completion=refs.completion.value;changed();});
   refs.subcouple.addEventListener('change',()=>{data.subcouple=refs.subcouple.value;changed();});
   refs.sort.addEventListener('change',()=>{data.sort=refs.sort.value;changed();});
@@ -230,6 +267,7 @@
   refs.active.addEventListener('click',event=>{
     const button=event.target.closest('[data-wc-remove]');if(!button)return;
     switch(button.dataset.wcRemove) {
+      case 'cp':data.cp='';refs.cp.value='';break;
       case 'genre':data.genre='';break;
       case 'tag':data.tags=data.tags.filter(t=>t!==button.dataset.wcValue);break;
       case 'completion':data.completion='';refs.completion.value='';break;
@@ -239,7 +277,7 @@
   });
   refs.moreButton.addEventListener('click',()=>loadItems({append:true}));
   refs.cards.addEventListener('click',event=>{const button=event.target.closest('[data-wc-open]');if(button)openDetail(button.dataset.wcOpen);});
-  refs.detail.addEventListener('click',event=>{if(event.target.closest('[data-wc-back]'))closeDetail();});
+  refs.detail.addEventListener('click',event=>{if(event.target.closest('[data-wc-back]'))closeDetail();else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});});
   refs.filterToggle.addEventListener('click',()=>{
     const expanded=refs.filter.classList.toggle('is-mobile-open');
     refs.filterToggle.setAttribute('aria-expanded',String(expanded));

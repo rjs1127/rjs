@@ -322,6 +322,22 @@
   for(const id of ['catalogSourceFilter','catalogFilter'])$(id).addEventListener('change',()=>{shown=50;renderSourceList();});
   $('catalogMore').addEventListener('click',()=>{shown+=50;renderSourceList();});
   $('catalogRefresh').addEventListener('click',()=>reload(true));
+  const importQuotesButton=document.createElement('button');
+  importQuotesButton.className=$('catalogRefresh').className;
+  importQuotesButton.type='button';importQuotesButton.id='catalogImportQuotes';importQuotesButton.textContent='공개 문장 작품 추가';
+  $('catalogRefresh').after(importQuotesButton);
+  importQuotesButton.addEventListener('click',async()=>{
+    if(busy||!confirm('공개 문장이 있는 미등록 작품을 최대 20개 공개 도감으로 추가할까요? 기존 도감은 변경하지 않으며, 나머지 정보는 공란·미확인으로 둡니다.'))return;
+    busy=true;importQuotesButton.disabled=true;
+    try {
+      const response=await fetch('/api/admin/work-catalog-import',{method:'POST',credentials:'same-origin'});
+      const result=await response.json();
+      if(response.status===401){location.replace('/admin');throw Error('관리자 로그인이 필요합니다.');}
+      if(!response.ok)throw Error(result.error||'공개 문장 작품 등록 실패');
+      await loadCatalog();message(`${result.created}개 작품을 추가했습니다.${result.hasMore?' 남은 작품은 버튼을 다시 눌러 추가하세요.':''}`);
+    }catch(error){message(error.message,true);}
+    finally{busy=false;importQuotesButton.disabled=false;}
+  });
   $('catalogProposalList').addEventListener('click',async e=>{
     const b=e.target.closest('button[data-review]');if(!b||busy)return;
     const verdict=b.dataset.review;

@@ -1,3 +1,4 @@
+import { catalogCpSources, CATALOG_CP_CTE, withCatalogCp } from '../../_catalog_cp.js';
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
 import { publicCatalogWork } from '../../_work_catalog.js';
@@ -15,6 +16,8 @@ export async function onRequestGet(context) {
     if (tags.some(tag => tag.length > 30)) return jsonResponse({error:'키워드 길이가 올바르지 않습니다.'},400);
     const tagMode = params.get('tag_mode') === 'any' ? 'any' : 'all';
     const completion = (params.get('completion') || '').trim();
+    const cp = (params.get('cp') || '').trim();
+    if (cp.length > 200) return jsonResponse({error:'CP 조건이 올바르지 않습니다.'},400);
     const subcouple = (params.get('subcouple') || '').trim();
     if (completion && !['unknown','ongoing','completed','hiatus'].includes(completion)) return jsonResponse({error:'연재 상태가 올바르지 않습니다.'},400);
     if (subcouple && !['unknown','yes','no'].includes(subcouple)) return jsonResponse({error:'서브커플 조건이 올바르지 않습니다.'},400);
@@ -39,12 +42,13 @@ export async function onRequestGet(context) {
       }
     }
     if (completion) {where.push('completion=?');args.push(completion);}
+    if (cp) {where.push('EXISTS (SELECT 1 FROM work_cp WHERE work_id=catalog_works.id AND cp=?)');args.push(cp);}
     if (subcouple) {where.push('subcouple=?');args.push(subcouple);}
     const orderBy = sort === 'title' ? 'title COLLATE NOCASE ASC,id ASC' : 'updated_at DESC,id DESC';
-    const rows = await db.prepare(`SELECT * FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21 OFFSET ?`)
-      .bind(...args,(page-1)*20).all();
+    const rows = await db.prepare(`${CATALOG_CP_CTE} SELECT catalog_works.*, (SELECT json_group_array(cp) FROM work_cp WHERE work_id=catalog_works.id) AS main_couples_json FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21 OFFSET ?`)
+      .bind(await catalogCpSources(context.env),...args,(page-1)*20).all();
     const results = rows.results || [];
-    return jsonResponse({ items:results.slice(0,20).map(publicCatalogWork),page,hasMore:results.length>20 },200,{'cache-control':'public,max-age=30'});
+    return jsonResponse({ items:results.slice(0,20).map(row=>withCatalogCp(publicCatalogWork(row),row)),page,hasMore:results.length>20 },200,{'cache-control':'public,max-age=30'});
   } catch(e) {
     if (/no such table/i.test(e?.message||'')) return jsonResponse({items:[],page:1,hasMore:false},200,{'cache-control':'no-store'});
     return jsonResponse({error:e.message||'작품 도감 조회에 실패했습니다.'},e.status||500,{'cache-control':'no-store'});

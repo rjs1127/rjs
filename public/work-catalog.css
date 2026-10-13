@@ -210,3 +210,12 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .wc-detail-properties {gap:5px;margin-top:10px;}
   .wc-detail-properties span {font-size:10px;padding:5px 8px;}
 }
+
+/* Public quotes reuse the catalog typography and theme. */
+.wc-work-quote { border-bottom:1px solid var(--theme-line); padding:12px 0; }
+.wc-work-quote summary { display:flex; cursor:pointer; gap:8px; align-items:center; }
+.wc-work-quote summary::after { content:'＋'; flex:none; }
+.wc-work-quote[open] summary::after { content:'−'; }
+.wc-work-quote summary span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; min-width:0; flex:1; }
+.wc-work-quote p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.8; }
+@media(max-width:700px) { .wc-work-quote summary span { white-space:normal; display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; } }
