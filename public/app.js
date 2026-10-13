@@ -9199,12 +9199,42 @@ window.addEventListener("popstate", (event) => {
   }
 });
 
+// v10.64: the menu must escape the scroll/clipping table wrapper, even when
+// the search leaves only a single row. Keep its existing actions unchanged.
+function positionOpenListMoreMenu(details) {
+  if (!details?.open) return;
+  const trigger = details.querySelector('summary');
+  const menu = details.querySelector('.list-mobile-more-menu');
+  if (!trigger || !menu) return;
+  const rect = trigger.getBoundingClientRect();
+  const availableWidth = document.documentElement.clientWidth;
+  const menuWidth = menu.getBoundingClientRect().width || 120;
+  const menuHeight = menu.getBoundingClientRect().height || 100;
+  const left = Math.max(8, Math.min(availableWidth - menuWidth - 8, rect.right - menuWidth));
+  const spaceBelow = window.innerHeight - rect.bottom;
+  const top = spaceBelow >= menuHeight + 9 || rect.top < menuHeight + 9
+    ? Math.min(window.innerHeight - menuHeight - 8, rect.bottom + 6)
+    : rect.top - menuHeight - 6;
+  menu.style.left = `${left}px`;
+  menu.style.top = `${Math.max(8,top)}px`;
+}
+function updateOpenListMoreMenus() {
+  document.querySelectorAll('details[data-list-more][open]').forEach(positionOpenListMoreMenu);
+}
+window.addEventListener('resize', updateOpenListMoreMenus, {passive:true});
+window.addEventListener('scroll', updateOpenListMoreMenus, {passive:true, capture:true});
+
 document.addEventListener("toggle", (event) => {
   const details = event.target?.closest?.("details[data-list-more]");
   if (!details) return;
   const row = details.closest("tr");
   row?.classList.toggle("list-more-open", details.open);
-  if (!details.open) return;
+  if (!details.open) {
+    const menu=details.querySelector('.list-mobile-more-menu');
+    if(menu){menu.style.top='';menu.style.left='';}
+    return;
+  }
+  positionOpenListMoreMenu(details);
   document.querySelectorAll("details[data-list-more][open]").forEach((other) => {
     if (other !== details) other.open = false;
   });

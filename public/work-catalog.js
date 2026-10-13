@@ -1,4 +1,4 @@
-/* v10.63 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
+/* v10.64 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -161,14 +161,15 @@
   const recommendationLines=value=>String(value||'').split(/\n\s*\n|\r?\n/).map(v=>v.trim()).filter(Boolean).slice(0,12);
   const displayText = (value,fallback='정보 미등록') => value ? escapeHtml(value) : `<span class="wc-muted">${fallback}</span>`;
   function renderDetail(work) {
+    closeMobileFilters();
     const genres=arr(work.genres),tagsList=arr(work.tags),recommendations=recommendationLines(work.recommendation);
     const heading=escapeHtml(work.title||'제목 미상');
     const tagRows=(list,prefix)=>list.map(label=>`<span class="wc-detail-tag">${prefix}${escapeHtml(label)}</span>`).join('');
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
-    refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button></div>
+    refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button><div id="wcOriginalLinks" class="wc-source-links" aria-live="polite"></div></div>
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
       <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span></div>
-      <div id="wcOriginalLinks" class="wc-source-links" aria-live="polite"></div></div></div>
+      </div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개 <button type="button" class="wc-inline-edit" data-wc-edit="synopsis_set">수정</button></h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><h4>장르와 키워드 <button type="button" class="wc-inline-edit" data-wc-edit="tag_add">키워드 추가</button></h4><div class="wc-detail-tag-label">장르</div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">장르 미등록</span>'}</div>
@@ -189,15 +190,15 @@
   }
   async function loadSourceLinks(workId) {
     const element=$('wcOriginalLinks');if(!element)return;
-    element.textContent='보러가기 연결을 확인하는 중…';
+    element.textContent='';
     try {
       const response=await fetch(`/api/work-catalog/links?id=${encodeURIComponent(workId)}`,{credentials:'same-origin',cache:'no-store'});
       const json=await response.json();
       if(!response.ok || !Array.isArray(json.items))throw Error();
       if(workId!==data.detailId || element!==$('wcOriginalLinks'))return;
       const links=json.items.filter(v=>['drive','postype'].includes(v.source_type)&&typeof v.source_id==='string');
-      element.innerHTML=links.length?links.map(v=>`<button type="button" class="wc-source-open" data-wc-source-type="${escapeHtml(v.source_type)}" data-wc-source-id="${escapeHtml(v.source_id)}">${links.length>1?(v.source_type==='drive'?'TXT로 보기 ↗':'POSTYPE 보기 ↗'):'보러가기 ↗'}</button>`).join(''):'<span class="wc-source-note">연결된 원본 작품이 없습니다.</span>';
-    }catch(error){if(workId===data.detailId && element===$('wcOriginalLinks'))element.textContent='연결된 원본을 확인하지 못했어요.';}
+      element.innerHTML=links.length?links.map(v=>`<button type="button" class="wc-source-open" data-wc-source-type="${escapeHtml(v.source_type)}" data-wc-source-id="${escapeHtml(v.source_id)}">${links.length>1?(v.source_type==='drive'?'TXT로 보기 ↗':'POSTYPE 보기 ↗'):'보러가기 ↗'}</button>`).join(''):'';
+    }catch(error){if(workId===data.detailId && element===$('wcOriginalLinks'))element.textContent='';}
   }
   function renderWorkQuotes(message='',error=false) {
     const box=$('wcWorkQuotes');if(!box)return;
@@ -473,15 +474,34 @@
     else if(event.target.closest('[data-wc-back]'))closeDetail();
     else if(event.target.closest('[data-wc-quotes-more]'))loadWorkQuotes({append:Boolean(data.quoteItems.length)});
   });
-  refs.filterToggle.addEventListener('click',()=>{
-    const expanded=refs.filter.classList.toggle('is-mobile-open');
-    refs.filterToggle.setAttribute('aria-expanded',String(expanded));
-  });
-  $('wcFilterDone')?.addEventListener('click',()=>{
+  const filterBackdrop=$('wcFilterBackdrop');
+  function closeMobileFilters({restoreFocus=false}={}) {
+    const wasOpen=refs.filter.classList.contains('is-mobile-open');
     refs.filter.classList.remove('is-mobile-open');
     refs.filterToggle.setAttribute('aria-expanded','false');
-    refs.filterToggle.focus();
+    filterBackdrop.hidden=true;
+    document.body.classList.remove('wc-filter-sheet-open');
+    refs.filter.removeAttribute('role');
+    refs.filter.removeAttribute('aria-modal');
+    if(wasOpen&&restoreFocus&&isOpen())refs.filterToggle.focus();
+  }
+  refs.filterToggle.addEventListener('click',()=>{
+    if(refs.filter.classList.contains('is-mobile-open')){closeMobileFilters({restoreFocus:true});return;}
+    refs.filter.classList.add('is-mobile-open');
+    refs.filterToggle.setAttribute('aria-expanded','true');
+    filterBackdrop.hidden=false;
+    document.body.classList.add('wc-filter-sheet-open');
+    refs.filter.setAttribute('role','dialog');
+    refs.filter.setAttribute('aria-modal','true');
+    $('wcFilterClose')?.focus();
   });
+  $('wcFilterClose')?.addEventListener('click',()=>closeMobileFilters({restoreFocus:true}));
+  filterBackdrop.addEventListener('click',()=>closeMobileFilters({restoreFocus:true}));
+  $('wcFilterDone')?.addEventListener('click',()=>closeMobileFilters({restoreFocus:true}));
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&refs.filter.classList.contains('is-mobile-open')){event.preventDefault();closeMobileFilters({restoreFocus:true});}
+  });
+  window.matchMedia('(min-width:641px)').addEventListener('change',event=>{if(event.matches)closeMobileFilters();});
   window.addEventListener('popstate',event=>{
     if(!isOpen())return;
     if(data.detailId&&!event.state?.rjsWorkCatalogDetailId)closeDetail({fromHistory:true});
@@ -496,6 +516,7 @@
       }
     },
     onHide(){
+      closeMobileFilters();
       if(data.debounce)clearTimeout(data.debounce);
       data.seq++;data.abort?.abort();data.loading=false;
       if(data.detailId)closeDetail({restoreScroll:false});

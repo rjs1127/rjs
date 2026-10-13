@@ -4729,3 +4729,12 @@ body:not(.simple-modal-open) #readerPageText {
   /* Preserve the empty flexible middle column when the compact search is hidden. */
   .site-header.compact-mode.is-secondary-page .header-actions { grid-column: 3; }
 }
+
+/* v10.64: keep the site name visible in mobile compact headers, even on subpages. */
+@media (max-width:760px) {
+  .site-header.compact-mode .brand { gap:6px; min-width:0; }
+  .site-header.compact-mode .brand-text {
+    display:block; max-width:92px; min-width:0; font-size:13px; font-weight:800;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+}

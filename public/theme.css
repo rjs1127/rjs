@@ -5193,3 +5193,19 @@ body.reader-open .network-status-banner {
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-author {grid-area:author !important;}
   .reader:not(.reader-compact):not(.reader-loading-locked) .reader-filename {grid-area:file !important;}
 }
+
+/* v10.64: prevent the one-result mobile list from clipping the opened more menu. */
+@media (max-width:640px) {
+  .content-list tr.list-more-open .list-mobile-more-menu {
+    position:fixed;right:auto;left:0;top:0;z-index:180;
+    min-width:114px;max-width:calc(100vw - 16px);
+  }
+}
+@media (max-width:640px) {
+  /* An ancestor transform traps position:fixed within the scroll-clipped table.
+     Keep the action row vertically centered without creating that containing block. */
+  .content-list tr.list-more-open .list-title-actions {
+    transform:none!important;
+    top:calc(50% - 12px)!important;
+  }
+}
