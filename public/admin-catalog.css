@@ -25,3 +25,48 @@
 .admin-next-page .catalog-admin-record-actions button:hover {background:var(--sy-control-hover);}
 @media(max-width:900px){.admin-next-page .catalog-admin-grid {grid-template-columns:1fr;}}
 @media(max-width:560px){.admin-next-page .catalog-admin-form {grid-template-columns:1fr;}.admin-next-page .catalog-span{grid-column:auto;}}
+
+/* v10.52: registered TXT/POSTYPE list and one-screen edit modal. */
+.admin-next-page .catalog-admin-panel .catalog-admin-card {margin-top:14px;}
+.admin-next-page .catalog-list-heading h3 {margin-bottom:5px;}
+.admin-next-page .catalog-admin-filters {gap:9px;}
+.admin-next-page .catalog-admin-filters #catalogSearch {min-width:190px;flex:1 1 260px;}
+.admin-next-page .catalog-source-list {max-height:620px;overflow:auto;overscroll-behavior:contain;}
+.admin-next-page .catalog-source-list > button {min-height:58px;gap:10px;}
+.admin-next-page .catalog-source-list > button:hover, .admin-next-page .catalog-admin-list > button:hover {background:var(--sy-control-hover);}
+.admin-next-page .catalog-source-main {flex:1 1 auto;min-width:0;display:grid;gap:4px;}
+.admin-next-page .catalog-source-main strong {font-size:13px;overflow-wrap:anywhere;}
+.admin-next-page .catalog-source-main small {font-size:11px;overflow-wrap:anywhere;}
+.admin-next-page .catalog-source-status {flex:0 0 auto;font-size:11px;font-weight:750;border-radius:99px;padding:5px 8px;background:var(--sy-control-hover);}
+.admin-next-page .catalog-source-status.is-linked {border:1px solid var(--sy-line);color:var(--sy-accent);}
+.admin-next-page .catalog-admin-pager {display:flex;justify-content:center;}
+.admin-next-page .catalog-standalone {border-top:1px solid var(--sy-line);padding-top:15px;margin-top:18px;}
+.admin-next-page .catalog-standalone summary {font-size:12px;font-weight:750;cursor:pointer;}
+.admin-next-page .catalog-standalone .catalog-admin-list {margin-top:10px;max-height:220px;overflow:auto;}
+.admin-next-page .catalog-standalone .catalog-admin-list small {display:block;margin-top:5px;}
+.admin-next-page .catalog-admin-overlay[hidden] {display:none !important;}
+.admin-next-page .catalog-admin-overlay {position:fixed;z-index:9999;inset:0;display:grid;place-items:center;padding:18px;}
+.admin-next-page .catalog-admin-backdrop {position:absolute;inset:0;background:rgba(22,24,29,.64);}
+.admin-next-page .catalog-admin-dialog {position:relative;z-index:1;width:min(100%,790px);max-height:min(90dvh,900px);overflow:auto;overscroll-behavior:contain;box-sizing:border-box;border-radius:19px;padding:23px;background:var(--sy-surface);border:1px solid var(--sy-line);box-shadow:var(--sy-shadow-modal);color:var(--sy-text);outline:none;}
+.admin-next-page .catalog-admin-dialog-head {display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:16px;}
+.admin-next-page .catalog-admin-dialog-head .eyebrow {margin:0 0 6px;}
+.admin-next-page .catalog-admin-dialog-head h3 {margin:0;font-size:19px;}
+.admin-next-page .catalog-admin-dialog-head .muted {font-size:11px;overflow-wrap:anywhere;}
+.admin-next-page .catalog-dialog-close {width:37px;height:37px;flex:0 0 37px;cursor:pointer;display:grid;place-items:center;font-size:24px;border:1px solid var(--sy-line);border-radius:50%;background:var(--sy-control);color:var(--sy-text);}
+.admin-next-page .catalog-admin-dialog .catalog-admin-form {gap:14px;}
+.admin-next-page .catalog-admin-dialog .catalog-admin-form label {font-size:12px;}
+.admin-next-page .catalog-admin-dialog .catalog-admin-form :is(input,select,textarea) {min-height:39px;font-size:13px;}
+.admin-next-page .catalog-dialog-footer {display:flex;align-items:center;justify-content:flex-end;gap:9px;flex-wrap:wrap;margin-top:6px;padding-top:17px;border-top:1px solid var(--sy-line);}
+.admin-next-page .catalog-danger-button {background:transparent;color:var(--sy-danger);border:1px solid var(--sy-danger);border-radius:10px;padding:10px 13px;cursor:pointer;font:inherit;font-size:12px;font-weight:800;}
+.admin-next-page .catalog-danger-button[hidden] {display:none;}
+.admin-next-page .catalog-dialog-footer .primary {padding:10px 14px;}
+body.catalog-dialog-open {overflow:hidden;}
+@media(max-width:600px) {
+  .admin-next-page .catalog-admin-overlay {padding:0;align-items:end;}
+  .admin-next-page .catalog-admin-dialog {padding:20px 16px calc(20px + env(safe-area-inset-bottom,0px));border-radius:20px 20px 0 0;max-height:93dvh;}
+  .admin-next-page .catalog-admin-dialog .catalog-admin-form {grid-template-columns:1fr;}
+  .admin-next-page .catalog-admin-dialog .catalog-span {grid-column:1;}
+  .admin-next-page .catalog-dialog-footer {justify-content:stretch;}
+  .admin-next-page .catalog-dialog-footer > button {flex:1 1 110px;}
+  .admin-next-page .catalog-source-status {font-size:10px;}
+}

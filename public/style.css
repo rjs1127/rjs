@@ -4694,3 +4694,21 @@ body:not(.simple-modal-open) #readerPageText {
     min-height:28px; padding:4px 7px; font-size:9px;
   }
 }
+
+/* v10.52 — mobile compact header aligned circle actions; distinct logout color */
+@media (max-width:760px) {
+  .site-header.compact-mode { column-gap:8px; }
+  .site-header.compact-mode .header-actions { align-items:center; justify-content:flex-end; gap:0; }
+  .site-header .mobile-header-logout-button:not([hidden]) {
+    width:34px; height:34px; min-width:34px; min-height:34px; padding:0;
+    display:inline-grid; place-items:center; border-radius:50%;
+    background:#FCECEF; border:1px solid #A04D56; color:#923E49;
+  }
+  .site-header .mobile-header-logout-button svg { width:18px; height:18px; }
+  .site-header.compact-mode .mobile-header-logout-button:not([hidden]) {
+    width:32px; min-width:32px; height:32px; min-height:32px; padding:0; margin:0;
+  }
+  html.theme-dark .site-header .mobile-header-logout-button:not([hidden]) {
+    background:#42252D; border-color:#C97B87; color:#FFD0D6;
+  }
+}

@@ -5105,3 +5105,91 @@ body.reader-open .network-status-banner {
   .content-section .section-head-actions .quote-feed-entry-button {white-space:nowrap;}
   .content-section .section-head-actions .work-catalog-entry-button {min-height:25px;padding:3px 8px;font-size:9px;}
 }
+
+/* v10.52 — action row beside format tags on expanded mobile reader. */
+@media (max-width:640px) {
+  .content-section .section-head-actions #quoteFeedButton {display:none !important;}
+  .reader:not(.reader-compact) .reader-header {
+    display:grid; grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"tags actions" "title title" "author author" "file file";
+    column-gap:6px; align-items:center; padding-top:17px;
+  }
+  .reader:not(.reader-compact) .reader-meta-top {
+    grid-area:tags; min-width:0; min-height:34px; margin-bottom:9px;
+    flex-wrap:wrap; align-content:center; gap:4px;
+  }
+  .reader:not(.reader-compact) .reader-tag {padding:4px 7px; font-size:9px;}
+  .reader:not(.reader-compact) .reader-header-actions {
+    position:relative !important; inset:auto !important; top:auto !important; right:auto !important;
+    grid-area:actions; justify-self:end; min-width:0; width:auto; display:flex; gap:4px;
+    align-items:center; margin-bottom:9px;
+  }
+  .reader:not(.reader-compact) .reader-header-actions > button {
+    width:32px !important; min-width:32px !important; max-width:32px !important;
+    height:32px !important; min-height:32px !important; max-height:32px !important;
+    padding:0 !important; flex:0 0 32px !important; box-sizing:border-box !important;
+  }
+  .reader:not(.reader-compact) .reader-header-actions > button svg {width:16px !important; height:16px !important;}
+  .reader:not(.reader-compact) .reader-header h2 {grid-area:title; min-width:0; max-width:100%;}
+  .reader:not(.reader-compact) .reader-author {grid-area:author;}
+  .reader:not(.reader-compact) .reader-filename {grid-area:file;}
+}
+@media (max-width:380px) {
+  .reader:not(.reader-compact) .reader-header-actions {gap:3px;}
+  .reader:not(.reader-compact) .reader-header-actions > button {
+    width:29px !important; min-width:29px !important; max-width:29px !important;
+    height:29px !important; min-height:29px !important; max-height:29px !important; flex-basis:29px !important;
+  }
+}
+
+/* The pagination reader has older !important flex rules: align its expanded header too. */
+@media (max-width:640px) {
+  .reader.reader-page-mode:not(.reader-compact):not(.reader-loading-locked) .reader-header {
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    grid-template-areas:"tags actions" "title title" "author author" "file file" !important;
+    column-gap:6px !important;
+    row-gap:6px !important;
+  }
+  .reader.reader-page-mode:not(.reader-compact):not(.reader-loading-locked) .reader-header-actions {
+    grid-area:actions !important;
+    position:relative !important;
+    width:auto !important;max-width:none !important;
+    order:0 !important; justify-self:end !important;
+    margin:0 0 7px !important;gap:4px !important;
+  }
+  .reader.reader-page-mode:not(.reader-compact):not(.reader-loading-locked) .reader-meta-top {
+    grid-area:tags !important; margin-bottom:7px !important;
+  }
+  .reader.reader-page-mode:not(.reader-compact):not(.reader-loading-locked) .reader-header-actions > button {
+    width:32px !important;min-width:32px !important;max-width:32px !important;
+    height:32px !important;min-height:32px !important;max-height:32px !important;
+    flex:0 0 32px !important;
+  }
+}
+
+/* v10.52: override legacy high-specificity expanded-scroll flex layout. */
+@media (max-width:640px) {
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header {
+    display:grid !important;
+    grid-template-columns:minmax(0,1fr) auto !important;
+    grid-template-areas:"tags actions" "title title" "author author" "file file" !important;
+    align-items:center !important;
+    column-gap:6px !important;
+    flex-direction:initial !important;
+  }
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-meta-top {
+    grid-area:tags !important;align-self:center !important;min-width:0 !important;
+    order:0 !important; margin-bottom:8px !important;
+  }
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header-actions {
+    grid-area:actions !important;position:relative !important;
+    top:auto !important;right:auto !important;
+    order:0 !important; width:auto !important;max-width:none !important;
+    justify-self:end !important;align-self:center !important;
+    margin:0 0 8px !important;gap:4px !important;
+  }
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-header h2 {grid-area:title !important;}
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-author {grid-area:author !important;}
+  .reader:not(.reader-compact):not(.reader-loading-locked) .reader-filename {grid-area:file !important;}
+}
