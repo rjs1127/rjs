@@ -1,3 +1,10 @@
+## v10.48 — 프리셋 6종 후속 조정
+
+- `public/app.js`에서 잉크잔향 전용 Canvas와 CSS override를 함께 갱신한다. 변경 대상은 잉크잔향, 레드 에디션, 필름누광, 크럼플, 글로우, 스테인드 로즈로 한정한다.
+- 레드 에디션은 배경 장식 활자와 메타가 겹치지 않게 별도 불투명 하단 띠를 둔다. CSS 썸네일은 Canvas로 전환하지 않는다.
+- 나머지 공통 프리셋 저장/관리자/API/렌더 분기는 유지한다.
+- 버전 v10.48, 캐시 1048. HISTORY.md 수동 변경 금지(배포 시 실제 GitHub main 커밋으로 재생성).
+
 ## v10.47 — 문장 이미지 프리셋 후속 수정
 
 - 잉크잔향은 `READER_SHARE_REDESIGN8.renderers` 전용 Canvas 렌더러와 `READER_SHARE_REDESIGN_OVERRIDES` CSS 썸네일을 함께 조정한다. 공통 문장 이미지 상태/저장/공유 로직은 변경하지 않는다.

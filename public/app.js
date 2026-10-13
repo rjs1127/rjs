@@ -10757,7 +10757,7 @@ function sceneRose(H){const sc=newScene();const cols=['#ff7a8a','#ffb347','#5ccf
     add(sc,{t:'circle',x:cx,y:cy,r:R[4]+3,stroke:'#2c1c40',sw:3})};
   rose(380,0,1);rose(0,H,.85);
   const Rv=Math.max(200,H*.44);
-  sc.defs.push({id:'vl',k:'rad',cx:190,cy:H/2,r:Rv,st:[[0,'rgba(253,243,231,1)'],[.6,'rgba(253,243,231,.94)'],[1,'rgba(253,243,231,0)']]});
+  sc.defs.push({id:'vl',k:'rad',cx:190,cy:H/2,r:Rv,st:[[0,'rgba(230,239,251,.99)'],[.6,'rgba(230,239,251,.96)'],[1,'rgba(230,239,251,0)']]});
   add(sc,{t:'circle',x:190,y:H/2,r:Rv,fill:'url(#vl)'});
   return sc}
 
@@ -10784,7 +10784,7 @@ const PRESETS=[
  near:['soft-polka','lime-hud'],diff:'원형 도트/형광 UI가 아닌 사각 픽셀의 규칙적 디더 확산. 연보라 위 2톤 바이올렛.',feas:'run-length 사각형 path 2개(셀 4유닛), 픽셀 단위 연산 없음'},
 {name:'시트러스 슬라이스',key:'citrus-slice',concept:'오렌지·라임·자몽 단면이 모서리에 걸린 상큼한 과일 포스터',hex:['#FFF6EA','#FF9A1F','#78B83C','#F2706A','#FFD23F','#5C2A14'],base:['#fff6ea','#ffe9d6'],text:'#5c2a14',meta:'#b0705a',fx:null,scene:sceneCitrus,
  near:['butter-sticker','petal-flow'],diff:'납작한 외곽선 스티커/꽃잎이 아닌 과육 결·껍질·속껍질이 있는 단면 일러스트. 다색 과일 + 잎.',feas:'원/부채꼴 path/타원 + shadowBlur'},
-{name:'스테인드 로즈',key:'stained-rose',concept:'보석빛 유리 장미창이 두 모서리에서 퍼지는 스테인드글라스',hex:['#FDF3E7','#FF7A8A','#FFB347','#5CCFC0','#8E7CF0','#2C1C40'],base:['#fdf3e7','#f9e8ee'],text:'#2f1d45',meta:'#7a6592',fx:null,scene:sceneRose,
+{name:'스테인드 로즈',key:'stained-rose',concept:'보석빛 유리 장미창이 두 모서리에서 퍼지는 스테인드글라스',hex:['#FDF3E7','#FF7A8A','#FFB347','#5CCFC0','#8E7CF0','#2C1C40'],base:['#e6effb','#dbe5f8'],text:'#243657',meta:'#6278a1',fx:null,scene:sceneRose,
  near:['prism-foil','frost-window'],diff:'홀로그램 호일/서리유리가 아닌 납선(검정 윤곽)으로 나뉜 보석색 부채꼴 유리와 번지는 빛. 중앙은 크림 베일.',feas:'부채꼴 path ~100개 + 방사형 글로우'},
 {name:'리본 타래',key:'ribbon-flow',concept:'래즈베리·라일락·피치 새틴 리본이 모서리를 감아 흐르는 선물 포장',hex:['#FFF6F3','#FF4F87','#B49CFF','#FFB36B','#5A1633'],base:['#fff6f3','#ffe9ee'],text:'#5a1633',meta:'#b0708a',fx:null,scene:sceneRibbon,
  near:['petal-flow','paper-tape'],diff:'꽃잎 흐름/마스킹 테이프가 아닌 입체 튜브형 새틴 리본(음영+하이라이트+그림자)과 진주 장식.',feas:'곡선 stroke 4겹 x 6줄기'},
@@ -12649,10 +12649,10 @@ const READER_SHARE_BACKGROUNDS = [
   {
     name: "글로우",
     key: "soft-glow",
-    background: "radial-gradient(circle at 18% 26%, rgba(218,255,178,.17) 0 3%, rgba(218,255,178,0) 18%), radial-gradient(circle at 78% 20%, rgba(255,232,132,.16) 0 2%, rgba(255,232,132,0) 16%), radial-gradient(circle at 82% 76%, rgba(190,255,198,.12) 0 3%, rgba(190,255,198,0) 18%), linear-gradient(150deg, #101a19 0%, #172822 52%, #0e1716 100%)",
-    text: "#eef7ef",
-    meta: "#9eb7a8",
-    accent: "#dceca0",
+    background: "radial-gradient(circle at 14% 26%,rgba(238,255,189,.65) 0 1%,rgba(200,250,184,.22) 3%,transparent 22%),radial-gradient(circle at 85% 70%,rgba(156,244,221,.6) 0 1.3%,rgba(156,244,221,.16) 5%,transparent 24%),radial-gradient(circle at 73% 17%,rgba(243,231,151,.34) 0 2%,transparent 19%),linear-gradient(155deg,#091a27,#123840 55%,#0c202c)",
+    text: "#f2fcfa",
+    meta: "#9cc9c9",
+    accent: "#e8f4ab",
     effect: "soft-glow",
   },
   {
@@ -12757,7 +12757,7 @@ const READER_SHARE_BACKGROUNDS = [
     name: "필름누광",
     key: "film-leak",
     defaultVisible: false,
-    background: "linear-gradient(90deg, rgba(255,96,40,.75) 0 4%, rgba(255,96,40,0) 34%), linear-gradient(150deg, #2d2220 0%, #130f0e 100%)",
+    background: "repeating-linear-gradient(90deg, rgba(255,235,213,.09) 0 2px,transparent 2px 11%), radial-gradient(ellipse at 5% 48%, rgba(255,85,46,.85),transparent 43%), radial-gradient(ellipse at 98% 9%,rgba(255,183,80,.55),transparent 36%), linear-gradient(150deg,#2a1d32,#090e1d)",
     text: "#f7e9d8",
     meta: "#b79f8c",
     accent: "#ff6028",
@@ -12857,10 +12857,10 @@ const READER_SHARE_BACKGROUNDS = [
     name: "크럼플",
     key: "crumple",
     defaultVisible: false,
-    background: "linear-gradient(120deg, rgba(0,0,0,.05) 0 18%, transparent 18% 40%, rgba(255,255,255,.5) 40% 58%, transparent 58% 78%, rgba(0,0,0,.04) 78%), linear-gradient(135deg, #f7f6f3 0%, #eceae5 100%)",
-    text: "#2b2a27",
-    meta: "#726f69",
-    accent: "#8d887e",
+    background: "linear-gradient(145deg,transparent 0 32%,rgba(255,255,255,.08) 32% 33%,transparent 33% 62%,rgba(0,0,0,.09) 62% 63%,transparent 63%), linear-gradient(25deg,transparent 0 27%,rgba(238,252,255,.14) 27% 28%,transparent 28% 75%,rgba(2,30,49,.13) 75% 76%,transparent 76%),linear-gradient(135deg,#173e59,#2c6680 55%,#1b405d)",
+    text: "#f2fbff",
+    meta: "#b7dce8",
+    accent: "#78bdd2",
     effect: "crumple",
   },
   {
@@ -15140,7 +15140,21 @@ function drawQuoteFilmLeak(ctx, w, h) {
   ctx.fillRect(0, 0, w, h);
   ctx.globalCompositeOperation = "source-over";
 
-  // 필름 입자
+  // Refracted double-exposure flare across the film frame, away from central copy.
+  ctx.save();
+  ctx.globalCompositeOperation = 'screen';
+  ctx.translate(w * .91, h * .18); ctx.rotate(-.28);
+  let strip = ctx.createLinearGradient(-w*.16,0,w*.12,0);
+  strip.addColorStop(0,'rgba(255,102,93,0)');
+  strip.addColorStop(.42,'rgba(255,128,78,.09)');
+  strip.addColorStop(.54,'rgba(255,223,132,.28)');
+  strip.addColorStop(1,'rgba(255,128,78,0)');
+  ctx.fillStyle=strip;ctx.fillRect(-w*.16,-h*.38,w*.28,h*.76);
+  ctx.restore();
+  // Fine edge registration and a narrow exposure frame.
+  ctx.strokeStyle='rgba(255,229,194,.26)';ctx.lineWidth=1.5*u;
+  ctx.strokeRect(69*u,69*u,w-138*u,h-138*u);
+    // 필름 입자
   for (let i = 0; i < 900; i++) {
     const light = r() < 0.55;
     ctx.fillStyle = light
@@ -15645,7 +15659,7 @@ function drawQuoteCrumple(ctx, w, h) {
   const fillTri = (a, b, c, light) => {
     const cx = (a[0] + b[0] + c[0]) / 3;
     const cy = (a[1] + b[1] + c[1]) / 3;
-    const alpha = quoteTestIsProtectedArea(cx, cy, w, h) ? 0.022 : 0.05;
+    const alpha = quoteTestIsProtectedArea(cx, cy, w, h) ? 0.015 : 0.105;
     ctx.fillStyle = light ? `rgba(255,255,255,${alpha.toFixed(3)})` : `rgba(0,0,0,${alpha.toFixed(3)})`;
     ctx.beginPath();
     ctx.moveTo(a[0], a[1]);
@@ -15659,6 +15673,10 @@ function drawQuoteCrumple(ctx, w, h) {
       ctx.stroke();
     }
   };
+  ctx.strokeStyle='rgba(165,220,240,.13)';ctx.lineWidth=2.2*u;
+  [[.06,.23,.34,.02,.69,.28],[.2,.91,.48,.64,.96,.79],[.09,.74,.21,.45,.49,.37]].forEach(([x1,y1,x2,y2,x3,y3])=>{
+    ctx.beginPath();ctx.moveTo(w*x1,h*y1);ctx.lineTo(w*x2,h*y2);ctx.lineTo(w*x3,h*y3);ctx.stroke();
+  });
   for (let iy = 0; iy < rows; iy++) {
     for (let ix = 0; ix < cols; ix++) {
       const p00 = pts[iy][ix];
@@ -16116,7 +16134,7 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
     ctx.strokeStyle="rgba(212,138,154,.12)"; ctx.lineWidth=Math.max(1,width/1500);
     ctx.beginPath(); ctx.moveTo(-width*.05,height*.36); ctx.bezierCurveTo(width*.28,height*.18,width*.52,height*.5,width*1.05,height*.28); ctx.stroke();
   } else if (effect === "soft-glow") {
-    const lights=[[.12,.24,.022],[.2,.68,.014],[.34,.18,.012],[.68,.26,.018],[.82,.18,.011],[.88,.66,.022],[.7,.78,.013],[.44,.82,.01]];
+    const lights=[[.12,.24,.027],[.2,.68,.009],[.34,.18,.012],[.68,.26,.021],[.82,.18,.011],[.88,.66,.028],[.7,.78,.013],[.44,.82,.01]];
     lights.forEach(([x,y,r],i)=>{
       const radius=width*r*5.4; const g=ctx.createRadialGradient(width*x,height*y,0,width*x,height*y,radius);
       const core=i%2?"rgba(238,255,170,.50)":"rgba(205,255,183,.48)";
@@ -16188,11 +16206,8 @@ function drawReaderShareThemeEffect(ctx, background, width, height) {
 
 const READER_SHARE_REDESIGN_OVERRIDES = {
   "ink-echo": {
-    background: "radial-gradient(ellipse at 18% 18%, rgba(26,42,68,.94) 0 12%, rgba(26,42,68,.82) 12% 21%, rgba(26,42,68,.18) 22% 31%, transparent 32%), repeating-radial-gradient(ellipse at 18% 18%, transparent 0 28px, rgba(46,66,94,.12) 29px 31px, transparent 32px 48px), linear-gradient(90deg, transparent 0 11%, rgba(39,57,83,.15) 11% 11.6%, transparent 11.6% 100%), linear-gradient(150deg, #fbf7ef 0%, #f2ede5 58%, #e8e2d8 100%)",
-    text: "#1f2d42",
-    meta: "#657080",
-    accent: "#293f60",
-    customLayout: "ink-echo",
+    background: "radial-gradient(ellipse at 83% 21%, rgba(49,88,118,.22) 0 7%, transparent 30%), radial-gradient(ellipse at 13% 83%, rgba(46,96,123,.15) 0 8%, transparent 32%), repeating-linear-gradient(0deg, transparent 0 30px, rgba(71,115,140,.055) 31px 32px), linear-gradient(145deg,#dcecf0,#b9d2dc 64%,#a9c6d2)",
+    text: "#173648", meta: "#3e6679", accent: "#245d77", customLayout: "ink-echo",
   },
   "star-chart": {
     background: "radial-gradient(circle at 78% 24%, rgba(255,224,153,.25) 0 1.2%, rgba(255,224,153,0) 3.2%), radial-gradient(circle at 18% 18%, rgba(255,255,255,.5) 0 .8%, rgba(255,255,255,0) 2.1%), radial-gradient(circle at 68% 28%, rgba(255,255,255,.07) 0 18%, transparent 19%), radial-gradient(circle at 68% 28%, rgba(255,255,255,.06) 0 27%, transparent 28%), linear-gradient(150deg, #0d2b39 0%, #07131d 100%)",
@@ -16317,55 +16332,42 @@ const READER_SHARE_REDESIGN8 = (() => {
   }
   function renderInkEcho(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model);
-    const scale = width / 1200;
-    const rng = quoteTestRng(4817 + Math.round(height));
-    const paper = ctx.createLinearGradient(0, 0, width, height);
-    paper.addColorStop(0, '#fbf7ef'); paper.addColorStop(.58, '#f2ede5'); paper.addColorStop(1, '#e8e2d8');
-    ctx.fillStyle = paper; ctx.fillRect(0, 0, width, height);
-    for (let i = 0; i < 920; i += 1) {
-      ctx.fillStyle = i % 3 ? 'rgba(51,58,68,.025)' : 'rgba(255,255,255,.11)';
-      const r = (.45 + rng() * 1.1) * scale;
-      ctx.beginPath(); ctx.arc(rng() * width, rng() * height, r, 0, Math.PI * 2); ctx.fill();
-    }
-    const inkX = width * .17, inkY = height * .16;
-    ctx.save(); ctx.translate(inkX, inkY);
-    ctx.fillStyle = 'rgba(27,43,68,.94)';
-    ctx.beginPath(); ctx.moveTo(-width * .15, -height * .12);
-    ctx.bezierCurveTo(width * .02, -height * .18, width * .24, -height * .08, width * .25, height * .05);
-    ctx.bezierCurveTo(width * .24, height * .15, width * .07, height * .19, -width * .07, height * .14);
-    ctx.bezierCurveTo(-width * .18, height * .10, -width * .21, -height * .02, -width * .15, -height * .12);
-    ctx.closePath(); ctx.fill();
-    ctx.lineWidth = 2.2 * scale; ctx.strokeStyle = 'rgba(42,63,92,.18)';
-    for (let i = 0; i < 5; i += 1) {
-      ctx.beginPath(); ctx.ellipse(width * .015, height * .025, width * (.19 + i * .028), height * (.105 + i * .018), -.18, 0, Math.PI * 2); ctx.stroke();
+    const u = width / 1200;
+    const bg = ctx.createLinearGradient(0,0,width,height);
+    bg.addColorStop(0,'#dcecf0'); bg.addColorStop(1,'#a9c6d2');
+    ctx.fillStyle=bg; ctx.fillRect(0,0,width,height);
+    // Botanical-press inspired field plate, but made from indigo ink and mineral blue paper.
+    ctx.strokeStyle='rgba(31,75,101,.16)';ctx.lineWidth=1.5*u;
+    ctx.strokeRect(width*.065,height*.065,width*.87,height*.87);
+    ctx.strokeRect(width*.077,height*.077,width*.846,height*.846);
+    // Pressed ink frond: tapered stems, translucent bleed and small archival droplets.
+    ctx.save(); ctx.translate(width*.83,height*.22);ctx.rotate(-.22);
+    ctx.strokeStyle='rgba(25,74,111,.46)';ctx.lineWidth=2.6*u;
+    ctx.beginPath();ctx.moveTo(0,-height*.19);ctx.bezierCurveTo(-width*.1,-height*.06,width*.02,height*.12,-width*.10,height*.23);ctx.stroke();
+    for(let i=0;i<11;i++){
+      const t=i/11, yy=-height*.12+t*height*.29, side=i%2?1:-1;
+      const xx=-width*.018+Math.sin(t*5)*width*.021;
+      ctx.fillStyle=i%3===0?'rgba(34,83,124,.22)':'rgba(27,68,103,.37)';
+      ctx.beginPath();ctx.ellipse(xx+side*width*(.046-.025*t),yy,width*(.051-.018*t),height*.017,side*.55,0,Math.PI*2);ctx.fill();
     }
     ctx.restore();
-    ctx.strokeStyle = 'rgba(41,63,96,.20)'; ctx.lineWidth = 1.5 * scale;
-    ctx.beginPath(); ctx.moveTo(width * .11, height * .355); ctx.lineTo(width * .11, height * .77); ctx.stroke();
-    ctx.fillStyle = '#293f60'; ctx.fillRect(width * .11 - 3 * scale, height * .395, 6 * scale, 48 * scale);
-    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
-    ctx.fillStyle = '#293f60'; ctx.font = `800 ${22 * scale}px Pretendard, sans-serif`; ctx.fillText(brand, width * .89, height * .07);
-    ctx.fillStyle = 'rgba(41,63,96,.58)'; ctx.font = `600 ${13 * scale}px ui-monospace, Menlo, monospace`; ctx.fillText('INK / AFTERIMAGE · 01', width * .89, height * .102);
-    const quoteRect = getReaderShareCustomQuoteBox(model, width, height, width * .16, height * .38, width * .68, height * .31);
-    quoteRect.canvasWidth = width;
-    const spacing = getReaderShareCustomLetterSpacing(model, width);
-    const fontSize = (model.sizePx * (width / 380)) * 1.04;
-    const lineHeight = fontSize * getReaderShareCustomLineHeight(model, 1.58);
-    ctx.font = `${Number(model.fontWeight || 500)} ${fontSize}px ${quoteFont}`;
-    const lines = makeLines(ctx, String(model.text || ''), quoteRect.w, lineHeight, quoteRect.h, model.autoWrap, spacing);
-    const total = lines.length * lineHeight;
-    let y = quoteRect.y + Math.max(0, (quoteRect.h - total) / 2);
-    ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-    for (const line of lines) {
-      ctx.fillStyle = 'rgba(41,63,96,.12)'; readerShareCustomDrawText(ctx, line, quoteRect.x + 2.5 * scale, y + 2.5 * scale, spacing);
-      ctx.fillStyle = '#1f2d42'; readerShareCustomDrawText(ctx, line, quoteRect.x, y, spacing); y += lineHeight;
-    }
-    const metaY = height * .79;
-    ctx.strokeStyle = 'rgba(41,63,96,.18)'; ctx.lineWidth = 1.2 * scale;
-    ctx.beginPath(); ctx.moveTo(width * .55, metaY - 22 * scale); ctx.lineTo(width * .89, metaY - 22 * scale); ctx.stroke();
-    ctx.textAlign = 'right'; ctx.fillStyle = '#26354a'; ctx.font = `700 ${28 * scale}px ${quoteFont}`; ctx.fillText(title, width * .89, metaY);
-    ctx.fillStyle = '#697483'; ctx.font = `500 ${20 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .89, metaY + 36 * scale);
-    ctx.textAlign = 'left';
+    const rng=quoteTestRng(4817);
+    for(let i=0;i<50;i++){const x=(.08+rng()*.84)*width,y=(.08+rng()*.84)*height;
+      if(x>width*.12&&x<width*.76&&y>height*.29&&y<height*.79)continue;
+      ctx.fillStyle='rgba(37,91,121,.18)';ctx.beginPath();ctx.arc(x,y,(.6+rng()*2.3)*u,0,Math.PI*2);ctx.fill();}
+    ctx.textBaseline='top';ctx.textAlign='left';
+    ctx.fillStyle='#234c64';ctx.font=`700 ${20*u}px Pretendard,sans-serif`;
+    ctx.fillText(brand,width*.125,height*.12);
+    ctx.font=`600 ${13*u}px ui-monospace,monospace`;ctx.fillStyle='#4c7a90';
+    ctx.fillText('INK HERBARIUM  /  No. 01',width*.125,height*.16);
+    ctx.beginPath();ctx.moveTo(width*.125,height*.225);ctx.lineTo(width*.63,height*.225);ctx.stroke();
+    const rect=getReaderShareCustomQuoteBox(model,width,height,width*.13,height*.32,width*.67,height*.43);
+    rect.canvasWidth=width;
+    ctx.save();ctx.beginPath();ctx.rect(rect.x,rect.y,rect.w,rect.h);ctx.clip();
+    drawQuotePanel(ctx,model,rect,'#173648',{align:'left',fontScale:1.0,lineHeight:1.55});ctx.restore();
+    ctx.strokeStyle='rgba(30,76,105,.32)';ctx.beginPath();ctx.moveTo(width*.125,height*.80);ctx.lineTo(width*.86,height*.80);ctx.stroke();
+    ctx.fillStyle='#204960';ctx.font=`700 ${23*u}px ${quoteFont}`;ctx.fillText(title,width*.125,height*.83,width*.69);
+    ctx.fillStyle='#446e80';ctx.font=`500 ${18*u}px ${quoteFont}`;ctx.fillText(author||'작자 미상',width*.125,height*.875,width*.69);
   }
   function renderRedEdition(ctx, width, height, model) {
     const { title, author, brand, quoteFont } = textInfo(model);
@@ -16380,9 +16382,12 @@ const READER_SHARE_REDESIGN8 = (() => {
     ctx.save(); ctx.beginPath(); ctx.rect(quoteRect.x, quoteRect.y, quoteRect.w, quoteRect.h); ctx.clip();
     drawQuotePanel(ctx, model, quoteRect, '#fff5df', { align: 'left', fontScale: 1.0, lineHeight: 1.46 });
     ctx.restore();
-    const footerY = height * .755;
-    ctx.fillStyle = 'rgba(255,245,223,.96)'; ctx.font = `700 ${26 * scale}px ${quoteFont}`; ctx.fillText(title, width * .075, footerY);
-    ctx.fillStyle = 'rgba(255,245,223,.74)'; ctx.font = `500 ${19 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .075, footerY + 34 * scale);
+    const footerY = height * .765;
+    // Opaque editorial footer masks the background's oversized type.
+    ctx.fillStyle = '#911c17';
+    ctx.fillRect(width * .06, height * .738, width * .88, height * .18);
+    ctx.fillStyle = 'rgba(255,245,223,.96)'; ctx.font = `700 ${26 * scale}px ${quoteFont}`; ctx.fillText(title, width * .085, footerY, width * .81);
+    ctx.fillStyle = 'rgba(255,245,223,.74)'; ctx.font = `500 ${19 * scale}px ${quoteFont}`; ctx.fillText(author || '작자 미상', width * .085, footerY + 38 * scale, width * .81);
   }
 
   function renderStarChart(ctx, width, height, model) {
