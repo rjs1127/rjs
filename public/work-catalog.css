@@ -176,3 +176,37 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
 @media(prefers-reduced-motion:reduce) {.wc-card {transition:none;}.wc-card:hover{transform:none;}}
 
 .wc-retry-button {display:block;margin:12px auto 0;min-height:38px;padding:7px 15px;border:1px solid var(--wc-line);border-radius:999px;background:var(--wc-bg);color:var(--wc-ink);font-weight:750;font-size:12px;}
+/* v10.58: quieter typography and compact, touch-friendly mobile filters. */
+.wc-hero {padding:18px 22px;background:var(--wc-soft);border-radius:16px;}
+.wc-hero::before {display:none;}
+.wc-hero h3 {font-size:22px;margin:0 0 6px;letter-spacing:-.035em;}
+.wc-hero .wc-hero-status {margin-top:8px;}
+.wc-book {justify-content:center;position:relative;box-shadow:none;border-left-color:rgba(0,0,0,.12);}
+.wc-book::after {content:"";position:absolute;inset:12px 9px;border:1px solid rgba(255,255,255,.2);border-radius:2px 5px 5px 2px;}
+.wc-book-mark {opacity:.8;}
+.wc-detail-hero {gap:24px;padding:24px;background:var(--wc-soft);}
+.wc-detail-heading h3 {font-family:inherit;font-weight:750;font-size:clamp(23px,3vw,30px);}
+.wc-filter-done {display:none;}
+@media(max-width:640px) {
+  .wc-hero {padding:13px 15px;margin:10px 0 12px;}
+  .wc-hero h3 {font-size:17px;line-height:1.4;margin:0 0 4px;}
+  .wc-hero p {font-size:11px;line-height:1.55;}
+  .wc-hero .wc-hero-status {font-size:10px;margin-top:5px;}
+  .wc-mobile-filter-row {margin-bottom:12px;}
+  .wc-filter-toggle {border-radius:10px;min-height:42px;padding:9px 14px;}
+  .wc-filter-panel.is-mobile-open {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0 12px;padding:16px;border-radius:14px;background:var(--wc-soft);}
+  .wc-filter-head,.wc-filter-panel .wc-filter-block:nth-child(2),.wc-filter-footnote,.wc-filter-done {grid-column:1/-1;}
+  .wc-filter-block {padding:13px 0;min-width:0;}
+  .wc-tag-choices {max-height:160px;overflow:auto;overscroll-behavior:contain;padding:2px;}
+  .wc-tag {min-height:36px;padding:7px 10px;border-radius:999px;}
+  .wc-mode {margin-top:12px;}
+  .wc-mode button {min-height:38px;}
+  .wc-filter-block select {height:42px;}
+  .wc-filter-footnote {font-size:10px;line-height:1.6;margin:0 0 12px;}
+  .wc-filter-done {display:block;min-height:42px;border:0;border-radius:10px;background:var(--theme-primary-bg);color:var(--theme-primary-text);font-size:12px;font-weight:700;}
+  .wc-detail-hero {gap:15px;padding:17px 15px;}
+  .wc-book--large {flex-basis:65px;width:65px;min-height:94px;padding:9px 7px;}
+  .wc-detail-heading h3 {font-size:21px;line-height:1.4;}
+  .wc-detail-properties {gap:5px;margin-top:10px;}
+  .wc-detail-properties span {font-size:10px;padding:5px 8px;}
+}

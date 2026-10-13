@@ -2901,6 +2901,17 @@ function navigateMobileBottomNav(destination) {
   restoreContentPageScroll();
 }
 
+// Reload retains this history entry; reopen its page after authentication settles.
+let contentPagesReady = false;
+function restoreContentPageFromHistory() {
+  if (!contentPagesReady) return;
+  if (workCatalogOpen || state.quoteFeedOpen || state.profileOpen) return;
+  const entry = history.state || {};
+  if (entry.rjsWorkCatalogPage) showWorkCatalogPage();
+  else if (entry.rjsQuoteFeedPage) showQuoteFeedPage();
+  else if (entry.rjsProfilePage && !state.authRestoreRetryNeeded) showProfilePage();
+}
+
 function getHistoryStateWithoutQuoteFeed() {
   const next = { ...(history.state || {}) };
   delete next.rjsQuoteFeedPage;
@@ -3211,6 +3222,7 @@ async function restoreAuth() {
     }
   } finally {
     state.authRestoreInFlight = false;
+    restoreContentPageFromHistory();
   }
 }
 
@@ -18221,6 +18233,12 @@ if (READER_SHARE_ADMIN_EMBED_MODE) {
   // updateAccountUi()는 auth-session-pending을 해제하므로 토큰이 없는 경우에만 초기 호출한다.
   if (!getAuthToken()) updateAccountUi();
   loadArchive();
-  restoreAuth();
+  const initialAuthRestore = restoreAuth();
+  const restoreInitialContentPage = () => {
+    contentPagesReady = true;
+    initialAuthRestore.then(restoreContentPageFromHistory);
+  };
+  if (document.readyState === "complete") restoreInitialContentPage();
+  else document.addEventListener("DOMContentLoaded", restoreInitialContentPage, { once: true });
   void maybeOpenAdminReaderSharePreview();
 }

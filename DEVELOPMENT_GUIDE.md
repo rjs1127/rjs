@@ -1,3 +1,11 @@
+# v10.58 — 도감 UI 및 페이지 복원
+
+- 페이지 복원은 기존 history.state의 rjsWorkCatalogPage/rjsQuoteFeedPage/rjsProfilePage 표식을 재사용합니다. DOMContentLoaded 이후 도감 스크립트가 준비되고 인증 복원이 끝난 뒤 기존 show 함수를 호출합니다.
+- 일시 인증 실패 시 마이페이지 자동 진입을 보류하고 기존 복원 재시도 성공 시 다시 확인합니다. 공통 401 처리와 로그인 권한은 유지합니다.
+- 도감 상세는 기존 rjsWorkCatalogDetailId를 유효성 검사 후 push:false로 조회하여 새 history 항목을 만들지 않습니다.
+- 모바일 필터의 선택 완료는 패널만 닫고 선택값을 보존합니다. DB/API·개인 기록·뷰어·이어보기는 변경하지 않습니다.
+- HISTORY는 실제 GitHub main 커밋 기반 자동 생성 규칙을 유지합니다.
+
 # v10.57 — 작품 도감 목적·테마·버튼 UI 정리
 
 - `public/index.html`의 `wc-hero`와 `public/work-catalog.css`의 사용자 도감 전용 스타일을 수정. 도감은 독자가 소설 정보를 함께 정리하는 공간이며 현재 공개 정보 **조회 전용**임을 구분한다.

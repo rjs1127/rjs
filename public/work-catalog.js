@@ -31,7 +31,7 @@
     for (const c of String(work.id || work.title || index)) hash=(Math.imul(hash,31)+c.charCodeAt(0))|0;
     return colors[(hash>>>0)%colors.length];
   };
-  const cover = (work,index,large=false) => `<div class="wc-book wc-book--${coverStyle(work,index)}${large?' wc-book--large':''}" aria-hidden="true"><span class="wc-book-top">RRR / STORY ARCHIVE</span><span class="wc-book-mark">✦</span><span class="wc-book-bottom">WORK<br>INDEX</span></div>`;
+  const cover = (work,index,large=false) => `<div class="wc-book wc-book--${coverStyle(work,index)}${large?' wc-book--large':''}" aria-hidden="true"><span class="wc-book-mark">✦</span></div>`;
   const isOpen = () => !root.hidden;
   function showStatus(message,kind='info') {
     refs.status.hidden=false;
@@ -159,8 +159,8 @@
     const heading=escapeHtml(work.title||'제목 미상');
     const tagRows=(list,prefix)=>list.map(label=>`<span class="wc-detail-tag">${prefix}${escapeHtml(label)}</span>`).join('');
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
-    refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button><span class="wc-detail-subtitle">WORK ENCYCLOPEDIA / INFORMATION</span></div>
-      <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><p class="wc-results-kicker">THE STORY AT A GLANCE</p><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
+    refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button></div>
+      <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
       <div class="wc-detail-properties"><span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span>서브커플 ${escapeHtml(coupleLabel[work.subcouple]||'미확인')}</span></div></div></div>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><h4>작품 소개</h4><div class="wc-story-text">${displayText(work.synopsis,'등록된 줄거리가 아직 없어요.')}</div></section>
@@ -244,6 +244,11 @@
     const expanded=refs.filter.classList.toggle('is-mobile-open');
     refs.filterToggle.setAttribute('aria-expanded',String(expanded));
   });
+  $('wcFilterDone')?.addEventListener('click',()=>{
+    refs.filter.classList.remove('is-mobile-open');
+    refs.filterToggle.setAttribute('aria-expanded','false');
+    refs.filterToggle.focus();
+  });
   window.addEventListener('popstate',event=>{
     if(!isOpen())return;
     if(data.detailId&&!event.state?.rjsWorkCatalogDetailId)closeDetail({fromHistory:true});
@@ -253,6 +258,9 @@
       if(data.detailId){closeDetail();return;}
       if(!data.loaded&&!data.loading)loadItems();
       if(!data.filtersLoaded)loadFilters();
+      if(!data.loaded && validId(history.state?.rjsWorkCatalogDetailId)) {
+        openDetail(history.state.rjsWorkCatalogDetailId,{push:false});
+      }
     },
     onHide(){
       if(data.debounce)clearTimeout(data.debounce);
