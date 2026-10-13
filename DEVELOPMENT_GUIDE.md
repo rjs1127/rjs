@@ -1,3 +1,12 @@
+# v10.54 작품 도감 백엔드 안전 규칙
+
+- `catalog_works.revision`은 공용 작품의 변경 기준이며, 관리자 팝업 저장/삭제와 v2 승인 모두 읽은 기준 버전과 일치할 때만 변경한다. 사용자 공개 API `revision`은 캐시/검토용이며 클라이언트가 기준값을 임의 증분하지 않는다.
+- 제안 `payload_json`은 `format:2`면 단일 필드 `{operation,change,before,base_revision}`이고, format이 없으면 기존 전체 필드 v1이다. 두 형식을 섞어 전체 작품 데이터를 덮어쓰지 않는다. 새로운 연산은 서버 whitelist 검증과 관리자 전후 비교 UI를 함께 확장한다.
+- `review_token` 조건부 승인과 `db.batch`는 필수다. v2 상태 전환 보호 트리거는 구버전 코드를 배포하더라도 제거하지 않는다. 잘못된 승인·실패 후 pending 잔존과 동일 제출/동시 승인 경쟁을 테스트한다.
+- `catalog_proposals`의 request_id 및 pending fingerprint UNIQUE 인덱스는 네트워크 재시도·중복 제안을 막는다. 최근 24시간 5건 한도는 D1 INSERT 조건으로 검사한다. 삭제된 제안은 카운트에서 빠지는 현재 정책을 유지한다.
+- v10.54는 내부 API와 관리자 안정화 단계일 뿐, 사용자용 작품 도감 목록/검색/상세/제안 UI를 구현한 것이 아니다. 다음 패치에서도 기존 개인 TXT/POSTYPE/이어보기/문장 기능을 수정하지 말고 도감 전용 페이지에 연결한다.
+- 운영 D1에는 예전 테이블이 있으므로 `CREATE TABLE IF NOT EXISTS` 뒤 `PRAGMA table_info`/추가 컬럼으로 점진 이관한다. 새 제안이 접수된 뒤의 롤백은 v2 인식 및 검토 토큰 가드를 유지한 API로만 진행하며 기존 v10.53 API를 그대로 덮어쓰지 않는다.
+
 ## v10.53 관리자 도감 입력 데이터 호환 규칙
 
 - `catalog_works.country` 필드는 운영 중인 기존 자료와 API의 호환을 위해 **유지**하며, 관리자 팝업에서만 국가 입력을 숨긴다. 기존 값은 `form.elements.country` hidden으로 채워서 수정 저장 시 소실되지 않게 한다.

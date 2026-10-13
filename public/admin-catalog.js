@@ -114,17 +114,41 @@
   }
   function renderProposals(){
     $('catalogProposalCount').textContent=`(${proposals.length}건 대기)`;
+    const wm=workMap();
+    const names={
+      tag_add:'키워드 추가',tag_remove:'키워드 제거',genre_add:'장르 추가',genre_remove:'장르 제거',
+      completion_set:'연재 상태 변경',subcouple_set:'서브커플 상태 변경',
+      subcouple_note_set:'서브커플 설명 변경',synopsis_set:'줄거리 변경',
+      title_set:'제목 변경',author_set:'작가 변경',original_title_set:'원제 변경',
+      warnings_set:'주의 요소 변경',recommendation_add:'추천 대상 추가',
+      recommendation_remove:'추천 대상 제거',recommendation_edit:'추천 대상 수정'
+    };
+    proposals.forEach(p=>{
+      if(p.payload?.format===2 && !names[p.payload.operation])p.unsupported=true;
+    });
     $('catalogProposalList').innerHTML=proposals.length?proposals.map(p=>{
-      const f=p.payload||{};
-      let genres=[],tags=[];
-      try{genres=JSON.parse(f.genre_json||'[]'); tags=JSON.parse(f.tags_json||'[]');}catch{}
-      const details=[p.work_id&&`대상 작품 ID: ${p.work_id}`,f.author&&`작가: ${f.author}`,
-        genres.length&&`장르: ${genres.join(', ')}`,tags.length&&`키워드: ${tags.join(', ')}`,
-        f.synopsis&&`줄거리: ${f.synopsis}`,f.subcouple_note&&`서브커플: ${f.subcouple_note}`,
-        f.recommendation&&`추천: ${f.recommendation}`].filter(Boolean).join('\n');
-      return `<article class="catalog-admin-record"><strong>${p.kind==='create'?'신규 등록 제안':'수정 제안'} · ${escapeHtml(f.title)}</strong>
-        <small>${new Date(p.created_at).toLocaleString('ko-KR')}</small><pre>${escapeHtml(details)}</pre>
-        <div class="catalog-admin-record-actions"><button type="button" data-review="approved" data-id="${escapeHtml(p.id)}">승인</button><button type="button" data-review="rejected" data-id="${escapeHtml(p.id)}">반려</button></div></article>`;
+      const f=p.payload||{},v2=f.format===2,work=wm.get(p.work_id);
+      let details='',title='';
+      if(v2){
+        title=`${work?.title||'작품 ID '+p.work_id} · ${names[f.operation]||'알 수 없는 항목'}`;
+        const before=Array.isArray(f.before)?f.before.map(x=>'#'+x).join(', ')||'정보 없음':String(f.before||'미등록');
+        const after=f.operation?.endsWith('_remove')?'제거 요청':String(f.change?.value||'정보 삭제 요청');
+        details=`현재: ${before}\n제안: ${after}${f.reason?'\n사유: '+f.reason:''}\n기준 버전: ${f.base_revision}`;
+        if(work && work.revision!==f.base_revision) details+='\n⚠ 기준 버전 이후 작품 정보 변경 · 재검토 필요';
+      }else{
+        let genres=[],tags=[];
+        try{genres=JSON.parse(f.genre_json||'[]'); tags=JSON.parse(f.tags_json||'[]');}catch{}
+        title=`${p.kind==='create'?'신규 작품':'작품 수정'} · ${f.title||work?.title||'제목 미등록'}`;
+        details=[p.work_id&&`대상 작품 ID: ${p.work_id}`,f.author&&`작가: ${f.author}`,
+          genres.length&&`장르: ${genres.join(', ')}`,tags.length&&`키워드: ${tags.join(', ')}`,
+          f.synopsis&&`줄거리: ${f.synopsis}`,f.subcouple_note&&`서브커플: ${f.subcouple_note}`,
+          f.recommendation&&`추천: ${f.recommendation}`].filter(Boolean).join('\n');
+        if(p.kind==='edit') details+='\n⚠ 이전 방식의 작품 전체 변경 제안 · 승인 전 모든 항목 확인 필요';
+      }
+      return `<article class="catalog-admin-record"><strong>${escapeHtml(title)}</strong>
+        <small>${new Date(p.created_at).toLocaleString('ko-KR')} · ${v2?'항목별 제안':'기존 전체 제안'}</small>
+        <pre>${escapeHtml(details)}</pre>
+        <div class="catalog-admin-record-actions"><button type="button" data-review="approved" data-id="${escapeHtml(p.id)}" ${p.unsupported?'disabled':''}>승인</button><button type="button" data-review="rejected" data-id="${escapeHtml(p.id)}">반려</button></div></article>`;
     }).join(''):'<p class="muted">현재 검토 대기 중인 제안이 없습니다.</p>';
   }
   async function loadCatalog(){
@@ -238,8 +262,9 @@
     if(!addTags($('catalogTagEntry').value))return;
     if(recommendationValue().length>1500){message('추천 문구는 전체 1,500자 이내로 입력해 주세요.',true,true);return;}
     const work=getForm(),status=$('catalogStatus').value;
-    const payload=current.source?{action:'upsert_source',source_type:current.source.type,source_id:current.source.id,work,status}:
-      {action:'save_work',id:current.work?.id,work,status};
+    const expected_revision=current.work?.revision||undefined;
+    const payload=current.source?{action:'upsert_source',source_type:current.source.type,source_id:current.source.id,work,status,expected_revision}:
+      {action:'save_work',id:current.work?.id,work,status,expected_revision};
     if(status==='published'&&current.work?.status!=='published'&&!confirm('이 작품 정보를 공개 조회 API에 게시할까요?'))return;
     await mutate(payload,'도감 정보를 저장했습니다.',true);
   });
@@ -271,7 +296,7 @@
     const desc=`${work.title}의 도감 정보와 연결 ${linkedSources.length}건, 관련 수정 제안·이력을 완전히 삭제합니다.\nTXT 파일 및 POSTYPE 원본은 삭제되지 않습니다.`;
     if(!confirm(desc+'\n\n이 작업은 되돌릴 수 없습니다.'))return;
     if(prompt('확인하려면 삭제를 입력해 주세요.')!=='삭제')return;
-    await mutate({action:'delete',id:work.id},'도감 정보와 관련 도감 데이터가 완전히 삭제되었습니다.',true);
+    await mutate({action:'delete',id:work.id,expected_revision:work.revision},'도감 정보와 관련 도감 데이터가 완전히 삭제되었습니다.',true);
   });
   $('catalogWorkList').addEventListener('click',e=>{
     const b=e.target.closest('button[data-type][data-source-id]');
