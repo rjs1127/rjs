@@ -1,4 +1,4 @@
-/* v10.60 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
+/* v10.62 · Public work encyclopedia with authenticated direct edits; private reading data remains separate. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -86,7 +86,7 @@
     if(!data.items.length && !data.loading && !refs.status.hidden) return;
     if(!data.items.length && !data.loading) {
       const filtered=Boolean(data.query||data.cp||data.genre||data.tags.length||data.completion||data.subcouple);
-      showStatus(filtered?'검색 조건에 맞는 공개 작품이 없어요. 필터를 바꿔보세요.':'아직 공개된 작품 정보가 없어요. 작품 정보는 관리자 공개 후 이곳에 표시돼요.','empty');
+      showStatus(filtered?'검색 조건에 맞는 공개 작품이 없어요. 필터를 바꿔보세요.':'아직 공개된 작품 정보가 없어요. 위의 + 작품 등록 버튼으로 첫 작품을 기록해 보세요.','empty');
     }
   }
   function queryParams(page) {
@@ -239,6 +239,66 @@
       refs.detail.innerHTML='<button class="wc-detail-back" data-wc-back type="button">← 작품 목록으로</button><p class="wc-catalog-status" role="alert">작품 정보를 불러오지 못했어요. 비공개로 변경되었거나 일시적인 오류가 발생했을 수 있어요.</p>';
     }
   }
+  // Reader-contributed new works. A distinct dialog keeps existing item edits unchanged.
+  const createDialog=$('wcCreateDialog'),createForm=$('wcCreateForm');
+  const createOpen=$('wcCreateOpen'),createSave=$('wcCreateSave'),createMessage=$('wcCreateMessage');
+  const createName=$('wcCreateName'),createAuthor=$('wcCreateAuthor'),createOriginal=$('wcCreateOriginal');
+  let createSaving=false,createRequestId='';
+  function closeCreate() {if(createDialog?.open&&!createSaving)createDialog.close();}
+  createOpen?.addEventListener('click',()=>{
+    createForm.reset();createMessage.textContent='';createRequestId='';
+    createDialog.showModal();createName.focus();
+  });
+  createDialog?.querySelectorAll('[data-wc-create-close]').forEach(button=>button.addEventListener('click',closeCreate));
+  createDialog?.addEventListener('cancel',event=>{if(createSaving)event.preventDefault();});
+  [createName,createAuthor,createOriginal].forEach(input=>input?.addEventListener('input',()=>{
+    if(!createSaving){createRequestId='';createMessage.textContent='';}
+  }));
+  createForm?.addEventListener('submit',async event=>{
+    event.preventDefault();
+    if(createSaving)return;
+    const title=createName.value.trim(),author=createAuthor.value.trim(),original_title=createOriginal.value.trim();
+    if(!title){createMessage.textContent='작품 제목을 입력해 주세요.';createName.focus();return;}
+    createSaving=true;createSave.disabled=true;
+    [createName,createAuthor,createOriginal].forEach(input=>input.disabled=true);
+    createMessage.textContent='작품을 등록하는 중…';
+    try {
+      if(!createRequestId)createRequestId=crypto.randomUUID();
+      const response=await fetch('/api/work-catalog/create',{
+        method:'POST',credentials:'same-origin',cache:'no-store',
+        headers:{'content-type':'application/json'},
+        body:JSON.stringify({title,author,original_title,request_id:createRequestId})
+      });
+      const json=await response.json();
+      if(!response.ok){
+        if(response.status===401){createMessage.innerHTML='로그인이 필요해요. <button type="button" data-wc-create-login>로그인하기</button>';return;}
+        if(response.status===409&&validId(json.existing_public_id)){
+          createMessage.innerHTML=`이미 공개된 작품이에요. <button type="button" data-wc-create-existing="${escapeHtml(json.existing_public_id)}">기존 작품 보기</button>`;
+          return;
+        }
+        throw new Error(json.error||'작품을 등록하지 못했어요.');
+      }
+      if(!validId(json.work_id))throw new Error('등록 응답을 확인할 수 없어요. 새로고침 후 검색해 주세요.');
+      createDialog.close();
+      createRequestId='';
+      data.filtersLoaded=false;data.loaded=false;
+      // Clear restrictive filters so the new work is visible after returning to the list.
+      data.query='';data.cp='';data.genre='';data.tags=[];data.tagMode='all';data.completion='';data.subcouple='';data.sort='recent';
+      refs.query.value='';refs.cp.value='';refs.completion.value='';refs.subcouple.value='';refs.sort.value='recent';
+      updateFilters();
+      await openDetail(json.work_id);
+    } catch(error) {createMessage.textContent=error.message||'등록하지 못했어요. 잠시 후 다시 시도해 주세요.';}
+    finally {createSaving=false;createSave.disabled=false;[createName,createAuthor,createOriginal].forEach(input=>input.disabled=false);}
+  });
+  createDialog?.addEventListener('click',event=>{
+    if(event.target.closest('[data-wc-create-login]')){
+      closeCreate();document.getElementById('loginButton')?.click();
+    }
+    const open=event.target.closest('[data-wc-create-existing]');
+    if(open&&validId(open.dataset.wcCreateExisting)){
+      closeCreate();openDetail(open.dataset.wcCreateExisting);
+    }
+  });
   const editor=$('wcEditDialog'),editForm=$('wcEditForm');
   const editOperation=$('wcEditOperation'),editValue=$('wcEditValue'),editChoice=$('wcEditChoice');
   const editMessage=$('wcEditMessage'),editSave=$('wcEditSave');
