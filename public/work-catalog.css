@@ -1,4 +1,4 @@
-/* v10.55 — Work encyclopedia user browse/detail. Scoped to avoid affecting readers. */
+/* v10.56 — Work encyclopedia user browse/detail. Scoped to avoid affecting readers. */
 .work-catalog-page {
   --wc-bg:var(--theme-surface-strong,var(--surface-strong,#fff));
   --wc-soft:var(--theme-surface,var(--surface,#fffdf9));
@@ -14,15 +14,15 @@
 .work-catalog-page button,.work-catalog-page input,.work-catalog-page select {font:inherit;}
 .work-catalog-page button {cursor:pointer;}
 .work-catalog-page button:focus-visible,.work-catalog-page input:focus-visible,.work-catalog-page select:focus-visible,.work-catalog-page summary:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:3px;}
-.wc-hero {position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) 210px;gap:28px;align-items:center;min-height:236px;margin:26px 0 24px;padding:30px 40px;border:1px solid var(--wc-line);border-radius:25px;background:linear-gradient(120deg,var(--wc-bg) 20%,var(--wc-tint));}
-.wc-hero::before {content:"";position:absolute;inset:auto -45px -128px auto;width:310px;height:310px;border:1px solid var(--wc-line);border-radius:50%;opacity:.65;pointer-events:none;}
+.wc-hero {position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px;align-items:center;margin:20px 0 18px;padding:24px 26px;border:1px solid var(--wc-line);border-radius:22px;background:linear-gradient(180deg,var(--wc-bg),var(--wc-soft));box-shadow:0 10px 24px rgba(34,31,30,.04);}
+.wc-hero::before {content:"";position:absolute;inset:0 auto 0 0;width:5px;border-radius:22px 0 0 22px;background:linear-gradient(180deg,#8d7282,#5f718d);opacity:.92;}
 .wc-overline,.wc-results-kicker,.wc-section-num {font-size:10px;letter-spacing:.18em;font-weight:800;color:var(--wc-muted);}
-.wc-hero h3 {font-family:'Ridibatang',Georgia,serif;font-size:clamp(25px,3.2vw,39px);line-height:1.42;font-weight:600;letter-spacing:-.055em;margin:11px 0;word-break:keep-all;}
+.wc-hero-copy {min-width:0;padding-left:2px;}
+.wc-hero h3 {font-family:'Ridibatang',Georgia,serif;font-size:clamp(24px,3vw,35px);line-height:1.38;font-weight:600;letter-spacing:-.05em;margin:8px 0 10px;word-break:keep-all;}
 .wc-hero h3 em {font-style:normal;color:#927184;}
-.wc-hero p {font-size:12px;line-height:1.7;color:var(--wc-muted);margin:0;word-break:keep-all;}
-.wc-hero-art {z-index:1;display:flex;flex-direction:column;justify-content:space-between;width:150px;height:195px;margin:0 auto;background:linear-gradient(155deg,#4c6277,#2c3b4f);border-radius:4px 13px 13px 4px;box-shadow:6px 10px 0 rgba(42,54,64,.15),14px 18px 29px rgba(31,42,51,.12);border-left:9px solid #26394b;color:#e9e5dd;padding:15px 15px 16px;transform:rotate(5deg);}
-.wc-hero-art span:first-child,.wc-hero-art span:last-child {font-size:9px;letter-spacing:.18em;font-weight:700;opacity:.72;}
-.wc-hero-art span:nth-child(2) {font-size:28px;line-height:1.33;font-family:'Ridibatang',Georgia,serif;letter-spacing:-.02em;}
+.wc-hero p {max-width:720px;font-size:12px;line-height:1.75;color:var(--wc-muted);margin:0;word-break:keep-all;}
+.wc-hero-points {display:flex;flex-direction:column;gap:8px;align-items:flex-end;justify-self:end;}
+.wc-hero-points span {display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:7px 14px;border-radius:999px;border:1px solid var(--wc-line);background:var(--wc-soft);color:var(--wc-ink);font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 4px 10px rgba(34,31,30,.03);}
 .wc-search {display:flex;align-items:center;gap:12px;min-height:58px;padding:7px 8px 7px 17px;background:var(--wc-bg);border:1px solid var(--wc-line);border-radius:17px;box-shadow:var(--wc-shadow);}
 .wc-search-symbol {font-size:30px;color:var(--wc-muted);line-height:1;}
 .work-catalog-page .wc-search input {flex:1 1 auto;min-width:0;border:0;outline:0;background:transparent!important;color:var(--wc-ink);font-size:14px;padding:10px 0;box-shadow:none;}
@@ -132,14 +132,14 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .work-catalog-page .quote-feed-head {align-items:flex-start;gap:7px;}
   .work-catalog-page .quote-feed-head h2 {font-size:24px;}
   .work-catalog-page #workCatalogBackButton {display:none;}
-  .wc-hero {grid-template-columns:minmax(0,1fr) 82px;min-height:162px;padding:20px 18px;gap:10px;border-radius:19px;margin:15px 0 16px;}
-  .wc-hero h3 {font-size:clamp(19px,5.4vw,26px);margin:8px 0;line-height:1.45;}
-  .wc-hero p {font-size:10px;line-height:1.55;}
+  .wc-hero {grid-template-columns:minmax(0,1fr);padding:18px 16px 16px;gap:12px;border-radius:18px;margin:12px 0 14px;}
+  .wc-hero::before {width:4px;border-radius:18px 0 0 18px;}
+  .wc-hero h3 {font-size:clamp(20px,5.6vw,26px);margin:6px 0 8px;line-height:1.42;}
+  .wc-hero p {font-size:11px;line-height:1.6;}
   .wc-overline {font-size:8px;}
-  .wc-hero-art {width:69px;height:102px;border-left-width:5px;border-radius:2px 6px 6px 2px;padding:8px;transform:rotate(5deg);}
-  .wc-hero-art span:nth-child(2) {font-size:14px;}
-  .wc-hero-art span:first-child,.wc-hero-art span:last-child {font-size:5px;}
-  .wc-search {min-height:51px;padding:5px 5px 5px 12px;gap:7px;border-radius:13px;}
+  .wc-hero-points {align-items:flex-start;justify-self:start;flex-direction:row;flex-wrap:wrap;gap:6px;}
+  .wc-hero-points span {min-height:28px;padding:5px 10px;font-size:10px;}
+        .wc-search {min-height:51px;padding:5px 5px 5px 12px;gap:7px;border-radius:13px;}
   .wc-search-symbol {font-size:23px;}
   .work-catalog-page .wc-search input {font-size:12px;min-height:36px;padding:7px 0;}
   .wc-search button {padding:0 13px;min-height:37px;font-size:11px;}
@@ -176,3 +176,5 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .wc-detail-section {padding:19px;margin-bottom:12px;}
 }
 @media(prefers-reduced-motion:reduce) {.wc-card {transition:none;}.wc-card:hover{transform:none;}}
+
+.wc-retry-button {display:block;margin:14px auto 0;padding:9px 17px;border:1px solid var(--wc-line);border-radius:999px;background:var(--wc-bg);color:var(--wc-ink);font-weight:750;font-size:12px;}
