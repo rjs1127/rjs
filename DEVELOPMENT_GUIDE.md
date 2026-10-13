@@ -1,3 +1,12 @@
+## v10.51 작품 도감 백엔드 안전 원칙
+
+- 기존 D1 `USER_DB` 바인딩만 사용하고 `functions/_work_catalog.js`에서 **별도 테이블**을 최초 관리자 도감 API 접근 시 `CREATE TABLE IF NOT EXISTS`로 준비합니다. 기존 `user_items`, `user_quotes`, `user_sessions` 또는 저장된 TXT 원문을 이관·수정하지 않습니다.
+- `catalog_works.status`는 `draft / published / archived`이며 공개 GET API는 `published`만 반환합니다. 공개 여부는 클라이언트가 아닌 서버 SQL에서 검사합니다. 개인 서재와 도감 사이에는 `catalog_source_links`를 통해 관리자 확인을 거친 `drive / postype` 원본 ID만 연결합니다. 단순 작품명·파일명 일치로 자동 병합하지 않습니다.
+- 사용자 수정 제안은 `catalog_proposals`에만 저장하고 관리자 승인 후 반영합니다. 기존 작품 수정 제안에는 제출 당시 `updated_at`을 함께 저장하고 검토 중 원본이 변경되면 승인하지 않습니다. 신규 제안은 승인 후에도 `draft`로 생성됩니다. 관리자 작업은 `catalog_audit`에 작업 종류/시간을 기록하며, 관리자 세션 쿠키와 기존 사용자 세션 인증을 각각 재사용합니다.
+- `public/admin-catalog.js`·`.css`는 도감 탭에만 적용하며 `functions/admin.js`가 로그인한 관리자에게만 관리자 HTML을 제공합니다. 기존 관리자 `admin-app.js`에서는 탭 전환 이벤트만 추가합니다.
+- 현재 사용자 `workCatalogPage`는 준비 화면으로 유지합니다. 사용자 도감 목록/상세/제안 UI의 실제 연결은 별도 버전에서 시행하며 비공개 인생책이나 개인 독서 기록을 공용 도감에 자동 노출하지 않습니다.
+- DB 생성 자체는 운영 배포 후 관리자 도감 탭 최초 진입 시 발생합니다. 실 D1/운영 Cloudflare 환경에서의 쓰기·인덱스 생성은 배포 후 별도 확인이 필요합니다.
+
 ## v10.48 — 프리셋 6종 후속 조정
 
 - `public/app.js`에서 잉크잔향 전용 Canvas와 CSS override를 함께 갱신한다. 변경 대상은 잉크잔향, 레드 에디션, 필름누광, 크럼플, 글로우, 스테인드 로즈로 한정한다.

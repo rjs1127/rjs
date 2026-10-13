@@ -5098,3 +5098,10 @@ body.reader-open .network-status-banner {
     -webkit-line-clamp:unset !important;
   }
 }
+
+/* v10.51: PC content header actions in a single horizontal row, feed first. */
+@media (min-width: 641px) {
+  .content-section .section-head-actions { flex-direction:row; flex-wrap:nowrap; align-items:center; gap:7px; }
+  .content-section .section-head-actions .quote-feed-entry-button {white-space:nowrap;}
+  .content-section .section-head-actions .work-catalog-entry-button {min-height:25px;padding:3px 8px;font-size:9px;}
+}

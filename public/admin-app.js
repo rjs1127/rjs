@@ -829,6 +829,7 @@ function setActiveTab(name) {
   });
 
   sessionStorage.setItem("archiveAdminTab", name);
+  window.dispatchEvent(new CustomEvent("admin:tab", { detail: { name } }));
 
   if (name === "overview") {
     loadOpsAutomation().catch((error) => {
