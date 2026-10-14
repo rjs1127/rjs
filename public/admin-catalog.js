@@ -7,7 +7,7 @@
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const fields = ['title','author','original_title','country','completion','genres','tags','synopsis','subcouple','subcouple_note','recommendation','warnings'];
   let sources = [], works = [], links = [], proposals = [], current = null, opener = null;
-  let sourceErrors = [], shown = 50, busy = false, loaded = false, loadId = 0, dialogId = 0;
+  let sourceErrors = [], shown = 50, busy = false, loaded = false, loadId = 0, catalogLoadSeq = 0, dialogId = 0;
   let tagTokens = [], recommendationRows = [];
   const cleanToken = value => String(value||'').normalize('NFKC').trim().replace(/^#+\s*/, '').trim();
   // Audit entries are fetched on demand only; no history requests on normal tab loads.
@@ -151,7 +151,7 @@
   function workMap(){return new Map(works.map(w=>[w.id,w]));}
   function renderStandalone(){
     const ids=new Set(links.map(l=>l.work_id));
-    const orphans=works.filter(w=>!ids.has(w.id));
+    const orphans=works.filter(w=>w.has_source_links===undefined?!ids.has(w.id):!w.has_source_links);
     $('catalogStandaloneCount').textContent=`(${orphans.length}건)`;
     $('catalogStandaloneList').innerHTML=orphans.length?orphans.map(w=>
       `<button type="button" data-work-id="${escapeHtml(w.id)}"><span><strong>${escapeHtml(w.title)}</strong><small>${escapeHtml(w.author||'작가 미등록')} · ${statuses[w.status]||'미확인'}</small></span><span aria-hidden="true">›</span></button>`
@@ -160,20 +160,20 @@
   function renderSourceList(){
     const q=$('catalogSearch').value.trim().normalize('NFKC').toLocaleLowerCase();
     const filter=$('catalogSourceFilter').value, state=$('catalogFilter').value;
-    const lm=linkedMap(), wm=workMap();
+    const lm=linkedMap(), wm=workMap(), statusBySource=new Map(links.map(l=>[key(l.source_type,l.source_id),l.work_status]));
     const filtered=sources.filter(s=>{
       if(filter!=='all' && s.type!==filter) return false;
       if(q && !`${s.title} ${s.author} ${s.id} ${s.combination||''}`.normalize('NFKC').toLocaleLowerCase().includes(q)) return false;
       const id=lm.get(key(s.type,s.id)); const w=wm.get(id);
       if(state==='none') return !id;
       if(state==='linked') return !!id;
-      if(state==='published'||state==='draft') return !!id && w?.status===state;
+      if(state==='published'||state==='draft') return !!id && (w?.status||statusBySource.get(key(s.type,s.id)))===state;
       return true;
     });
     $('catalogCounts').textContent=`(${filtered.length.toLocaleString('ko-KR')}건 / 원본 ${sources.length.toLocaleString('ko-KR')}건)`;
     $('catalogWorkList').innerHTML=filtered.length?filtered.slice(0,shown).map(s=>{
       const id=lm.get(key(s.type,s.id)); const w=wm.get(id);
-      const status=id?(w?statuses[w.status]:'정보 등록됨'):'정보 미등록';
+      const status=id?(statuses[w?.status||statusBySource.get(key(s.type,s.id))]||'정보 등록됨'):'정보 미등록';
       return `<button type="button" data-type="${s.type}" data-source-id="${escapeHtml(s.id)}">
         <span class="catalog-source-main"><strong>${escapeHtml(s.title||s.id)}</strong><small>${escapeHtml(s.author||'작가 미등록')} · ${labelType(s.type)} · ${escapeHtml(s.id)}</small></span>
         <span class="catalog-source-status ${id?'is-linked':''}">${status}</span><span aria-hidden="true">›</span>
@@ -221,8 +221,22 @@
     }).join(''):'<p class="muted">현재 검토 대기 중인 제안이 없습니다.</p>';
   }
   async function loadCatalog(){
-    const result=await api(null,'?status=all');
-    works=result.works||[]; links=result.links||[]; proposals=result.proposals||[];
+    const ticket=++catalogLoadSeq, activeLoadId=loadId;
+    // The archive UI needs link status for its source list, not every DB link.
+    // All requested source keys are checked before rendering linked/none filters.
+    const result=await api(null,'?status=all&source_lookups=1');
+    const chunks=[];
+    for(let i=0;i<sources.length;i+=800)
+      chunks.push(sources.slice(i,i+800).map(s=>({source_type:s.type,source_id:s.id})));
+    const matched=[];
+    // Bound concurrent administrator lookups and keep the current list intact
+    // until every requested chunk has succeeded.
+    for(let i=0;i<chunks.length;i+=3){
+      const pages=await Promise.all(chunks.slice(i,i+3).map(s=>api({action:'lookup_sources',sources:s})));
+      for(const page of pages)matched.push(...(page.links||[]));
+    }
+    if(ticket!==catalogLoadSeq||activeLoadId!==loadId)return;
+    works=result.works||[]; links=matched; proposals=result.proposals||[];
     renderSourceList(); renderStandalone(); renderProposals();
     if(result.limited) message('기존 도감 목록은 최대 100건까지 요약 표시됩니다. 등록된 원본을 누르면 연결된 실제 도감 정보를 별도로 확인합니다.');
   }

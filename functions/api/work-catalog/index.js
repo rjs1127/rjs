@@ -1,4 +1,4 @@
-import { catalogPublicSources, catalogCpJsonFromSources, catalogSourceCompletion, CATALOG_CP_CTE, withCatalogCp } from '../../_catalog_cp.js';
+import { catalogPublicSources, catalogCpChunkedCte, catalogSourceMetadata, catalogLinkedMetadata, catalogLinkedKeys } from '../../_catalog_cp.js';
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
 import { publicCatalogWork } from '../../_work_catalog.js';
@@ -70,7 +70,7 @@ export async function onRequestGet(context) {
       }
     }
     if (completion) {where.push('completion=?');args.push(completion);}
-    if (cp) {where.push('EXISTS (SELECT 1 FROM work_cp WHERE work_id=catalog_works.id AND cp=?)');args.push(cp);}
+    if (cp) {where.push('EXISTS (SELECT 1 FROM work_cp WHERE work_id=catalog_works.id)');}
     if (subcouple) {where.push('subcouple=?');args.push(subcouple);}
     const orderBy = sort === 'title' ? 'title COLLATE NOCASE ASC,id ASC' : 'updated_at DESC,id DESC';
     if(cursor) {
@@ -81,25 +81,21 @@ export async function onRequestGet(context) {
       }
       args.push(cursor.k,cursor.k,cursor.i);
     }
-    // Use the same public archive snapshot for CP and confirmed source status.
-    // Status hints never overwrite catalog_works.completion or change its fill score.
+    // The filtered list needs CP source IDs only when a CP filter is active.
+    // Without that filter, the page's linked source IDs are mapped to the
+    // public source metadata in JS after the LIMIT instead of a huge SQL JSON.
     const sources=await catalogPublicSources(context.env);
-    const publicStatus=new Map(sources.map(item=>[`${item.source==='postype'?'postype':'drive'}\u0000${String(item.id)}`,catalogSourceCompletion(item)]));
-    const rows = await db.prepare(`${CATALOG_CP_CTE} SELECT catalog_works.*, (SELECT json_group_array(cp) FROM work_cp WHERE work_id=catalog_works.id) AS main_couples_json,
-      (SELECT json_group_array(json_object('type',source_type,'id',source_id)) FROM catalog_source_links WHERE work_id=catalog_works.id) AS source_links_json
+    const cpSources=cp?sources.filter(item=>String(item.combination||'').trim()===cp):[];
+    const cpQuery=cp?catalogCpChunkedCte(cpSources):null;
+    const rows = await db.prepare(`${cpQuery?.cte||''} SELECT catalog_works.*,
+      (SELECT json_group_array(json_object('type',source_type,'id',source_id))
+        FROM catalog_source_links WHERE work_id=catalog_works.id) AS source_links_json
       FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21${cursorMode?'':' OFFSET ?'}`)
-      .bind(catalogCpJsonFromSources(sources),...args,...(cursorMode?[]:[(page-1)*20])).all();
+      .bind(...(cpQuery?.args||[]),...args,...(cursorMode?[]:[(page-1)*20])).all();
     const results = rows.results || [];
-    const items=results.slice(0,20).map(row=>{
-      const work=withCatalogCp(publicCatalogWork(row),row);
-      if(work.completion==='unknown') {
-        const known=new Set(JSON.parse(row.source_links_json||'[]')
-          .map(link=>publicStatus.get(`${link.type}\u0000${link.id}`))
-          .filter(value=>value && value!=='unknown'));
-        if(known.size===1)work.source_completion=[...known][0];
-      }
-      return work;
-    });
+    const metadata=catalogSourceMetadata(sources,catalogLinkedKeys(results.slice(0,20)));
+    const items=results.slice(0,20).map(row=>
+      catalogLinkedMetadata(publicCatalogWork(row),row.source_links_json,metadata));
     const hasMore=results.length>20 && (cursorMode || page<100);
     const nextCursor=cursorMode&&hasMore?encodeCursor(results[19],sort,fingerprint):null;
     return jsonResponse({items,page:cursorMode?null:page,hasMore,nextCursor},200,{'cache-control':'no-store'});

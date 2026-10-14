@@ -312,7 +312,7 @@
       if(!response.ok||!Array.isArray(json.items))throw Error('문장 조회 실패');
       if(sequence!==data.detailSeq||id!==data.detailId)return;
       data.quoteItems=append?[...data.quoteItems,...json.items.filter(q=>!data.quoteItems.some(old=>old.quote_id===q.quote_id))]:json.items;
-      data.quoteCursor=json.nextCursor||null;data.quoteLoading=false;renderWorkQuotes();
+      data.quoteCursor=json.nextCursor||null;data.quoteLoading=false;data.quoteLoaded=true;renderWorkQuotes();
     }catch(error){
       if(controller.signal.aborted||sequence!==data.detailSeq)return;
       data.quoteLoading=false;renderWorkQuotes('공개 문장을 불러오지 못했어요. 다시 시도해 주세요.',true);
@@ -341,7 +341,9 @@
       data.currentWork=json.work;
       renderDetail(json.work);
       loadSourceLinks(json.work.id);
-      data.quoteItems=[];data.quoteCursor=null;loadWorkQuotes();
+      // The quote section is spoiler-collapsed by default. Query only after
+      // the visitor explicitly opens it (and once per detail visit).
+      data.quoteItems=[];data.quoteCursor=null;data.quoteLoaded=false;
       refs.detail.querySelector('#wcDetailHeading')?.focus({preventScroll:true});
     }catch(error){
       if(controller.signal.aborted||sequence!==data.detailSeq)return;
@@ -778,6 +780,10 @@
   refs.detail.addEventListener('toggle',event=>{
     const panel=event.target.closest?.('.wc-history');
     if(panel&&panel.open)loadWorkHistory(panel);
+  },true);
+  refs.detail.addEventListener('toggle',event=>{
+    if(event.target?.matches?.('.wc-quotes-spoiler') && event.target.open &&
+       !data.quoteLoaded && !data.quoteLoading)loadWorkQuotes();
   },true);
   refs.detail.addEventListener('click',event=>{
     if(event.target.closest('[data-wc-quest-open]')) {openQuest();return;}

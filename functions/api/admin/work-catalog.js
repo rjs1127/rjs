@@ -1,7 +1,7 @@
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
 import { requireAdminSession } from '../../_admin_session.js';
-import { ensureWorkCatalogSchema, catalogBody, catalogFields, catalogError, allCatalogWork, fieldsParams, WORK_FIELDS, catalogOperation } from '../../_work_catalog.js';
+import { ensureWorkCatalogSchema, catalogFields, catalogError, allCatalogWork, fieldsParams, WORK_FIELDS, catalogOperation } from '../../_work_catalog.js';
 
 const uuid = v => /^[a-f0-9-]{36}$/i.test(String(v||''));
 const audit = (db,workId,action,data,now) => db.prepare('INSERT INTO catalog_audit(work_id,action,details_json,created_at) VALUES(?,?,?,?)').bind(workId,action,JSON.stringify(data||{}),now);
@@ -86,15 +86,20 @@ export async function onRequestGet(context){
     if(!['all','draft','published','archived'].includes(status)) throw catalogError('필터 값이 올바르지 않습니다.');
     const like=`%${q.replace(/[\\%_]/g,'\\$&')}%`;
     const conditions=[...(status==='all'?[]:['status=?']),...(q?['(title LIKE ? ESCAPE \'\\\' OR author LIKE ? ESCAPE \'\\\')']:[])];
-    const sql=`SELECT * FROM catalog_works ${conditions.length?'WHERE '+conditions.join(' AND '):''} ORDER BY updated_at DESC,id DESC LIMIT 100`;
+    const sql=`SELECT catalog_works.*,
+      EXISTS (SELECT 1 FROM catalog_source_links l WHERE l.work_id=catalog_works.id) AS has_source_links
+      FROM catalog_works ${conditions.length?'WHERE '+conditions.join(' AND '):''} ORDER BY updated_at DESC,id DESC LIMIT 100`;
     const params=[...(status==='all'?[]:[status]),...(q?[like,like]:[])];
     const [works,proposals,counts,links]=await Promise.all([
       db.prepare(sql).bind(...params).all(),
       db.prepare("SELECT id,work_id,user_id,kind,payload_json,status,created_at,admin_note,base_updated_at FROM catalog_proposals WHERE status='pending' ORDER BY created_at ASC LIMIT 100").all(),
       db.prepare("SELECT status,COUNT(*) AS total FROM catalog_works GROUP BY status").all(),
-      db.prepare("SELECT source_type,source_id,work_id FROM catalog_source_links ORDER BY created_at DESC LIMIT 10000").all(),
+      // New admin UI looks up only source IDs present in its current archive.
+      // Preserve the old response for older deployed admin assets.
+      url.searchParams.get('source_lookups')==='1'?Promise.resolve({results:[]}):
+        db.prepare("SELECT source_type,source_id,work_id FROM catalog_source_links ORDER BY created_at DESC LIMIT 10000").all(),
     ]);
-    return jsonResponse({works:(works.results||[]).map(allCatalogWork),proposals:(proposals.results||[]).map(p=>({...p,payload:JSON.parse(p.payload_json),payload_json:undefined})),counts:counts.results||[],links:links.results||[],limited:(works.results||[]).length===100},200,{'cache-control':'no-store'});
+    return jsonResponse({works:(works.results||[]).map(row=>({...allCatalogWork(row),has_source_links:Boolean(row.has_source_links)})),proposals:(proposals.results||[]).map(p=>({...p,payload:JSON.parse(p.payload_json),payload_json:undefined})),counts:counts.results||[],links:links.results||[],limited:(works.results||[]).length===100},200,{'cache-control':'no-store'});
   }catch(e){return err(e);}
 }
 
@@ -102,8 +107,37 @@ export async function onRequestPost(context){
   try {
     await requireAdminSession(context);
     const db=requireUserDb(context.env); await ensureWorkCatalogSchema(db);
-    const body=await catalogBody(context.request);
-    const action=String(body.action||''); const now=Date.now();
+    // Only the bounded administrator source-lookup read accepts larger JSON.
+    // Preserve the existing 18k body limit for every mutation operation.
+    const text=await context.request.text();
+    if(text.length>240000)throw catalogError('요청 본문 크기 제한을 초과했습니다.',413);
+    let body;
+    try{body=JSON.parse(text);if(!body||typeof body!=='object'||Array.isArray(body))throw Error();}
+    catch{throw catalogError('JSON 본문 형식이 올바르지 않습니다.');}
+    const action=String(body.action||'');
+    if(action!=='lookup_sources'&&text.length>18000)throw catalogError('요청 본문 크기 제한을 초과했습니다.',413);
+    const now=Date.now();
+    if(action==='lookup_sources'){
+      // Bounded, read-only source link lookups; avoids scanning 10,000 links
+      // just to label the TXT/POSTYPE entries visible in the archive.
+      const values=body.sources;
+      if(!Array.isArray(values)||values.length<1||values.length>800)
+        throw catalogError('조회할 원본 목록이 올바르지 않습니다.');
+      const seen=new Set(),pairs=[];
+      for(const item of values){
+        const type=item?.source_type,id=item?.source_id;
+        if(!['drive','postype'].includes(type)||typeof id!=='string'||!id.trim()||id.length>240)
+          throw catalogError('원본 유형 또는 ID가 올바르지 않습니다.');
+        const key=`${type}\u0000${id}`;
+        if(!seen.has(key)){seen.add(key);pairs.push([type,id]);}
+      }
+      const rows=await db.prepare(`SELECT l.source_type,l.source_id,l.work_id,w.status AS work_status
+        FROM json_each(?) requested
+        JOIN catalog_source_links l ON l.source_type=json_extract(requested.value,'$[0]')
+          AND l.source_id=json_extract(requested.value,'$[1]')
+        LEFT JOIN catalog_works w ON w.id=l.work_id`).bind(JSON.stringify(pairs)).all();
+      return jsonResponse({links:rows.results||[]},200,{'cache-control':'no-store'});
+    }
     if(action==='restore_field'){
       const id=String(body.id||'');
       const eventId=Number(body.audit_id);
