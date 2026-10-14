@@ -1,3 +1,11 @@
+# v10.68 — 작품 도감 상세 레이아웃 개선 안전 원칙
+
+- 공개 작품 상세의 `renderDetail()` 마크업과 `work-catalog.css`의 도감 전용 클래스만 조정. `data-wc-edit` 동작 식별자(`synopsis_set`, `genre_add`, `tag_add`, `recommendation_add`, `completion_set`, `subcouple_update`, `warnings_set`)는 기존 값 그대로 유지한다.
+- 섹션 제목/하위 분류/기본 정보 항목의 버튼을 동일 크기로 우측 정렬하고, 접힌 서브커플·주의요소는 기존 펼침 구조와 접근성을 보존한다.
+- 공개 문장(`wc-work-quote`)의 목록 미리보기·펼침 텍스트만 소폭 축소한다. 문장 피드 자체 UI와 문장 조회·저장·저작권·공개 정책은 변경하지 않는다.
+- 라이트/다크 테마 변수를 재사용하고 320px에서도 텍스트/버튼 겹침이 없도록 그리드를 제한한다. 사용자 인증·D1/API·관리자 코드·파일 열람 동작에는 변경을 가하지 않는다.
+- `HISTORY.md`는 GitHub main 실제 커밋 기준 자동 생성 원본을 유지한다.
+
 # v10.67 — 작품 도감 입력·초기값·이력 안전 규칙
 
 - 사용자 즉시 편집 API에 `genre_add`(기존 태그/장르 JSON 배열 검증 재사용), `completion_set`(기존 `unknown`, `ongoing`, `completed`, `hiatus` 유지 + `incomplete` 추가), `subcouple_update`(상태·설명을 동일 UPDATE/batch/revision/이력에서 원자적으로 갱신)를 추가. 기존 단건 제안/승인 및 `subcouple_set`/`subcouple_note_set` API는 호환 유지.
