@@ -1,4 +1,4 @@
-// v10.60 — logged-in readers may update public encyclopedia fields immediately.
+// v10.66 — field-scoped immediate edits and atomic multi-value additions.
 // A single field is updated with optimistic concurrency; no proposals are approved here.
 import { jsonResponse } from '../../_shared.js';
 import { requireUser, userErrorResponse } from '../../_user.js';
@@ -26,8 +26,14 @@ export async function onRequestPost(context) {
     if (!ALLOWED.has(operation)) throw catalogError('지원하지 않는 직접 수정 항목입니다.');
     if (!Number.isSafeInteger(revision)||revision<1) throw catalogError('작품 버전이 올바르지 않습니다.');
     if (!body.change || typeof body.change!=='object' || Array.isArray(body.change)) throw catalogError('수정 내용이 올바르지 않습니다.');
-    const change={value:body.change.value};
-    if(typeof change.value!=='string') throw catalogError('수정 내용은 문자열이어야 합니다.');
+    const isBatch=Object.hasOwn(body.change,'values');
+    if(isBatch && Object.hasOwn(body.change,'value')) throw catalogError('단일 입력과 여러 입력을 동시에 보낼 수 없습니다.');
+    if(isBatch && !['tag_add','recommendation_add'].includes(operation)) throw catalogError('여러 항목 추가를 지원하지 않는 정보입니다.');
+    const change=isBatch ? {values:body.change.values} : {value:body.change.value};
+    if(isBatch){
+      if(!Array.isArray(change.values)||!change.values.length||change.values.length>5||change.values.some(v=>typeof v!=='string'))
+        throw catalogError('한 번에 1~5개의 항목을 입력해 주세요.');
+    } else if(typeof change.value!=='string') throw catalogError('수정 내용은 문자열이어야 합니다.');
     const signature=JSON.stringify({id,operation,revision,change});
     const previous=await auth.db.prepare('SELECT user_id,request_json,work_id FROM catalog_direct_edits WHERE request_id=?')
       .bind(requestId).first();
@@ -38,9 +44,20 @@ export async function onRequestPost(context) {
     const work=await auth.db.prepare("SELECT * FROM catalog_works WHERE id=? AND status='published'").bind(id).first();
     if(!work) throw catalogError('공개된 작품만 수정할 수 있습니다.',404);
     if(Number(work.revision||1)!==revision) throw catalogError('다른 이용자가 작품을 수정했어요. 최신 정보를 확인한 후 다시 저장해 주세요.',409);
-    const result=catalogOperation(work,operation,change);
+    // Run every addition through the existing field validator, but commit only
+    // one final column update (one revision, one rate-limit event, one audit).
+    let result;
+    if(isBatch){
+      let draft={...work};
+      for(const value of change.values){
+        const step=catalogOperation(draft,operation,{value});
+        if(result && step.column!==result.column) throw catalogError('서로 다른 정보는 함께 수정할 수 없습니다.');
+        result={column:step.column,before:result?.before??step.before,after:step.after};
+        draft={...draft,[step.column]:step.after};
+      }
+    } else result=catalogOperation(work,operation,change);
     const now=Date.now(),token=crypto.randomUUID(),nextRevision=revision+1;
-    const details=JSON.stringify({source:'reader_direct',user_id:auth.userId,operation,column:result.column,before:result.before,after:result.after,request_id:requestId});
+    const details=JSON.stringify({source:'reader_direct',user_id:auth.userId,operation,column:result.column,before:result.before,after:result.after,request_id:requestId,...(isBatch?{added_count:change.values.length}:{})});
     const statements=[
       auth.db.prepare(`UPDATE catalog_works SET ${result.column}=?,revision=revision+1,updated_at=?,last_mutation_token=?
         WHERE id=? AND status='published' AND revision=? AND ${result.column}=?
