@@ -1,3 +1,13 @@
+# v10.74 — 작품 도감 작성 안정성 및 중복 등록 안전 규칙
+
+- `public/work-catalog.js` 편집 세션은 메모리 Map으로 **항목별 임시 입력·대기 목록을 보존**합니다. 작품 이동·취소/닫기·정상 저장 완료 시 세션을 정리하고, 계정 간 노출 위험이 있는 localStorage/sessionStorage에 초안을 영속 저장하지 않습니다.
+- 사용자 동일 저장 재시도에는 *work_id/base_revision/operation/change* 서명이 같을 때만 기존 request_id를 재사용하고, 달라지면 새 UUID를 사용합니다. `POST /api/work-catalog/edit`의 서버 멱등성과 revision 조건을 제거하거나 약화하지 마세요.
+- 409 재조회는 사용자 입력을 초기화하지 않고 현재 공개 작품 정보를 별도로 갱신합니다. 재적용 여부는 사용자에게 맡기며, 자동 덮어쓰기/자동 승인하지 않습니다.
+- `functions/_catalog_quote_import.js`는 기존 작품 제목·작가와 동일한 공개 문장 원본을 자동 생성하지 않습니다. 후보끼리 같은 정규 제목·작가인 경우 1건만 생성하며, 트랜잭션 내 INSERT도 제목·작가/원본 링크 충돌을 조건부 차단합니다. 중복 원본을 기존 작품에 **자동 연결하지 않고 관리자 확인**으로 남깁니다. 기존 개인 파일 및 문장 본문은 수정하지 않습니다.
+- 사용자 공개 이력은 `admin_restore` 라벨과 시각만 노출하며 `details_json`의 이전·이후 텍스트·user_id·request ID를 절대 공개하지 않습니다.
+- 목록 `OFFSET` → cursor 전환은 별도 버전에서 서버/프런트 동시 패치하며 v10.74에서 API `page/hasMore` 계약을 바꾸지 않습니다.
+- 기존 `HISTORY.md`는 GitHub main 기반 관리자 자동 생성 구조를 유지하며 추측한 커밋 이력을 작성하지 않습니다.
+
 # v10.73 — 신규 도감 제한 해제 및 관리자 복원 안전 규칙
 
 - `POST /api/work-catalog/create`의 `operation='work_create'` 최근 24시간 3건 COUNT 조건을 제거한다. 등록·원본 링크·요청 로그·감사는 기존 D1 `db.batch`에서 4건 조건부 실행하고 기존 UUID 멱등성·공개 원본 유효성·제목/작가 및 원본 ID 중복 차단은 유지한다.

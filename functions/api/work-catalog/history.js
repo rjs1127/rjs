@@ -20,13 +20,14 @@ export async function onRequestGet(context){
     const work=await db.prepare("SELECT id FROM catalog_works WHERE id=? AND status='published'").bind(id).first();
     if(!work)return reply({error:'공개 작품이 없습니다.'},404);
     const rows=await db.prepare(`SELECT action,details_json,created_at FROM catalog_audit
-      WHERE work_id=? AND action IN ('reader_direct_edit','reader_direct_create','proposal_approved','update','update_source','create','create_source')
+      WHERE work_id=? AND action IN ('reader_direct_edit','reader_direct_create','proposal_approved','update','update_source','create','create_source','admin_restore')
       ORDER BY created_at DESC,id DESC LIMIT 20`).bind(id).all();
     const items=(rows.results||[]).map(row=>{
       let details={};try{details=JSON.parse(row.details_json||'{}')||{};}catch{}
       const label=row.action==='reader_direct_edit' ? (labels[details.operation]||'작품 정보 수정'):
         row.action==='reader_direct_create'?'도감 작품 등록':
         row.action==='proposal_approved'?'정보 제안 반영':
+        row.action==='admin_restore'?'관리자 정보 복원':
         row.action==='create'||row.action==='create_source'?'관리자 작품 등록':'관리자 작품 정보 변경';
       // Keep personal identifiers, free-text before/after, tokens and URLs server-side.
       return {label,created_at:Number(row.created_at)||0};

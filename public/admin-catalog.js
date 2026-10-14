@@ -404,7 +404,7 @@
       const result=await response.json();
       if(response.status===401){location.replace('/admin');throw Error('관리자 로그인이 필요합니다.');}
       if(!response.ok)throw Error(result.error||'공개 문장 작품 등록 실패');
-      await loadCatalog();message(`${result.created}개 작품을 추가했습니다.${result.hasMore?' 남은 작품은 버튼을 다시 눌러 추가하세요.':''}`);
+      await loadCatalog();message(`${result.created}개 작품을 추가했습니다. 기존 제목·작가와 중복되는 작품은 자동 등록하거나 병합하지 않아요. 필요한 원본 연결은 관리자 작품 팝업에서 확인해 주세요.${result.hasMore?' 남은 작품은 버튼을 다시 눌러 추가하세요.':''}`);
     }catch(error){message(error.message,true);}
     finally{busy=false;importQuotesButton.disabled=false;}
   });

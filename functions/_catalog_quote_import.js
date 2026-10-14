@@ -15,13 +15,31 @@ export async function importQuoteWorks(db, env) {
     ['drive','postype'].includes(item.source || 'drive')).map(item => ({
       id:String(item.id), type:item.source || 'drive', title:item.title, author:item.author || '', completion:catalogSourceCompletion(item)
     }));
-  const candidates = await db.prepare(`SELECT json_extract(s.value,'$.id') AS id,
-    json_extract(s.value,'$.type') AS type, json_extract(s.value,'$.title') AS title,
-    json_extract(s.value,'$.author') AS author,
-    json_extract(s.value,'$.completion') AS completion FROM json_each(?) s
+  // A quote source is not a new work if a public, draft or archived work with
+  // the same normalized title/author already exists. Never merge or relink
+  // such sources automatically: a human must confirm the intended work.
+  // Collapse identical title/author candidates within this batch as well.
+  const candidates = await db.prepare(`WITH matching AS (
+    SELECT json_extract(s.value,'$.id') AS id,
+      json_extract(s.value,'$.type') AS type,
+      json_extract(s.value,'$.title') AS title,
+      json_extract(s.value,'$.author') AS author,
+      json_extract(s.value,'$.completion') AS completion,
+      ROW_NUMBER() OVER (
+        PARTITION BY lower(trim(json_extract(s.value,'$.title'))),
+          lower(trim(coalesce(json_extract(s.value,'$.author'),'')))
+        ORDER BY json_extract(s.value,'$.type'),json_extract(s.value,'$.id')
+      ) AS candidate_rank
+    FROM json_each(?) s
     WHERE json_extract(s.value,'$.id') IN (SELECT work_id FROM shared_quotes WHERE work_id IS NOT NULL)
       AND NOT EXISTS (SELECT 1 FROM catalog_source_links l
         WHERE l.source_id=json_extract(s.value,'$.id') AND l.source_type=json_extract(s.value,'$.type'))
+  )
+  SELECT id,type,title,author,completion FROM matching c
+    WHERE candidate_rank=1 AND trim(coalesce(title,''))<>''
+      AND NOT EXISTS (SELECT 1 FROM catalog_works w
+        WHERE lower(trim(w.title))=lower(trim(c.title))
+          AND lower(trim(w.author))=lower(trim(coalesce(c.author,''))))
     ORDER BY id LIMIT 21`).bind(JSON.stringify(entries)).all();
   const jobs = [], now = Date.now();
   for (const source of (candidates.results || []).slice(0,20)) {
@@ -31,8 +49,10 @@ export async function importQuoteWorks(db, env) {
       db.prepare(`INSERT INTO catalog_works(id,${WORK_FIELDS},status,created_at,updated_at)
         SELECT ?,${Array(12).fill('?').join(',')},'published',?,?
         WHERE NOT EXISTS (SELECT 1 FROM catalog_source_links WHERE source_type=? AND source_id=?)
+          AND NOT EXISTS (SELECT 1 FROM catalog_works
+            WHERE lower(trim(title))=lower(trim(?)) AND lower(trim(author))=lower(trim(?)))
           AND EXISTS (SELECT 1 FROM shared_quotes WHERE work_id=?)`)
-        .bind(id,...fieldsParams(fields),now,now,source.type,source.id,source.id),
+        .bind(id,...fieldsParams(fields),now,now,source.type,source.id,fields.title,fields.author,source.id),
       db.prepare(`INSERT INTO catalog_source_links(source_type,source_id,work_id,created_at)
         SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM catalog_works WHERE id=?)`)
         .bind(source.type,source.id,id,now,id),

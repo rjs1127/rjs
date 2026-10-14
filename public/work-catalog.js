@@ -450,6 +450,17 @@
     completion_set:'작품의 실제 연재 상태를 확인한 경우에만 변경해 주세요. 모르면 미확인을 유지할 수 있어요.'
   };
   let pendingEntries=[];
+  // Keep unsaved input only for this dialog/work session (never localStorage).
+  const editDrafts=new Map();
+  let editAttempt=null;
+  function rememberEditDraft() {
+    const op=editOperation.value;
+    if(!Object.hasOwn(editLabels,op))return;
+    editDrafts.set(op,{
+      value:editValue.value,choice:editChoice.value,completion:editCompletion.value,
+      note:editSubNote.value,pending:[...pendingEntries]
+    });
+  }
   const isMulti=op=>['tag_add','genre_add','recommendation_add'].includes(op);
   const keyForTag=v=>v.normalize('NFKC').replace(/^#+\s*/,'').trim().toLocaleLowerCase();
   function renderPending() {
@@ -481,7 +492,8 @@
   function updateEditFields(operation,focusInput=false) {
     if(!Object.hasOwn(editLabels,operation))return;
     editOperation.value=operation;
-    pendingEntries=[];
+    const draft=editDrafts.get(operation);
+    pendingEntries=draft?[...draft.pending]:[];
     editArea.hidden=false;
     const select=operation==='subcouple_update';
     const completion=operation==='completion_set';
@@ -496,6 +508,10 @@
     editChoice.value=data.currentWork?.subcouple||'unknown';
     editSubNote.value=String(data.currentWork?.subcouple_note||'');
     editCompletion.value=data.currentWork?.completion==='unknown'?(data.currentWork?.source_completion||'unknown'):(data.currentWork?.completion||'unknown');
+    if(draft){
+      editValue.value=draft.value;editChoice.value=draft.choice;
+      editCompletion.value=draft.completion;editSubNote.value=draft.note;
+    }
     editValue.maxLength=operation==='synopsis_set'?3000:operation==='warnings_set'?1000:['tag_add','genre_add'].includes(operation)?30:500;
     editValue.rows=operation==='synopsis_set'?7:operation==='warnings_set'?5:operation==='recommendation_add'?3:1;
     $('wcEditValueField').firstChild.textContent=({tag_add:'새 키워드',genre_add:'새 장르',synopsis_set:'줄거리',recommendation_add:'추천하고 싶은 독자',warnings_set:'주의사항 · 호불호 요소'})[operation]||'내용';
@@ -524,6 +540,7 @@
       document.getElementById('loginButton')?.click();
       return;
     }
+    editDrafts.clear();editAttempt=null;
     editOperation.value='';pendingEntries=[];editArea.hidden=true;
     editMessage.textContent='';editSave.disabled=true;
     $('wcEditTitle').textContent='어떤 정보를 채울까요?';
@@ -537,8 +554,11 @@
     else editor.querySelector('[data-wc-edit-choice]')?.focus();
   }
   function closeEditor() {if(editor?.open&&!data.editSaving)editor.close();}
+  editor?.addEventListener('close',()=>{
+    editDrafts.clear();editAttempt=null;pendingEntries=[];
+  });
   editor?.querySelectorAll('[data-wc-edit-choice]').forEach(button=>button.addEventListener('click',()=>{
-    if(!data.editSaving)updateEditFields(button.dataset.wcEditChoice,true);
+    if(!data.editSaving){rememberEditDraft();updateEditFields(button.dataset.wcEditChoice,true);}
   }));
   editAdd?.addEventListener('click',()=>{if(!data.editSaving&&addPending())editValue.focus();});
   editQueued?.addEventListener('click',event=>{
@@ -567,6 +587,15 @@
       if(!value && !(op==='warnings_set' && String(data.currentWork?.warnings||'').trim())) {editMessage.textContent='내용을 입력해 주세요.';return;}
       change=op==='subcouple_update'?{value,note:editSubNote.value}: {value};
     }
+    rememberEditDraft();
+    const signature=JSON.stringify({work_id:data.currentWork.id,
+      base_revision:data.currentWork.revision,operation:op,change});
+    // A lost response can follow a successful DB commit. Reuse the exact same
+    // request ID for an unchanged retry; changing content/revision creates a new ID.
+    if(!editAttempt || editAttempt.signature!==signature){
+      editAttempt={signature,requestId:crypto.randomUUID()};
+    }
+    const payload={...JSON.parse(signature),request_id:editAttempt.requestId};
     data.editSaving=true;editSave.disabled=true;editAdd.disabled=true;
     editor.querySelectorAll('[data-wc-edit-choice],[data-wc-remove-pending]').forEach(button=>button.disabled=true);
     editValue.disabled=true;editChoice.disabled=true;editCompletion.disabled=true;editSubNote.disabled=true;
@@ -574,13 +603,12 @@
     try {
       const response=await fetch('/api/work-catalog/edit',{
         method:'POST',credentials:'same-origin',cache:'no-store',headers:{'content-type':'application/json'},
-        body:JSON.stringify({work_id:data.currentWork.id,base_revision:data.currentWork.revision,
-          request_id:crypto.randomUUID(),operation:op,change})
+        body:JSON.stringify(payload)
       });
       const json=await response.json();
       if(!response.ok) {
         if(response.status===401){editMessage.innerHTML='로그인이 필요해요. <button type="button" data-wc-login>로그인하기</button>';return;}
-        if(response.status===409){editMessage.innerHTML='정보가 변경되었어요. <button type="button" data-wc-reload>최신 정보 확인</button>';return;}
+        if(response.status===409){editMessage.innerHTML='다른 수정이 먼저 반영되었거나 내용이 중복되었어요. 작성한 내용은 유지돼요. <button type="button" data-wc-reload>현재 정보 비교하기</button>';return;}
         throw new Error(json.error||'저장하지 못했어요.');
       }
       const newWork=json.work || (await (await fetch(`/api/work-catalog/${encodeURIComponent(data.currentWork.id)}?updated=${Date.now()}`,{cache:'no-store'})).json()).work;
@@ -608,9 +636,33 @@
       editValue.disabled=false;editChoice.disabled=false;editCompletion.disabled=false;editSubNote.disabled=false;
     }
   });
-  editor?.addEventListener('click',event=>{
+  editor?.addEventListener('click',async event=>{
     if(event.target.closest('[data-wc-login]')){closeEditor();document.getElementById('loginButton')?.click();}
-    if(event.target.closest('[data-wc-reload]')){closeEditor();if(data.detailId)openDetail(data.detailId,{push:false});}
+    if(event.target.closest('[data-wc-reload]') && !data.editSaving && data.currentWork){
+      const workId=data.currentWork.id, op=editOperation.value;
+      rememberEditDraft();editMessage.textContent='최신 정보를 확인하는 중…';
+      try {
+        const response=await fetch(`/api/work-catalog/${encodeURIComponent(workId)}?updated=${Date.now()}`,
+          {credentials:'same-origin',cache:'no-store'});
+        const json=await response.json();
+        if(!response.ok||!json.work||json.work.id!==workId||data.detailId!==workId)throw Error(json.error||'정보 확인 실패');
+        data.currentWork={...data.currentWork,...json.work};
+        renderDetail(data.currentWork);
+        // Preserve the user's draft; the next save is a NEW revision/request.
+        editAttempt=null;
+        const current=op==='synopsis_set'?data.currentWork.synopsis:
+          op==='warnings_set'?data.currentWork.warnings:
+          op==='recommendation_add'?data.currentWork.recommendation:
+          op==='genre_add'?arr(data.currentWork.genres).join(', '):
+          op==='tag_add'?arr(data.currentWork.tags).join(', '):
+          op==='completion_set'?statusLabel[data.currentWork.completion]:
+          op==='subcouple_update'?`${coupleLabel[data.currentWork.subcouple]||'미확인'} · ${data.currentWork.subcouple_note||''}`:'';
+        const comparison=$('wcEditExistingInfo');
+        comparison.hidden=false;
+        comparison.textContent=`현재 등록 정보: ${String(current||'정보 미등록').slice(0,240)}`;
+        editMessage.textContent='최신 정보를 확인했어요. 작성 내용은 그대로예요. 현재 정보와 비교한 뒤 저장을 다시 눌러주세요.';
+      }catch(error){editMessage.textContent=error.message||'최신 정보를 불러오지 못했어요. 초안은 유지돼요.';}
+    }
   });
   function closeDetail({fromHistory=false,restoreScroll=true}={}) {
     closeQuest();
