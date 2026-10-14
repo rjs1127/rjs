@@ -5,7 +5,7 @@ import { requireUser, userErrorResponse } from '../../_user.js';
 import { catalogBody, catalogOperation, catalogError, ensureWorkCatalogSchema, catalogFields, publicCatalogWork } from '../../_work_catalog.js';
 
 const uuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(value||''));
-const ALLOWED = new Set(['tag_add','genre_add','synopsis_set','completion_set','subcouple_update','subcouple_set','subcouple_note_set','recommendation_add','warnings_set']);
+const ALLOWED = new Set(['tag_add','genre_add','synopsis_set','completion_set','subcouple_update','subcouple_set','subcouple_note_set','recommendation_add','recommendation_edit','recommendation_remove','tag_edit','tag_remove','genre_edit','genre_remove','warnings_set']);
 const respond = (data,status=200) => jsonResponse(data,status,{'cache-control':'no-store'});
 
 export async function onRequestPost(context) {
@@ -27,12 +27,16 @@ export async function onRequestPost(context) {
     const isBatch=Object.hasOwn(body.change,'values');
     if(isBatch && Object.hasOwn(body.change,'value')) throw catalogError('단일 입력과 여러 입력을 동시에 보낼 수 없습니다.');
     if(isBatch && !['tag_add','genre_add','recommendation_add'].includes(operation)) throw catalogError('여러 항목 추가를 지원하지 않는 정보입니다.');
-    const change=isBatch ? {values:body.change.values} : {value:body.change.value,...(operation==='subcouple_update'?{note:body.change.note}:{})};
+    const needsOld=['tag_edit','genre_edit','recommendation_edit','recommendation_remove'].includes(operation);
+    const change=isBatch ? {values:body.change.values} : {value:body.change.value,
+      ...(needsOld?{old:body.change.old}:{}),...(operation==='subcouple_update'?{note:body.change.note}:{})};
     if(isBatch){
       if(!Array.isArray(change.values)||!change.values.length||change.values.length>5||change.values.some(v=>typeof v!=='string'))
         throw catalogError('한 번에 1~5개의 항목을 입력해 주세요.');
     } else if(typeof change.value!=='string') throw catalogError('수정 내용은 문자열이어야 합니다.');
     if(operation==='subcouple_update' && typeof change.note!=='string')throw catalogError('서브커플 설명 형식이 올바르지 않습니다.');
+    if(needsOld && (typeof change.old!=='string' || !change.old.trim()))
+      throw catalogError('수정할 기존 정보가 올바르지 않습니다.');
     const signature=JSON.stringify({id,operation,revision,change});
     const previous=await auth.db.prepare('SELECT user_id,request_json,work_id FROM catalog_direct_edits WHERE request_id=?')
       .bind(requestId).first();

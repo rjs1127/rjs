@@ -133,8 +133,8 @@ export const WORK_FIELDS = 'title,author,original_title,country,completion,genre
 
 // v10.54: field-scoped proposal contract. Existing v1 whole-work payloads remain readable.
 const OPERATION_FIELDS = Object.freeze({
-  tag_add: 'tags_json', tag_remove: 'tags_json',
-  genre_add: 'genre_json', genre_remove: 'genre_json',
+  tag_add: 'tags_json', tag_remove: 'tags_json', tag_edit: 'tags_json',
+  genre_add: 'genre_json', genre_remove: 'genre_json', genre_edit: 'genre_json',
   title_set: 'title', author_set: 'author', original_title_set: 'original_title',
   completion_set: 'completion', subcouple_set: 'subcouple',
   subcouple_note_set: 'subcouple_note', synopsis_set: 'synopsis',
@@ -163,10 +163,18 @@ export function catalogOperation(row, operation, change) {
     if (!token || token.length>30) throw catalogError('키워드는 1~30자 이내여야 합니다.');
     const current=obj[type];
     before=[...current];
-    const idx=current.findIndex(x=>x.normalize('NFKC').toLocaleLowerCase()===token.toLocaleLowerCase());
+    const oldToken=operation.endsWith('_edit')
+      ? bounded(change.old, 30, '수정할 기존 항목', true).normalize('NFKC').replace(/^#+\s*/, '').trim()
+      : token;
+    const idx=current.findIndex(x=>x.normalize('NFKC').toLocaleLowerCase()===oldToken.toLocaleLowerCase());
     if (operation.endsWith('_add')) {
       if (idx>=0) throw catalogError('이미 등록된 키워드입니다.',409);
       current.push(token);
+    } else if (operation.endsWith('_edit')) {
+      if (idx<0) throw catalogError('수정할 기존 항목이 변경되었습니다.',409);
+      if (current.some((x,i)=>i!==idx && x.normalize('NFKC').toLocaleLowerCase()===token.toLocaleLowerCase()))
+        throw catalogError('같은 장르·키워드가 이미 등록되어 있어요.',409);
+      current[idx]=token;
     } else {
       if (idx<0) throw catalogError('삭제할 키워드가 없습니다.',409);
       current.splice(idx,1);
@@ -185,6 +193,7 @@ export function catalogOperation(row, operation, change) {
       if (operation==='recommendation_remove') lines.splice(idx,1);
       else {
         if (!item) throw catalogError('새 추천 내용을 입력해 주세요.');
+        if (lines.some((line,i)=>i!==idx&&line===item)) throw catalogError('같은 추천 문구가 이미 등록되어 있어요.',409);
         lines[idx]=item;
       }
     }

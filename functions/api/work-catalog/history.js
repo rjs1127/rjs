@@ -3,10 +3,10 @@ import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
 
 const labels=Object.freeze({
-  genre_add:'장르 추가',genre_remove:'장르 제거',tag_add:'키워드 추가',tag_remove:'키워드 제거',
+  genre_add:'장르 추가',genre_remove:'장르 삭제',genre_edit:'장르 수정',tag_add:'키워드 추가',tag_remove:'키워드 삭제',tag_edit:'키워드 수정',
   synopsis_set:'줄거리 수정',completion_set:'연재 상태 변경',
   subcouple_update:'서브커플 유무·설명 수정',subcouple_set:'서브커플 유무 수정',
-  subcouple_note_set:'서브커플 설명 수정',recommendation_add:'추천 문구 추가',
+  subcouple_note_set:'서브커플 설명 수정',recommendation_add:'추천 문구 추가',recommendation_edit:'추천 문구 수정',recommendation_remove:'추천 문구 삭제',
   warnings_set:'주의·호불호 정보 수정'
 });
 const reply=(payload,status=200)=>jsonResponse(payload,status,{'cache-control':'no-store'});

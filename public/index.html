@@ -76,7 +76,7 @@
   <link rel="stylesheet" href="/style.css?v=1073" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="/theme.css?v=1073" />
-  <link rel="stylesheet" href="/work-catalog.css?v=1073" />
+  <link rel="stylesheet" href="/work-catalog.css?v=1075" />
   <link rel="stylesheet" href="/user-next.css?v=984" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
@@ -522,7 +522,12 @@
               </div>
             </fieldset>
             <input id="wcEditOperation" type="hidden" value="" />
+            <div id="wcEditManage" class="wc-edit-manage" hidden>
+              <p class="wc-edit-field-hint">잘못 등록된 정보를 선택해 수정하거나 삭제할 수 있어요. 변경 내용은 이력에 남아요.</p>
+              <div id="wcEditManageList" class="wc-edit-manage-list"></div>
+            </div>
             <div id="wcEditInputArea" class="wc-edit-input-area" hidden>
+              <button id="wcEditManageBack" class="wc-edit-manage-back" type="button" hidden>← 기존 정보 목록으로</button>
               <label id="wcEditValueField" class="wc-edit-field">내용
                 <textarea id="wcEditValue" rows="4" maxlength="3000"></textarea>
               </label>
@@ -1293,6 +1298,6 @@
   </div>
 
   <script src="/app.js?v=1073" defer></script>
-  <script src="/work-catalog.js?v=1074" defer></script>
+  <script src="/work-catalog.js?v=1075" defer></script>
 </body>
 </html>
