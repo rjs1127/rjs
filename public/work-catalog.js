@@ -1,4 +1,4 @@
-/* v10.71 · Shared encyclopedia: compact fill progress and quest sheet. */
+/* v10.77 · Shared encyclopedia: stable cursor pagination + existing reader features. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -16,7 +16,7 @@
   };
   const data = {
     query:'', cp:'', genre:'', tags:[], tagMode:'all', completion:'', subcouple:'', sort:'recent',
-    genres:[], tagOptions:[], items:[], nextPage:1, hasMore:false,
+    genres:[], tagOptions:[], items:[], nextCursor:null, hasMore:false,
     loaded:false, loading:false, seq:0, abort:null, filtersLoaded:false, detailId:'',
     quoteItems:[], quoteCursor:null, quoteAbort:null, quoteLoading:false,
     detailSeq:0, detailAbort:null, currentWork:null, editSaving:false, contributionFeedback:'', previousScroll:0, lastFocus:null, debounce:null
@@ -85,8 +85,11 @@
       <span class="wc-card-fill"><span>정보 ${fill.count}/5</span><span class="wc-card-fill-track" aria-hidden="true"><i style="width:${fill.percent}%"></i></span><strong>${fill.percent}%</strong></span>
       </span></button></article>`;
   }
-  function renderItems() {
-    refs.cards.innerHTML=data.items.map(makeCard).join('');
+  function renderItems({append=false,addedItems=[]}={}) {
+    // Keep existing card nodes (and the reader's scroll/focus) when extending a long list.
+    if(append && refs.cards.childElementCount===data.items.length-addedItems.length) {
+      if(addedItems.length)refs.cards.insertAdjacentHTML('beforeend',addedItems.map((work,index)=>makeCard(work,data.items.length-addedItems.length+index)).join(''));
+    } else refs.cards.innerHTML=data.items.map(makeCard).join('');
     refs.more.hidden=!data.hasMore || data.loading;
     refs.moreButton.disabled=data.loading;
     announceMeta();
@@ -96,8 +99,9 @@
       showStatus(filtered?'검색 조건에 맞는 공개 작품이 없어요. 필터를 바꿔보세요.':'아직 공개된 작품 정보가 없어요. 위의 + 작품 등록 버튼으로 첫 작품을 기록해 보세요.','empty');
     }
   }
-  function queryParams(page) {
-    const params = new URLSearchParams({page:String(page),sort:data.sort});
+  function queryParams(cursor=null) {
+    const params = new URLSearchParams({mode:'cursor',sort:data.sort});
+    if(cursor)params.set('cursor',cursor);
     if(data.cp) params.set('cp',data.cp);
     if(data.query) params.set('q',data.query);
     if(data.genre) params.set('genre',data.genre);
@@ -113,29 +117,34 @@
     data.abort=new AbortController();
     const signal=data.abort.signal;
     const sequence=++data.seq;
-    const page=append?data.nextPage:1;
+    const cursor=append?data.nextCursor:null;
+    if(append&&!cursor)return;
+    let addedItems=[];
     data.loading=true;
-    if(!append) {data.items=[];refs.cards.innerHTML='';showStatus('작품을 불러오는 중…');}
+    if(!append) {data.items=[];data.nextCursor=null;data.hasMore=false;refs.cards.innerHTML='';showStatus('작품을 불러오는 중…');}
     refs.moreButton.disabled=true;
     announceMeta();
     try {
-      const response=await fetch(`/api/work-catalog?${queryParams(page)}`,{signal,credentials:'same-origin'});
+      const response=await fetch(`/api/work-catalog?${queryParams(cursor)}`,{signal,credentials:'same-origin'});
       const json=await response.json();
       if(!response.ok || !Array.isArray(json.items)) throw new Error(json.error||'목록 조회 실패');
       if(sequence!==data.seq) return;
+      if(json.hasMore&&(typeof json.nextCursor!=='string'||!json.nextCursor))throw new Error('이어보기 응답 오류');
       const items=json.items.filter(work=>work&&validId(work.id));
-      data.items=append?[...data.items,...items.filter(item=>!data.items.some(w=>w.id===item.id))]:items;
-      data.nextPage=page+1;
-      data.hasMore=Boolean(json.hasMore);
+      const seen=new Set(append?data.items.map(work=>work.id):[]);
+      addedItems=append?items.filter(item=>{if(seen.has(item.id))return false;seen.add(item.id);return true;}):items;
+      data.items=append?[...data.items,...addedItems]:items;
+      data.nextCursor=json.hasMore?json.nextCursor:null;
+      data.hasMore=Boolean(data.nextCursor);
       data.loaded=true;
       hideStatus();
     } catch(error) {
       if(signal.aborted||sequence!==data.seq) return;
       if(!append) data.items=[];
       showStatus('작품 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.','error');
-      data.loaded=false;
+      if(!append)data.loaded=false;
     } finally {
-      if(sequence===data.seq) {data.loading=false;renderItems();}
+      if(sequence===data.seq) {data.loading=false;renderItems({append,addedItems});}
     }
   }
   async function loadFilters() {
@@ -155,7 +164,9 @@
     }
   }
   function changed() {
-    data.loaded=false;
+    data.loaded=false;data.hasMore=false;data.nextCursor=null;
+    data.seq++;data.abort?.abort();data.loading=false;
+    refs.more.hidden=true;refs.moreButton.disabled=true;
     updateFilters();
     if(data.debounce)clearTimeout(data.debounce);
     data.debounce=setTimeout(()=>{data.debounce=null;if(isOpen())loadItems();},220);
