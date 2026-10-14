@@ -5,8 +5,6 @@ import { requireUser, userErrorResponse } from '../../_user.js';
 import { catalogBody, catalogOperation, catalogError, ensureWorkCatalogSchema, catalogFields, publicCatalogWork } from '../../_work_catalog.js';
 
 const uuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(value||''));
-const DAY = 86400000;
-const LIMIT = 12;
 const ALLOWED = new Set(['tag_add','genre_add','synopsis_set','completion_set','subcouple_update','subcouple_set','subcouple_note_set','recommendation_add','warnings_set']);
 const respond = (data,status=200) => jsonResponse(data,status,{'cache-control':'no-store'});
 
@@ -46,7 +44,7 @@ export async function onRequestPost(context) {
     if(!work) throw catalogError('공개된 작품만 수정할 수 있습니다.',404);
     if(Number(work.revision||1)!==revision) throw catalogError('다른 이용자가 작품을 수정했어요. 최신 정보를 확인한 후 다시 저장해 주세요.',409);
     // Run every addition through the existing field validator, but commit only
-    // one final column update (one revision, one rate-limit event, one audit).
+    // one final column update (one revision, one request-id log, one audit).
     let result;
     if(operation==='subcouple_update'){
       const normalized=catalogFields({...publicCatalogWork(work),
@@ -69,10 +67,9 @@ export async function onRequestPost(context) {
     const statements=[
       auth.db.prepare(`UPDATE catalog_works SET ${result.column}=?${result.extraColumn?', '+result.extraColumn+'=?':''},revision=revision+1,updated_at=?,last_mutation_token=?
         WHERE id=? AND status='published' AND revision=? AND ${result.column}=?${result.extraColumn?' AND '+result.extraColumn+'=?':''}
-          AND (SELECT COUNT(*) FROM catalog_direct_edits WHERE user_id=? AND created_at>?)<?
           AND NOT EXISTS (SELECT 1 FROM catalog_direct_edits WHERE request_id=?)`)
         .bind(...(result.extraColumn?[result.after,result.extraAfter]:[result.after]),now,token,id,revision,work[result.column],
-          ...(result.extraColumn?[result.extraBefore]:[]),auth.userId,now-DAY,LIMIT,requestId),
+          ...(result.extraColumn?[result.extraBefore]:[]),requestId),
       auth.db.prepare(`INSERT INTO catalog_direct_edits(request_id,user_id,work_id,operation,request_json,created_at)
         SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM catalog_works WHERE id=? AND revision=? AND last_mutation_token=?)`)
         .bind(requestId,auth.userId,id,operation,signature,now,id,nextRevision,token),
@@ -84,8 +81,6 @@ export async function onRequestPost(context) {
     if(writes[0]?.meta?.changes!==1 || writes[1]?.meta?.changes!==1 || writes[2]?.meta?.changes!==1){
       const saved=await auth.db.prepare('SELECT user_id,request_json FROM catalog_direct_edits WHERE request_id=?').bind(requestId).first();
       if(saved?.user_id===auth.userId && saved.request_json===signature) return respond({ok:true,reused:true,work_id:id});
-      const count=await auth.db.prepare('SELECT COUNT(*) AS n FROM catalog_direct_edits WHERE user_id=? AND created_at>?').bind(auth.userId,now-DAY).first();
-      if(Number(count?.n||0)>=LIMIT) throw catalogError(`정보 수정은 최근 24시간 동안 ${LIMIT}회까지 할 수 있어요.`,429);
       throw catalogError('작품 정보가 변경되었습니다. 최신 정보를 다시 불러와 주세요.',409);
     }
     const latest=await auth.db.prepare("SELECT * FROM catalog_works WHERE id=? AND status='published'").bind(id).first();

@@ -64,7 +64,7 @@ export async function onRequestGet(context) {
       }
       return work;
     });
-    return jsonResponse({items,page,hasMore:results.length>20},200,{'cache-control':'no-store'});
+    return jsonResponse({items,page,hasMore:page<100 && results.length>20},200,{'cache-control':'no-store'});
   } catch(e) {
     if (/no such table/i.test(e?.message||'')) return jsonResponse({items:[],page:1,hasMore:false},200,{'cache-control':'no-store'});
     return jsonResponse({error:e.message||'작품 도감 조회에 실패했습니다.'},e.status||500,{'cache-control':'no-store'});

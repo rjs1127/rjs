@@ -12,7 +12,7 @@
     cp: $('wcCpFilter'), subcouple: $('wcSubcoupleFilter'), sort: $('wcSortSelect'),
     reset: $('wcResetFilters'), active: $('wcActiveFilters'),
     status: $('wcCatalogStatus'), cards: $('wcCatalogCards'),
-    more: $('wcMoreWrap'), moreButton: $('wcMoreButton'), meta: $('wcResultsMeta')
+    more: $('wcMoreWrap'), moreButton: $('wcMoreButton'), moreLabel: $('wcMoreLabel'), moreProgress: $('wcMoreProgress'), meta: $('wcResultsMeta')
   };
   const data = {
     query:'', cp:'', genre:'', tags:[], tagMode:'all', completion:'', subcouple:'', sort:'recent',
@@ -42,6 +42,8 @@
   function hideStatus() { refs.status.hidden=true; refs.status.textContent=''; }
   function announceMeta() {
     refs.meta.textContent=data.loading ? '작품을 불러오는 중…' : `${data.items.length}개 표시 중${data.hasMore?' · 더 보기 가능':''}`;
+    refs.moreLabel.textContent='더보기 20개';
+    refs.moreProgress.textContent=`${data.items.length}개 표시 중`;
   }
   function pills() {
     const entries=[{value:'',count:0},...data.genres];

@@ -6,7 +6,7 @@ import { catalogBody, catalogFields, catalogError, ensureWorkCatalogSchema } fro
 
 const isUuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(value || ''));
 const respond = (data,status=200) => jsonResponse(data,status,{'cache-control':'no-store'});
-const DAY=86400000, PER_DAY=3, EDIT_LIMIT=12;
+const DAY=86400000, PER_DAY=3;
 const normalize = value => String(value ?? '').normalize('NFKC').replace(/\s+/g,' ').trim();
 export async function onRequestPost(context) {
   try {
@@ -52,12 +52,11 @@ export async function onRequestPost(context) {
       WHERE NOT EXISTS (SELECT 1 FROM catalog_works WHERE lower(trim(title))=lower(?) AND lower(trim(author))=lower(?))
         AND NOT EXISTS (SELECT 1 FROM catalog_source_links WHERE source_type=? AND source_id=?)
         AND NOT EXISTS (SELECT 1 FROM catalog_direct_edits WHERE request_id=?)
-        AND (SELECT COUNT(*) FROM catalog_direct_edits WHERE user_id=? AND created_at>? AND operation='work_create')<?
-        AND (SELECT COUNT(*) FROM catalog_direct_edits WHERE user_id=? AND created_at>?)<?`)
+        AND (SELECT COUNT(*) FROM catalog_direct_edits WHERE user_id=? AND created_at>? AND operation='work_create')<?`)
       .bind(workId,fields.title,fields.author,fields.original_title,fields.country,fields.completion,
         fields.genre_json,fields.tags_json,fields.synopsis,fields.subcouple,fields.subcouple_note,
         fields.recommendation,fields.warnings,token,now,now,fields.title,fields.author,
-        sourceType,sourceId,requestId,auth.userId,now-DAY,PER_DAY,auth.userId,now-DAY,EDIT_LIMIT);
+        sourceType,sourceId,requestId,auth.userId,now-DAY,PER_DAY);
     // Conditional on *our* inserted work token; link must be unique by source.
     const link=auth.db.prepare(`INSERT INTO catalog_source_links(source_type,source_id,work_id,created_at)
       SELECT ?,?,?,? WHERE EXISTS (SELECT 1 FROM catalog_works WHERE id=? AND last_mutation_token=?)
@@ -82,9 +81,9 @@ export async function onRequestPost(context) {
       await auth.db.prepare('SELECT id,status FROM catalog_works WHERE lower(trim(title))=lower(?) AND lower(trim(author))=lower(?) LIMIT 1').bind(fields.title,fields.author).first();
     if(conflict)return respond({error:'이미 등록된 작품이거나 등록 준비 중인 작품입니다.',
       ...(conflict.status==='published'?{existing_public_id:conflict.id}:{})},409);
-    const limit=await auth.db.prepare(`SELECT COUNT(*) AS total,SUM(CASE WHEN operation='work_create' THEN 1 ELSE 0 END) AS creates
-      FROM catalog_direct_edits WHERE user_id=? AND created_at>?`).bind(auth.userId,now-DAY).first();
-    if(Number(limit?.creates||0)>=PER_DAY||Number(limit?.total||0)>=EDIT_LIMIT)
+    const limit=await auth.db.prepare(`SELECT COUNT(*) AS creates
+      FROM catalog_direct_edits WHERE user_id=? AND created_at>? AND operation='work_create'`).bind(auth.userId,now-DAY).first();
+    if(Number(limit?.creates||0)>=PER_DAY)
       throw catalogError(`새 작품은 최근 24시간 동안 ${PER_DAY}개까지 등록할 수 있어요.`,429);
     throw catalogError('등록이 완료되지 않았어요. 다시 검색해 주세요.',409);
   }catch(error){return userErrorResponse(error);}

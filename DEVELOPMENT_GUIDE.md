@@ -1,3 +1,11 @@
+# v10.72 — 작품 도감 직접 수정·더보기 회귀 방지 기준
+
+- `POST /api/work-catalog/edit`에서 **사용자별 최근 24시간 12건 COUNT 조건만 제거**한다. 공개 작품 확인, Origin/사용자 세션, 입력 화이트리스트와 최대 길이, request_id 멱등성, revision/이전 값 조건부 UPDATE, `db.batch()`·감사 기록은 그대로 보존한다.
+- `POST /api/work-catalog/create`의 직접 편집과 합산하는 12건 조건을 제거하되 **새 작품 등록 24시간 3건**은 단일 DB INSERT의 `operation='work_create'` 조건으로 유지한다. 변경 로그 테이블은 삭제·정리하지 않는다.
+- `wcMoreButton`은 메인/문장 피드 공통 `.load-more-button`을 재사용하고 현행 20건 페이지네이션과 더보기 가시성·필터 조건을 유지한다. 별도 API 요청 없이 이미 로드한 `data.items.length`를 표시한다.
+- 목록 API는 페이지 최대값 100을 유지하면서 마지막 페이지 응답 `hasMore:false`로 페이지 100의 무한 반복을 방지한다. 2,000건을 넘는 자료 탐색은 별도 확장 과제이다.
+- 비공개 도감·TXT/POSTYPE·독서 기록·관리자 기능은 변경하지 않는다. HISTORY.md는 GitHub main 커밋을 기준으로 배포 시 자동 갱신하는 기존 원본을 그대로 포함한다.
+
 # v10.71 — 도감 목록 메타·스포일러 최소 패치 원칙
 
 - `wc-card-open .wc-book`는 목록에서 높이를 고정하고 `align-self:flex-start`로 텍스트/채움률 증가에 따른 이미지 모형 높이 늘어짐을 막습니다. 상세의 큰 책 모형은 별도 규칙을 유지합니다.
