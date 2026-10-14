@@ -1,3 +1,12 @@
+# v10.73 — 신규 도감 제한 해제 및 관리자 복원 안전 규칙
+
+- `POST /api/work-catalog/create`의 `operation='work_create'` 최근 24시간 3건 COUNT 조건을 제거한다. 등록·원본 링크·요청 로그·감사는 기존 D1 `db.batch`에서 4건 조건부 실행하고 기존 UUID 멱등성·공개 원본 유효성·제목/작가 및 원본 ID 중복 차단은 유지한다.
+- 관리자 `GET /api/admin/work-catalog?history_id=...`는 관리자 세션을 요구하고 이력 조회 시에만 `catalog_audit(work_id,id DESC)` 인덱스를 통해 `reader_direct_edit`/`admin_restore` 최대 30건을 읽는다. user ID나 요청 UUID는 반환하지 않는다.
+- `action=restore_field`는 동일 작품의 허용된 컬럼/이력 ID를 검증하고 서버에서 과거 값의 유효성을 다시 검사한다. 클라이언트가 복원 내용을 임의 전달하지 않도록 한다. 변경된 단일 컬럼(또는 서브커플+설명)만 `expected_revision` 조건부 UPDATE와 `admin_restore` 감사 INSERT를 같은 D1 batch에서 수행한다. 재복원도 이력에 남는다.
+- 과거 관리자 전체 편집은 변경 전 정보가 없는 경우 복원 불가로 처리하고 사용자에게 명확히 안내한다. 완전 삭제 복구/원본 TXT·POSTYPE 데이터 복구로 오인하지 않도록 한다.
+- D1 감사 인덱스 최초 생성 시 기존 기록 인덱싱 비용이 발생할 수 있으므로 운영 지표를 확인한다. 무제한 신규 등록 이후 Rows Written·사용량을 관찰하고 향후 악용 신고/중복 정리를 별도 단계로 검토한다. 현재 관리자 일반 목록의 `catalog_source_links` 최대 10000건 조회는 규모 확대 시 병목 후보이나 본 패치에서 무리하게 변경하지 않는다.
+- `HISTORY.md`는 배포 시 GitHub main 기반 자동 생성 원본을 유지하며 임의 커밋 이력을 기록하지 않는다.
+
 # v10.72 — 작품 도감 직접 수정·더보기 회귀 방지 기준
 
 - `POST /api/work-catalog/edit`에서 **사용자별 최근 24시간 12건 COUNT 조건만 제거**한다. 공개 작품 확인, Origin/사용자 세션, 입력 화이트리스트와 최대 길이, request_id 멱등성, revision/이전 값 조건부 UPDATE, `db.batch()`·감사 기록은 그대로 보존한다.

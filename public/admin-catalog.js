@@ -10,6 +10,74 @@
   let sourceErrors = [], shown = 50, busy = false, loaded = false, loadId = 0, dialogId = 0;
   let tagTokens = [], recommendationRows = [];
   const cleanToken = value => String(value||'').normalize('NFKC').trim().replace(/^#+\s*/, '').trim();
+  // Audit entries are fetched on demand only; no history requests on normal tab loads.
+  const restoreFooter=form.querySelector('.catalog-dialog-footer');
+  const restoreToggle=document.createElement('button');
+  restoreToggle.id='catalogRestoreToggle';restoreToggle.type='button';
+  restoreToggle.className='secondary-admin-button catalog-restore-toggle';
+  restoreToggle.textContent='수정 이력 · 복원';restoreToggle.hidden=true;
+  const restorePanel=document.createElement('section');
+  restorePanel.id='catalogRestorePanel';restorePanel.className='catalog-restore-panel catalog-span';
+  restorePanel.hidden=true;restorePanel.setAttribute('aria-label','작품 정보 수정 이력 및 복원');
+  restoreFooter?.before(restorePanel);restoreFooter?.prepend(restoreToggle);
+  const restoreLabels={title:'작품명',author:'작가',original_title:'원제',country:'국가',completion:'연재 상태',
+    genre_json:'장르',tags_json:'키워드',synopsis:'줄거리',subcouple:'서브커플',
+    subcouple_note:'서브커플 설명',recommendation:'추천 문구',warnings:'주의·호불호 요소'};
+  const restorePreview=(value,column)=>{
+    let text=String(value??'');
+    if(column==='genre_json'||column==='tags_json'){
+      try{text=JSON.parse(text).join(', ');}catch(_){}
+    }
+    return text.length>180?`${text.slice(0,180)}…`:text||'(비어 있음)';
+  };
+  let historyLoadToken=0;
+  function resetRestorePanel(work){
+    ++historyLoadToken;
+    restorePanel.hidden=true;restorePanel.replaceChildren();
+    restoreToggle.hidden=!work;restoreToggle.textContent='수정 이력 · 복원';
+  }
+  async function loadRestorableHistory(force=false){
+    if(!current?.work||(busy&&!force))return;
+    const id=current.work.id, ticket=++historyLoadToken;
+    restorePanel.hidden=false;
+    restorePanel.textContent='수정 이력을 불러오는 중…';
+    try{
+      const info=await api(null,`?history_id=${encodeURIComponent(id)}`);
+      if(ticket!==historyLoadToken || current?.work?.id!==id)return;
+      restorePanel.innerHTML=`<div class="catalog-restore-head"><strong>변경 전 정보 복원</strong><small>최근 ${info.entries.length}건 · 필요할 때만 조회</small></div>
+        <p class="catalog-restore-note">이용자가 수정한 항목을 이전 값으로 되돌릴 수 있어요. 복원도 변경 이력에 남습니다. 과거 관리자 전체 저장처럼 변경 전 내용이 없던 이력은 복원할 수 없어요.</p>
+        ${info.entries.length?info.entries.map(item=>`<article class="catalog-restore-item">
+          <div class="catalog-restore-item-top"><strong>${escapeHtml(restoreLabels[item.column]||item.column)}</strong>
+          <small>${new Date(item.created_at).toLocaleString('ko-KR')} · ${item.action==='admin_restore'?'관리자 복원':'이용자 수정'}</small></div>
+          <div class="catalog-restore-comparison"><div><span>이전 값 (복원 대상)</span><p>${escapeHtml(restorePreview(item.before,item.column))}</p></div>
+          <div><span>수정 당시 값</span><p>${escapeHtml(restorePreview(item.after,item.column))}</p></div></div>
+          ${item.extra_column?`<p class="catalog-restore-extra">${escapeHtml(restoreLabels[item.extra_column])}도 함께 복원됩니다.</p>`:''}
+          <button type="button" data-catalog-restore="${item.id}">이전 값으로 복원</button>
+        </article>`).join(''):'<p class="catalog-restore-note">복원 가능한 이용자 수정 기록이 아직 없어요.</p>'}`;
+    }catch(error){if(ticket===historyLoadToken)restorePanel.textContent=error.message;}
+  }
+  restoreToggle.addEventListener('click',()=>{
+    if(restorePanel.hidden){restoreToggle.textContent='이력 닫기';void loadRestorableHistory();}
+    else {++historyLoadToken;restorePanel.hidden=true;restoreToggle.textContent='수정 이력 · 복원';}
+  });
+  restorePanel.addEventListener('click',async event=>{
+    const button=event.target.closest('button[data-catalog-restore]');
+    if(!button||!current?.work||busy)return;
+    const eventId=Number(button.dataset.catalogRestore);
+    if(!Number.isSafeInteger(eventId)||eventId<1)return;
+    const source=current.source,work=current.work;
+    if(!confirm('선택한 변경의 이전 값을 현재 작품 정보에 적용할까요?\n복원 전 저장하지 않은 입력은 사라집니다.\n복원 내역도 다시 기록됩니다.'))return;
+    busy=true;restoreToggle.disabled=true;$('catalogSave').disabled=true;$('catalogDelete').disabled=true;
+    try{
+      const result=await api({action:'restore_field',id:work.id,audit_id:eventId,expected_revision:work.revision});
+      if(current?.work?.id!==work.id)return;
+      current.work=result.work;fill(result.work,source);
+      message('이전 정보로 복원했습니다. 이력에서도 다시 확인할 수 있어요.',false,true);
+      await loadCatalog();
+      if(current?.work?.id===work.id){await loadRestorableHistory(true);restoreToggle.textContent='이력 닫기';}
+    }catch(error){message(error.message,true,true);}
+    finally{busy=false;restoreToggle.disabled=false;$('catalogSave').disabled=false;$('catalogDelete').disabled=false;}
+  });
   function renderTags(){
     const list=$('catalogTagList');list.replaceChildren();
     tagTokens.forEach((tag,i)=>{
@@ -195,7 +263,7 @@
   }
   function closeDialog(){
     if(busy)return;
-    ++dialogId; $('catalogEditorOverlay').hidden=true;
+    ++dialogId; ++historyLoadToken; $('catalogEditorOverlay').hidden=true;
     document.body.classList.remove('catalog-dialog-open');
     current=null; message('',false,true); opener?.focus?.(); opener=null;
   }
@@ -213,6 +281,7 @@
     tagTokens=(Array.isArray(work?.tags)?work.tags:[]).map(cleanToken).filter(Boolean);renderTags();
     recommendationRows=work?.recommendation?String(work.recommendation).split(/\n\s*\n/):[''];
     renderRecommendations();
+    resetRestorePanel(work);
     $('catalogStatus').value=work?.status||'draft';
     $('catalogDelete').hidden=!work;
     $('catalogEditorTitle').textContent=work?'작품 도감 정보 수정':'작품 도감 정보 등록';

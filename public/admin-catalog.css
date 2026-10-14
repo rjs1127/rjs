@@ -90,3 +90,21 @@ body.catalog-dialog-open {overflow:hidden;}
 .admin-next-page .catalog-recommendation-remove {border:1px solid var(--sy-line);border-radius:9px;padding:9px 12px;background:var(--sy-control);color:var(--sy-text-secondary);font:inherit;font-size:11px;cursor:pointer;}
 .admin-next-page .catalog-recommendation-storage {display:none !important;}
 .admin-next-page #catalogRecommendationAdd {justify-self:start;}
+
+/* v10.73 — lazy-loaded admin restore history inside the existing editor. */
+.admin-next-page .catalog-restore-toggle {margin-right:auto;font-size:12px;}
+.admin-next-page .catalog-restore-toggle[hidden],.admin-next-page .catalog-restore-panel[hidden] {display:none!important;}
+.admin-next-page .catalog-restore-panel {display:grid;gap:10px;min-width:0;max-height:340px;overflow-y:auto;padding:14px;border:1px solid var(--sy-line);border-radius:12px;background:var(--sy-control);}
+.admin-next-page .catalog-restore-head,.admin-next-page .catalog-restore-item-top {display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;}
+.admin-next-page .catalog-restore-head strong {font-size:14px;}
+.admin-next-page .catalog-restore-head small,.admin-next-page .catalog-restore-item-top small {font-size:11px;color:var(--sy-text-secondary);}
+.admin-next-page .catalog-restore-note,.admin-next-page .catalog-restore-extra {font-size:11px;line-height:1.55;color:var(--sy-text-secondary);margin:0;}
+.admin-next-page .catalog-restore-item {display:grid;gap:9px;background:var(--sy-surface);border:1px solid var(--sy-line);border-radius:10px;padding:12px;}
+.admin-next-page .catalog-restore-item-top strong {font-size:12px;}
+.admin-next-page .catalog-restore-comparison {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;}
+.admin-next-page .catalog-restore-comparison>div {min-width:0;background:var(--sy-control);border-radius:8px;padding:8px;}
+.admin-next-page .catalog-restore-comparison span {display:block;font-size:10px;color:var(--sy-text-secondary);margin-bottom:5px;}
+.admin-next-page .catalog-restore-comparison p {font-size:11px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;margin:0;color:var(--sy-text);}
+.admin-next-page .catalog-restore-item>button {justify-self:end;border:1px solid var(--sy-line);border-radius:9px;background:var(--sy-surface);color:var(--sy-text);padding:8px 10px;font:inherit;font-size:11px;cursor:pointer;}
+.admin-next-page .catalog-restore-item>button:hover {background:var(--sy-control-hover);}
+@media(max-width:560px){.admin-next-page .catalog-restore-comparison {grid-template-columns:1fr;}.admin-next-page .catalog-restore-toggle {width:100%;}}

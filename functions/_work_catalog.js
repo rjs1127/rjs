@@ -37,6 +37,7 @@ export async function ensureWorkCatalogSchema(db) {
       id INTEGER PRIMARY KEY AUTOINCREMENT, work_id TEXT, action TEXT NOT NULL,
       details_json TEXT NOT NULL DEFAULT '{}', created_at INTEGER NOT NULL
     )`),
+    db.prepare(`CREATE INDEX IF NOT EXISTS idx_catalog_audit_work_recent ON catalog_audit(work_id,id DESC)`),
     db.prepare(`CREATE TABLE IF NOT EXISTS catalog_direct_edits (
       request_id TEXT PRIMARY KEY, user_id TEXT NOT NULL, work_id TEXT NOT NULL,
       operation TEXT NOT NULL, request_json TEXT NOT NULL, created_at INTEGER NOT NULL

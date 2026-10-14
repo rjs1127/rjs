@@ -16,6 +16,44 @@ function revisionGuard(actual,expected) {
   if(expected!==null && Number(actual?.revision||1)!==expected)
     throw catalogError('다른 관리자가 작품 정보를 변경했습니다. 새로 열어 확인해 주세요.',409);
 }
+// Only field-level audit records with an actual previous value are restorable.
+// Historical administrator bulk saves did not keep previous field values.
+const RESTORABLE_COLUMNS = new Set([
+  'title','author','original_title','country','completion','genre_json','tags_json',
+  'synopsis','subcouple','subcouple_note','recommendation','warnings'
+]);
+function restorationRecord(record){
+  if(!record || !['reader_direct_edit','admin_restore'].includes(record.action))return null;
+  let details;
+  try{details=JSON.parse(record.details_json);}catch{return null;}
+  if(!details || typeof details!=='object' || !RESTORABLE_COLUMNS.has(details.column) ||
+     typeof details.after!=='string')return null;
+  const arrayColumn=details.column==='genre_json'||details.column==='tags_json';
+  const before=arrayColumn && Array.isArray(details.before) ? JSON.stringify(details.before) : details.before;
+  if(typeof before!=='string')return null;
+  if(details.extra_column!==undefined &&
+     (details.column!=='subcouple' || details.extra_column!=='subcouple_note' ||
+      typeof details.extra_before!=='string' || typeof details.extra_after!=='string'))return null;
+  return {id:Number(record.id),action:record.action,created_at:record.created_at,
+    column:details.column,before,after:details.after,
+    ...(details.extra_column?{extra_column:details.extra_column,extra_before:details.extra_before,extra_after:details.extra_after}:{})};
+}
+function validateRestoredFields(row,entry){
+  const next=allCatalogWork(row);
+  const apply=(column,value)=>{
+    if(column==='genre_json'||column==='tags_json'){
+      let arr;try{arr=JSON.parse(value);}catch{throw catalogError('과거 태그 정보가 손상되어 복원할 수 없습니다.',409);}
+      next[column==='genre_json'?'genres':'tags']=arr;
+    }else next[column]=value;
+  };
+  apply(entry.column,entry.before);
+  if(entry.extra_column)apply(entry.extra_column,entry.extra_before);
+  const checked=catalogFields(next);
+  if(checked[entry.column]!==entry.before || (entry.extra_column&&checked[entry.extra_column]!==entry.extra_before))
+    throw catalogError('이전 값이 현재 입력 규칙과 일치하지 않아 복원할 수 없습니다.',409);
+  return checked;
+}
+
 const err = e => jsonResponse({error:e?.message||'도감 관리 요청에 실패했습니다.'},e?.status||500,{'cache-control':'no-store'});
 
 export async function onRequestGet(context){
@@ -23,6 +61,17 @@ export async function onRequestGet(context){
     await requireAdminSession(context);
     const db=requireUserDb(context.env); await ensureWorkCatalogSchema(db);
     const url=new URL(context.request.url);
+    const historyId=url.searchParams.get('history_id');
+    if(historyId!==null){
+      if(!uuid(historyId))throw catalogError('이력을 조회할 작품 ID가 올바르지 않습니다.');
+      const work=await db.prepare('SELECT id,revision,title FROM catalog_works WHERE id=?').bind(historyId).first();
+      if(!work)throw catalogError('해당 도감 작품이 없습니다.',404);
+      const auditRows=await db.prepare(`SELECT id,action,details_json,created_at FROM catalog_audit
+        WHERE work_id=? AND action IN ('reader_direct_edit','admin_restore') ORDER BY id DESC LIMIT 30`)
+        .bind(historyId).all();
+      return jsonResponse({revision:Number(work.revision||1),title:work.title,
+        entries:(auditRows.results||[]).map(restorationRecord).filter(Boolean)},200,{'cache-control':'no-store'});
+    }
     const sourceType=url.searchParams.get('source_type');
     const sourceId=url.searchParams.get('source_id');
     if(sourceType!==null || sourceId!==null){
@@ -55,6 +104,41 @@ export async function onRequestPost(context){
     const db=requireUserDb(context.env); await ensureWorkCatalogSchema(db);
     const body=await catalogBody(context.request);
     const action=String(body.action||''); const now=Date.now();
+    if(action==='restore_field'){
+      const id=String(body.id||'');
+      const eventId=Number(body.audit_id);
+      const expected=expectedRevision(body.expected_revision);
+      if(!uuid(id)||!Number.isSafeInteger(eventId)||eventId<1||expected===null)
+        throw catalogError('복원할 작품·이력·현재 버전을 선택해 주세요.');
+      const current=await db.prepare('SELECT * FROM catalog_works WHERE id=?').bind(id).first();
+      if(!current)throw catalogError('복원 대상 작품이 없습니다.',404);
+      revisionGuard(current,expected);
+      const event=await db.prepare(`SELECT id,action,details_json,created_at FROM catalog_audit
+        WHERE id=? AND work_id=?`).bind(eventId,id).first();
+      const record=restorationRecord(event);
+      if(!record)throw catalogError('변경 전 값이 없어 복원할 수 없는 이력입니다.',409);
+      validateRestoredFields(current,record);
+      const currentBefore=current[record.column];
+      const previousValue=record.before;
+      const extraBefore=record.extra_column?current[record.extra_column]:undefined;
+      if(currentBefore===previousValue && (!record.extra_column || extraBefore===record.extra_before))
+        throw catalogError('현재 정보가 이미 복원할 값과 같습니다.',409);
+      const token=crypto.randomUUID();
+      const details={column:record.column,before:currentBefore,after:previousValue,from_audit_id:eventId,
+        ...(record.extra_column?{extra_column:record.extra_column,extra_before:extraBefore,extra_after:record.extra_before}:{})};
+      const updates=`${record.column}=?${record.extra_column?', '+record.extra_column+'=?':''}`;
+      const results=await db.batch([
+        db.prepare(`UPDATE catalog_works SET ${updates},revision=revision+1,updated_at=?,last_mutation_token=?
+          WHERE id=? AND revision=?`)
+          .bind(previousValue,...(record.extra_column?[record.extra_before]:[]),now,token,id,expected),
+        db.prepare(`INSERT INTO catalog_audit(work_id,action,details_json,created_at)
+          SELECT ?,'admin_restore',?,? FROM catalog_works WHERE id=? AND last_mutation_token=? AND revision=?`)
+          .bind(id,JSON.stringify(details),now,id,token,expected+1),
+      ]);
+      if(results.some(r=>r?.meta?.changes!==1))throw catalogError('작품이 변경되어 복원을 완료하지 못했습니다. 다시 조회해 주세요.',409);
+      const updated=await db.prepare('SELECT * FROM catalog_works WHERE id=?').bind(id).first();
+      return jsonResponse({ok:true,id,work:allCatalogWork(updated)},200,{'cache-control':'no-store'});
+    }
     if(action==='upsert_source'){
       const sourceType=String(body.source_type||'');
       const sourceId=String(body.source_id||'').trim();
