@@ -530,26 +530,7 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .work-catalog-page .wc-inline-edit {transition:none;}
 }
 
-/* v10.69 — Readers-first participation cues. Scoped to the work encyclopedia. */
-.work-catalog-page .wc-contribution-card {
-  display:flex;align-items:center;justify-content:space-between;gap:16px;
-  margin:0 0 17px;padding:16px 19px;
-  border:1px solid var(--wc-line);border-radius:15px;
-  background:var(--wc-tint);color:var(--wc-ink);
-}
-.work-catalog-page .wc-contribution-copy {min-width:0;flex:1 1 240px;}
-.work-catalog-page .wc-contribution-copy strong {display:block;font-size:13px;font-weight:760;line-height:1.4;}
-.work-catalog-page .wc-contribution-copy p {margin:5px 0 0;font-size:11px;line-height:1.6;color:var(--wc-muted);}
-.work-catalog-page .wc-contribution-actions {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:7px;}
-.work-catalog-page .wc-contribute-chip {
-  display:inline-flex;align-items:center;gap:7px;min-height:33px;
-  padding:6px 11px;border:1px solid var(--wc-line);border-radius:999px;
-  background:var(--wc-bg);color:var(--wc-ink);font-size:11px;font-weight:700;
-  white-space:nowrap;line-height:1.35;
-}
-.work-catalog-page .wc-contribute-chip span {color:var(--wc-muted);font-size:12px;}
-.work-catalog-page .wc-contribute-chip:hover {background:var(--wc-soft);border-color:var(--wc-muted);}
-.work-catalog-page .wc-contribute-chip:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:2px;}
+/* v10.70 — A small shared progress cue, with an optional quest sheet. */
 .work-catalog-page .wc-contribution-success {
   display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:11px 14px;
   border:1px solid var(--wc-line);border-radius:12px;background:var(--wc-soft);
@@ -559,13 +540,56 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
 .work-catalog-page .wc-edit-field-hint {margin:0;color:var(--wc-muted);font-size:11px;line-height:1.65;}
 .work-catalog-page .wc-edit-existing-info {margin:0;padding:8px 10px;border:1px solid var(--wc-line);border-radius:9px;background:var(--wc-tint);color:var(--wc-muted);font-size:11px;line-height:1.65;overflow-wrap:anywhere;}
 .work-catalog-page .wc-edit-existing-info[hidden] {display:none;}
-@media(max-width:760px) {
-  .work-catalog-page .wc-contribution-card {flex-direction:column;align-items:stretch;gap:10px;padding:15px;margin-bottom:13px;}
-  .work-catalog-page .wc-contribution-copy {flex:none;}
-  .work-catalog-page .wc-contribution-actions {justify-content:flex-start;}
-  .work-catalog-page .wc-contribute-chip {min-height:32px;padding:6px 10px;font-size:11px;}
-}
 
-.work-catalog-page .wc-contribute-more {display:inline-flex;align-items:center;gap:4px;min-height:33px;padding:6px 7px;border:0;background:transparent;color:var(--wc-muted);font-size:11px;font-weight:700;white-space:nowrap;}
-.work-catalog-page .wc-contribute-more:hover {color:var(--wc-ink);text-decoration:underline;text-underline-offset:3px;}
-.work-catalog-page .wc-contribute-more:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:2px;border-radius:6px;}
+/* Shared 5-item fill score. The count measures presence, not accuracy. */
+.work-catalog-page .wc-card-fill {display:flex;align-items:center;gap:7px;margin-top:7px;color:var(--wc-muted);font-size:10px;line-height:1.3;}
+.work-catalog-page .wc-card-fill > span:first-child {flex:none;white-space:nowrap;}
+.work-catalog-page .wc-card-fill strong {flex:none;font-size:10px;color:var(--wc-ink);font-weight:700;font-variant-numeric:tabular-nums;}
+.work-catalog-page .wc-card-fill-track,.work-catalog-page .wc-quest-trigger-track,.work-catalog-page .wc-quest-track {display:block;background:var(--wc-line);overflow:hidden;border-radius:999px;}
+.work-catalog-page .wc-card-fill-track {flex:1;min-width:24px;max-width:92px;height:4px;}
+.work-catalog-page .wc-card-fill-track i,.work-catalog-page .wc-quest-trigger-track i,.work-catalog-page .wc-quest-track span {display:block;height:100%;border-radius:inherit;background:var(--wc-ink);opacity:.68;transition:width .24s ease;}
+.work-catalog-page .wc-quest-trigger {display:flex;align-items:center;gap:11px;max-width:100%;width:100%;margin:9px 0 17px;padding:10px 14px;border:1px solid var(--wc-line);border-radius:12px;background:var(--wc-bg);color:var(--wc-ink);text-align:left;cursor:pointer;box-shadow:none;}
+.work-catalog-page .wc-quest-trigger:hover {background:var(--wc-soft);}
+.work-catalog-page .wc-quest-trigger:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:3px;}
+.work-catalog-page .wc-quest-trigger-icon {width:25px;height:25px;flex:0 0 25px;display:grid;place-items:center;border-radius:8px;background:var(--wc-tint);color:var(--wc-ink);font-size:16px;}
+.work-catalog-page .wc-quest-trigger-label {flex:none;font-size:12px;font-weight:700;white-space:nowrap;}
+.work-catalog-page .wc-quest-trigger-label strong {margin-left:5px;font-size:12px;font-variant-numeric:tabular-nums;}
+.work-catalog-page .wc-quest-trigger-track {height:5px;flex:1;min-width:18px;max-width:160px;}
+.work-catalog-page .wc-quest-trigger-next {flex:none;margin-left:auto;color:var(--wc-muted);font-size:11px;white-space:nowrap;}
+.work-catalog-page .wc-quest-trigger-arrow {font-size:18px;color:var(--wc-muted);line-height:1;}
+/* Native modal ensures Escape, keyboard focus containment and backdrop accessibility. */
+.work-catalog-page .wc-quest-dialog {position:fixed;inset:auto 23px 24px auto;box-sizing:border-box;width:min(390px,calc(100vw - 28px));max-height:min(680px,calc(100dvh - 32px));margin:0;padding:19px 20px 18px;border:1px solid var(--wc-line);border-radius:19px;background:var(--wc-bg);color:var(--wc-ink);box-shadow:0 22px 65px rgba(26,25,23,.18);overflow-y:auto;overscroll-behavior:contain;}
+.work-catalog-page .wc-quest-dialog::backdrop {background:rgba(16,18,20,.34);}
+.work-catalog-page .wc-quest-dialog[open] {animation:wc-quest-rise .2s ease-out both;}
+.work-catalog-page .wc-quest-handle {display:none;}
+.work-catalog-page .wc-quest-head {display:flex;justify-content:space-between;align-items:flex-start;gap:14px;margin-bottom:16px;}
+.work-catalog-page .wc-quest-head h3 {font-size:19px;letter-spacing:-.035em;margin:4px 0 5px;}
+.work-catalog-page .wc-quest-head p {font-size:11px;line-height:1.55;color:var(--wc-muted);margin:0;}
+.work-catalog-page .wc-quest-close {width:29px;height:29px;flex:0 0 29px;display:grid;place-items:center;border:1px solid var(--wc-line);border-radius:50%;background:var(--wc-soft);color:var(--wc-ink);font-size:18px;line-height:1;cursor:pointer;}
+.work-catalog-page .wc-quest-summary {display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--wc-muted);}
+.work-catalog-page .wc-quest-summary strong {color:var(--wc-ink);font-variant-numeric:tabular-nums;}
+.work-catalog-page .wc-quest-track {height:6px;margin:9px 0 12px;}
+.work-catalog-page .wc-quest-tasks {border-top:1px solid var(--wc-line);}
+.work-catalog-page .wc-quest-task {display:flex;align-items:center;gap:10px;padding:11px 1px;border-bottom:1px solid var(--wc-line);}
+.work-catalog-page .wc-quest-check {flex:0 0 23px;width:23px;height:23px;display:grid;place-items:center;border:1px solid var(--wc-line);border-radius:50%;color:var(--wc-muted);font-size:13px;}
+.work-catalog-page .wc-quest-task.is-complete .wc-quest-check {color:var(--wc-ink);background:var(--wc-tint);border-color:var(--wc-tint);}
+.work-catalog-page .wc-quest-task-copy {flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+.work-catalog-page .wc-quest-task-copy strong {font-size:12px;font-weight:750;}
+.work-catalog-page .wc-quest-task-copy small {font-size:10px;color:var(--wc-muted);line-height:1.4;}
+.work-catalog-page .wc-quest-done {font-size:10px;color:var(--wc-muted);white-space:nowrap;}
+.work-catalog-page .wc-quest-write {flex:none;min-height:30px;padding:5px 11px;border:1px solid var(--wc-line);border-radius:9px;background:var(--wc-tint);color:var(--wc-ink);font-size:11px;font-weight:750;cursor:pointer;}
+.work-catalog-page .wc-quest-write:hover {background:var(--wc-soft);}
+.work-catalog-page .wc-quest-foot {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:9px;padding-top:14px;color:var(--wc-muted);font-size:11px;line-height:1.6;}
+.work-catalog-page .wc-quest-foot button {border:0;background:transparent;color:var(--wc-ink);font-size:11px;font-weight:750;cursor:pointer;padding:3px 0;}
+.work-catalog-page .wc-quest-close:focus-visible,.work-catalog-page .wc-quest-write:focus-visible,.work-catalog-page .wc-quest-foot button:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:2px;}
+@keyframes wc-quest-rise {from{opacity:.45;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:640px){
+  .work-catalog-page .wc-quest-trigger {gap:8px;padding:9px 11px;margin:7px 0 13px;border-radius:11px;}
+  .work-catalog-page .wc-quest-trigger-label,.work-catalog-page .wc-quest-trigger-label strong {font-size:11px;}
+  .work-catalog-page .wc-quest-trigger-next {font-size:10px;}
+  .work-catalog-page .wc-quest-trigger-icon {width:23px;height:23px;flex-basis:23px;font-size:14px;}
+  .work-catalog-page .wc-quest-dialog {inset:auto 0 0 0;width:100vw;max-width:100vw;max-height:min(82dvh,670px);padding:12px 17px max(19px,env(safe-area-inset-bottom));border-radius:20px 20px 0 0;border-bottom:0;}
+  .work-catalog-page .wc-quest-handle {display:block;width:34px;height:4px;margin:0 auto 16px;border-radius:999px;background:var(--wc-line);}
+}
+@media(max-width:350px){.work-catalog-page .wc-quest-trigger-track {max-width:44px}.work-catalog-page .wc-quest-trigger-next {font-size:9px;}}
+@media(prefers-reduced-motion:reduce){.work-catalog-page .wc-quest-dialog[open]{animation:none}.work-catalog-page .wc-quest-track span,.work-catalog-page .wc-card-fill-track i,.work-catalog-page .wc-quest-trigger-track i{transition:none}}

@@ -1,4 +1,4 @@
-/* v10.69 · Public work encyclopedia: welcoming participation UX; private reading data remains separate. */
+/* v10.70 · Shared encyclopedia: compact fill progress and quest sheet. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -76,6 +76,7 @@
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
       ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading">${title}</span><span class="wc-card-author">${author}</span>${mainCp?`<span class="wc-card-author">CP · ${mainCp}</span>`:''}
       <span class="wc-card-tags">${[...genres,...tagLabels.map(t=>'#'+t)].map(tag=>`<span>${escapeHtml(tag)}</span>`).join('') || '<span>분류 정보 미등록</span>'}</span>
+      <span class="wc-card-fill"><span>정보 ${catalogFill(work).count}/5</span><span class="wc-card-fill-track" aria-hidden="true"><i style="width:${catalogFill(work).percent}%"></i></span><strong>${catalogFill(work).percent}%</strong></span>
       <span class="wc-card-bottom"><span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span class="wc-card-arrow">↗</span></span></span></button></article>`;
   }
   function renderItems() {
@@ -159,6 +160,52 @@
     changed();
   }
   const recommendationLines=value=>String(value||'').split(/\n\s*\n|\r?\n/).map(v=>v.trim()).filter(Boolean).slice(0,12);
+  // One shared rule for the list and detail. Only confirmed catalog fields count;
+  // a displayed source_completion hint is not a saved catalog value.
+  const questDefinitions=[
+    ['genre_add','장르 기록','이 작품은 어떤 장르인가요?'],
+    ['tag_add','키워드 채우기','인물·소재·관계성을 남겨주세요.'],
+    ['synopsis_set','줄거리 작성','스포일러 없는 작품 소개를 적어주세요.'],
+    ['completion_set','연재 상태 확인','완결·미완·연재 중을 확인해 주세요.'],
+    ['recommendation_add','추천 한 줄 남기기','어떤 취향의 독자에게 어울릴까요?']
+  ];
+  function catalogFill(work) {
+    const found=[arr(work?.genres).length>0,arr(work?.tags).length>0,
+      Boolean(String(work?.synopsis||'').trim()),
+      Boolean(work?.completion && work.completion!=='unknown'),
+      recommendationLines(work?.recommendation).length>0];
+    const count=found.filter(Boolean).length;
+    return {count,total:5,percent:count*20,found};
+  }
+  const questDialog=$('wcQuestDialog');
+  function closeQuest() {if(questDialog?.open)questDialog.close();}
+  function questContent(work) {
+    const fill=catalogFill(work);
+    const rows=questDefinitions.map(([op,label,help],i)=>`<div class="wc-quest-task${fill.found[i]?' is-complete':''}">
+      <span class="wc-quest-check" aria-hidden="true">${fill.found[i]?'✓':'○'}</span>
+      <div class="wc-quest-task-copy"><strong>${label}</strong><small>${fill.found[i]?'정보가 기록되어 있어요':help}</small></div>
+      ${fill.found[i]?'<span class="wc-quest-done">기록됨</span>':`<button type="button" class="wc-quest-write" data-wc-quest-edit="${op}" aria-label="${label} 작성하기">채우기 ↗</button>`}
+    </div>`).join('');
+    return `<div class="wc-quest-handle" aria-hidden="true"></div>
+      <div class="wc-quest-head"><div><span class="wc-section-num">TOGETHER WE RECORD</span><h3 id="wcQuestTitle">도감 채우기</h3><p>알고 있는 정보 한 가지만 보태도 좋아요.</p></div>
+      <button type="button" class="wc-quest-close" data-wc-quest-close aria-label="퀘스트 창 닫기">×</button></div>
+      <div class="wc-quest-summary"><span>기본 정보 <strong>${fill.count}/${fill.total}</strong> 기록</span><strong>${fill.percent}%</strong></div>
+      <div class="wc-quest-track" aria-hidden="true"><span style="width:${fill.percent}%"></span></div>
+      <div class="wc-quest-tasks">${rows}</div>
+      <div class="wc-quest-foot">${fill.count===5?'기본 정보가 모두 채워졌어요! 새로운 정보도 계속 보탤 수 있어요.':`아직 ${fill.total-fill.count}가지 정보를 함께 채울 수 있어요.`}
+        ${fill.count===5?'<button type="button" data-wc-quest-edit="recommendation_add">추천 한 줄 더 남기기 ↗</button>':''}</div>`;
+  }
+  function openQuest() {
+    if(!data.currentWork||!questDialog)return;
+    questDialog.innerHTML=questContent(data.currentWork);
+    questDialog.showModal();
+    questDialog.querySelector('[data-wc-quest-close]')?.focus({preventScroll:true});
+  }
+  questDialog?.addEventListener('click',event=>{
+    if(event.target===questDialog||event.target.closest('[data-wc-quest-close]')){closeQuest();return;}
+    const button=event.target.closest('[data-wc-quest-edit]');
+    if(button){const op=button.dataset.wcQuestEdit;closeQuest();openEditor(op);}
+  });
   const displayText = (value,fallback='정보 미등록') => value ? escapeHtml(value) : `<span class="wc-muted">${fallback}</span>`;
   function renderDetail(work) {
     closeMobileFilters();
@@ -168,26 +215,20 @@
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
     const effectiveCompletion=work.completion==='unknown'?(work.source_completion||'unknown'):work.completion;
     const mappedCompletion=work.completion==='unknown'&&Boolean(work.source_completion);
-    // Invite readers to contribute what is missing, without introducing separate forms or writes.
-    const opportunities=[];
-    if(!String(work.synopsis||'').trim())opportunities.push(['synopsis_set','첫 줄거리 작성']);
-    if(!genres.length)opportunities.push(['genre_add','장르 알려주기']);
-    if(!tagsList.length)opportunities.push(['tag_add','키워드 채우기']);
-    if(!recommendations.length)opportunities.push(['recommendation_add','어울리는 독자 추천']);
-    if(effectiveCompletion==='unknown')opportunities.push(['completion_set','연재 상태 알려주기']);
-    const isMissing=opportunities.length>0;
-    const invitations=(isMissing?opportunities.slice(0,3):[['tag_add','키워드 더하기'],['recommendation_add','내 추천 남기기']]);
-    const contributionActions=invitations.map(([op,label])=>`<button type="button" class="wc-contribute-chip" data-wc-edit="${op}">${label}<span aria-hidden="true">↗</span></button>`).join('');
+    const fill=catalogFill(work);
     const successNotice=data.contributionFeedback?`<div class="wc-contribution-success" role="status"><span aria-hidden="true">✓</span><span>${escapeHtml(data.contributionFeedback)}</span></div>`:'';
     refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button><div id="wcOriginalLinks" class="wc-source-links" aria-live="polite"></div></div>
       <div class="wc-detail-hero">${cover(work,0,true)}<div class="wc-detail-heading"><h3 id="wcDetailHeading" tabindex="-1">${heading}</h3><p class="wc-detail-author">${escapeHtml(work.author||'작가 미확인')}</p>${work.original_title?`<p class="wc-detail-original">원제 · ${escapeHtml(work.original_title)}</p>`:''}
       <div class="wc-detail-properties">${arr(work.main_couples).map(cp=>`<span>CP · ${escapeHtml(cp)}</span>`).join('')}<span>${escapeHtml(statusLabel[effectiveCompletion]||'미확인')}</span></div>
       </div></div>
       ${successNotice}
-      <section class="wc-contribution-card" aria-label="작품 정보 함께 채우기">
-        <div class="wc-contribution-copy"><strong>${isMissing?'이 작품의 빈 정보를 함께 채워주세요':'이 작품에 대한 이야기를 더 나눠주세요'}</strong><p>${isMissing?'알고 있는 내용 한 가지만 보태도 좋아요.':'이미 기록된 정보에 나만의 키워드나 추천을 더할 수 있어요.'}</p></div>
-        <div class="wc-contribution-actions">${contributionActions}<button type="button" class="wc-contribute-more" data-wc-edit-menu>다른 정보 보완 <span aria-hidden="true">↗</span></button></div>
-      </section>
+      <button type="button" class="wc-quest-trigger" data-wc-quest-open aria-haspopup="dialog" aria-controls="wcQuestDialog" aria-label="도감 정보 채움률 ${fill.percent}퍼센트, 퀘스트 보기">
+        <span class="wc-quest-trigger-icon" aria-hidden="true">▤</span>
+        <span class="wc-quest-trigger-label">도감 채움률 <strong>${fill.percent}%</strong></span>
+        <span class="wc-quest-trigger-track" aria-hidden="true"><i style="width:${fill.percent}%"></i></span>
+        <span class="wc-quest-trigger-next">${fill.count===5?'기본 정보 완료':`${5-fill.count}개 남음`}</span>
+        <span class="wc-quest-trigger-arrow" aria-hidden="true">⌃</span>
+      </button>
       <div class="wc-detail-grid"><div class="wc-detail-primary">
         <section class="wc-detail-section"><span class="wc-section-num">01 / THE STORY</span><div class="wc-section-title-row"><h4>작품 소개</h4><button type="button" class="wc-inline-edit" data-wc-edit="synopsis_set" aria-label="작품 소개 ${String(work.synopsis||'').trim()?'수정':'추가'}">${String(work.synopsis||'').trim()?'수정':'추가'}</button></div><div class="wc-story-text">${displayText(work.synopsis,'아직 소개가 없어요. 기억나는 줄거리를 짧게 남겨주세요.')}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">02 / KEYWORDS</span><div class="wc-section-title-row"><h4>장르와 키워드</h4></div>
@@ -261,6 +302,7 @@
   }
   async function openDetail(id,{push=true}={}) {
     if(!validId(id))return;
+    closeQuest();
     const active=root.querySelector(`[data-wc-open="${CSS.escape(id)}"]`);
     if(active)data.lastFocus=active;
     data.previousScroll=Math.max(0,window.scrollY||0);
@@ -538,7 +580,11 @@
       const newWork=json.work || (await (await fetch(`/api/work-catalog/${encodeURIComponent(data.currentWork.id)}?updated=${Date.now()}`,{cache:'no-store'})).json()).work;
       if(newWork && data.detailId===newWork.id){
         const additions=Array.isArray(change.values)?change.values.length:1;
-        data.contributionFeedback=additions>1?`고마워요! ${additions}개의 정보를 도감에 보탰어요.`:'고마워요! 남겨주신 정보가 작품 도감에 반영됐어요.';
+        const beforeFill=catalogFill(data.currentWork);
+        const afterFill=catalogFill({...data.currentWork,...newWork});
+        data.contributionFeedback=afterFill.percent>beforeFill.percent
+          ?`기록이 반영됐어요! 도감 채움률 ${beforeFill.percent}% → ${afterFill.percent}%`
+          :additions>1?`고마워요! ${additions}개의 정보가 도감에 더해졌어요.`:'고마워요! 작품 정보가 더 풍성해졌어요.';
         const expanded={extra:Boolean(refs.detail.querySelector('.wc-extra-facts[open]')),warnings:Boolean(refs.detail.querySelector('.wc-warnings[open]'))};
         data.currentWork={...data.currentWork,...newWork};
         renderDetail(data.currentWork);
@@ -561,6 +607,7 @@
     if(event.target.closest('[data-wc-reload]')){closeEditor();if(data.detailId)openDetail(data.detailId,{push:false});}
   });
   function closeDetail({fromHistory=false,restoreScroll=true}={}) {
+    closeQuest();
     if(!data.detailId)return;
     data.quoteAbort?.abort();data.quoteLoading=false;data.quoteItems=[];data.quoteCursor=null;
     data.detailId='';data.currentWork=null;data.detailSeq++;data.detailAbort?.abort();
@@ -611,6 +658,7 @@
     if(panel&&panel.open)loadWorkHistory(panel);
   },true);
   refs.detail.addEventListener('click',event=>{
+    if(event.target.closest('[data-wc-quest-open]')) {openQuest();return;}
     const edit=event.target.closest('[data-wc-edit]');
     const editMenu=event.target.closest('[data-wc-edit-menu]');
     const source=event.target.closest('[data-wc-source-id]');
@@ -674,6 +722,7 @@
       }
     },
     onHide(){
+      closeQuest();
       closeMobileFilters();
       if(data.debounce)clearTimeout(data.debounce);
       data.seq++;data.abort?.abort();data.loading=false;
