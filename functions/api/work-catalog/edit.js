@@ -7,7 +7,7 @@ import { catalogBody, catalogOperation, catalogError, ensureWorkCatalogSchema, p
 const uuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(value||''));
 const DAY = 86400000;
 const LIMIT = 12;
-const ALLOWED = new Set(['tag_add','synopsis_set','subcouple_set','subcouple_note_set','recommendation_add']);
+const ALLOWED = new Set(['tag_add','synopsis_set','subcouple_set','subcouple_note_set','recommendation_add','warnings_set']);
 const respond = (data,status=200) => jsonResponse(data,status,{'cache-control':'no-store'});
 
 export async function onRequestPost(context) {

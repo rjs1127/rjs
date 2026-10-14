@@ -184,7 +184,7 @@
             ${subNote?`<details class="wc-spoiler"><summary>상세 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
           </div>
         </details>
-        ${alertText?`<details class="wc-spoiler"><summary>주의 요소 보기 <span>내용 포함</span></summary><p>${escapeHtml(alertText)}</p></details>`:''}</section>
+        <details class="wc-spoiler wc-warnings"><summary>주의사항 · 호불호 요소 <span>${alertText?'펼쳐 보기':'정보 미등록'}</span></summary><div class="wc-warning-content"><p>${displayText(alertText,'등록된 정보가 없어요.')}</p><button type="button" class="wc-inline-edit" data-wc-edit="warnings_set">${alertText?'수정':'+ 정보 추가'}</button></div></details></section>
         <div class="wc-detail-note"><strong>함께 채워가는 도감</strong><p>읽은 작품의 정보를 함께 기록해요. 로그인 후 수정하면 승인 대기 없이 도감에 반영됩니다.</p><button type="button" class="wc-edit-entry" data-wc-edit="tag_add">+ 작품 정보 보완하기</button></div>
       </aside></div>`;
   }
@@ -358,16 +358,18 @@
     const select=op==='subcouple_set';
     $('wcEditChoiceField').hidden=!select;
     $('wcEditValueField').hidden=select;
-    editValue.required=!select;
+    // Existing warning text may be cleared intentionally; all other free-text edits need a value.
+    editValue.required=!select && !(op==='warnings_set' && String(data.currentWork?.warnings||'').trim());
     if(reset) {
       editValue.value=op==='synopsis_set'?String(data.currentWork?.synopsis||''):
-        op==='subcouple_note_set'?String(data.currentWork?.subcouple_note||''):'';
+        op==='subcouple_note_set'?String(data.currentWork?.subcouple_note||''):
+        op==='warnings_set'?String(data.currentWork?.warnings||''):'';
       editChoice.value=data.currentWork?.subcouple||'unknown';
     }
-    editValue.maxLength=op==='synopsis_set'?3000:op==='subcouple_note_set'?700:op==='tag_add'?30:1500;
-    editValue.rows=op==='synopsis_set'?7:op==='subcouple_note_set'?4:2;
-    $('wcEditValueField').firstChild.textContent=({tag_add:'추가할 키워드',synopsis_set:'줄거리',subcouple_note_set:'서브커플 설명',recommendation_add:'추천할 독자'})[op]||'내용';
-    editMessage.textContent='';
+    editValue.maxLength=op==='synopsis_set'?3000:op==='subcouple_note_set'?700:op==='warnings_set'?1000:op==='tag_add'?30:1500;
+    editValue.rows=op==='synopsis_set'?7:op==='warnings_set'?5:op==='subcouple_note_set'?4:2;
+    $('wcEditValueField').firstChild.textContent=({tag_add:'추가할 키워드',synopsis_set:'줄거리',subcouple_note_set:'서브커플 설명',recommendation_add:'추천할 독자',warnings_set:'주의사항 · 호불호 요소'})[op]||'내용';
+    editMessage.textContent=op==='warnings_set' && String(data.currentWork?.warnings||'').trim() ? '기존 내용을 모두 지우고 저장하면 주의사항이 삭제돼요.' : '';
   }
   function openEditor(operation='tag_add') {
     if(!data.currentWork || !editor) return;
@@ -385,7 +387,7 @@
     if(data.editSaving||!data.currentWork) return;
     const op=editOperation.value;
     const value=(op==='subcouple_set'?editChoice.value:editValue.value).trim();
-    if(!value) {editMessage.textContent='내용을 입력해 주세요.';return;}
+    if(!value && !(op==='warnings_set' && String(data.currentWork?.warnings||'').trim())) {editMessage.textContent='내용을 입력해 주세요.';return;}
     data.editSaving=true;editSave.disabled=true;editOperation.disabled=true;editValue.disabled=true;editChoice.disabled=true;
     editMessage.textContent='저장하는 중…';
     try {
@@ -499,7 +501,16 @@
   filterBackdrop.addEventListener('click',()=>closeMobileFilters({restoreFocus:true}));
   $('wcFilterDone')?.addEventListener('click',()=>closeMobileFilters({restoreFocus:true}));
   document.addEventListener('keydown',event=>{
-    if(event.key==='Escape'&&refs.filter.classList.contains('is-mobile-open')){event.preventDefault();closeMobileFilters({restoreFocus:true});}
+    if(!refs.filter.classList.contains('is-mobile-open'))return;
+    if(event.key==='Escape'){event.preventDefault();closeMobileFilters({restoreFocus:true});return;}
+    if(event.key==='Tab'){
+      const focusable=[...refs.filter.querySelectorAll('button:not([disabled]),select:not([disabled])')]
+        .filter(element=>element.getClientRects().length);
+      if(!focusable.length)return;
+      const first=focusable[0],last=focusable[focusable.length-1];
+      if(event.shiftKey && (document.activeElement===first || !refs.filter.contains(document.activeElement))){event.preventDefault();last.focus();}
+      else if(!event.shiftKey && (document.activeElement===last || !refs.filter.contains(document.activeElement))){event.preventDefault();first.focus();}
+    }
   });
   window.matchMedia('(min-width:641px)').addEventListener('change',event=>{if(event.matches)closeMobileFilters();});
   window.addEventListener('popstate',event=>{
