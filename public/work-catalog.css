@@ -529,3 +529,43 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
 @media(prefers-reduced-motion:reduce) {
   .work-catalog-page .wc-inline-edit {transition:none;}
 }
+
+/* v10.69 — Readers-first participation cues. Scoped to the work encyclopedia. */
+.work-catalog-page .wc-contribution-card {
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  margin:0 0 17px;padding:16px 19px;
+  border:1px solid var(--wc-line);border-radius:15px;
+  background:var(--wc-tint);color:var(--wc-ink);
+}
+.work-catalog-page .wc-contribution-copy {min-width:0;flex:1 1 240px;}
+.work-catalog-page .wc-contribution-copy strong {display:block;font-size:13px;font-weight:760;line-height:1.4;}
+.work-catalog-page .wc-contribution-copy p {margin:5px 0 0;font-size:11px;line-height:1.6;color:var(--wc-muted);}
+.work-catalog-page .wc-contribution-actions {display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:7px;}
+.work-catalog-page .wc-contribute-chip {
+  display:inline-flex;align-items:center;gap:7px;min-height:33px;
+  padding:6px 11px;border:1px solid var(--wc-line);border-radius:999px;
+  background:var(--wc-bg);color:var(--wc-ink);font-size:11px;font-weight:700;
+  white-space:nowrap;line-height:1.35;
+}
+.work-catalog-page .wc-contribute-chip span {color:var(--wc-muted);font-size:12px;}
+.work-catalog-page .wc-contribute-chip:hover {background:var(--wc-soft);border-color:var(--wc-muted);}
+.work-catalog-page .wc-contribute-chip:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:2px;}
+.work-catalog-page .wc-contribution-success {
+  display:flex;align-items:center;gap:9px;margin:0 0 12px;padding:11px 14px;
+  border:1px solid var(--wc-line);border-radius:12px;background:var(--wc-soft);
+  color:var(--wc-ink);font-size:12px;font-weight:650;line-height:1.5;
+}
+.work-catalog-page .wc-contribution-success > span:first-child {font-size:15px;color:var(--wc-muted);}
+.work-catalog-page .wc-edit-field-hint {margin:0;color:var(--wc-muted);font-size:11px;line-height:1.65;}
+.work-catalog-page .wc-edit-existing-info {margin:0;padding:8px 10px;border:1px solid var(--wc-line);border-radius:9px;background:var(--wc-tint);color:var(--wc-muted);font-size:11px;line-height:1.65;overflow-wrap:anywhere;}
+.work-catalog-page .wc-edit-existing-info[hidden] {display:none;}
+@media(max-width:760px) {
+  .work-catalog-page .wc-contribution-card {flex-direction:column;align-items:stretch;gap:10px;padding:15px;margin-bottom:13px;}
+  .work-catalog-page .wc-contribution-copy {flex:none;}
+  .work-catalog-page .wc-contribution-actions {justify-content:flex-start;}
+  .work-catalog-page .wc-contribute-chip {min-height:32px;padding:6px 10px;font-size:11px;}
+}
+
+.work-catalog-page .wc-contribute-more {display:inline-flex;align-items:center;gap:4px;min-height:33px;padding:6px 7px;border:0;background:transparent;color:var(--wc-muted);font-size:11px;font-weight:700;white-space:nowrap;}
+.work-catalog-page .wc-contribute-more:hover {color:var(--wc-ink);text-decoration:underline;text-underline-offset:3px;}
+.work-catalog-page .wc-contribute-more:focus-visible {outline:2px solid var(--wc-indigo);outline-offset:2px;border-radius:6px;}

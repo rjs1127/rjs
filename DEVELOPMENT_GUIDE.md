@@ -1,3 +1,12 @@
+# v10.69 — 작품 도감 참여 안내 UI 최소 변경 안전 규칙
+
+- 공개 작품 상세의 기존 `renderDetail()`과 `wcEditDialog`를 재사용해 빈 정보에 대한 안내/빠른 접근과 작성 가이드·저장 확인만 추가한다. `data-wc-edit` 및 `data-wc-edit-menu`로 기존 클릭 경로를 유지한다.
+- 미등록 여부는 서버 응답의 공개 필드(`synopsis`, `genres`, `tags`, `recommendation`, `completion`/`source_completion`)를 화면에서만 판정하며, 별도 DB 쓰기나 신규 API 호출을 하지 않는다. 서브커플/주의사항은 선택적으로 남길 수 있는 정보이므로 필수 빈 정보로 오인하여 강조하지 않는다.
+- 편집 버튼을 누를 때 기존 계정 버튼의 `logged-in` 상태를 확인하고, 비로그인 시 기존 로그인 클릭 핸들러를 호출한다. 서버의 세션/Origin/수정 횟수/리비전 검사와 401/409 대응은 변경하지 않는다.
+- 성공 알림은 동일한 작품 상세를 다시 렌더할 때 화면 상단에 표시하고, 새 작품을 열 때 초기화한다. 이전 작품/다른 사용자로 알림이 누적되지 않도록 한다.
+- 다중 장르·키워드/추천 문구는 기존 누적/중복/원자 저장 API를 그대로 사용하며 기존 메타 및 긴 텍스트는 HTML escape 처리한다. 관리자/Drive/POSTYPE/독서 뷰어는 수정하지 않는다.
+- `HISTORY.md` 실제 커밋 자동 생성본은 덮어쓰거나 임의로 작성하지 않는다.
+
 # v10.68 — 작품 도감 상세 레이아웃 개선 안전 원칙
 
 - 공개 작품 상세의 `renderDetail()` 마크업과 `work-catalog.css`의 도감 전용 클래스만 조정. `data-wc-edit` 동작 식별자(`synopsis_set`, `genre_add`, `tag_add`, `recommendation_add`, `completion_set`, `subcouple_update`, `warnings_set`)는 기존 값 그대로 유지한다.
