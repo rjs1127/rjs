@@ -1,4 +1,4 @@
-import { catalogPublicSources } from './_catalog_cp.js';
+import { catalogPublicSources, catalogSourceCompletion } from './_catalog_cp.js';
 import { catalogFields, fieldsParams, WORK_FIELDS } from './_work_catalog.js';
 
 export async function importQuoteWorks(db, env) {
@@ -13,11 +13,12 @@ export async function importQuoteWorks(db, env) {
   }
   const entries = [...byId.values()].filter(item => item && item.title &&
     ['drive','postype'].includes(item.source || 'drive')).map(item => ({
-      id:String(item.id), type:item.source || 'drive', title:item.title, author:item.author || ''
+      id:String(item.id), type:item.source || 'drive', title:item.title, author:item.author || '', completion:catalogSourceCompletion(item)
     }));
   const candidates = await db.prepare(`SELECT json_extract(s.value,'$.id') AS id,
     json_extract(s.value,'$.type') AS type, json_extract(s.value,'$.title') AS title,
-    json_extract(s.value,'$.author') AS author FROM json_each(?) s
+    json_extract(s.value,'$.author') AS author,
+    json_extract(s.value,'$.completion') AS completion FROM json_each(?) s
     WHERE json_extract(s.value,'$.id') IN (SELECT work_id FROM shared_quotes WHERE work_id IS NOT NULL)
       AND NOT EXISTS (SELECT 1 FROM catalog_source_links l
         WHERE l.source_id=json_extract(s.value,'$.id') AND l.source_type=json_extract(s.value,'$.type'))
@@ -25,7 +26,7 @@ export async function importQuoteWorks(db, env) {
   const jobs = [], now = Date.now();
   for (const source of (candidates.results || []).slice(0,20)) {
     const id = crypto.randomUUID();
-    const fields = catalogFields({title:source.title,author:source.author});
+    const fields = catalogFields({title:source.title,author:source.author,completion:source.completion});
     jobs.push(
       db.prepare(`INSERT INTO catalog_works(id,${WORK_FIELDS},status,created_at,updated_at)
         SELECT ?,${Array(12).fill('?').join(',')},'published',?,?

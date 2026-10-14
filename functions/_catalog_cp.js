@@ -6,9 +6,7 @@ export async function catalogPublicSources(env) {
   return archive?.items || [];
 }
 export async function catalogCpSources(env) {
-  return JSON.stringify((await catalogPublicSources(env)).filter(item => item.combination?.trim()).map(item => ({
-    type: item.source || 'drive', id: String(item.id), cp: item.combination.trim()
-  })));
+  return catalogCpJsonFromSources(await catalogPublicSources(env));
 }
 export const CATALOG_CP_CTE = `WITH cp_sources AS (
   SELECT json_extract(value,'$.type') AS type, json_extract(value,'$.id') AS id,
@@ -19,4 +17,18 @@ export const CATALOG_CP_CTE = `WITH cp_sources AS (
 )`;
 export function withCatalogCp(work, row) {
   return { ...work, main_couples: JSON.parse(row.main_couples_json || '[]') };
+}
+
+// Use the status resolved in the existing public archive index, not '연재물' alone.
+export function catalogSourceCompletion(item) {
+  const status=String(item?.status || '').trim();
+  if(status==='완결')return 'completed';
+  if(status==='연재' || status==='연재중')return 'ongoing';
+  if(status==='미완')return 'incomplete';
+  return 'unknown';
+}
+export function catalogCpJsonFromSources(items) {
+  return JSON.stringify(items.filter(item=>item.combination?.trim()).map(item=>({
+    type:item.source || 'drive',id:String(item.id),cp:item.combination.trim()
+  })));
 }

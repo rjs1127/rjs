@@ -2,12 +2,12 @@
 // A single field is updated with optimistic concurrency; no proposals are approved here.
 import { jsonResponse } from '../../_shared.js';
 import { requireUser, userErrorResponse } from '../../_user.js';
-import { catalogBody, catalogOperation, catalogError, ensureWorkCatalogSchema, publicCatalogWork } from '../../_work_catalog.js';
+import { catalogBody, catalogOperation, catalogError, ensureWorkCatalogSchema, catalogFields, publicCatalogWork } from '../../_work_catalog.js';
 
 const uuid = value => /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(String(value||''));
 const DAY = 86400000;
 const LIMIT = 12;
-const ALLOWED = new Set(['tag_add','synopsis_set','subcouple_set','subcouple_note_set','recommendation_add','warnings_set']);
+const ALLOWED = new Set(['tag_add','genre_add','synopsis_set','completion_set','subcouple_update','subcouple_set','subcouple_note_set','recommendation_add','warnings_set']);
 const respond = (data,status=200) => jsonResponse(data,status,{'cache-control':'no-store'});
 
 export async function onRequestPost(context) {
@@ -28,12 +28,13 @@ export async function onRequestPost(context) {
     if (!body.change || typeof body.change!=='object' || Array.isArray(body.change)) throw catalogError('수정 내용이 올바르지 않습니다.');
     const isBatch=Object.hasOwn(body.change,'values');
     if(isBatch && Object.hasOwn(body.change,'value')) throw catalogError('단일 입력과 여러 입력을 동시에 보낼 수 없습니다.');
-    if(isBatch && !['tag_add','recommendation_add'].includes(operation)) throw catalogError('여러 항목 추가를 지원하지 않는 정보입니다.');
-    const change=isBatch ? {values:body.change.values} : {value:body.change.value};
+    if(isBatch && !['tag_add','genre_add','recommendation_add'].includes(operation)) throw catalogError('여러 항목 추가를 지원하지 않는 정보입니다.');
+    const change=isBatch ? {values:body.change.values} : {value:body.change.value,...(operation==='subcouple_update'?{note:body.change.note}:{})};
     if(isBatch){
       if(!Array.isArray(change.values)||!change.values.length||change.values.length>5||change.values.some(v=>typeof v!=='string'))
         throw catalogError('한 번에 1~5개의 항목을 입력해 주세요.');
     } else if(typeof change.value!=='string') throw catalogError('수정 내용은 문자열이어야 합니다.');
+    if(operation==='subcouple_update' && typeof change.note!=='string')throw catalogError('서브커플 설명 형식이 올바르지 않습니다.');
     const signature=JSON.stringify({id,operation,revision,change});
     const previous=await auth.db.prepare('SELECT user_id,request_json,work_id FROM catalog_direct_edits WHERE request_id=?')
       .bind(requestId).first();
@@ -47,7 +48,14 @@ export async function onRequestPost(context) {
     // Run every addition through the existing field validator, but commit only
     // one final column update (one revision, one rate-limit event, one audit).
     let result;
-    if(isBatch){
+    if(operation==='subcouple_update'){
+      const normalized=catalogFields({...publicCatalogWork(work),
+        subcouple:change.value,subcouple_note:change.note});
+      if(normalized.subcouple===work.subcouple && normalized.subcouple_note===work.subcouple_note)
+        throw catalogError('기존 정보와 변경 내용이 같습니다.',409);
+      result={column:'subcouple',before:work.subcouple,after:normalized.subcouple,
+        extraColumn:'subcouple_note',extraBefore:work.subcouple_note,extraAfter:normalized.subcouple_note};
+    }else if(isBatch){
       let draft={...work};
       for(const value of change.values){
         const step=catalogOperation(draft,operation,{value});
@@ -57,13 +65,14 @@ export async function onRequestPost(context) {
       }
     } else result=catalogOperation(work,operation,change);
     const now=Date.now(),token=crypto.randomUUID(),nextRevision=revision+1;
-    const details=JSON.stringify({source:'reader_direct',user_id:auth.userId,operation,column:result.column,before:result.before,after:result.after,request_id:requestId,...(isBatch?{added_count:change.values.length}:{})});
+    const details=JSON.stringify({source:'reader_direct',user_id:auth.userId,operation,column:result.column,before:result.before,after:result.after,request_id:requestId,...(isBatch?{added_count:change.values.length}:{}),...(result.extraColumn?{extra_column:result.extraColumn,extra_before:result.extraBefore,extra_after:result.extraAfter}:{})});
     const statements=[
-      auth.db.prepare(`UPDATE catalog_works SET ${result.column}=?,revision=revision+1,updated_at=?,last_mutation_token=?
-        WHERE id=? AND status='published' AND revision=? AND ${result.column}=?
+      auth.db.prepare(`UPDATE catalog_works SET ${result.column}=?${result.extraColumn?', '+result.extraColumn+'=?':''},revision=revision+1,updated_at=?,last_mutation_token=?
+        WHERE id=? AND status='published' AND revision=? AND ${result.column}=?${result.extraColumn?' AND '+result.extraColumn+'=?':''}
           AND (SELECT COUNT(*) FROM catalog_direct_edits WHERE user_id=? AND created_at>?)<?
           AND NOT EXISTS (SELECT 1 FROM catalog_direct_edits WHERE request_id=?)`)
-        .bind(result.after,now,token,id,revision,work[result.column],auth.userId,now-DAY,LIMIT,requestId),
+        .bind(...(result.extraColumn?[result.after,result.extraAfter]:[result.after]),now,token,id,revision,work[result.column],
+          ...(result.extraColumn?[result.extraBefore]:[]),auth.userId,now-DAY,LIMIT,requestId),
       auth.db.prepare(`INSERT INTO catalog_direct_edits(request_id,user_id,work_id,operation,request_json,created_at)
         SELECT ?,?,?,?,?,? WHERE EXISTS (SELECT 1 FROM catalog_works WHERE id=? AND revision=? AND last_mutation_token=?)`)
         .bind(requestId,auth.userId,id,operation,signature,now,id,nextRevision,token),

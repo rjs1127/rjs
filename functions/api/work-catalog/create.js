@@ -1,6 +1,6 @@
 // v10.63: new encyclopedia works MUST be bound to an existing public site source.
 import { jsonResponse } from '../../_shared.js';
-import { catalogPublicSources } from '../../_catalog_cp.js';
+import { catalogPublicSources, catalogSourceCompletion } from '../../_catalog_cp.js';
 import { requireUser, userErrorResponse } from '../../_user.js';
 import { catalogBody, catalogFields, catalogError, ensureWorkCatalogSchema } from '../../_work_catalog.js';
 
@@ -29,7 +29,7 @@ export async function onRequestPost(context) {
        (sourceType==='drive'&&!/^[A-Za-z0-9_-]{10,200}$/.test(sourceId)) ||
        (sourceType==='postype'&&!(typeof source.url==='string'&&/^https:\/\//i.test(source.url))))
       throw catalogError('현재 사이트에서 제공하지 않는 작품입니다. 다시 검색해 주세요.',404);
-    const fields=catalogFields({title:normalize(source.title),author:normalize(source.author)});
+    const fields=catalogFields({title:normalize(source.title),author:normalize(source.author),completion:catalogSourceCompletion(source)});
     const signature=JSON.stringify({source_type:sourceType,source_id:sourceId});
     const previous=await auth.db.prepare('SELECT user_id,request_json,work_id FROM catalog_direct_edits WHERE request_id=?').bind(requestId).first();
     if(previous) {

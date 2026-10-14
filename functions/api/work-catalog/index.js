@@ -19,7 +19,7 @@ export async function onRequestGet(context) {
     const cp = (params.get('cp') || '').trim();
     if (cp.length > 200) return jsonResponse({error:'CP 조건이 올바르지 않습니다.'},400);
     const subcouple = (params.get('subcouple') || '').trim();
-    if (completion && !['unknown','ongoing','completed','hiatus'].includes(completion)) return jsonResponse({error:'연재 상태가 올바르지 않습니다.'},400);
+    if (completion && !['unknown','ongoing','completed','incomplete','hiatus'].includes(completion)) return jsonResponse({error:'연재 상태가 올바르지 않습니다.'},400);
     if (subcouple && !['unknown','yes','no'].includes(subcouple)) return jsonResponse({error:'서브커플 조건이 올바르지 않습니다.'},400);
     const page = Math.min(100, Math.max(1, Math.floor(Number(params.get('page') || 1) || 1)));
     const sort = params.get('sort') === 'title' ? 'title' : 'recent';

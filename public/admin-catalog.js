@@ -78,6 +78,7 @@
   const key=(type,id)=>`${type}\u0000${id}`;
   const labelType=t=>t==='drive'?'TXT · Drive':'POSTYPE';
   const statuses={draft:'비공개 초안',published:'공개',archived:'보관'};
+  const sourceCompletion=source=>({완결:'completed',연재:'ongoing',연재중:'ongoing',미완:'incomplete'})[String(source?.status||'').trim()]||'unknown';
   function linkedMap(){return new Map(links.map(l=>[key(l.source_type,l.source_id),l.work_id]));}
   function workMap(){return new Map(works.map(w=>[w.id,w]));}
   function renderStandalone(){
@@ -171,7 +172,7 @@
           if(r.status==='rejected'){sourceErrors.push(`${labelType(type)}: ${r.reason?.message||'불러오기 실패'}`);return;}
           for(const x of r.value){
             const id=String(x.id||'').trim();if(!id)continue;
-            next.push({type,id,title:String(x.title||''),author:String(x.author||''),genre:String(x.genre||''),combination:String(x.combination||'')});
+            next.push({type,id,title:String(x.title||''),author:String(x.author||''),genre:String(x.genre||''),status:String(x.status||''),combination:String(x.combination||'')});
           }
         });
         // Do not discard a previously successful source if the refresh partially fails.
@@ -207,7 +208,7 @@
           (field==='completion'||field==='subcouple')?'unknown':'');
     }
     // Existing country values stay in the hidden field; the public schema remains compatible.
-    form.elements.namedItem('completion').value=work?.completion||'unknown';
+    form.elements.namedItem('completion').value=work?.completion||sourceCompletion(source);
     form.elements.namedItem('subcouple').value=work?.subcouple||'unknown';
     tagTokens=(Array.isArray(work?.tags)?work.tags:[]).map(cleanToken).filter(Boolean);renderTags();
     recommendationRows=work?.recommendation?String(work.recommendation).split(/\n\s*\n/):[''];

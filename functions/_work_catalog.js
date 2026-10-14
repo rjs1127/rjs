@@ -106,7 +106,7 @@ export function catalogFields(input) {
     author: bounded(input.author, 120, '작가'),
     original_title: bounded(input.original_title, 180, '원제'),
     country: bounded(input.country, 50, '국가'),
-    completion: enumValue(input.completion, ['unknown','ongoing','completed','hiatus'], '연재 상태', 'unknown'),
+    completion: enumValue(input.completion, ['unknown','ongoing','completed','incomplete','hiatus'], '연재 상태', 'unknown'),
     genre_json: JSON.stringify(safeTags(input.genres, '장르')),
     tags_json: JSON.stringify(safeTags(input.tags, '키워드')),
     synopsis: bounded(input.synopsis, 3000, '줄거리'),
