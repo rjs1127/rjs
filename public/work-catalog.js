@@ -1,4 +1,4 @@
-/* v10.70 · Shared encyclopedia: compact fill progress and quest sheet. */
+/* v10.71 · Shared encyclopedia: compact fill progress and quest sheet. */
 (() => {
   'use strict';
   const root = document.getElementById('workCatalogPage');
@@ -73,11 +73,15 @@
     const author=escapeHtml(work.author || '작가 미확인');
     const mainCp=arr(work.main_couples).map(escapeHtml).join(' · ');
     const genres=arr(work.genres).slice(0,2), tagLabels=arr(work.tags).slice(0,3);
+    const fill=catalogFill(work);
+    const fromSource=work.completion==='unknown' && Boolean(work.source_completion && work.source_completion!=='unknown');
+    const displayCompletion=fromSource ? work.source_completion : work.completion;
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
-      ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading">${title}</span><span class="wc-card-author">${author}</span>${mainCp?`<span class="wc-card-author">CP · ${mainCp}</span>`:''}
+      ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading-row"><span class="wc-card-heading">${title}</span><span class="wc-card-arrow" aria-hidden="true">↗</span></span><span class="wc-card-author">${author}</span>
+      <span class="wc-card-meta">${mainCp?`<span class="wc-card-cp">CP · ${mainCp}</span>`:''}<span class="wc-card-status" ${fromSource?'title="연결된 원본의 연재 상태 (도감 정보는 미확인)"':''}>${escapeHtml(statusLabel[displayCompletion]||'미확인')}${fromSource?'<span class="wc-card-mapped"> · 원본 기준</span>':''}</span></span>
       <span class="wc-card-tags">${[...genres,...tagLabels.map(t=>'#'+t)].map(tag=>`<span>${escapeHtml(tag)}</span>`).join('') || '<span>분류 정보 미등록</span>'}</span>
-      <span class="wc-card-fill"><span>정보 ${catalogFill(work).count}/5</span><span class="wc-card-fill-track" aria-hidden="true"><i style="width:${catalogFill(work).percent}%"></i></span><strong>${catalogFill(work).percent}%</strong></span>
-      <span class="wc-card-bottom"><span>${escapeHtml(statusLabel[work.completion]||'미확인')}</span><span class="wc-card-arrow">↗</span></span></span></button></article>`;
+      <span class="wc-card-fill"><span>정보 ${fill.count}/5</span><span class="wc-card-fill-track" aria-hidden="true"><i style="width:${fill.percent}%"></i></span><strong>${fill.percent}%</strong></span>
+      </span></button></article>`;
   }
   function renderItems() {
     refs.cards.innerHTML=data.items.map(makeCard).join('');
@@ -235,7 +239,7 @@
           <div class="wc-subsection-title-row"><span class="wc-detail-tag-label">장르</span><button type="button" class="wc-inline-edit" data-wc-edit="genre_add" aria-label="장르 추가">추가</button></div><div class="wc-detail-tagline">${genres.length?tagRows(genres,''):'<span class="wc-muted">어떤 장르의 소설인지 알려주세요.</span>'}</div>
           <div class="wc-subsection-title-row"><span class="wc-detail-tag-label">취향 키워드</span><button type="button" class="wc-inline-edit" data-wc-edit="tag_add" aria-label="키워드 추가">추가</button></div><div class="wc-detail-tagline">${tagsList.length?tagRows(tagsList,'#'):'<span class="wc-muted">기억나는 소재나 관계성을 추가해 주세요.</span>'}</div></section>
         <section class="wc-detail-section"><span class="wc-section-num">03 / FOR READERS</span><div class="wc-section-title-row"><h4>이런 독자에게 추천해요</h4><button type="button" class="wc-inline-edit" data-wc-edit="recommendation_add" aria-label="추천 문구 추가">추가</button></div>${recommendations.length?`<ul class="wc-recommendations">${recommendations.map(line=>`<li>${escapeHtml(line)}</li>`).join('')}</ul>`:'<p class="wc-muted">어떤 취향의 독자에게 추천하고 싶나요?</p>'}</section>
-        <section class="wc-detail-section"><span class="wc-section-num">04 / QUOTES</span><div class="wc-section-title-row"><h4>작품 속 문장</h4></div><div id="wcWorkQuotes" aria-live="polite"></div></section>
+        <section class="wc-detail-section"><span class="wc-section-num">04 / QUOTES</span><div class="wc-section-title-row"><h4>작품 속 문장</h4></div><details class="wc-quotes-spoiler"><summary><span>문장 펼쳐보기</span><small>스포일러 주의 · 기본 숨김</small></summary><div id="wcWorkQuotes" aria-live="polite"></div></details></section>
       </div><aside class="wc-detail-side"><section class="wc-detail-facts"><span class="wc-section-num">INFORMATION</span><div class="wc-section-title-row"><h4>작품 기본 정보</h4></div>
         <dl><div class="wc-fact-row"><dt>메인 커플 (CP)</dt><dd>${displayText(arr(work.main_couples).join(' · '))}</dd></div><div class="wc-fact-row wc-fact-row-editable"><dt>연재 상태</dt><dd>${escapeHtml(statusLabel[effectiveCompletion]||'미확인')}${mappedCompletion?'<small class="wc-mapped-status">원본 분류 기준</small>':''}</dd><button type="button" class="wc-inline-edit" data-wc-edit="completion_set" aria-label="연재 상태 수정">수정</button></div></dl>
         <details class="wc-extra-facts"><summary>부가 정보 <span>서브커플 등</span></summary>
@@ -243,7 +247,7 @@
             ${subNote?`<details class="wc-spoiler"><summary>상세 설명 보기 <span>스포일러 주의</span></summary><p>${escapeHtml(subNote)}</p></details>`:''}
           </div>
         </details>
-        <details class="wc-spoiler wc-warnings"><summary>주의사항 · 호불호 요소 <span>${alertText?'펼쳐 보기':'정보 미등록'}</span></summary><div class="wc-warning-content"><div class="wc-subsection-title-row"><span class="wc-detail-tag-label">등록된 정보</span><button type="button" class="wc-inline-edit" data-wc-edit="warnings_set" aria-label="주의사항과 호불호 요소 ${alertText?'수정':'추가'}">${alertText?'수정':'추가'}</button></div><p>${displayText(alertText,'등록된 정보가 없어요.')}</p></div></details></section>
+        <details class="wc-spoiler wc-warnings"><summary>주의사항 · 호불호 요소 <span>${alertText?'스포일러 주의 · 펼쳐 보기':'정보 미등록 · 펼쳐 보기'}</span></summary><div class="wc-warning-content"><div class="wc-subsection-title-row"><span class="wc-detail-tag-label">등록된 정보</span><button type="button" class="wc-inline-edit" data-wc-edit="warnings_set" aria-label="주의사항과 호불호 요소 ${alertText?'수정':'추가'}">${alertText?'수정':'추가'}</button></div><p>${displayText(alertText,'등록된 정보가 없어요.')}</p></div></details></section>
         <div class="wc-detail-note wc-history-note"><strong>함께 기록한 변경 내용</strong><p>누가 무엇을 입력했는지 대신, 어떤 정보가 언제 바뀌었는지 확인할 수 있어요.</p>
           <details class="wc-history"><summary>수정 이력 보기</summary><div class="wc-history-items" data-wc-history-items>펼치면 최근 이력을 불러와요.</div></details></div>
       </aside></div>`;
