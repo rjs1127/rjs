@@ -450,7 +450,10 @@
   const baseColumns=['source_type','source_id','작품명','작가','줄거리','장르','키워드','추천 대상','검수 상태','검수 메모','초안 버전','도감 작품 ID','도감 공개 상태','엑셀 승인 상태'];
   const reviewFields=['original_number','original_filename','original_path','original_sha256','duplicate_note','analysis_scope','summary_progress','recheck_log'];
   const reviewColumns=['원본 번호','원본 파일명','원본 경로','원본 식별자','중복 참고','분석 범위','요약 진행 상태','재검수 기록'];
-  const columns=[...baseColumns,...reviewColumns];
+  const adultFields=['adult_scene_status','adult_scene_note'];
+  const adultColumns=['성적 묘사 판정','성적 묘사 판정 근거'];
+  const trackingColumns=['최근 재검수 처리일','재검수 처리 횟수'];
+  const columns=[...baseColumns,...reviewColumns,...adultColumns,...trackingColumns];
   const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상'};
   const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0,lastFocus:null};
   const panel=anchor.closest('.catalog-admin-panel');
@@ -486,7 +489,9 @@
         <select id="catalogSheetFilter" aria-label="도감 승인 상태"><option value="pending">승인 대기</option><option value="all">전체 승인 상태</option><option value="approved">승인됨</option></select>
         <select id="catalogSheetReviewFilter" aria-label="엑셀 원고 검수 상태"><option value="all">전체 검수 상태</option><option value="검수 필요">검수 필요</option><option value="초안">초안</option><option value="검수 완료">검수 완료</option></select>
         <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select>
-        <select id="catalogSheetIncomingFilter" aria-label="재검수 비교 상태"><option value="all">전체 재검수 상태</option><option value="waiting">재검수 비교 대기</option><option value="clear">비교 대기 없음</option></select></div>
+        <select id="catalogSheetIncomingFilter" aria-label="재검수 진행 여부"><option value="all">전체 재검수 진행</option><option value="never">재검수 미처리</option><option value="waiting">새 재검수 비교 대기</option><option value="merged">재검수 병합 완료</option><option value="approved">재검수 후 도감 승인</option></select>
+        <select id="catalogSheetAdultFilter" aria-label="성적 묘사 분류"><option value="all">전체 성적 묘사 분류</option><option value="미확인">미확인</option><option value="직접적 묘사">직접적 묘사</option><option value="묘사 없음">묘사 없음</option><option value="확인 필요">확인 필요</option></select>
+        <select id="catalogSheetSort" aria-label="검수함 정렬"><option value="default">기본 순서</option><option value="latest">최근 재검수 처리순</option></select></div>
       <div class="catalog-sheet-table-labels" aria-hidden="true"><span>작품명 / 작가</span><span>원고 검수</span><span>도감 연결</span><span>승인 상태</span><span></span></div>
       <div id="catalogSheetList" class="catalog-sheet-list"></div>
       <div class="catalog-sheet-footer"><button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>다음 50편 보기</button></div>
@@ -520,6 +525,8 @@
   const normalize=t=>String(t||'').normalize('NFKC').trim();
   const genreTokens=s=>String(s||'').split('·').map(normalize).filter(x=>x&&x.toUpperCase()!=='BL');
   const tagTokens=s=>String(s||'').split('·').map(normalize).filter(Boolean);
+  const importDifferent=(incoming,current,field)=>JSON.stringify(field==='adult_scene_status'?(incoming||'미확인'):(incoming??''))!==
+    JSON.stringify(field==='adult_scene_status'?(current||'미확인'):(current??''));
   function download(name,blob){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
   async function api(payload,params=''){
     const res=await fetch('/api/admin/work-catalog-sheets'+params,{
@@ -536,17 +543,23 @@
     const reviewFilter=$('catalogSheetReviewFilter').value;
     const linkFilter=$('catalogSheetLinkFilter').value;
     const incomingFilter=$('catalogSheetIncomingFilter').value;
+    const adultFilter=$('catalogSheetAdultFilter').value;
+    const recheckStage=item=>item.has_incoming?'waiting':!Number(item.recheck_count)?'never':
+      Number(item.approved_at||0)>=Number(item.last_recheck_merged_at||0)?'approved':'merged';
     const all=state.items.filter(item=>(filter==='all'||item.review_state===filter||(filter==='pending'&&Boolean(item.has_incoming)))&&
       (reviewFilter==='all'||normalize(item.draft.review_status)===reviewFilter)&&
       (linkFilter==='all'||(Boolean(item.work_id)===(linkFilter==='linked')))&&
-      (incomingFilter==='all'||(Boolean(item.has_incoming)===(incomingFilter==='waiting')))&&
+      (incomingFilter==='all'||recheckStage(item)===incomingFilter)&&
+      (adultFilter==='all'||(item.draft.adult_scene_status||'미확인')===adultFilter)&&
       (!q||`${item.draft.title} ${item.draft.author} ${item.draft.review_note||''} ${item.draft.duplicate_note||''} ${item.draft.analysis_scope||''} ${item.draft.recheck_log||''}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
+    if($('catalogSheetSort').value==='latest')all.sort((a,b)=>Number(b.last_recheck_merged_at||0)-Number(a.last_recheck_merged_at||0));
     const total=state.items.length;
     const pending=state.items.filter(item=>item.review_state!=='approved').length;
     const approved=state.items.filter(item=>item.review_state==='approved').length;
     const linked=state.items.filter(item=>Boolean(item.work_id)).length;
     const incomingCount=state.items.filter(item=>Boolean(item.has_incoming)).length;
-    $('catalogSheetStats').innerHTML=[['전체 초안',total],['승인 대기',pending],['재검수 비교 대기',incomingCount],['도감 연결',linked]]
+    const processed=state.items.filter(item=>Number(item.recheck_count)>0).length;
+    $('catalogSheetStats').innerHTML=[['전체 초안',total],['승인 대기',pending],['재검수 비교 대기',incomingCount],['재검수 처리',processed],['도감 연결',linked]]
       .map(([label,count])=>`<div class="catalog-sheet-stat"><span>${label}</span><strong>${count.toLocaleString('ko-KR')}</strong></div>`).join('');
     const tabCount=$('catalogSheetTabCount');tabCount.hidden=!total;tabCount.textContent=total.toLocaleString('ko-KR');
     $('catalogSheetResultCount').textContent=`${all.length.toLocaleString('ko-KR')}편 검색됨 · ${Math.min(all.length,state.limit).toLocaleString('ko-KR')}편 표시`;
@@ -555,7 +568,8 @@
       const approved=item.review_state==='approved';
       const linked=Boolean(item.work_id);
       return `<button type="button" class="catalog-sheet-row" data-sheet-type="${escape(item.source_type)}" data-sheet-id="${escape(item.source_id)}" aria-label="${escape(item.draft.title)} 검수 정보 비교 및 승인">
-        <span class="catalog-sheet-work"><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author||'작가 미상')} <span aria-hidden="true">·</span> 엑셀 v${Number(item.sheet_revision)||1}</small>${item.has_incoming?'<span class="catalog-sheet-incoming-indicator">재검수본 도착 · 비교 필요</span>':''}</span>
+        <span class="catalog-sheet-work"><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author||'작가 미상')} <span aria-hidden="true">·</span> 엑셀 v${Number(item.sheet_revision)||1}</small>${item.has_incoming?'<span class="catalog-sheet-incoming-indicator">재검수본 도착 · 비교 필요</span>':''}
+          <small class="catalog-sheet-tracking">${Number(item.recheck_count)?`재검수 ${Number(item.recheck_count)}회 · 최근 병합 ${escape(new Date(Number(item.last_recheck_merged_at)).toLocaleDateString('ko-KR'))}`:'재검수 처리 기록 없음'} · 성적 묘사: ${escape(item.draft.adult_scene_status||'미확인')}</small></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">원고 검수</span><span class="catalog-sheet-pill ${review==='검수 완료'?'is-done':review==='검수 필요'?'is-needs':'is-neutral'}">${escape(review)}</span></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">도감 연결</span><span class="catalog-sheet-linked">${linked?'연결된 작품':'아직 미등록'}</span></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">승인 상태</span><span class="catalog-sheet-pill ${approved?'is-done':'is-waiting'}">${approved?'승인됨':'비공개 대기'}</span></span>
@@ -580,7 +594,7 @@
         `<c r="${colName(j)}${i+1}" t="inlineStr" s="${i?0:1}"><is><t xml:space="preserve">${xlsxXml(v??'')}</t></is></c>`).join('')}</row>`).join('');
       return `<?xml version="1.0"?><worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${rowXml}</sheetData><autoFilter ref="A${filterStart}:${colName(headers.length-1)}${items.length}"/></worksheet>`;
     };
-    const widths=[15,34,25,16,60,34,40,40,16,30,14,35,18,18,14,40,50,52,32,22,20,48];
+    const widths=[15,34,25,16,60,34,40,40,16,30,14,35,18,18,14,40,50,52,32,22,20,48,22,50,22,17];
     const counts=arr=>arr.reduce((map,v)=>(map[v]=(map[v]||0)+1,map),{});
     const statuses=counts(rows.map(row=>String(row[8]||'미검수')));
     const scopes=counts(rows.map(row=>String(row[19]||'미기록')));
@@ -589,7 +603,10 @@
       ...Object.entries(scopes).map(([label,count])=>['분석 범위 · '+label,count,'']),
       ['도감 연결됨',rows.filter(row=>Boolean(row[11])).length,''],
       ['도감 미등록',rows.filter(row=>!row[11]).length,''],
-      ['엑셀 승인됨',rows.filter(row=>row[13]==='approved').length,'']];
+      ['엑셀 승인됨',rows.filter(row=>row[13]==='approved').length,''],
+      ['v10.85 이후 재검수 병합 완료',rows.filter(row=>Number(row[25])>0).length,'횟수는 사이트가 병합된 Work 재검수 기록만 집계'],
+      ['성적 묘사 판정 · 직접적 묘사',rows.filter(row=>row[22]==='직접적 묘사').length,'관리자 승인 전에는 공개 키워드에 자동 반영되지 않음'],
+      ['성적 묘사 판정 · 미확인',rows.filter(row=>!row[22]||row[22]==='미확인').length,'원문을 확인하지 않은 작품은 묘사 없음으로 단정하지 않음']];
     const needed=rows.filter(row=>row[8]==='검수 필요');
     const helpRows=needed.map(row=>[row[2],row[3],row[8],row[9],row[19],row[20],row[21],row[1]]);
     const zip=new JSZip();
@@ -638,6 +655,13 @@
     const extrasPresent=reviewColumns.every((c,i)=>String(head[baseColumns.length+i]||'').trim()===c);
     const anyExtra=reviewColumns.some((_,i)=>String(head[baseColumns.length+i]||'').trim());
     if(anyExtra&&!extrasPresent)throw Error('재검수 참고정보 열이 일부 누락되거나 순서가 바뀌었습니다.');
+    const adultOffset=baseColumns.length+reviewColumns.length;
+    const adultPresent=adultColumns.every((c,i)=>String(head[adultOffset+i]||'').trim()===c);
+    const adultAny=adultColumns.some((_,i)=>String(head[adultOffset+i]||'').trim());
+    if(adultAny&&!adultPresent)throw Error('성적 묘사 판정 열이 누락되거나 순서가 바뀌었습니다.');
+    if(adultPresent&&!extrasPresent)throw Error('성적 묘사 판정에는 재검수 참고정보 열이 필요합니다.');
+    if(adultPresent&&trackingColumns.some((c,i)=>String(head[adultOffset+adultColumns.length+i]||'').trim()!==c))
+      throw Error('재검수 처리 현황 열이 누락되거나 순서가 바뀌었습니다.');
     const entries=[],seen=new Set();
     for(const [i,row] of output.entries()){
       if(row.every(v=>!String(v||'').trim()))continue;
@@ -648,7 +672,8 @@
         synopsis:String(row[4]||''),genres:genreTokens(row[5]),tags:tagTokens(row[6]),
         recommendation:String(row[7]||''),review_status:String(row[8]||''),review_note:String(row[9]||''),
         sheet_revision:Number(row[10]||1),
-        ...(extrasPresent?Object.fromEntries(reviewFields.map((field,j)=>[field,String(row[baseColumns.length+j]||'')])):{})});
+        ...(extrasPresent?Object.fromEntries(reviewFields.map((field,j)=>[field,String(row[baseColumns.length+j]||'')])):{}),
+        ...(adultPresent?Object.fromEntries(adultFields.map((field,j)=>[field,String(row[adultOffset+j]||'')])):{})});
     }
     if(!entries.length||entries.length>1000)throw Error('가져올 엑셀은 1~1,000행이어야 합니다.');
     entries.hasReviewMetadata=extrasPresent;
@@ -662,12 +687,12 @@
       const current=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
       const stale=entries.filter(x=>{const old=current.get(sourceKey(x.source_type,x.source_id));
         return old&&Number(old.sheet_revision)!==Number(x.sheet_revision)&&
-          [...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields].some(f=>x[f]!==undefined&&JSON.stringify(x[f])!==JSON.stringify(old.draft[f]??''));
+          [...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
       });
       if(stale.length)throw Error(`이전 버전 엑셀 데이터 ${stale.length}행이 발견됐습니다. 최신 검수함을 내보내서 다시 수정해 주세요.`);
       const changes=entries.filter(x=>{
         const old=current.get(sourceKey(x.source_type,x.source_id));
-        return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields].some(f=>x[f]!==undefined&&JSON.stringify(x[f])!==JSON.stringify(old.draft[f]??''));
+        return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
       });
       if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
       // Validate the complete workbook in read-only batches before writing any row.
@@ -725,7 +750,10 @@
         item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(' · '),
         (item.draft.tags||[]).join(' · '),item.draft.recommendation,item.draft.review_status,item.draft.review_note,
         item.sheet_revision,item.work_id||'',item.work_status||'',item.review_state,
-        ...reviewFields.map(f=>item.draft[f]||'')]);
+        ...reviewFields.map(f=>item.draft[f]||''),
+        item.draft.adult_scene_status||'미확인',item.draft.adult_scene_note||'',
+        item.last_recheck_merged_at?new Date(Number(item.last_recheck_merged_at)).toISOString().slice(0,10):'',
+        Number(item.recheck_count)||0]);
       download(`RRR_작품도감_엑셀검수함_${new Date().toISOString().slice(0,10)}.xlsx`,await makeWorkbook(rows));
       status(`${rows.length}편의 엑셀 검수함을 내보냈습니다. 원본 ID 열은 수정하지 마세요.`);
     }catch(e){status(e.message,true);}finally{state.loading=false;}
@@ -742,7 +770,7 @@
     }
     edited.review_status=area.querySelector('#catalogSheetReviewStatus')?.value||'';
     edited.review_note=area.querySelector('#catalogSheetReviewNote')?.value.trim()||'';
-    for(const field of ['duplicate_note','analysis_scope','summary_progress','recheck_log']){
+    for(const field of ['duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields]){
       const el=area.querySelector(`[data-review-meta="${field}"]`);
       if(el)edited[field]=el.value.trim();
     }
@@ -752,8 +780,8 @@
     const previous=state.current?.item?.draft;
     if(!previous)return false;
     const edited=readDraftEditor();
-    return ['synopsis','genres','tags','recommendation','review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log']
-      .some(field=>JSON.stringify(edited[field])!==JSON.stringify(previous[field]??(Array.isArray(edited[field])?[]:'')));
+    return ['synopsis','genres','tags','recommendation','review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields]
+      .some(field=>importDifferent(edited[field],previous[field]??(Array.isArray(edited[field])?[]:''),field));
   }
   function refreshDraftButtons(){
     const area=$('catalogSheetReview');
@@ -788,9 +816,9 @@
           ${listType?'<small>여러 항목은 · 기호로 구분하세요. BL 장르는 자동 제외됩니다.</small>':''}</label></div>`;
       }).join('');
       // Imported Work revisions are kept separately until explicitly reconciled.
-      const allFields=[...editableFields,'review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log'];
+      const allFields=[...editableFields,'review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields];
       const incomingRows=incoming?allFields.filter(field=>JSON.stringify(item.draft[field]??'')!==JSON.stringify(incoming.draft[field]??''))
-        .map(field=>{const label=names[field]||({review_status:'원고 검수 상태',review_note:'검수 메모',duplicate_note:'중복 참고',analysis_scope:'분석 범위',summary_progress:'요약 진행 상태',recheck_log:'재검수 기록'}[field]);
+        .map(field=>{const label=names[field]||({review_status:'원고 검수 상태',review_note:'검수 메모',duplicate_note:'중복 참고',analysis_scope:'분석 범위',summary_progress:'요약 진행 상태',recheck_log:'재검수 기록',adult_scene_status:'성적 묘사 판정',adult_scene_note:'성적 묘사 판정 근거'}[field]);
           return `<div class="catalog-sheet-incoming-row"><strong>${escape(label)}</strong><div class="catalog-sheet-incoming-values"><div><em>현재 관리자 초안</em><pre>${escape(displayDraftField(item.draft[field])||'—')}</pre></div><div><em>새 Work 재검수본</em><pre>${escape(displayDraftField(incoming.draft[field])||'—')}</pre></div></div><button type="button" class="secondary-admin-button" data-copy-incoming="${field}">이 항목 재검수안 사용</button></div>`;
         }).join(''):'';
       const incomingPanel=incoming?`<section class="catalog-sheet-incoming"><h5>새 재검수본 비교 대기</h5><p>기존 관리자 편집본은 보존돼 있어요. 아래 항목별로 채택하면 위의 최종 초안 편집칸에 복사됩니다. 필요하면 위에서 직접 문장을 다듬은 뒤 <b>선택 병합</b>하세요. 공개 도감은 승인 전까지 그대로입니다.</p>
@@ -813,6 +841,9 @@
         <label>분석 범위<input data-review-meta="analysis_scope" maxlength="160" value="${escape(item.draft.analysis_scope||'')}"></label>
         <label>요약 진행 상태<input data-review-meta="summary_progress" maxlength="120" value="${escape(item.draft.summary_progress||'')}"></label>
         <label>재검수 기록 (날짜별로 이어서 추가)<textarea data-review-meta="recheck_log" rows="4" maxlength="8000" placeholder="예: 2026-10-15 · 원문 후반부 재확인, 인물 관계 수정 근거 등">${escape(item.draft.recheck_log||'')}</textarea></label>
+        <div class="catalog-sheet-provenance"><strong>재검수 처리 현황</strong><p>이 패치 이후 기록 ${Number(item.recheck_count)||0}회 · 마지막 병합: ${item.last_recheck_merged_at?escape(new Date(Number(item.last_recheck_merged_at)).toLocaleString('ko-KR')):'없음'}</p><small>이 숫자는 새 재검수 기록이 추가된 Work 결과를 관리자가 비교·병합한 횟수입니다. 이전 메모는 소급 계산하지 않습니다.</small></div>
+        <label>성적 묘사 판정<select data-review-meta="adult_scene_status">${['미확인','직접적 묘사','묘사 없음','확인 필요'].map(v=>`<option value="${escape(v)}" ${(item.draft.adult_scene_status||'미확인')===v?'selected':''}>${escape(v)}</option>`).join('')}</select></label>
+        <label>성적 묘사 판정 근거<textarea data-review-meta="adult_scene_note" rows="3" maxlength="800" placeholder="구체적인 원문 장면의 맥락 및 확인 범위. 직접적인 본문 인용은 불필요합니다.">${escape(item.draft.adult_scene_note||'')}</textarea><small>원문 일부만 확인했다면 ‘묘사 없음’으로 단정하지 마세요. ‘직접적 묘사’는 최종 태그 승인 전 관리자 확인이 필요합니다.</small></label>
       </div>
         <p id="catalogSheetEditHint" class="catalog-sheet-edit-hint">검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.</p>
         <p id="catalogSheetModalStatus" class="catalog-sheet-modal-status" role="status" aria-live="polite"></p>
@@ -878,7 +909,7 @@
     try{
       await api({action:'merge_incoming',source_type:item.source_type,source_id:item.source_id,sheet_revision:item.sheet_revision,draft});
       await reload(true);state.loading=false;await openReview(item.source_type,item.source_id);
-      modalMessage('재검수 결과 병합 완료. 최종 초안과 공개 내용을 비교한 다음 원하는 항목만 승인하세요.');
+      modalMessage('재검수 결과 병합 완료. 새 검수 기록이 있다면 누적 횟수에 반영됩니다. 공개 내용은 별도로 승인해야 합니다.');
     }catch(e){modalMessage(e.message,true);}finally{state.loading=false;refreshDraftButtons();}
   }
   async function discardIncoming(){
@@ -899,7 +930,7 @@
       const actions={before_manual_edit:'수동 수정 전',before_recheck_merge:'재검수 병합 전',before_history_restore:'복원 전',before_public_approval:'공개 승인 전'};
       list.innerHTML=out.items?.length?out.items.map((entry)=>{
         const old=entry.snapshot?.draft||{};
-        const preview=`줄거리: ${old.synopsis||'—'}\n장르: ${displayDraftField(old.genres)||'—'}\n키워드: ${displayDraftField(old.tags)||'—'}\n추천 대상: ${old.recommendation||'—'}\n검수 상태: ${old.review_status||'—'}\n검수 메모: ${old.review_note||'—'}\n재검수 기록: ${old.recheck_log||'—'}\n당시 승인된 엑셀 줄거리: ${entry.snapshot?.applied?.synopsis?.source||'—'}`;
+        const preview=`줄거리: ${old.synopsis||'—'}\n장르: ${displayDraftField(old.genres)||'—'}\n키워드: ${displayDraftField(old.tags)||'—'}\n추천 대상: ${old.recommendation||'—'}\n검수 상태: ${old.review_status||'—'}\n검수 메모: ${old.review_note||'—'}\n재검수 기록: ${old.recheck_log||'—'}\n성적 묘사 판정: ${old.adult_scene_status||'미확인'}\n당시 승인된 엑셀 줄거리: ${entry.snapshot?.applied?.synopsis?.source||'—'}`;
         return `<details class="catalog-sheet-history-entry"><summary>${escape(actions[entry.event_type]||entry.event_type)} · 이전 초안 v${Number(entry.sheet_revision)} · ${escape(new Date(entry.created_at).toLocaleString('ko-KR'))}</summary><pre>${escape(preview)}</pre><button type="button" class="secondary-admin-button" data-sheet-restore="${escape(entry.id)}">이 버전을 비공개 초안으로 복원</button></details>`;
       }).join(''):'<p class="muted">이 패치 도입 후 생성된 변경 이력이 없습니다. 이후 편집부터 이전 내용이 보관됩니다.</p>';
     }catch(e){list.textContent=e.message;}
@@ -942,6 +973,8 @@
   $('catalogSheetReviewFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetLinkFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetIncomingFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetAdultFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetSort').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetMore').addEventListener('click',()=>{state.limit+=50;displayList();});
   $('catalogSheetList').addEventListener('click',event=>{
     const target=event.target.closest('button[data-sheet-id]');

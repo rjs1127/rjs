@@ -269,3 +269,13 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 
 .admin-next-page .catalog-sheet-incoming-actions #catalogSheetMerge {border:1px solid var(--sy-accent);background:var(--sy-accent);color:#fff;border-radius:9px;font-weight:750;padding:8px 14px;cursor:pointer;}
 .admin-next-page .catalog-sheet-incoming-actions #catalogSheetMerge:disabled {opacity:.55;cursor:default;}
+
+/* v10.85: review provenance and context-based adult-content check. */
+.admin-next-page .catalog-sheet-work small.catalog-sheet-tracking {color:var(--sy-text-secondary);font-size:10px;line-height:1.5;}
+.admin-next-page .catalog-sheet-review-meta>label small,
+.admin-next-page .catalog-sheet-provenance small {font-size:10px;line-height:1.55;color:var(--sy-text-secondary);font-weight:400;}
+.admin-next-page .catalog-sheet-review-meta [data-review-meta="adult_scene_status"] {width:100%;min-height:42px;box-sizing:border-box;}
+
+.admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(5,minmax(0,1fr));}
+@media(max-width:850px){.admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(max-width:580px){.admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(2,minmax(0,1fr));}}

@@ -8,6 +8,7 @@ import { catalogPublicSources } from '../../_catalog_cp.js';
 import { ensureWorkCatalogSchema, catalogFields, catalogError, allCatalogWork } from '../../_work_catalog.js';
 
 const RELEVANT = ['synopsis','genres','tags','recommendation'];
+const ADULT_STATUSES = new Set(['미확인','직접적 묘사','묘사 없음','확인 필요']);
 // Extra review-only fields are never approved into catalog_works.
 const REVIEW_META = Object.freeze({
   original_number:30,original_filename:420,original_path:1600,
@@ -62,6 +63,14 @@ async function schema(db){
   )`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS catalog_sheet_history_lookup
     ON catalog_sheet_history(source_type,source_id,created_at DESC)`).run();
+  // Server-owned evidence of completed Work result reconciliation. Historical
+  // free-text logs are never automatically converted into confirmed events.
+  await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_recheck_stats (
+    source_type TEXT NOT NULL, source_id TEXT NOT NULL,
+    recheck_count INTEGER NOT NULL DEFAULT 0,
+    last_merged_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(source_type,source_id)
+  )`).run();
 }
 function parse(raw,fallback){try{return JSON.parse(raw);}catch{return fallback;}}
 function decode(row){return {...row,draft:parse(row.draft_json,{}),applied:parse(row.applied_json,{}) ,draft_json:undefined,applied_json:undefined};}
@@ -97,10 +106,23 @@ function checkedDraft(item,source,previous={}){
   const reviewStatus=text(item.review_status).slice(0,60);
   const reviewNote=text(item.review_note);
   if(reviewNote.length>8000)throw catalogError('검수 메모는 8,000자 이내로 입력해 주세요.');
+  // Not reading the manuscript is NOT evidence that it contains no direct scenes.
+  // Keep a legacy row without an adult field unchanged when a newly exported
+  // workbook merely contains the default '미확인'. This avoids 459 false diffs.
+  const requestedStatus=text(Object.hasOwn(item,'adult_scene_status')?item.adult_scene_status:previous.adult_scene_status)||'미확인';
+  if(!ADULT_STATUSES.has(requestedStatus))throw catalogError('성적 묘사 판정값이 올바르지 않습니다.');
+  const note=text(Object.hasOwn(item,'adult_scene_note')?item.adult_scene_note:previous.adult_scene_note);
+  if(note.length>800)throw catalogError('성적 묘사 판정 근거는 800자 이내로 입력해 주세요.');
+  if(requestedStatus==='직접적 묘사'&&!JSON.parse(f.tags_json).includes('직접적 성적 묘사')&&JSON.parse(f.tags_json).length>=20)
+    throw catalogError('성적 묘사 태그를 추가할 자리가 없습니다. 기존 키워드를 정리해 주세요.');
+  const extra={};
+  if(requestedStatus!=='미확인'||Object.hasOwn(previous,'adult_scene_status'))extra.adult_scene_status=requestedStatus;
+  if(note||Object.hasOwn(previous,'adult_scene_note'))extra.adult_scene_note=note;
   return {title:f.title,author:f.author,
-    synopsis:f.synopsis,genres:JSON.parse(f.genre_json),tags:JSON.parse(f.tags_json),
+    synopsis:f.synopsis,genres:JSON.parse(f.genre_json),
+    tags:requestedStatus==='직접적 묘사'?[...new Set([...JSON.parse(f.tags_json),'직접적 성적 묘사'])]:JSON.parse(f.tags_json),
     recommendation:f.recommendation,review_status:reviewStatus,review_note:reviewNote,
-    ...reviewMetadata(item,previous)};
+    ...reviewMetadata(item,previous),...extra};
 }
 function sameTitle(a,b){return text(a).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase()===text(b).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase();}
 function renderText(base,newPart){
@@ -154,16 +176,21 @@ export async function onRequestGet(context){
       if(!row)throw catalogError('엑셀 초안이 없습니다.',404);
       const {work,collision}=await findContext(db,pair.type,pair.id,parse(row.draft_json,{}).title,parse(row.draft_json,{}).author);
       const incoming=await db.prepare('SELECT candidate_json,base_revision,created_at FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
-      return respond({item:decode(row),work:work?allCatalogWork(work):null,collision,
+      const stats=await db.prepare('SELECT recheck_count,last_merged_at FROM catalog_sheet_recheck_stats WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
+      return respond({item:{...decode(row),recheck_count:stats?.recheck_count||0,last_recheck_merged_at:stats?.last_merged_at||0},work:work?allCatalogWork(work):null,collision,
         incoming:incoming?{draft:parse(incoming.candidate_json,{}),base_revision:incoming.base_revision,created_at:incoming.created_at}:null});
     }
     // 1,000 rows or an explicit error — never truncate an exported workbook.
     const count=await db.prepare('SELECT COUNT(*) AS total FROM catalog_sheet_drafts').first();
     if(Number(count?.total)>1000)throw catalogError('현재 내보내기 상한(1,000행)을 넘었습니다. 분할 내보내기 기능이 필요합니다.',409);
     const rows=await db.prepare(`SELECT d.*,l.work_id,w.status AS work_status,
-      CASE WHEN incoming.source_id IS NULL THEN 0 ELSE 1 END AS has_incoming
+      CASE WHEN incoming.source_id IS NULL THEN 0 ELSE 1 END AS has_incoming,
+      COALESCE(stats.recheck_count,0) AS recheck_count,
+      COALESCE(stats.last_merged_at,0) AS last_recheck_merged_at
       FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_incoming incoming
       ON incoming.source_type=d.source_type AND incoming.source_id=d.source_id
+      LEFT JOIN catalog_sheet_recheck_stats stats
+      ON stats.source_type=d.source_type AND stats.source_id=d.source_id
       LEFT JOIN catalog_source_links l
       ON l.source_type=d.source_type AND l.source_id=d.source_id
       LEFT JOIN catalog_works w ON w.id=l.work_id
@@ -304,17 +331,44 @@ export async function onRequestPost(context){
       const previous=parse(row.draft_json,{});
       const merged=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
       const updated=JSON.stringify(merged);
-      const results=await db.batch([
+      const arrived=parse(incoming.candidate_json,{});
+      // Count only a Work result with a NEW, appended audit note. Spreadsheet
+      // edits without a new inspection log do not imply source-text review.
+      const originalLog=text(previous.recheck_log);
+      const arrivedLog=text(arrived.recheck_log);
+      const isNewReview=Boolean(arrivedLog&&arrivedLog!==originalLog&&
+        (!originalLog||arrivedLog.startsWith(originalLog)));
+      if(isNewReview){
+        // Retain the Work inspection evidence even when the admin keeps their
+        // own preferred synopsis, tags or draft wording during merge.
+        const chosenLog=text(merged.recheck_log);
+        const newPiece=arrivedLog.slice(originalLog.length).trim();
+        if(!chosenLog.includes(newPiece)){
+          const retained=chosenLog.includes(originalLog)?chosenLog:originalLog;
+          const combined=[retained,newPiece].filter(Boolean).join('\n');
+          if(combined.length>8000)throw catalogError('재검수 기록 길이 한도를 초과했습니다. 이전 기록을 보존하며 정리해 주세요.');
+          merged.recheck_log=combined;
+        }
+      }
+      const safeUpdated=JSON.stringify(merged);
+      const jobs=[
         db.prepare(`UPDATE catalog_sheet_drafts SET draft_json=?,sheet_revision=sheet_revision+1,
           review_state='pending',updated_at=? WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?
           AND EXISTS(SELECT 1 FROM catalog_sheet_incoming WHERE source_type=? AND source_id=? AND base_revision=?)`)
-          .bind(updated,now,type,id,revision,row.draft_json,type,id,revision),
+          .bind(safeUpdated,now,type,id,revision,row.draft_json,type,id,revision),
         historyStatement(db,row,type,id,'before_recheck_merge',now),
         db.prepare('DELETE FROM catalog_sheet_incoming WHERE source_type=? AND source_id=? AND base_revision=?')
           .bind(type,id,revision)
-      ]);
+      ];
+      if(isNewReview){
+        jobs.push(db.prepare(`INSERT INTO catalog_sheet_recheck_stats(source_type,source_id,recheck_count,last_merged_at)
+          VALUES(?,?,1,?) ON CONFLICT(source_type,source_id) DO UPDATE SET
+          recheck_count=recheck_count+1,last_merged_at=excluded.last_merged_at`)
+          .bind(type,id,now));
+      }
+      const results=await db.batch(jobs);
       if(results.some(x=>x.meta?.changes!==1))throw catalogError('병합 중 동시 변경이 발견됐습니다.',409);
-      return respond({ok:true,sheet_revision:revision+1});
+      return respond({ok:true,sheet_revision:revision+1,recheck_recorded:isNewReview});
     }
     if(action==='discard_incoming'){
       const {type,id}=sourceKey(body),revision=limit(body.sheet_revision,1e9);
