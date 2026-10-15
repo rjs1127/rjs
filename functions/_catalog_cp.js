@@ -60,7 +60,7 @@ export function catalogLinkedMetadata(work, linksJson, metadata) {
     if(status&&status!=='unknown')known.add(status);
   }
   const result={...work,main_couples:[...cps]};
-  if(result.completion==='unknown'&&known.size===1)result.source_completion=[...known][0];
+  if(result.completion_mode==='auto'&&known.size===1)result.source_completion=[...known][0];
   return result;
 }
 
@@ -97,4 +97,32 @@ export function catalogLinkedKeys(rows) {
     for(const link of links)keys.add(`${link.type}\u0000${link.id}`);
   }
   return keys;
+}
+
+// Bound SQL source-status lookup for precise, cursor-safe completion filtering.
+// This query is generated only when a completion filter is selected; the normal
+// list fetch still uses one page of work IDs and the existing JS metadata join.
+export function catalogCompletionFilterCte(items) {
+  const encoder=new TextEncoder(),chunks=[];let current=[],size=2;
+  for(const item of items){
+    const status=catalogSourceCompletion(item);
+    if(status==='unknown')continue;
+    const tuple=[item.source==='postype'?'postype':'drive',String(item.id),status];
+    const next=encoder.encode(JSON.stringify(tuple)).length+1;
+    if(current.length&&size+next>110000){chunks.push(JSON.stringify(current));current=[];size=2;}
+    current.push(tuple);size+=next;
+  }
+  if(current.length)chunks.push(JSON.stringify(current));
+  if(chunks.length>70)throw new Error('원본 연재상태 필터 정보가 너무 많습니다.');
+  const values=chunks.length?chunks:['[]'];
+  return {
+    cte:`completion_sources AS (${values.map(()=>`SELECT
+      json_extract(value,'$[0]') AS type,json_extract(value,'$[1]') AS id,
+      json_extract(value,'$[2]') AS status FROM json_each(?)`).join(' UNION ALL ')}),
+    work_source_completion AS (SELECT l.work_id,
+      CASE WHEN COUNT(DISTINCT s.status)=1 THEN MIN(s.status) ELSE 'unknown' END AS source_completion
+      FROM catalog_source_links l JOIN completion_sources s
+        ON l.source_type=s.type AND l.source_id=s.id GROUP BY l.work_id)`,
+    args:values
+  };
 }

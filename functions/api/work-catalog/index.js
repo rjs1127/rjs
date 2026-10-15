@@ -1,4 +1,4 @@
-import { catalogPublicSources, catalogCpChunkedCte, catalogSourceMetadata, catalogLinkedMetadata, catalogLinkedKeys } from '../../_catalog_cp.js';
+import { catalogPublicSources, catalogCpChunkedCte, catalogSourceMetadata, catalogLinkedMetadata, catalogLinkedKeys, catalogCompletionFilterCte } from '../../_catalog_cp.js';
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
 import { publicCatalogWork } from '../../_work_catalog.js';
@@ -69,7 +69,16 @@ export async function onRequestGet(context) {
         for (const tag of tags) {where.push('EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE value=?)');args.push(tag);}
       }
     }
-    if (completion) {where.push('completion=?');args.push(completion);}
+    if (completion) {
+      // 'auto' and legacy 'unknown' follow the live archive, whereas explicit
+      // manual selections (including manual_unknown) always win.
+      where.push(`COALESCE(CASE
+        WHEN catalog_works.completion IN ('unknown','auto') THEN
+          (SELECT source_completion FROM work_source_completion WHERE work_id=catalog_works.id)
+        WHEN catalog_works.completion='manual_unknown' THEN 'unknown'
+        ELSE catalog_works.completion END,'unknown')=?`);
+      args.push(completion);
+    }
     if (cp) {where.push('EXISTS (SELECT 1 FROM work_cp WHERE work_id=catalog_works.id)');}
     if (subcouple) {where.push('subcouple=?');args.push(subcouple);}
     const orderBy = sort === 'title' ? 'title COLLATE NOCASE ASC,id ASC' : 'updated_at DESC,id DESC';
@@ -87,11 +96,14 @@ export async function onRequestGet(context) {
     const sources=await catalogPublicSources(context.env);
     const cpSources=cp?sources.filter(item=>String(item.combination||'').trim()===cp):[];
     const cpQuery=cp?catalogCpChunkedCte(cpSources):null;
-    const rows = await db.prepare(`${cpQuery?.cte||''} SELECT catalog_works.*,
+    const completionQuery=completion?catalogCompletionFilterCte(sources):null;
+    const ctes=[cpQuery?.cte?.replace(/^WITH /,''),completionQuery?.cte].filter(Boolean);
+    const combinedCte=ctes.length?`WITH ${ctes.join(', ')} `:'';
+    const rows = await db.prepare(`${combinedCte}SELECT catalog_works.*,
       (SELECT json_group_array(json_object('type',source_type,'id',source_id))
         FROM catalog_source_links WHERE work_id=catalog_works.id) AS source_links_json
       FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21${cursorMode?'':' OFFSET ?'}`)
-      .bind(...(cpQuery?.args||[]),...args,...(cursorMode?[]:[(page-1)*20])).all();
+      .bind(...(cpQuery?.args||[]),...(completionQuery?.args||[]),...args,...(cursorMode?[]:[(page-1)*20])).all();
     const results = rows.results || [];
     const metadata=catalogSourceMetadata(sources,catalogLinkedKeys(results.slice(0,20)));
     const items=results.slice(0,20).map(row=>

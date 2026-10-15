@@ -107,7 +107,7 @@ export function catalogFields(input) {
     author: bounded(input.author, 120, '작가'),
     original_title: bounded(input.original_title, 180, '원제'),
     country: bounded(input.country, 50, '국가'),
-    completion: enumValue(input.completion, ['unknown','ongoing','completed','incomplete','hiatus'], '연재 상태', 'unknown'),
+    completion: enumValue(input.completion, ['unknown','ongoing','completed','incomplete','hiatus','auto','manual_unknown'], '연재 상태', 'unknown'),
     genre_json: JSON.stringify(safeTags(input.genres, '장르')),
     tags_json: JSON.stringify(safeTags(input.tags, '키워드')),
     synopsis: bounded(input.synopsis, 3000, '줄거리'),
@@ -120,7 +120,8 @@ export function catalogFields(input) {
 export function publicCatalogWork(row) {
   if (!row) return null;
   const { id,title,author,original_title,country,completion,genre_json,tags_json,synopsis,subcouple,subcouple_note,recommendation,warnings,updated_at,revision } = row;
-  return { id,title,author,original_title,country,completion,
+  return { id,title,author,original_title,country,completion:completion==='auto'||completion==='manual_unknown'?'unknown':completion,
+    completion_mode:completion==='auto'||completion==='unknown'?'auto':'manual',
     genres: JSON.parse(genre_json || '[]'),tags: JSON.parse(tags_json || '[]'),
     synopsis,subcouple,subcouple_note,recommendation,warnings,updated_at,revision: Number(revision || 1) };
 }

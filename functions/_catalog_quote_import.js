@@ -44,7 +44,7 @@ export async function importQuoteWorks(db, env) {
   const jobs = [], now = Date.now();
   for (const source of (candidates.results || []).slice(0,20)) {
     const id = crypto.randomUUID();
-    const fields = catalogFields({title:source.title,author:source.author,completion:source.completion});
+    const fields = catalogFields({title:source.title,author:source.author,completion:'auto'});
     jobs.push(
       db.prepare(`INSERT INTO catalog_works(id,${WORK_FIELDS},status,created_at,updated_at)
         SELECT ?,${Array(12).fill('?').join(',')},'published',?,?

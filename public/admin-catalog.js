@@ -146,6 +146,14 @@
   const key=(type,id)=>`${type}\u0000${id}`;
   const labelType=t=>t==='drive'?'TXT · Drive':'POSTYPE';
   const statuses={draft:'비공개 초안',published:'공개',archived:'보관'};
+  // The source status is read live; never store a copy unless manually chosen.
+  const completionPicker=form.elements.namedItem('completion');
+  if(completionPicker){
+    const auto=document.createElement('option');auto.value='auto';auto.textContent='자동 (원본 기준)';
+    completionPicker.prepend(auto);
+    const unknown=completionPicker.querySelector('option[value="unknown"]');
+    if(unknown){unknown.value='manual_unknown';unknown.textContent='미확인 (수동 지정)';}
+  }
   const sourceCompletion=source=>({완결:'completed',연재:'ongoing',연재중:'ongoing',미완:'incomplete'})[String(source?.status||'').trim()]||'unknown';
   function linkedMap(){return new Map(links.map(l=>[key(l.source_type,l.source_id),l.work_id]));}
   function workMap(){return new Map(works.map(w=>[w.id,w]));}
@@ -290,7 +298,8 @@
           (field==='completion'||field==='subcouple')?'unknown':'');
     }
     // Existing country values stay in the hidden field; the public schema remains compatible.
-    form.elements.namedItem('completion').value=work?.completion||sourceCompletion(source);
+    form.elements.namedItem('completion').value=work?.completion_mode==='auto'?'auto':
+      work?.completion==='unknown'?'manual_unknown':(work?.completion||'auto');
     form.elements.namedItem('subcouple').value=work?.subcouple||'unknown';
     tagTokens=(Array.isArray(work?.tags)?work.tags:[]).map(cleanToken).filter(Boolean);renderTags();
     recommendationRows=work?.recommendation?String(work.recommendation).split(/\n\s*\n/):[''];
@@ -430,4 +439,229 @@
   });
   window.addEventListener('admin:tab',e=>{if(e.detail?.name==='work-catalog')reload(!loaded);});
   if(!document.querySelector('[data-tab-panel="work-catalog"]')?.hidden)reload(true);
+})();
+
+// v10.79: isolated Excel review inbox. The ordinary source editor and
+// public reader flows above remain unchanged.
+(() => {
+  const anchor=document.getElementById('catalogRefresh');
+  if(!anchor)return;
+  const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const columns=['source_type','source_id','작품명','작가','줄거리','장르','키워드','추천 대상','검수 상태','검수 메모','초안 버전','도감 작품 ID','도감 공개 상태','엑셀 승인 상태'];
+  const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상'};
+  const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0};
+  const root=document.createElement('section');
+  root.className='catalog-sheet-panel';root.hidden=true;
+  root.innerHTML=`<div class="catalog-sheet-heading"><div><h3>엑셀 검수함</h3><p class="muted">가져오기는 비공개 초안에만 저장합니다. 기존 공개 작품은 덮어쓰지 않으며 관리자 항목별 승인을 통해 반영합니다.</p></div>
+      <button id="catalogSheetClose" type="button" class="secondary-admin-button">닫기</button></div>
+    <div class="catalog-sheet-controls"><label class="catalog-sheet-upload">엑셀 가져오기
+      <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
+      <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
+      <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button></div>
+    <p id="catalogSheetStatus" role="status" aria-live="polite" class="muted"></p>
+    <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명 · 작가 검색" aria-label="엑셀 검수 작품 검색">
+      <select id="catalogSheetFilter" aria-label="엑셀 검수 상태"><option value="pending">승인 대기</option><option value="all">전체</option><option value="approved">승인됨</option></select></div>
+    <div id="catalogSheetList" class="catalog-sheet-list"></div>
+    <button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>더 보기</button>
+    <div id="catalogSheetReview" class="catalog-sheet-review" hidden></div>`;
+  anchor.closest('.panel-head')?.after(root);
+  const button=document.createElement('button');button.id='catalogSheetToggle';button.type='button';
+  button.className=anchor.className;button.textContent='엑셀 검수함';anchor.after(button);
+  const $=id=>document.getElementById(id);
+  const status=(s,error=false)=>{const el=$('catalogSheetStatus');el.textContent=s;el.style.color=error?'var(--sy-danger)':'';};
+  const sourceKey=(a,b)=>`${a}\u0000${b}`;
+  const normalize=t=>String(t||'').normalize('NFKC').trim();
+  const genreTokens=s=>String(s||'').split('·').map(normalize).filter(x=>x&&x.toUpperCase()!=='BL');
+  const tagTokens=s=>String(s||'').split('·').map(normalize).filter(Boolean);
+  function download(name,blob){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+  async function api(payload,params=''){
+    const res=await fetch('/api/admin/work-catalog-sheets'+params,{
+      method:payload?'POST':'GET',credentials:'same-origin',cache:'no-store',
+      headers:payload?{'content-type':'application/json'}:{},...(payload?{body:JSON.stringify(payload)}:{})
+    });
+    let data={};try{data=await res.json();}catch(_){ }
+    if(res.status===401){location.replace('/admin');throw Error('관리자 로그인 정보가 만료됐습니다.');}
+    if(!res.ok)throw Error(data.error||'엑셀 검수 요청에 실패했습니다.');return data;
+  }
+  function displayList(){
+    const q=normalize($('catalogSheetSearch').value).toLocaleLowerCase();
+    const filter=$('catalogSheetFilter').value;
+    const all=state.items.filter(item=>(filter==='all'||item.review_state===filter)&&
+      (!q||`${item.draft.title} ${item.draft.author}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
+    $('catalogSheetList').innerHTML=all.length?all.slice(0,state.limit).map(item=>
+      `<button type="button" data-sheet-type="${escape(item.source_type)}" data-sheet-id="${escape(item.source_id)}">
+        <span><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author)} · ${escape(item.draft.review_status||'미검수')} · v${item.sheet_revision}</small></span>
+        <span>${item.work_id?'기존 도감 연결 · ':''}${item.review_state==='approved'?'승인됨':'비공개 검수 대기'} →</span>
+      </button>`).join(''):'<p class="muted">해당 조건의 엑셀 초안이 없습니다.</p>';
+    $('catalogSheetMore').hidden=state.limit>=all.length;
+    status(`비공개 엑셀 초안 ${state.items.length}건 · 현재 표시 ${Math.min(all.length,state.limit)} / ${all.length}건`);
+  }
+  async function reload(force=false){
+    if(state.loading&&!force)return;
+    state.loading=true;status('엑셀 검수함을 불러오는 중…');
+    try{const data=await api(null);state.items=data.items||[];state.ready=true;displayList();}
+    catch(error){status(error.message,true);}finally{state.loading=false;}
+  }
+  function xlsxXml(t){return String(t).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
+  function colName(i){let s='';for(i++;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;}
+  function makeWorkbook(rows){
+    const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
+    const rowXml=[columns,...rows].map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>
+      `<c r="${colName(j)}${i+1}" t="inlineStr" s="${i?0:1}"><is><t xml:space="preserve">${xlsxXml(v??'')}</t></is></c>`).join('')}</row>`).join('');
+    const zip=new JSZip();
+    zip.file('[Content_Types].xml',`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+    zip.file('_rels/.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
+    zip.file('xl/workbook.xml',`<?xml version="1.0"?><workbook xmlns="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="도감_관리" sheetId="1" r:id="rId1"/></sheets></workbook>`);
+    zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    zip.file('xl/styles.xml',`<?xml version="1.0"?><styleSheet xmlns="${ns}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF254D4F"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0" fillId="0" borderId="0" xfId="0"/><xf fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs></styleSheet>`);
+    zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0"?><worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${columns.map((_,i)=>`<col min="${i+1}" max="${i+1}" width="${[15,34,25,16,60,34,40,40,16,30,14,35,18,18][i]}" customWidth="1"/>`).join('')}</cols><sheetData>${rowXml}</sheetData><autoFilter ref="A1:N${rows.length+1}"/></worksheet>`);
+    return zip.generateAsync({type:'blob',compression:'DEFLATE'});
+  }
+  const readXml = xml => {
+    const doc=new DOMParser().parseFromString(xml,'application/xml');
+    if(doc.getElementsByTagName('parsererror').length)throw Error('손상된 엑셀 XML입니다.');return doc;
+  };
+  async function parseWorkbook(file){
+    if(!window.JSZip)throw Error('엑셀 처리 라이브러리가 로드되지 않았습니다. 인터넷 연결을 확인해 주세요.');
+    if(file.size>15*1024*1024)throw Error('엑셀 크기는 최대 15MB입니다.');
+    const zip=await JSZip.loadAsync(file),ws=zip.file('xl/worksheets/sheet1.xml');
+    if(!ws)throw Error('시트 1을 찾지 못했습니다. 도감 관리 양식을 사용해 주세요.');
+    const shared=[];
+    if(zip.file('xl/sharedStrings.xml')){
+      const strings=readXml(await zip.file('xl/sharedStrings.xml').async('string'));
+      for(const el of strings.getElementsByTagNameNS('*','si'))
+        shared.push([...el.getElementsByTagNameNS('*','t')].map(n=>n.textContent).join(''));
+    }
+    const xml=readXml(await ws.async('string'));
+    const output=[];
+    for(const row of xml.getElementsByTagNameNS('*','row')){
+      const cols=[];
+      for(const cell of row.getElementsByTagNameNS('*','c')){
+        const match=/^[A-Z]+/.exec(cell.getAttribute('r')||'');if(!match)continue;
+        let index=0;for(const char of match[0])index=index*26+char.charCodeAt(0)-64;index--;
+        if(index<0||index>40)continue;
+        const inline=cell.getElementsByTagNameNS('*','is')[0],value=cell.getElementsByTagNameNS('*','v')[0];
+        let raw=inline?[...inline.getElementsByTagNameNS('*','t')].map(t=>t.textContent).join(''):value?.textContent||'';
+        if(cell.getAttribute('t')==='s')raw=shared[Number(raw)]||'';
+        cols[index]=raw;
+      }
+      output.push(cols);
+    }
+    const head=output.shift()||[];
+    if(columns.some((c,i)=>String(head[i]||'').trim()!==c))throw Error('엑셀 양식 또는 열 순서가 다릅니다. 관리 도감 내보내기 파일을 사용해 주세요.');
+    const entries=[],seen=new Set();
+    for(const [i,row] of output.entries()){
+      if(row.every(v=>!String(v||'').trim()))continue;
+      const type=normalize(row[0]),id=normalize(row[1]),k=sourceKey(type,id);
+      if(!['drive','postype'].includes(type)||!id||seen.has(k))throw Error(`엑셀 ${i+2}행의 원본 ID가 없거나 중복됐습니다.`);
+      seen.add(k);
+      entries.push({source_type:type,source_id:id,title:normalize(row[2]),author:normalize(row[3]),
+        synopsis:String(row[4]||''),genres:genreTokens(row[5]),tags:tagTokens(row[6]),
+        recommendation:String(row[7]||''),review_status:String(row[8]||''),review_note:String(row[9]||''),
+        sheet_revision:Number(row[10]||1)});
+    }
+    if(!entries.length||entries.length>1000)throw Error('가져올 엑셀은 1~1,000행이어야 합니다.');
+    return entries;
+  }
+  async function importExcel(file){
+    if(state.loading)return;
+    state.loading=true;status('엑셀 파일을 검증하고 있습니다…');
+    try{
+      const entries=await parseWorkbook(file);
+      const current=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
+      const stale=entries.filter(x=>{const old=current.get(sourceKey(x.source_type,x.source_id));
+        return old&&Number(old.sheet_revision)!==Number(x.sheet_revision)&&
+          ['synopsis','genres','tags','recommendation','review_status','review_note'].some(f=>JSON.stringify(x[f])!==JSON.stringify(old.draft[f]));
+      });
+      if(stale.length)throw Error(`이전 버전 엑셀 데이터 ${stale.length}행이 발견됐습니다. 최신 검수함을 내보내서 다시 수정해 주세요.`);
+      const changes=entries.filter(x=>{
+        const old=current.get(sourceKey(x.source_type,x.source_id));
+        return !old||['synopsis','genres','tags','recommendation','review_status','review_note'].some(f=>JSON.stringify(x[f])!==JSON.stringify(old.draft[f]));
+      });
+      if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
+      if(!confirm(`${entries.length}행을 확인했습니다. 이 중 변경 후보 ${changes.length}행을 비공개 검수함에 저장할까요?\n\n기존 공개 작품과 이미 승인한 정보는 이 과정에서 변경되지 않습니다.`))return;
+      let changed=0,unchanged=0;
+      // Small bounded batches keep D1 writes and request payloads predictable.
+      for(let i=0;i<entries.length;i+=12){
+        status(`비공개 검수함 저장 중… ${Math.min(i+12,entries.length)} / ${entries.length}행`);
+        const result=await api({action:'import_batch',items:entries.slice(i,i+12)});
+        changed+=result.changed||0;unchanged+=result.unchanged||0;
+      }
+      await reload(true);status(`검수함 저장 완료: 변경 ${changed}행 · 변경 없음 ${unchanged}행. 공개 반영은 작품별 관리자 승인이 필요합니다.`);
+    }catch(error){status(`가져오기 중단: ${error.message}. 완료된 배치는 검수함에 남고 공개 데이터는 변경되지 않습니다.`,true);}
+    finally{state.loading=false;$('catalogSheetFile').value='';}
+  }
+  async function exportExcel(){
+    if(state.loading)return;
+    state.loading=true;status('엑셀 내보내기 생성 중…');
+    try{
+      const items=(await api(null)).items||[];
+      if(!window.JSZip)throw Error('엑셀 라이브러리를 불러오지 못했습니다.');
+      const rows=items.map(item=>[item.source_type,item.source_id,item.draft.title,item.draft.author,
+        item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(' · '),
+        (item.draft.tags||[]).join(' · '),item.draft.recommendation,item.draft.review_status,item.draft.review_note,
+        item.sheet_revision,item.work_id||item.approved_work_id||'',item.work_status||'',item.review_state]);
+      download(`RRR_작품도감_엑셀검수함_${new Date().toISOString().slice(0,10)}.xlsx`,await makeWorkbook(rows));
+      status(`${rows.length}편의 엑셀 검수함을 내보냈습니다. 원본 ID 열은 수정하지 마세요.`);
+    }catch(e){status(e.message,true);}finally{state.loading=false;}
+  }
+  async function openReview(type,id){
+    if(state.loading)return;
+    const ticket=++state.reviewSeq;
+    const area=$('catalogSheetReview');area.hidden=false;area.textContent='작품별 승인 비교 정보를 불러오는 중…';
+    try{
+      const data=await api(null,'?'+new URLSearchParams({source_type:type,source_id:id}));
+      if(ticket!==state.reviewSeq)return;
+      state.current=data;
+      const {item,work,collision}=data;
+      const rows=Object.entries(names).map(([field,label])=>{
+        const current=work?(work[field]||((field==='genres'||field==='tags')?[]:'')):((field==='genres'||field==='tags')?[]:'');
+        const staged=item.draft[field]||((field==='genres'||field==='tags')?[]:'');
+        const display=v=>Array.isArray(v)?v.join(' · '):String(v||'');
+        return `<label class="catalog-sheet-diff"><span class="catalog-sheet-diff-title"><input type="checkbox" name="sheetField" value="${field}" ${display(staged)?'checked':''}> ${label} 승인</span>
+          <span><em>현재 공개 데이터</em><pre>${escape(display(current)||'—')}</pre></span>
+          <span><em>엑셀 검수 초안</em><pre>${escape(display(staged)||'—')}</pre></span></label>`;
+      }).join('');
+      area.innerHTML=`<div class="catalog-sheet-review-head"><div><h4>${escape(item.draft.title)}</h4><p class="muted">${escape(item.draft.author)} · 엑셀 버전 ${item.sheet_revision}</p></div>
+        <button type="button" data-sheet-close="1" class="secondary-admin-button">닫기</button></div>
+        <p class="muted">${work?'연결된 실제 도감 작품에 선택 항목만 병합합니다.':'승인 전에는 이용자가 직접 작품을 등록할 수 있습니다.'}
+        ${collision?'⚠ 동일 제목·작가의 연결되지 않은 도감 작품이 있습니다. 관리자에서 먼저 원본 연결을 확인해 주세요.':''}</p>
+        <div class="catalog-sheet-diff-grid">${rows}</div>
+        <label class="catalog-sheet-publish"><input type="checkbox" id="catalogSheetPublish" ${(!work||work.status==='published')?'checked':''}> ${work?'승인하면서 비공개 작품인 경우 공개 전환':'신규 작품을 승인하고 공개 등록'}</label>
+        <div class="catalog-sheet-controls"><button id="catalogSheetApprove" type="button" ${collision?'disabled':''}>선택한 항목 실제 도감에 반영</button></div>`;
+      area.scrollIntoView({block:'nearest',behavior:'smooth'});
+    }catch(error){area.textContent=error.message;}
+  }
+  async function approve(){
+    const current=state.current;if(!current||state.loading)return;
+    const fields=[...$('catalogSheetReview').querySelectorAll('input[name="sheetField"]:checked')].map(x=>x.value);
+    if(!fields.length){status('반영할 항목을 하나 이상 선택해 주세요.',true);return;}
+    const {item}=current;
+    if(!confirm(`${item.draft.title}의 ${fields.map(x=>names[x]).join(', ')} 항목을 실제 도감에 반영할까요?\n기존 정보는 보존하고 승인된 엑셀 정보만 덧붙입니다.`))return;
+    state.loading=true;
+    const b=$('catalogSheetApprove');b.disabled=true;
+    try{
+      const out=await api({action:'approve',source_type:item.source_type,source_id:item.source_id,
+        sheet_revision:item.sheet_revision,fields,publish:$('catalogSheetPublish').checked});
+      $('catalogSheetReview').hidden=true;state.current=null;
+      await reload(true);status(`${item.draft.title}: ${fields.map(f=>names[f]).join('·')} 반영 완료${out.created?' (관리자 신규 등록)':''}.`);
+    }catch(e){status(e.message,true);b.disabled=false;}
+    finally{state.loading=false;}
+  }
+  button.addEventListener('click',()=>{root.hidden=!root.hidden;if(!root.hidden&&!state.ready)void reload();});
+  $('catalogSheetClose').addEventListener('click',()=>{root.hidden=true;});
+  $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
+  $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
+  $('catalogSheetReload').addEventListener('click',()=>void reload());
+  $('catalogSheetSearch').addEventListener('input',()=>{state.limit=50;displayList();});
+  $('catalogSheetFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetMore').addEventListener('click',()=>{state.limit+=50;displayList();});
+  $('catalogSheetList').addEventListener('click',event=>{
+    const target=event.target.closest('button[data-sheet-id]');
+    if(target)void openReview(target.dataset.sheetType,target.dataset.sheetId);
+  });
+  $('catalogSheetReview').addEventListener('click',event=>{
+    if(event.target.closest('[data-sheet-close]')){++state.reviewSeq;state.current=null;$('catalogSheetReview').hidden=true;}
+    else if(event.target.closest('#catalogSheetApprove'))void approve();
+  });
 })();

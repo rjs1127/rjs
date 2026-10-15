@@ -24,6 +24,11 @@
   const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
   const statusLabel = {unknown:'미확인',ongoing:'연재 중',completed:'완결',incomplete:'미완',hiatus:'휴재'};
   const coupleLabel = {unknown:'미확인',yes:'있음',no:'없음'};
+  const autoCompletionOption = document.createElement('option');
+  autoCompletionOption.value='auto';autoCompletionOption.textContent='자동 (원본 연재상태 기준)';
+  $('wcEditCompletion')?.prepend(autoCompletionOption);
+  const manualUnknownOption=$('wcEditCompletion')?.querySelector('option[value="unknown"]');
+  if(manualUnknownOption){manualUnknownOption.value='manual_unknown';manualUnknownOption.textContent='미확인 (수동 지정)';}
   const validId = id => /^[0-9a-f-]{36}$/i.test(String(id));
   const arr = values => Array.isArray(values) ? values.filter(v => typeof v === 'string').slice(0,20) : [];
   const coverStyle = (work, index) => {
@@ -76,8 +81,8 @@
     const mainCp=arr(work.main_couples).map(escapeHtml).join(' · ');
     const genres=arr(work.genres).slice(0,2), tagLabels=arr(work.tags).slice(0,3);
     const fill=catalogFill(work);
-    const fromSource=work.completion==='unknown' && Boolean(work.source_completion && work.source_completion!=='unknown');
-    const displayCompletion=fromSource ? work.source_completion : work.completion;
+    const fromSource=work.completion_mode==='auto';
+    const displayCompletion=fromSource ? (work.source_completion||'unknown') : work.completion;
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
       ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading-row"><span class="wc-card-heading">${title}</span><span class="wc-card-arrow" aria-hidden="true">↗</span></span><span class="wc-card-author">${author}</span>
       <span class="wc-card-meta">${mainCp?`<span class="wc-card-cp">CP · ${mainCp}</span>`:''}<span class="wc-card-status" ${fromSource?'title="연결된 원본의 연재 상태 (도감 정보는 미확인)"':''}>${escapeHtml(statusLabel[displayCompletion]||'미확인')}${fromSource?'<span class="wc-card-mapped"> · 원본 기준</span>':''}</span></span>
@@ -231,8 +236,8 @@
     const heading=escapeHtml(work.title||'제목 미상');
     const tagRows=(list,prefix)=>list.map(label=>`<span class="wc-detail-tag">${prefix}${escapeHtml(label)}</span>`).join('');
     const alertText=String(work.warnings||'').trim(),subNote=String(work.subcouple_note||'').trim();
-    const effectiveCompletion=work.completion==='unknown'?(work.source_completion||'unknown'):work.completion;
-    const mappedCompletion=work.completion==='unknown'&&Boolean(work.source_completion);
+    const effectiveCompletion=work.completion_mode==='auto'?(work.source_completion||'unknown'):work.completion;
+    const mappedCompletion=work.completion_mode==='auto';
     const fill=catalogFill(work);
     const successNotice=data.contributionFeedback?`<div class="wc-contribution-success" role="status"><span aria-hidden="true">✓</span><span>${escapeHtml(data.contributionFeedback)}</span></div>`:'';
     refs.detail.innerHTML=`<div class="wc-detail-top"><button type="button" class="wc-detail-back" data-wc-back>← 작품 목록으로</button><div id="wcOriginalLinks" class="wc-source-links" aria-live="polite"></div></div>
@@ -547,7 +552,8 @@
       operation==='warnings_set'?String(data.currentWork?.warnings||''):correction&&!removing?editOld:'';
     editChoice.value=data.currentWork?.subcouple||'unknown';
     editSubNote.value=String(data.currentWork?.subcouple_note||'');
-    editCompletion.value=data.currentWork?.completion==='unknown'?(data.currentWork?.source_completion||'unknown'):(data.currentWork?.completion||'unknown');
+    editCompletion.value=data.currentWork?.completion_mode==='auto'?'auto':
+      data.currentWork?.completion==='unknown'?'manual_unknown':(data.currentWork?.completion||'auto');
     if(draft){
       editValue.value=draft.value;editChoice.value=draft.choice;
       editCompletion.value=draft.completion;editSubNote.value=draft.note;
