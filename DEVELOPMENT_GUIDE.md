@@ -1028,3 +1028,8 @@
 - XLSX 첫 시트의 모든 행은 브라우저에서 원본 ID/관리 버전/필드 비교 검증한 후, `changes`만 `preflight_import`와 `import_batch`에 전송한다.
 - 서버는 변경 후보 각각을 대상으로 여전히 `catalogPublicSources`, `checkedDraft`, 기존 버전, 대기 중인 incoming을 검증한다. 직접 서버 API 호출에는 기존 전체 검증이 그대로 적용된다.
 - 최초 보충 UI는 제거하지만 `seed_review_metadata` API와 테이블은 데이터 보존/복구 이유로 유지한다.
+
+
+## v10.88 모바일 검수 모달
+- 580px 이하에서는 고정 overlay에 `overflow:hidden`, 실제 `.catalog-sheet-dialog`에 `overflow-y:auto`를 사용하여 투명 딤 레이어가 문서 스크롤에 끼어들지 않게 한다.
+- 배경은 기존 `--sy-surface` 토큰을 사용하며 추가 JS/DB 변경 없음.

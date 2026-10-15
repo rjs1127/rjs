@@ -279,3 +279,39 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 .admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(5,minmax(0,1fr));}
 @media(max-width:850px){.admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(3,minmax(0,1fr));}}
 @media(max-width:580px){.admin-next-page .catalog-sheet-stats {grid-template-columns:repeat(2,minmax(0,1fr));}}
+
+/* v10.88 — mobile review: opaque, self-scrolling dialog. Keep the
+   dimmer fixed while long three-way comparisons scroll inside the sheet. */
+@media (max-width:580px) {
+  .admin-next-page .catalog-sheet-review:not([hidden]) {
+    position:fixed;
+    inset:0;
+    width:100%;
+    height:100vh;
+    height:100dvh;
+    padding:0;
+    overflow:hidden;
+    display:flex;
+    align-items:stretch;
+    justify-content:stretch;
+    background:rgba(14,20,29,.84);
+  }
+  .admin-next-page .catalog-sheet-review:not([hidden]) > .catalog-sheet-dialog {
+    flex:1 1 auto;
+    width:100%;
+    min-width:0;
+    height:100%;
+    min-height:0;
+    max-height:100%;
+    overflow-y:auto;
+    overflow-x:hidden;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+    background:#fff;
+    background:var(--sy-surface,#fff);
+    background-clip:padding-box;
+    box-shadow:none;
+    isolation:isolate;
+  }
+  body.catalog-sheet-dialog-open {overflow:hidden;overscroll-behavior:none;}
+}
