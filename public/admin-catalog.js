@@ -485,7 +485,8 @@
       <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명·작가·검수 메모 검색" aria-label="엑셀 검수 작품 및 검수 메모 검색">
         <select id="catalogSheetFilter" aria-label="도감 승인 상태"><option value="pending">승인 대기</option><option value="all">전체 승인 상태</option><option value="approved">승인됨</option></select>
         <select id="catalogSheetReviewFilter" aria-label="엑셀 원고 검수 상태"><option value="all">전체 검수 상태</option><option value="검수 필요">검수 필요</option><option value="초안">초안</option><option value="검수 완료">검수 완료</option></select>
-        <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select></div>
+        <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select>
+        <select id="catalogSheetIncomingFilter" aria-label="재검수 비교 상태"><option value="all">전체 재검수 상태</option><option value="waiting">재검수 비교 대기</option><option value="clear">비교 대기 없음</option></select></div>
       <div class="catalog-sheet-table-labels" aria-hidden="true"><span>작품명 / 작가</span><span>원고 검수</span><span>도감 연결</span><span>승인 상태</span><span></span></div>
       <div id="catalogSheetList" class="catalog-sheet-list"></div>
       <div class="catalog-sheet-footer"><button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>다음 50편 보기</button></div>
@@ -534,15 +535,18 @@
     const filter=$('catalogSheetFilter').value;
     const reviewFilter=$('catalogSheetReviewFilter').value;
     const linkFilter=$('catalogSheetLinkFilter').value;
-    const all=state.items.filter(item=>(filter==='all'||item.review_state===filter)&&
+    const incomingFilter=$('catalogSheetIncomingFilter').value;
+    const all=state.items.filter(item=>(filter==='all'||item.review_state===filter||(filter==='pending'&&Boolean(item.has_incoming)))&&
       (reviewFilter==='all'||normalize(item.draft.review_status)===reviewFilter)&&
       (linkFilter==='all'||(Boolean(item.work_id)===(linkFilter==='linked')))&&
+      (incomingFilter==='all'||(Boolean(item.has_incoming)===(incomingFilter==='waiting')))&&
       (!q||`${item.draft.title} ${item.draft.author} ${item.draft.review_note||''} ${item.draft.duplicate_note||''} ${item.draft.analysis_scope||''} ${item.draft.recheck_log||''}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
     const total=state.items.length;
     const pending=state.items.filter(item=>item.review_state!=='approved').length;
     const approved=state.items.filter(item=>item.review_state==='approved').length;
     const linked=state.items.filter(item=>Boolean(item.work_id)).length;
-    $('catalogSheetStats').innerHTML=[['전체 초안',total],['승인 대기',pending],['승인됨',approved],['기존 도감 연결',linked]]
+    const incomingCount=state.items.filter(item=>Boolean(item.has_incoming)).length;
+    $('catalogSheetStats').innerHTML=[['전체 초안',total],['승인 대기',pending],['재검수 비교 대기',incomingCount],['도감 연결',linked]]
       .map(([label,count])=>`<div class="catalog-sheet-stat"><span>${label}</span><strong>${count.toLocaleString('ko-KR')}</strong></div>`).join('');
     const tabCount=$('catalogSheetTabCount');tabCount.hidden=!total;tabCount.textContent=total.toLocaleString('ko-KR');
     $('catalogSheetResultCount').textContent=`${all.length.toLocaleString('ko-KR')}편 검색됨 · ${Math.min(all.length,state.limit).toLocaleString('ko-KR')}편 표시`;
@@ -551,7 +555,7 @@
       const approved=item.review_state==='approved';
       const linked=Boolean(item.work_id);
       return `<button type="button" class="catalog-sheet-row" data-sheet-type="${escape(item.source_type)}" data-sheet-id="${escape(item.source_id)}" aria-label="${escape(item.draft.title)} 검수 정보 비교 및 승인">
-        <span class="catalog-sheet-work"><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author||'작가 미상')} <span aria-hidden="true">·</span> 엑셀 v${Number(item.sheet_revision)||1}</small></span>
+        <span class="catalog-sheet-work"><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author||'작가 미상')} <span aria-hidden="true">·</span> 엑셀 v${Number(item.sheet_revision)||1}</small>${item.has_incoming?'<span class="catalog-sheet-incoming-indicator">재검수본 도착 · 비교 필요</span>':''}</span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">원고 검수</span><span class="catalog-sheet-pill ${review==='검수 완료'?'is-done':review==='검수 필요'?'is-needs':'is-neutral'}">${escape(review)}</span></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">도감 연결</span><span class="catalog-sheet-linked">${linked?'연결된 작품':'아직 미등록'}</span></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">승인 상태</span><span class="catalog-sheet-pill ${approved?'is-done':'is-waiting'}">${approved?'승인됨':'비공개 대기'}</span></span>
@@ -666,7 +670,12 @@
         return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields].some(f=>x[f]!==undefined&&JSON.stringify(x[f])!==JSON.stringify(old.draft[f]??''));
       });
       if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
-      if(!confirm(`${entries.length}행을 확인했습니다. 이 중 변경 후보 ${changes.length}행을 비공개 검수함에 저장할까요?\n\n기존 공개 작품과 이미 승인한 정보는 이 과정에서 변경되지 않습니다.`))return;
+      // Validate the complete workbook in read-only batches before writing any row.
+      for(let i=0;i<entries.length;i+=12){
+        status(`재검수 엑셀 사전 점검 중… ${Math.min(i+12,entries.length)} / ${entries.length}행`);
+        await api({action:'preflight_import',items:entries.slice(i,i+12)});
+      }
+      if(!confirm(`${entries.length}행 확인 · 변경 후보 ${changes.length}행입니다.\n기존 행의 재검수 결과는 별도 비교 대기함에 저장되며 현재 관리자 초안과 공개 도감은 변경되지 않습니다.\n새 작품 행만 초안으로 생성합니다. 계속할까요?`))return;
       let changed=0,unchanged=0;
       // Small bounded batches keep D1 writes and request payloads predictable.
       for(let i=0;i<entries.length;i+=12){
@@ -674,7 +683,7 @@
         const result=await api({action:'import_batch',items:entries.slice(i,i+12)});
         changed+=result.changed||0;unchanged+=result.unchanged||0;
       }
-      await reload(true);status(`검수함 저장 완료: 변경 ${changed}행 · 변경 없음 ${unchanged}행. 공개 반영은 작품별 관리자 승인이 필요합니다.`);
+      await reload(true);status(`가져오기 완료: 변경 후보 ${changed}행은 기존 초안 보존 후 비교 대기(신규 행은 비공개 등록) · 변경 없음 ${unchanged}행. 작품별 선택 병합과 공개 승인이 필요합니다.`);
     }catch(error){status(`가져오기 중단: ${error.message}. 완료된 배치는 검수함에 남고 공개 데이터는 변경되지 않습니다.`,true);}
     finally{state.loading=false;$('catalogSheetFile').value='';}
   }
@@ -709,6 +718,8 @@
     state.loading=true;status('엑셀 내보내기 생성 중…');
     try{
       const items=(await api(null)).items||[];
+      const pending=items.filter(item=>Boolean(item.has_incoming)).length;
+      if(pending&&!confirm(`새 재검수 비교 대기 ${pending}편은 아직 병합되지 않아 이번 엑셀 내보내기에 포함되지 않습니다.\n계속 내보낼까요?`))return;
       if(!window.JSZip)throw Error('엑셀 라이브러리를 불러오지 못했습니다.');
       const rows=items.map(item=>[item.source_type,item.source_id,item.draft.title,item.draft.author,
         item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(' · '),
@@ -749,10 +760,12 @@
     const dirty=isDraftDirty();
     const save=area.querySelector('#catalogSheetSave');
     const approveButton=area.querySelector('#catalogSheetApprove');
-    if(save)save.disabled=state.loading||!dirty;
-    if(approveButton)approveButton.disabled=state.loading||dirty||Boolean(state.current?.collision);
+    if(save)save.disabled=state.loading||!dirty||Boolean(state.current?.incoming);
+    if(approveButton)approveButton.disabled=state.loading||dirty||Boolean(state.current?.collision)||Boolean(state.current?.incoming);
+    const merge=area.querySelector('#catalogSheetMerge');if(merge)merge.disabled=state.loading;
+    const discard=area.querySelector('#catalogSheetDiscard');if(discard)discard.disabled=state.loading;
     const hint=area.querySelector('#catalogSheetEditHint');
-    if(hint)hint.textContent=dirty?'수정 중인 내용이 있습니다. 비공개 초안으로 먼저 저장한 뒤 승인해 주세요.':'검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.';
+    if(hint)hint.textContent=state.current?.incoming?'새 재검수본과 현재 초안을 비교하고 필요한 문장만 복사하거나 직접 조합하세요. 이후 선택 병합으로 비공개 저장해야 승인이 가능합니다.':dirty?'수정 중인 내용이 있습니다. 비공개 초안으로 먼저 저장한 뒤 승인해 주세요.':'검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.';
   }
   async function openReview(type,id){
     if(state.loading)return;
@@ -762,17 +775,27 @@
       const data=await api(null,'?'+new URLSearchParams({source_type:type,source_id:id}));
       if(ticket!==state.reviewSeq)return;
       state.current=data;
-      const {item,work,collision}=data;
+      const {item,work,collision,incoming}=data;
       const rows=Object.entries(names).map(([field,label])=>{
         const current=work?(work[field]??((field==='genres'||field==='tags')?[]:'')):((field==='genres'||field==='tags')?[]:'');
         const staged=item.draft[field]??((field==='genres'||field==='tags')?[]:'');
         const listType=field==='genres'||field==='tags';
         const lengthLimit=field==='synopsis'?3000:field==='recommendation'?1500:800;
+        const approved=item.applied?.[field]?.source;
         return `<div class="catalog-sheet-diff"><label class="catalog-sheet-diff-title"><input type="checkbox" name="sheetField" value="${field}" ${displayDraftField(staged)?'checked':''}> ${label} 승인</label>
-          <div><em>현재 도감 데이터</em><pre>${escape(displayDraftField(current)||'—')}</pre></div>
+          <div><em>현재 공개 데이터</em><pre>${escape(displayDraftField(current)||'—')}</pre>${approved!==undefined?`<small class="catalog-sheet-approved-source">마지막 엑셀 승인분: ${escape(displayDraftField(approved)||'(빈 값)')}</small>`:''}</div>
           <label class="catalog-sheet-edit-column"><em>엑셀 검수 초안 · 직접 수정 가능</em><textarea data-sheet-edit="${field}" rows="${listType?2:5}" maxlength="${lengthLimit}" spellcheck="false" aria-label="${label} 검수 초안 수정">${escape(displayDraftField(staged))}</textarea>
           ${listType?'<small>여러 항목은 · 기호로 구분하세요. BL 장르는 자동 제외됩니다.</small>':''}</label></div>`;
       }).join('');
+      // Imported Work revisions are kept separately until explicitly reconciled.
+      const allFields=[...editableFields,'review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log'];
+      const incomingRows=incoming?allFields.filter(field=>JSON.stringify(item.draft[field]??'')!==JSON.stringify(incoming.draft[field]??''))
+        .map(field=>{const label=names[field]||({review_status:'원고 검수 상태',review_note:'검수 메모',duplicate_note:'중복 참고',analysis_scope:'분석 범위',summary_progress:'요약 진행 상태',recheck_log:'재검수 기록'}[field]);
+          return `<div class="catalog-sheet-incoming-row"><strong>${escape(label)}</strong><div class="catalog-sheet-incoming-values"><div><em>현재 관리자 초안</em><pre>${escape(displayDraftField(item.draft[field])||'—')}</pre></div><div><em>새 Work 재검수본</em><pre>${escape(displayDraftField(incoming.draft[field])||'—')}</pre></div></div><button type="button" class="secondary-admin-button" data-copy-incoming="${field}">이 항목 재검수안 사용</button></div>`;
+        }).join(''):'';
+      const incomingPanel=incoming?`<section class="catalog-sheet-incoming"><h5>새 재검수본 비교 대기</h5><p>기존 관리자 편집본은 보존돼 있어요. 아래 항목별로 채택하면 위의 최종 초안 편집칸에 복사됩니다. 필요하면 위에서 직접 문장을 다듬은 뒤 <b>선택 병합</b>하세요. 공개 도감은 승인 전까지 그대로입니다.</p>
+        ${incomingRows||'<p>검수 항목은 현재 초안과 같습니다. 내용 확인 후 선택 병합하거나 취소해 주세요.</p>'}
+        <div class="catalog-sheet-incoming-actions"><button type="button" id="catalogSheetMerge">선택한 결과로 비공개 병합 저장</button><button type="button" id="catalogSheetDiscard" class="secondary-admin-button">이 재검수 대기본 취소</button></div></section>`:'';
       const reviewStatuses=['검수 필요','초안','검수 완료'];
       const currentStatus=String(item.draft.review_status||'');
       if(currentStatus&&!reviewStatuses.includes(currentStatus))reviewStatuses.push(currentStatus);
@@ -780,7 +803,7 @@
         <button type="button" data-sheet-close="1" class="secondary-admin-button">닫기</button></div>
         <p class="muted">${work?'기존 도감 데이터를 보존하고 선택한 항목에 검수 정보를 보완합니다.':'승인 전에는 사용자가 이 작품을 먼저 등록할 수 있습니다.'}
         ${collision?'⚠ 같은 제목·작가의 미연결 도감 작품이 있습니다. 원본 연결을 먼저 확인해 주세요.':''}</p>
-        <div class="catalog-sheet-diff-grid">${rows}</div>
+        ${incomingPanel}<div class="catalog-sheet-diff-grid">${rows}</div>
         <div class="catalog-sheet-review-meta"><label>원고 검수 상태<select id="catalogSheetReviewStatus">${reviewStatuses.map(value=>`<option value="${escape(value)}" ${value===currentStatus?'selected':''}>${escape(value)}</option>`).join('')}</select></label>
         <label>검수 메모<textarea id="catalogSheetReviewNote" rows="4" maxlength="8000">${escape(item.draft.review_note||'')}</textarea></label>
         <div class="catalog-sheet-provenance"><strong>원본·재검수 참고정보</strong><p>${escape(item.draft.original_filename||'원본 파일명 미보충')}</p>
@@ -794,7 +817,9 @@
         <p id="catalogSheetEditHint" class="catalog-sheet-edit-hint">검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.</p>
         <p id="catalogSheetModalStatus" class="catalog-sheet-modal-status" role="status" aria-live="polite"></p>
         <label class="catalog-sheet-publish"><input type="checkbox" id="catalogSheetPublish" ${(!work||work.status==='published')?'checked':''}> ${work?'승인하면서 비공개 작품인 경우 공개 전환':'신규 작품을 승인하고 공개 등록'}</label>
+        <div class="catalog-sheet-history"><button type="button" id="catalogSheetHistoryLoad" class="secondary-admin-button">이전 초안·승인 버전 보기</button><p class="muted">복원은 공개 데이터를 직접 되돌리지 않고 비공개 초안만 새 버전으로 저장합니다.</p><div id="catalogSheetHistoryList" aria-live="polite"></div></div>
         <div class="catalog-sheet-approve-actions"><button id="catalogSheetSave" type="button" class="secondary-admin-button" disabled>비공개 초안 저장</button><button id="catalogSheetApprove" type="button" ${collision?'disabled':''}>선택 항목 도감에 반영</button></div></div>`;
+      refreshDraftButtons();
       area.querySelector('[data-sheet-close]')?.focus();
     }catch(error){area.innerHTML=`<div class="catalog-sheet-dialog"><p>${escape(error.message)}</p><button type="button" data-sheet-close="1">닫기</button></div>`;}
   }
@@ -831,6 +856,66 @@
     }catch(error){modalMessage(error.message,true);state.loading=false;refreshDraftButtons();}
     finally{state.loading=false;refreshDraftButtons();}
   }
+  function applyIncoming(field){
+    const incoming=state.current?.incoming;
+    if(!incoming||!Object.prototype.hasOwnProperty.call(incoming.draft,field))return;
+    const area=$('catalogSheetReview');
+    const element=area.querySelector(`[data-sheet-edit="${field}"],[data-review-meta="${field}"]`) ||
+      (field==='review_status'?area.querySelector('#catalogSheetReviewStatus'):field==='review_note'?area.querySelector('#catalogSheetReviewNote'):null);
+    if(!element)return;
+    element.value=displayDraftField(incoming.draft[field]);
+    if(field==='review_status'&&element.value!==incoming.draft[field]){
+      const opt=document.createElement('option');opt.value=incoming.draft[field];opt.textContent=incoming.draft[field];element.append(opt);element.value=opt.value;
+    }
+    refreshDraftButtons();
+    modalMessage(`${names[field]||field}: 재검수안이 편집란에 복사됐습니다. 다른 부분도 선택하거나 직접 조합한 뒤 병합 저장하세요.`);
+  }
+  async function mergeIncoming(){
+    const current=state.current;if(!current?.incoming||state.loading)return;
+    const {item}=current,draft=readDraftEditor();
+    if(!confirm(`${item.draft.title}: 화면에 작성한 최종 내용으로 비공개 초안을 병합할까요?\n현재 공개 작품과 마지막 승인 내용은 아직 변경되지 않습니다.`))return;
+    state.loading=true;refreshDraftButtons();
+    try{
+      await api({action:'merge_incoming',source_type:item.source_type,source_id:item.source_id,sheet_revision:item.sheet_revision,draft});
+      await reload(true);state.loading=false;await openReview(item.source_type,item.source_id);
+      modalMessage('재검수 결과 병합 완료. 최종 초안과 공개 내용을 비교한 다음 원하는 항목만 승인하세요.');
+    }catch(e){modalMessage(e.message,true);}finally{state.loading=false;refreshDraftButtons();}
+  }
+  async function discardIncoming(){
+    const current=state.current;if(!current?.incoming||state.loading)return;
+    if(!confirm('이 Work 재검수 대기본만 삭제할까요? 관리자 초안과 공개 작품은 그대로 유지됩니다.'))return;
+    const {item}=current;state.loading=true;
+    try{
+      await api({action:'discard_incoming',source_type:item.source_type,source_id:item.source_id,sheet_revision:item.sheet_revision});
+      await reload(true);state.loading=false;await openReview(item.source_type,item.source_id);
+      modalMessage('재검수 대기본을 취소했습니다. 기존 관리자 초안은 유지됩니다.');
+    }catch(e){modalMessage(e.message,true);}finally{state.loading=false;refreshDraftButtons();}
+  }
+  async function showHistory(){
+    const item=state.current?.item;if(!item||state.loading)return;
+    const list=$('catalogSheetHistoryList');list.textContent='이전 버전을 불러오는 중…';
+    try{
+      const out=await api(null,'?'+new URLSearchParams({history:'1',source_type:item.source_type,source_id:item.source_id}));
+      const actions={before_manual_edit:'수동 수정 전',before_recheck_merge:'재검수 병합 전',before_history_restore:'복원 전',before_public_approval:'공개 승인 전'};
+      list.innerHTML=out.items?.length?out.items.map((entry)=>{
+        const old=entry.snapshot?.draft||{};
+        const preview=`줄거리: ${old.synopsis||'—'}\n장르: ${displayDraftField(old.genres)||'—'}\n키워드: ${displayDraftField(old.tags)||'—'}\n추천 대상: ${old.recommendation||'—'}\n검수 상태: ${old.review_status||'—'}\n검수 메모: ${old.review_note||'—'}\n재검수 기록: ${old.recheck_log||'—'}\n당시 승인된 엑셀 줄거리: ${entry.snapshot?.applied?.synopsis?.source||'—'}`;
+        return `<details class="catalog-sheet-history-entry"><summary>${escape(actions[entry.event_type]||entry.event_type)} · 이전 초안 v${Number(entry.sheet_revision)} · ${escape(new Date(entry.created_at).toLocaleString('ko-KR'))}</summary><pre>${escape(preview)}</pre><button type="button" class="secondary-admin-button" data-sheet-restore="${escape(entry.id)}">이 버전을 비공개 초안으로 복원</button></details>`;
+      }).join(''):'<p class="muted">이 패치 도입 후 생성된 변경 이력이 없습니다. 이후 편집부터 이전 내용이 보관됩니다.</p>';
+    }catch(e){list.textContent=e.message;}
+  }
+  async function restoreHistory(id){
+    const current=state.current;if(!current||state.loading)return;
+    if(current.incoming){modalMessage('재검수 대기본부터 병합하거나 취소해 주세요.',true);return;}
+    if(isDraftDirty()){modalMessage('현재 편집 중인 내용을 저장하거나 다시 열어 정리해 주세요.',true);return;}
+    if(!confirm('선택한 이전 버전을 새로운 비공개 초안으로 복원할까요?\n기존 승인 기록과 현재 공개 작품은 그대로 유지됩니다. 실제 도감 변경은 별도 승인이 필요합니다.'))return;
+    const {item}=current;state.loading=true;
+    try{
+      const result=await api({action:'restore_history',source_type:item.source_type,source_id:item.source_id,sheet_revision:item.sheet_revision,history_id:id});
+      await reload(true);state.loading=false;await openReview(item.source_type,item.source_id);
+      modalMessage(result.changed?'이전 내용을 새 비공개 초안으로 복원했습니다. 공개 도감은 변경되지 않았습니다.':'이미 현재 초안과 동일한 내용입니다.');
+    }catch(e){modalMessage(e.message,true);}finally{state.loading=false;refreshDraftButtons();}
+  }
   async function approve(){
     const current=state.current;if(!current||state.loading)return;
     if(isDraftDirty()){modalMessage('수정한 내용을 먼저 비공개 초안으로 저장해 주세요.',true);return;}
@@ -856,6 +941,7 @@
   $('catalogSheetFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetReviewFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetLinkFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetIncomingFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetMore').addEventListener('click',()=>{state.limit+=50;displayList();});
   $('catalogSheetList').addEventListener('click',event=>{
     const target=event.target.closest('button[data-sheet-id]');
@@ -878,5 +964,10 @@
     if(event.target===$('catalogSheetReview')||event.target.closest('[data-sheet-close]'))closeReview();
     else if(event.target.closest('#catalogSheetSave'))void saveDraft();
     else if(event.target.closest('#catalogSheetApprove'))void approve();
+    else if(event.target.closest('[data-copy-incoming]'))applyIncoming(event.target.closest('[data-copy-incoming]').dataset.copyIncoming);
+    else if(event.target.closest('#catalogSheetMerge'))void mergeIncoming();
+    else if(event.target.closest('#catalogSheetDiscard'))void discardIncoming();
+    else if(event.target.closest('#catalogSheetHistoryLoad'))void showHistory();
+    else if(event.target.closest('[data-sheet-restore]'))void restoreHistory(event.target.closest('[data-sheet-restore]').dataset.sheetRestore);
   });
 })();

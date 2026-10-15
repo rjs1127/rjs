@@ -50,9 +50,31 @@ async function schema(db){
     updated_at INTEGER NOT NULL,
     PRIMARY KEY(source_type,source_id)
   )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_incoming (
+    source_type TEXT NOT NULL,source_id TEXT NOT NULL,
+    candidate_json TEXT NOT NULL,base_revision INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,PRIMARY KEY(source_type,source_id)
+  )`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_history (
+    id TEXT PRIMARY KEY,source_type TEXT NOT NULL,source_id TEXT NOT NULL,
+    event_type TEXT NOT NULL,sheet_revision INTEGER NOT NULL,
+    snapshot_json TEXT NOT NULL,created_at INTEGER NOT NULL
+  )`).run();
+  await db.prepare(`CREATE INDEX IF NOT EXISTS catalog_sheet_history_lookup
+    ON catalog_sheet_history(source_type,source_id,created_at DESC)`).run();
 }
 function parse(raw,fallback){try{return JSON.parse(raw);}catch{return fallback;}}
 function decode(row){return {...row,draft:parse(row.draft_json,{}),applied:parse(row.applied_json,{}) ,draft_json:undefined,applied_json:undefined};}
+function snapshot(row){return JSON.stringify({draft:parse(row.draft_json,{}),applied:parse(row.applied_json,{}),review_state:row.review_state,approved_work_id:row.approved_work_id,approved_at:row.approved_at});}
+function historyStatement(db,row,type,id,event,now){
+  return db.prepare(`INSERT INTO catalog_sheet_history
+    (id,source_type,source_id,event_type,sheet_revision,snapshot_json,created_at) VALUES(?,?,?,?,?,?,?)`)
+    .bind(crypto.randomUUID(),type,id,event,Number(row.sheet_revision),snapshot(row),now);
+}
+async function requireNoIncoming(db,type,id){
+  const pending=await db.prepare('SELECT 1 AS pending FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(type,id).first();
+  if(pending)throw catalogError('새 재검수본이 비교 대기 중입니다. 먼저 병합하거나 대기본을 취소해 주세요.',409);
+}
 function sourceKey(item){
   const type=text(item?.source_type),id=text(item?.source_id);
   if(!['drive','postype'].includes(type)||!id||id.length>240 ||
@@ -118,19 +140,31 @@ export async function onRequestGet(context){
     const db=requireUserDb(context.env);await schema(db);
     const url=new URL(context.request.url);
     const type=url.searchParams.get('source_type'),id=url.searchParams.get('source_id');
+    if(url.searchParams.get('history')==='1'){
+      const pair=sourceKey({source_type:type,source_id:id});
+      const results=await db.prepare(`SELECT id,event_type,sheet_revision,snapshot_json,created_at
+        FROM catalog_sheet_history WHERE source_type=? AND source_id=?
+        ORDER BY created_at DESC,rowid DESC LIMIT 30`).bind(pair.type,pair.id).all();
+      return respond({items:(results.results||[]).map(x=>({...x,snapshot:parse(x.snapshot_json,{}),snapshot_json:undefined}))});
+    }
     if(type!==null||id!==null){
       const pair=sourceKey({source_type:type,source_id:id});
       const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
         .bind(pair.type,pair.id).first();
       if(!row)throw catalogError('엑셀 초안이 없습니다.',404);
       const {work,collision}=await findContext(db,pair.type,pair.id,parse(row.draft_json,{}).title,parse(row.draft_json,{}).author);
-      return respond({item:decode(row),work:work?allCatalogWork(work):null,collision});
+      const incoming=await db.prepare('SELECT candidate_json,base_revision,created_at FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
+      return respond({item:decode(row),work:work?allCatalogWork(work):null,collision,
+        incoming:incoming?{draft:parse(incoming.candidate_json,{}),base_revision:incoming.base_revision,created_at:incoming.created_at}:null});
     }
     // 1,000 rows or an explicit error — never truncate an exported workbook.
     const count=await db.prepare('SELECT COUNT(*) AS total FROM catalog_sheet_drafts').first();
     if(Number(count?.total)>1000)throw catalogError('현재 내보내기 상한(1,000행)을 넘었습니다. 분할 내보내기 기능이 필요합니다.',409);
-    const rows=await db.prepare(`SELECT d.*,l.work_id,w.status AS work_status
-      FROM catalog_sheet_drafts d LEFT JOIN catalog_source_links l
+    const rows=await db.prepare(`SELECT d.*,l.work_id,w.status AS work_status,
+      CASE WHEN incoming.source_id IS NULL THEN 0 ELSE 1 END AS has_incoming
+      FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_incoming incoming
+      ON incoming.source_type=d.source_type AND incoming.source_id=d.source_id
+      LEFT JOIN catalog_source_links l
       ON l.source_type=d.source_type AND l.source_id=d.source_id
       LEFT JOIN catalog_works w ON w.id=l.work_id
       ORDER BY d.source_type,d.source_id LIMIT 1001`).all();
@@ -148,7 +182,7 @@ export async function onRequestPost(context){
     if(raw.length>100000)throw catalogError('한 번에 가져올 엑셀 데이터가 너무 큽니다.',413);
     let body;try{body=JSON.parse(raw);}catch{throw catalogError('JSON 형식이 잘못됐습니다.');}
     const action=body?.action,now=Date.now();
-    if(action==='import_batch'){
+    if(action==='import_batch'||action==='preflight_import'){
       const input=body?.items;
       if(!Array.isArray(input)||input.length<1||input.length>12)
         throw catalogError('엑셀은 한 번에 1~12행씩 가져올 수 있습니다.');
@@ -159,21 +193,34 @@ export async function onRequestPost(context){
         const {type,id}=sourceKey(item),k=key(type,id);
         if(seen.has(k))throw catalogError('같은 원본 ID가 엑셀 배치 안에 중복돼 있습니다.');
         seen.add(k);
-        const existing=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
+        const existing=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
           .bind(type,id).first();
         const value=checkedDraft(item,indexed.get(k),parse(existing?.draft_json,{}));
         const json=JSON.stringify(value);
         if(existing?.draft_json===json){unchanged++;continue;}
         if(existing && limit(item.sheet_revision,1e9)!==Number(existing.sheet_revision))
           throw catalogError(`${value.title}: 엑셀 초안 버전이 오래됐습니다. 현재 관리 화면에서 최신 엑셀을 내보낸 후 수정해 주세요.`,409);
-        jobs.push(db.prepare(`INSERT INTO catalog_sheet_drafts
-          (source_type,source_id,draft_json,created_at,updated_at) VALUES(?,?,?,?,?)
-          ON CONFLICT(source_type,source_id) DO UPDATE SET
-          draft_json=excluded.draft_json,sheet_revision=sheet_revision+1,
-          review_state='pending',updated_at=excluded.updated_at
-          WHERE catalog_sheet_drafts.sheet_revision=?`)
-          .bind(type,id,json,now,now,Number(item.sheet_revision||1)));
+        if(existing){
+          // Import never destroys an admin-edited draft. Keep a separate incoming
+          // comparison candidate until the administrator explicitly merges it.
+          const pending=await db.prepare('SELECT candidate_json FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?')
+            .bind(type,id).first();
+          if(pending){
+            if(pending.candidate_json===json){unchanged++;continue;}
+            throw catalogError(`${value.title}: 이전에 가져온 재검수본이 아직 비교 대기 중입니다. 먼저 병합 또는 취소해 주세요.`,409);
+          }
+          jobs.push(db.prepare(`INSERT INTO catalog_sheet_incoming
+            (source_type,source_id,candidate_json,base_revision,created_at)
+            SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM catalog_sheet_drafts
+              WHERE source_type=? AND source_id=? AND sheet_revision=?)`)
+            .bind(type,id,json,existing.sheet_revision,now,type,id,existing.sheet_revision));
+        }else{
+          jobs.push(db.prepare(`INSERT INTO catalog_sheet_drafts
+            (source_type,source_id,draft_json,created_at,updated_at) VALUES(?,?,?,?,?)`)
+            .bind(type,id,json,now,now));
+        }
       }
+      if(action==='preflight_import')return respond({ok:true,changed:jobs.length,unchanged});
       if(jobs.length){const results=await db.batch(jobs);if(results.some(x=>x.meta?.changes!==1))throw catalogError('가져오기 저장을 검증할 수 없습니다.',409);}
       return respond({ok:true,changed:jobs.length,unchanged});
     }
@@ -192,6 +239,7 @@ export async function onRequestPost(context){
         const existing=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
           .bind(type,id).first();
         if(!existing)throw catalogError('검수함에 없는 원본입니다. 일반 엑셀 가져오기를 먼저 진행해 주세요.',409);
+        await requireNoIncoming(db,type,id);
         const old=parse(existing.draft_json,{});
         const candidates=reviewMetadata(item);
         const updates={};
@@ -218,9 +266,10 @@ export async function onRequestPost(context){
       const revision=limit(body.sheet_revision,1e9);
       if(!revision||!body.draft||typeof body.draft!=='object'||Array.isArray(body.draft))
         throw catalogError('저장할 검수 초안과 버전을 확인해 주세요.');
-      const row=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
+      const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
         .bind(type,id).first();
       if(!row)throw catalogError('엑셀 검수 초안이 없습니다.',404);
+      await requireNoIncoming(db,type,id);
       if(Number(row.sheet_revision)!==revision)
         throw catalogError('다른 곳에서 초안이 변경됐습니다. 최신 검수함을 다시 열어 확인해 주세요.',409);
       const sources=await catalogPublicSources(context.env);
@@ -229,12 +278,77 @@ export async function onRequestPost(context){
       const edited=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
       const updated=JSON.stringify(edited);
       if(updated===row.draft_json)return respond({ok:true,changed:false,sheet_revision:revision});
-      const result=await db.prepare(`UPDATE catalog_sheet_drafts SET
-        draft_json=?,sheet_revision=sheet_revision+1,review_state='pending',updated_at=?
-        WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?`)
-        .bind(updated,now,type,id,revision,row.draft_json).run();
-      if(result.meta?.changes!==1)
+      const results=await db.batch([
+        db.prepare(`UPDATE catalog_sheet_drafts SET
+          draft_json=?,sheet_revision=sheet_revision+1,review_state='pending',updated_at=?
+          WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?
+          AND NOT EXISTS(SELECT 1 FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?)`)
+          .bind(updated,now,type,id,revision,row.draft_json,type,id),
+        historyStatement(db,row,type,id,'before_manual_edit',now)
+      ]);
+      if(results[0]?.meta?.changes!==1)
         throw catalogError('초안이 동시에 수정됐습니다. 최신 버전을 다시 열어 주세요.',409);
+      return respond({ok:true,changed:true,sheet_revision:revision+1});
+    }
+    if(action==='merge_incoming'){
+      const {type,id}=sourceKey(body),revision=limit(body.sheet_revision,1e9);
+      if(!revision||!body.draft||typeof body.draft!=='object'||Array.isArray(body.draft))
+        throw catalogError('병합할 최종 초안과 버전을 확인해 주세요.');
+      const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?').bind(type,id).first();
+      const incoming=await db.prepare('SELECT * FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(type,id).first();
+      if(!row||!incoming)throw catalogError('비교할 새 재검수본이 없습니다.',404);
+      if(Number(row.sheet_revision)!==revision||Number(incoming.base_revision)!==revision)
+        throw catalogError('재검수본을 가져온 뒤 초안이 바뀌었습니다. 최신 데이터를 다시 확인해 주세요.',409);
+      const sources=await catalogPublicSources(context.env);
+      const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
+      const previous=parse(row.draft_json,{});
+      const merged=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
+      const updated=JSON.stringify(merged);
+      const results=await db.batch([
+        db.prepare(`UPDATE catalog_sheet_drafts SET draft_json=?,sheet_revision=sheet_revision+1,
+          review_state='pending',updated_at=? WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?
+          AND EXISTS(SELECT 1 FROM catalog_sheet_incoming WHERE source_type=? AND source_id=? AND base_revision=?)`)
+          .bind(updated,now,type,id,revision,row.draft_json,type,id,revision),
+        historyStatement(db,row,type,id,'before_recheck_merge',now),
+        db.prepare('DELETE FROM catalog_sheet_incoming WHERE source_type=? AND source_id=? AND base_revision=?')
+          .bind(type,id,revision)
+      ]);
+      if(results.some(x=>x.meta?.changes!==1))throw catalogError('병합 중 동시 변경이 발견됐습니다.',409);
+      return respond({ok:true,sheet_revision:revision+1});
+    }
+    if(action==='discard_incoming'){
+      const {type,id}=sourceKey(body),revision=limit(body.sheet_revision,1e9);
+      if(!revision)throw catalogError('현재 초안 버전을 확인해 주세요.');
+      const result=await db.prepare(`DELETE FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?
+        AND EXISTS(SELECT 1 FROM catalog_sheet_drafts
+        WHERE source_type=? AND source_id=? AND sheet_revision=?)`)
+        .bind(type,id,type,id,revision).run();
+      if(result.meta?.changes!==1)throw catalogError('비교 대기본이 변경됐습니다. 다시 확인해 주세요.',409);
+      return respond({ok:true});
+    }
+    if(action==='restore_history'){
+      const {type,id}=sourceKey(body),revision=limit(body.sheet_revision,1e9),historyId=text(body.history_id);
+      if(!revision||!historyId||historyId.length>90)throw catalogError('복원할 이력과 현재 초안 버전을 확인해 주세요.');
+      await requireNoIncoming(db,type,id);
+      const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?').bind(type,id).first();
+      const historic=await db.prepare(`SELECT snapshot_json FROM catalog_sheet_history
+        WHERE id=? AND source_type=? AND source_id=?`).bind(historyId,type,id).first();
+      if(!row||!historic)throw catalogError('복원할 이력을 찾을 수 없습니다.',404);
+      if(Number(row.sheet_revision)!==revision)throw catalogError('초안이 변경됐습니다. 다시 확인해 주세요.',409);
+      const historicalDraft=parse(historic.snapshot_json,{}).draft;
+      if(!historicalDraft)throw catalogError('이력의 초안 데이터가 없습니다.',409);
+      const sources=await catalogPublicSources(context.env);
+      const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
+      const previous=parse(row.draft_json,{});
+      const restored=JSON.stringify(checkedDraft({...historicalDraft,title:previous.title,author:previous.author},source,previous));
+      if(restored===row.draft_json)return respond({ok:true,changed:false,sheet_revision:revision});
+      const results=await db.batch([
+        db.prepare(`UPDATE catalog_sheet_drafts SET draft_json=?,sheet_revision=sheet_revision+1,
+          review_state='pending',updated_at=? WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?`)
+          .bind(restored,now,type,id,revision,row.draft_json),
+        historyStatement(db,row,type,id,'before_history_restore',now)
+      ]);
+      if(results[0].meta?.changes!==1)throw catalogError('초안 복원이 충돌했습니다.',409);
       return respond({ok:true,changed:true,sheet_revision:revision+1});
     }
     if(action==='approve'){
@@ -247,6 +361,7 @@ export async function onRequestPost(context){
       const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
         .bind(type,id).first();
       if(!row)throw catalogError('엑셀 초안이 없습니다.',404);
+      await requireNoIncoming(db,type,id);
       if(row.sheet_revision!==revision)throw catalogError('엑셀 초안이 변경됐습니다. 다시 확인해 주세요.',409);
       const draft=parse(row.draft_json,{}),applied=parse(row.applied_json,{});
       const {work,collision}=await findContext(db,type,id,draft.title,draft.author);
@@ -313,6 +428,7 @@ export async function onRequestPost(context){
           AND d.approved_at=? AND d.sheet_revision=?)`)
         .bind(idWork,JSON.stringify({source_type:type,source_id:id,fields:requested,sheet_revision:revision,
           created:!work}),now,idWork,type,id,idWork,now,revision));
+      jobs.push(historyStatement(db,row,type,id,'before_public_approval',now));
       let results;
       try{results=await db.batch(jobs);}catch(e){if(/UNIQUE|constraint/i.test(String(e?.message||'')))throw catalogError('승인 도중 원본·작품이 먼저 등록됐습니다. 새로 열어 병합 대상을 확인해 주세요.',409);throw e;}
       if(results.some(r=>r?.meta?.changes!==1))throw catalogError('동시 변경을 감지했습니다. 최신 도감 상태를 확인해 주세요.',409);

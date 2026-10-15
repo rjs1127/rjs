@@ -1,3 +1,19 @@
+# v10.84 — Work 반복 재검수 충돌 방지·3단 비교·비공개 버전 복원
+
+## 저장 규약
+- 이전 v10.83 `catalog_sheet_drafts`/`applied_json` 구조와 공개 작품 테이블은 유지합니다. 신규 테이블 `catalog_sheet_incoming` (원본 ID당 새 재검수본 최대 1개) 및 `catalog_sheet_history` (변경 전 초안·엑셀 승인 정보의 불변 스냅샷)를 `CREATE TABLE IF NOT EXISTS`로 추가합니다. 기존 행을 이동하거나 삭제하지 않습니다.
+- 일반 `import_batch`는 신규 원본만 비공개 신규 초안으로 만들고 기존 원본의 변경은 별도 `incoming_json`이 아닌 `catalog_sheet_incoming.candidate_json`으로 저장합니다. 기존 관리자 초안·원고 검수·메모·`review_state`·`sheet_revision`·기존 `applied_json`과 실제 공개 `catalog_works`는 가져오기만으로 변경되지 않습니다.
+- `preflight_import`: 수정할 Excel 22열(구형 14열 호환) 1~12행 단위로 전체를 먼저 read-only 검사. 과거 버전, 다른 pending Work 파일, 원본 제목/작가 불일치, BL·값 검증은 서버에서 수행합니다. 모든 배치 사전 점검 후에만 저장을 시작하며, 검사 이후 동시 수정은 기존 409 가드로 막습니다. 실제 저장 중 네트워크/경쟁 오류 시 선행 성공 배치는 남을 수 있으므로 재실행은 변경 없는 행을 건너뛰는 멱등 처리를 재사용합니다.
+- `merge_incoming`: 기존 `sheet_revision`과 보관된 `base_revision`이 같을 때만 관리자가 최종 편집한 필드 전체를 `checkedDraft`로 검증하여 새 비공개 초안으로 저장하고 재검수본을 제거. 새 초안 revision+1, 공개 미변경, 감사 스냅샷 생성. 대기본이 있으면 일반 save_draft/approve 차단. 사용자가 대기본을 취소할 때는 현재 revision 검증 후 그 대기본만 삭제하여 공개 데이터/관리자 초안을 유지합니다.
+- `restore_history`: 관리자만 선택한 같은 원본의 과거 초안 스냅샷을 최신 비공개 draft로 복원. `sheet_revision` 동시성 조건과 최신 공개 원본 검증을 사용. `applied_json`, 기존 승인 결과와 공개 작품, `catalog_audit` 기존 데이터는 수정하지 않습니다. 공개 변경은 별도 `approve`가 있어야 함. 이력은 v10.84 이후 수정/병합/승인 전 초안에서부터 보존하며 과거 v10.83 전체 이력 복원은 약속하지 않습니다.
+- `GET ?history=1&source_type=...&source_id=...`: 관리자 세션 요구, 원본 ID별 최신 30개 기록만 필요한 시점에 조회. 보통 목록은 LEFT JOIN으로 `has_incoming`만 내려 조회량 증가 최소화. 재검수 대기본을 내보내기에서 자동 병합하지 않고, 미병합 내역이 있으면 관리자에게 명시적 경고.
+- 기존 텍스트 append/엑셀 보완분 교체 및 사용자가 공개 데이터를 변경한 경우 409 거부는 `proposed()` 경로 그대로 보존합니다. `HISTORY.md`는 main 커밋 기반 자동 생성이므로 수동 작성하지 않고 기존 바이트로 포함합니다.
+
+## 적용·검증
+- v10.83 배포 상태 기준 **후속 패치**이며, 변경 경로는 `functions/api/admin/work-catalog-sheets.js`, `public/admin-catalog.js`, `public/admin-catalog.css`, `public/version.json`, `README.md`, `DEVELOPMENT_GUIDE.md`, `HISTORY.md` 총 7개입니다.
+- 로컬 Node SQLite 서버: 기존 v10.83 테스트 + 관리자 B 승인 후 Work C 별도 대기, 같은/서로 다른 후보 중복 가져오기, 대기 중 편집·승인 차단, 최종 D 비공개 병합 후 승인, 이전 B 이력 복원 후 재승인, 버전 불일치 및 대기본 취소 통과.
+- Chromium 1280·390·320px: 459편 기존 검수함, 필터·팝업·기존 저장/승인, 새로운 비교 대기·항목 복사·직접 편집·비공개 병합·이전 버전 복원. 가로 넘침/실행 오류 없음. 실제 Cloudflare 운영 D1·공개 사이트 배포 테스트는 수행하지 않았습니다.
+
 # v10.83 — 작품도감 검수 기초자료 복원·반복 재검수 설계
 
 ## 왜 필요한가
