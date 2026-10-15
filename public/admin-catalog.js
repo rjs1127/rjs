@@ -701,20 +701,25 @@
       // 459/12 sequential requests repeatedly enumerate all sources and can stall.
       // Server revisions and pending incoming conflicts are still checked for every
       // changed row before any write. Rechecked in import_batch to avoid races.
+      const alreadyWaiting=new Set();
       for(let i=0;i<changes.length;i+=12){
-        status(`재검수 엑셀 사전 점검 중… ${Math.min(i+12,changes.length)} / ${changes.length}개 변경 후보 (전체 ${entries.length}행 대조 완료)`);
-        await api({action:'preflight_import',items:changes.slice(i,i+12)});
+        status(`재검수 엑셀 사전 점검 중… ${Math.min(i+12,changes.length)} / ${changes.length}개 후보 (전체 ${entries.length}행 대조 완료)`);
+        const checked=await api({action:'preflight_import',items:changes.slice(i,i+12)});
+        for(const pair of checked.unchanged_keys||[])alreadyWaiting.add(sourceKey(pair.source_type,pair.source_id));
       }
-      if(!confirm(`${entries.length}행 확인 · 변경 후보 ${changes.length}행입니다.\n기존 행의 재검수 결과는 별도 비교 대기함에 저장되며 현재 관리자 초안과 공개 도감은 변경되지 않습니다.\n새 작품 행만 초안으로 생성합니다. 계속할까요?`))return;
+      const actionable=changes.filter(x=>!alreadyWaiting.has(sourceKey(x.source_type,x.source_id)));
+      const duplicates=changes.length-actionable.length;
+      if(!actionable.length){status(`새 재검수 변경 사항이 없습니다. 기존 초안/비교 대기본과 같은 ${duplicates}행은 자동 제외했습니다.`);return;}
+      if(!confirm(`${entries.length}행 확인 · 새 변경 후보 ${actionable.length}행입니다.${duplicates?`\n이미 저장된 초안 또는 동일한 비교 대기본 ${duplicates}행 자동 제외.`:''}\n기존 관리자 초안과 공개 도감은 변경되지 않습니다.\n계속할까요?`))return;
       let changed=0,unchanged=0;
       // Only changed rows are sent; unchanged workbook rows never need writes.
       // The server validates the source identity, draft revision and pending state.
-      for(let i=0;i<changes.length;i+=12){
-        status(`비공개 검수함 저장 중… ${Math.min(i+12,changes.length)} / ${changes.length}개 변경 후보`);
-        const result=await api({action:'import_batch',items:changes.slice(i,i+12)});
+      for(let i=0;i<actionable.length;i+=12){
+        status(`비공개 검수함 저장 중… ${Math.min(i+12,actionable.length)} / ${actionable.length}개 새 변경 후보`);
+        const result=await api({action:'import_batch',items:actionable.slice(i,i+12)});
         changed+=result.changed||0;unchanged+=result.unchanged||0;
       }
-      await reload(true);status(`가져오기 완료: 변경 후보 ${changed}행은 기존 초안 보존 후 비교 대기(신규 행은 비공개 등록) · 원본 ${entries.length}행 중 ${entries.length-changed}행 변경 없음. 작품별 선택 병합과 공개 승인이 필요합니다.`);
+      await reload(true);status(`가져오기 완료: 변경 후보 ${changed}행은 기존 초안 보존 후 비교 대기(신규 행은 비공개 등록) · 원본 ${entries.length}행 중 ${entries.length-changed}행 변경 없음(기존 대기본 등 ${duplicates}행 자동 제외). 작품별 선택 병합과 공개 승인이 필요합니다.`);
     }catch(error){status(`가져오기 중단: ${error.message}. 완료된 배치는 검수함에 남고 공개 데이터는 변경되지 않습니다.`,true);}
     finally{state.loading=false;$('catalogSheetFile').value='';}
   }

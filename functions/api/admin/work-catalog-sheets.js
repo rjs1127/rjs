@@ -215,7 +215,7 @@ export async function onRequestPost(context){
         throw catalogError('엑셀은 한 번에 1~12행씩 가져올 수 있습니다.');
       const sources=await catalogPublicSources(context.env);
       const indexed=new Map(sources.map(s=>[key(s.source==='postype'?'postype':'drive',String(s.id)),s]));
-      const jobs=[],seen=new Set();let unchanged=0;
+      const jobs=[],seen=new Set();let unchanged=0;const unchangedKeys=[];
       for(const item of input){
         const {type,id}=sourceKey(item),k=key(type,id);
         if(seen.has(k))throw catalogError('같은 원본 ID가 엑셀 배치 안에 중복돼 있습니다.');
@@ -224,7 +224,7 @@ export async function onRequestPost(context){
           .bind(type,id).first();
         const value=checkedDraft(item,indexed.get(k),parse(existing?.draft_json,{}));
         const json=JSON.stringify(value);
-        if(existing?.draft_json===json){unchanged++;continue;}
+        if(existing?.draft_json===json){unchanged++;unchangedKeys.push({source_type:type,source_id:id});continue;}
         if(existing && limit(item.sheet_revision,1e9)!==Number(existing.sheet_revision))
           throw catalogError(`${value.title}: 엑셀 초안 버전이 오래됐습니다. 현재 관리 화면에서 최신 엑셀을 내보낸 후 수정해 주세요.`,409);
         if(existing){
@@ -233,7 +233,7 @@ export async function onRequestPost(context){
           const pending=await db.prepare('SELECT candidate_json FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?')
             .bind(type,id).first();
           if(pending){
-            if(pending.candidate_json===json){unchanged++;continue;}
+            if(pending.candidate_json===json){unchanged++;unchangedKeys.push({source_type:type,source_id:id});continue;}
             throw catalogError(`${value.title}: 이전에 가져온 재검수본이 아직 비교 대기 중입니다. 먼저 병합 또는 취소해 주세요.`,409);
           }
           jobs.push(db.prepare(`INSERT INTO catalog_sheet_incoming
@@ -247,7 +247,7 @@ export async function onRequestPost(context){
             .bind(type,id,json,now,now));
         }
       }
-      if(action==='preflight_import')return respond({ok:true,changed:jobs.length,unchanged});
+      if(action==='preflight_import')return respond({ok:true,changed:jobs.length,unchanged,unchanged_keys:unchangedKeys});
       if(jobs.length){const results=await db.batch(jobs);if(results.some(x=>x.meta?.changes!==1))throw catalogError('가져오기 저장을 검증할 수 없습니다.',409);}
       return respond({ok:true,changed:jobs.length,unchanged});
     }
