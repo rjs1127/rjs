@@ -34,9 +34,9 @@ export async function onRequestGet(context) {
     const db = requireUserDb(context.env); await ensureWorkCatalogSchema(db);
     const params = new URL(context.request.url).searchParams;
     const q = (params.get('q') || '').trim().slice(0, 80);
-    const genre = (params.get('genre') || '').trim().slice(0, 30);
+    const genre = (params.get('genre') || '').replace(/\s+/g, '').slice(0, 30);
     const tags = [...new Set([...params.getAll('tag'), ...params.getAll('tags').flatMap(v => v.split(','))]
-      .map(v => v.normalize('NFKC').trim().replace(/^#+/, ''))
+      .map(v => v.normalize('NFKC').replace(/\s+/g, '').replace(/^#+/, ''))
       .filter(Boolean))].slice(0, 5);
     if (tags.some(tag => tag.length > 30)) return jsonResponse({error:'키워드 길이가 올바르지 않습니다.'},400);
     const tagMode = params.get('tag_mode') === 'any' ? 'any' : 'all';
@@ -62,13 +62,13 @@ export async function onRequestGet(context) {
         OR EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE value LIKE ? ESCAPE '\\'))`);
       args.push(like,like,like,like,like);
     }
-    if (genre) {where.push('EXISTS (SELECT 1 FROM json_each(catalog_works.genre_json) WHERE value=?)');args.push(genre);}
+    if (genre) {where.push("EXISTS (SELECT 1 FROM json_each(catalog_works.genre_json) WHERE replace(value, ' ', '')=?)");args.push(genre);}
     if (tags.length) {
       if (tagMode === 'any') {
-        where.push(`EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE value IN (${tags.map(()=>'?').join(',')}))`);
+        where.push(`EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE replace(value, ' ', '') IN (${tags.map(()=>'?').join(',')}))`);
         args.push(...tags);
       } else {
-        for (const tag of tags) {where.push('EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE value=?)');args.push(tag);}
+        for (const tag of tags) {where.push("EXISTS (SELECT 1 FROM json_each(catalog_works.tags_json) WHERE replace(value, ' ', '')=?)");args.push(tag);}
       }
     }
     if (completion) {

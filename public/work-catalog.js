@@ -26,6 +26,7 @@
   const coupleLabel = {unknown:'미확인',yes:'있음',no:'없음'};
   const validId = id => /^[0-9a-f-]{36}$/i.test(String(id));
   const arr = values => Array.isArray(values) ? values.filter(v => typeof v === 'string').slice(0,20) : [];
+  const filterKey = value => String(value ?? '').normalize('NFKC').replace(/\s+/g, '');
   const coverStyle = (work, index) => {
     const colors = ['ink','plum','moss','rose','slate','ochre'];
     let hash=0;
@@ -540,7 +541,7 @@
     });
   }
   const isMulti=op=>['tag_add','genre_add','recommendation_add'].includes(op);
-  const keyForTag=v=>v.normalize('NFKC').replace(/^#+\s*/,'').trim().toLocaleLowerCase();
+  const keyForTag=v=>filterKey(v).replace(/^#+/,'').toLocaleLowerCase();
   function renderPending() {
     editQueued.innerHTML=pendingEntries.map((value,index)=>`<span class="wc-edit-pending-item"><span>${editOperation.value==='tag_add'?'#':''}${escapeHtml(value)}</span><button type="button" data-wc-remove-pending="${index}" aria-label="${escapeHtml(value)} 삭제">×</button></span>`).join('');
     editSave.disabled=!editOperation.value || (isMulti(editOperation.value) && !pendingEntries.length && !editValue.value.trim());

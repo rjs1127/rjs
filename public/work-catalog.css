@@ -681,3 +681,8 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   }
   .work-catalog-page .wc-filter-panel .wc-tag-choices {max-height:none;overflow:visible;}
 }
+
+/* v10.94: give the collapsed genre control a clear right-aligned action row. */
+.work-catalog-page .wc-genre-group {display:flex;flex-direction:column;align-items:stretch;}
+.work-catalog-page #wcGenreMore {align-self:flex-end;margin-top:11px;margin-bottom:7px;margin-right:2px;}
+.work-catalog-page #wcTagMore {margin-top:9px;}
