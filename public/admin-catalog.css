@@ -315,3 +315,7 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
   }
   body.catalog-sheet-dialog-open {overflow:hidden;overscroll-behavior:none;}
 }
+
+/* v10.89: show partial approvals distinctly and keep one-click flow accessible. */
+.admin-next-page .catalog-sheet-pill.is-partial {color:#92601b;border-color:rgba(186,123,38,.28);background:rgba(186,123,38,.10);}
+.admin-next-page #catalogSheetQuickApprove {background:var(--sy-accent);color:#fff;}
