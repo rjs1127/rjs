@@ -7,7 +7,7 @@ import { requireAdminSession } from '../../_admin_session.js';
 import { catalogPublicSources } from '../../_catalog_cp.js';
 import { ensureWorkCatalogSchema, catalogFields, catalogError, allCatalogWork } from '../../_work_catalog.js';
 
-const RELEVANT = ['synopsis','genres','tags','recommendation','adult_scene_status'];
+const RELEVANT = ['synopsis','genres','tags','recommendation','adult_scene_status','warnings'];
 const PUBLIC_ADULT = Object.freeze({'직접적 묘사':'있음','묘사 없음':'없음','확인 필요':'확인 필요','미확인':'미확인'});
 const ADULT_STATUSES = new Set(['미확인','직접적 묘사','묘사 없음','확인 필요']);
 // Extra review-only fields are never approved into catalog_works.
@@ -120,8 +120,14 @@ function checkedDraft(item,source,previous={}){
   return {title:f.title,author:f.author,
     synopsis:f.synopsis,genres:JSON.parse(f.genre_json),
     tags:JSON.parse(f.tags_json),
-    recommendation:f.recommendation,review_status:reviewStatus,review_note:reviewNote,
+    recommendation:f.recommendation,...((boundedWarnings(item,previous)||Object.prototype.hasOwnProperty.call(previous,'warnings'))?{warnings:boundedWarnings(item,previous)}:{}),review_status:reviewStatus,review_note:reviewNote,
     ...reviewMetadata(item,previous),...extra};
+}
+function boundedWarnings(item,previous){
+  const value=text(Object.prototype.hasOwnProperty.call(item,'warnings')?item.warnings:previous.warnings);
+  if(value.length>1000)throw catalogError('주의·호불호 요소는 1,000자 이내로 입력해 주세요.');
+  // Legacy 26-column workbooks cannot remove a previously reviewed warning.
+  return value;
 }
 function sameTitle(a,b){return text(a).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase()===text(b).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase();}
 function renderText(base,newPart){
@@ -409,7 +415,7 @@ export async function onRequestPost(context){
       const {type,id}=sourceKey(body);
       const requested=body.fields;
       const revision=limit(body.sheet_revision,1e9);
-      if(!revision||!Array.isArray(requested)||!requested.length||requested.length>5||
+      if(!revision||!Array.isArray(requested)||!requested.length||requested.length>6||
         new Set(requested).size!==requested.length||requested.some(x=>!RELEVANT.includes(x)))
         throw catalogError('승인할 항목과 최신 초안 버전을 선택해 주세요.');
       const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
@@ -448,8 +454,9 @@ export async function onRequestPost(context){
         const fields=catalogFields({title:draft.title,author:draft.author,
           completion:'auto',synopsis:coreRequested.includes('synopsis')?draft.synopsis:'',
           recommendation:coreRequested.includes('recommendation')?draft.recommendation:'',
-          genres:coreRequested.includes('genres')?draft.genres:[],tags:coreRequested.includes('tags')?draft.tags:[]});
-        update={synopsis:fields.synopsis,recommendation:fields.recommendation,
+          genres:coreRequested.includes('genres')?draft.genres:[],tags:coreRequested.includes('tags')?draft.tags:[],
+          warnings:coreRequested.includes('warnings')?draft.warnings:''});
+        update={synopsis:fields.synopsis,recommendation:fields.recommendation,warnings:fields.warnings,
           genres:JSON.parse(fields.genre_json),tags:JSON.parse(fields.tags_json)};
         for(const field of coreRequested) nextApplied[field]={base:(field==='genres'||field==='tags')?[]:'',rendered:update[field],source:draft[field]};
       }
@@ -468,11 +475,11 @@ export async function onRequestPost(context){
         // New work only appears after administrator explicitly approves.
         // Public reader registration remains possible while in staging.
         jobs.push(db.prepare(`INSERT INTO catalog_works
-          (id,title,author,completion,genre_json,tags_json,synopsis,recommendation,status,last_mutation_token,created_at,updated_at)
-          SELECT ?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
+          (id,title,author,completion,genre_json,tags_json,synopsis,recommendation,warnings,status,last_mutation_token,created_at,updated_at)
+          SELECT ?,?,?,?,?,?,?,?,?,?,?,?,? WHERE NOT EXISTS
           (SELECT 1 FROM catalog_works WHERE lower(trim(title))=lower(?) AND lower(trim(author))=lower(?))`)
           .bind(idWork,draft.title,draft.author,'auto',JSON.stringify(update.genres),JSON.stringify(update.tags),
-            update.synopsis,update.recommendation,body.publish===true?'published':'draft',token,now,now,draft.title,draft.author));
+            update.synopsis,update.recommendation,update.warnings,body.publish===true?'published':'draft',token,now,now,draft.title,draft.author));
         jobs.push(db.prepare(`INSERT INTO catalog_source_links(source_type,source_id,work_id,created_at)
           SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM catalog_works WHERE id=? AND last_mutation_token=?)`)
           .bind(type,id,idWork,now,idWork,token));

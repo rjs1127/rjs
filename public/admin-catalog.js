@@ -453,8 +453,9 @@
   const adultFields=['adult_scene_status','adult_scene_note'];
   const adultColumns=['성적 묘사 판정','성적 묘사 판정 근거'];
   const trackingColumns=['최근 재검수 처리일','재검수 처리 횟수'];
-  const columns=[...baseColumns,...reviewColumns,...adultColumns,...trackingColumns];
-  const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상',adult_scene_status:'성적 묘사 여부'};
+  const warningColumn='주의사항 · 호불호 요소';
+  const columns=[...baseColumns,...reviewColumns,...adultColumns,...trackingColumns,warningColumn];
+  const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상',warnings:'주의·호불호 요소',adult_scene_status:'성적 묘사 여부'};
   const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0,lastFocus:null};
   const panel=anchor.closest('.catalog-admin-panel');
   const header=anchor.closest('.panel-head');
@@ -595,7 +596,7 @@
         `<c r="${colName(j)}${i+1}" t="inlineStr" s="${i?0:1}"><is><t xml:space="preserve">${xlsxXml(v??'')}</t></is></c>`).join('')}</row>`).join('');
       return `<?xml version="1.0"?><worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${rowXml}</sheetData><autoFilter ref="A${filterStart}:${colName(headers.length-1)}${items.length}"/></worksheet>`;
     };
-    const widths=[15,34,25,16,60,34,40,40,16,30,14,35,18,18,14,40,50,52,32,22,20,48,22,50,22,17];
+    const widths=[15,34,25,16,60,34,40,40,16,30,14,35,18,18,14,40,50,52,32,22,20,48,22,50,22,17,65];
     const counts=arr=>arr.reduce((map,v)=>(map[v]=(map[v]||0)+1,map),{});
     const statuses=counts(rows.map(row=>String(row[8]||'미검수')));
     const scopes=counts(rows.map(row=>String(row[19]||'미기록')));
@@ -663,6 +664,9 @@
     if(adultPresent&&!extrasPresent)throw Error('성적 묘사 판정에는 재검수 참고정보 열이 필요합니다.');
     if(adultPresent&&trackingColumns.some((c,i)=>String(head[adultOffset+adultColumns.length+i]||'').trim()!==c))
       throw Error('재검수 처리 현황 열이 누락되거나 순서가 바뀌었습니다.');
+    const warningIndex=adultOffset+adultColumns.length+trackingColumns.length;
+    const hasWarnings=String(head[warningIndex]||'').trim()===warningColumn;
+    if(String(head[warningIndex]||'').trim()&&!hasWarnings)throw Error('27번째 주의사항 열 제목이 다릅니다.');
     const entries=[],seen=new Set();
     for(const [i,row] of output.entries()){
       if(row.every(v=>!String(v||'').trim()))continue;
@@ -674,7 +678,8 @@
         recommendation:String(row[7]||''),review_status:String(row[8]||''),review_note:String(row[9]||''),
         sheet_revision:Number(row[10]||1),
         ...(extrasPresent?Object.fromEntries(reviewFields.map((field,j)=>[field,String(row[baseColumns.length+j]||'')])):{}),
-        ...(adultPresent?Object.fromEntries(adultFields.map((field,j)=>[field,String(row[adultOffset+j]||'')])):{})});
+        ...(adultPresent?Object.fromEntries(adultFields.map((field,j)=>[field,String(row[adultOffset+j]||'')])):{}),
+        ...(hasWarnings?{warnings:String(row[warningIndex]||'')}:{})});
     }
     if(!entries.length||entries.length>1000)throw Error('가져올 엑셀은 1~1,000행이어야 합니다.');
     entries.hasReviewMetadata=extrasPresent;
@@ -688,12 +693,12 @@
       const current=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
       const stale=entries.filter(x=>{const old=current.get(sourceKey(x.source_type,x.source_id));
         return old&&Number(old.sheet_revision)!==Number(x.sheet_revision)&&
-          [...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
+          [...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields,'warnings'].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
       });
       if(stale.length)throw Error(`이전 버전 엑셀 데이터 ${stale.length}행이 발견됐습니다. 최신 검수함을 내보내서 다시 수정해 주세요.`);
       const changes=entries.filter(x=>{
         const old=current.get(sourceKey(x.source_type,x.source_id));
-        return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
+        return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields,'warnings'].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
       });
       if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
       // The unchanged 451+ rows were already compared locally against the current
@@ -738,12 +743,12 @@
         ...reviewFields.map(f=>item.draft[f]||''),
         item.draft.adult_scene_status||'미확인',item.draft.adult_scene_note||'',
         item.last_recheck_merged_at?new Date(Number(item.last_recheck_merged_at)).toISOString().slice(0,10):'',
-        Number(item.recheck_count)||0]);
+        Number(item.recheck_count)||0,item.draft.warnings||'']);
       download(`RRR_작품도감_엑셀검수함_${new Date().toISOString().slice(0,10)}.xlsx`,await makeWorkbook(rows));
       status(`${rows.length}편의 엑셀 검수함을 내보냈습니다. 원본 ID 열은 수정하지 마세요.`);
     }catch(e){status(e.message,true);}finally{state.loading=false;}
   }
-  const editableFields=['synopsis','genres','tags','recommendation'];
+  const editableFields=['synopsis','genres','tags','recommendation','warnings'];
   const displayDraftField=value=>Array.isArray(value)?value.join(', '):String(value??'');
   function readDraftEditor(){
     const area=$('catalogSheetReview');
@@ -765,7 +770,7 @@
     const previous=state.current?.item?.draft;
     if(!previous)return false;
     const edited=readDraftEditor();
-    return ['synopsis','genres','tags','recommendation','review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields]
+    return ['synopsis','genres','tags','recommendation','warnings','review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields]
       .some(field=>importDifferent(edited[field],previous[field]??(Array.isArray(edited[field])?[]:''),field));
   }
   function refreshDraftButtons(){
@@ -804,7 +809,7 @@
         const current=work?(work[field]??((field==='genres'||field==='tags')?[]:'')):((field==='genres'||field==='tags')?[]:'');
         const staged=item.draft[field]??((field==='genres'||field==='tags')?[]:'');
         const listType=field==='genres'||field==='tags';
-        const lengthLimit=field==='synopsis'?3000:field==='recommendation'?1500:800;
+        const lengthLimit=field==='synopsis'?3000:field==='recommendation'?1500:field==='warnings'?1000:800;
         const approved=item.applied?.[field]?.source;
         return `<div class="catalog-sheet-diff"><label class="catalog-sheet-diff-title"><input type="checkbox" name="sheetField" value="${field}" ${displayDraftField(staged)?'checked':''}> ${label} 승인</label>
           <div><em>현재 공개 데이터</em><pre>${escape(displayDraftField(current)||'—')}</pre>${approved!==undefined?`<small class="catalog-sheet-approved-source">마지막 엑셀 승인분: ${escape(displayDraftField(approved)||'(빈 값)')}</small>`:''}</div>
@@ -926,7 +931,7 @@
       const actions={before_manual_edit:'수동 수정 전',before_recheck_merge:'재검수 병합 전',before_history_restore:'복원 전',before_public_approval:'공개 승인 전'};
       list.innerHTML=out.items?.length?out.items.map((entry)=>{
         const old=entry.snapshot?.draft||{};
-        const preview=`줄거리: ${old.synopsis||'—'}\n장르: ${displayDraftField(old.genres)||'—'}\n키워드: ${displayDraftField(old.tags)||'—'}\n추천 대상: ${old.recommendation||'—'}\n검수 상태: ${old.review_status||'—'}\n검수 메모: ${old.review_note||'—'}\n재검수 기록: ${old.recheck_log||'—'}\n성적 묘사 판정: ${old.adult_scene_status||'미확인'}\n당시 승인된 엑셀 줄거리: ${entry.snapshot?.applied?.synopsis?.source||'—'}`;
+        const preview=`주의·호불호 요소: ${old.warnings||'—'}\n줄거리: ${old.synopsis||'—'}\n장르: ${displayDraftField(old.genres)||'—'}\n키워드: ${displayDraftField(old.tags)||'—'}\n추천 대상: ${old.recommendation||'—'}\n검수 상태: ${old.review_status||'—'}\n검수 메모: ${old.review_note||'—'}\n재검수 기록: ${old.recheck_log||'—'}\n성적 묘사 판정: ${old.adult_scene_status||'미확인'}\n당시 승인된 엑셀 줄거리: ${entry.snapshot?.applied?.synopsis?.source||'—'}`;
         return `<details class="catalog-sheet-history-entry"><summary>${escape(actions[entry.event_type]||entry.event_type)} · 이전 초안 v${Number(entry.sheet_revision)} · ${escape(new Date(entry.created_at).toLocaleString('ko-KR'))}</summary><pre>${escape(preview)}</pre><button type="button" class="secondary-admin-button" data-sheet-restore="${escape(entry.id)}">이 버전을 비공개 초안으로 복원</button></details>`;
       }).join(''):'<p class="muted">이 패치 도입 후 생성된 변경 이력이 없습니다. 이후 편집부터 이전 내용이 보관됩니다.</p>';
     }catch(e){list.textContent=e.message;}
