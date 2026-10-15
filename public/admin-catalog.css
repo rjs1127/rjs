@@ -237,3 +237,10 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
  .admin-next-page .catalog-sheet-approve-actions {display:grid;grid-template-columns:1fr;}
  .admin-next-page .catalog-sheet-edit-column textarea {font-size:13px;}
 }
+
+/* v10.83 — retained provenance, analysis scope and ongoing re-review history. */
+.admin-next-page .catalog-sheet-provenance {grid-column:1/-1;min-width:0;background:var(--sy-control);border:1px solid var(--sy-line);border-radius:10px;padding:12px;font-size:11px;line-height:1.6;overflow-wrap:anywhere;}
+.admin-next-page .catalog-sheet-provenance strong {display:block;font-size:12px;margin-bottom:6px;}
+.admin-next-page .catalog-sheet-provenance p {margin:3px 0;overflow-wrap:anywhere;}
+.admin-next-page .catalog-sheet-provenance-path {color:var(--sy-text-secondary);}
+.admin-next-page .catalog-sheet-review-meta [data-review-meta] {width:100%;box-sizing:border-box;}

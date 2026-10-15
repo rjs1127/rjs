@@ -8,6 +8,25 @@ import { catalogPublicSources } from '../../_catalog_cp.js';
 import { ensureWorkCatalogSchema, catalogFields, catalogError, allCatalogWork } from '../../_work_catalog.js';
 
 const RELEVANT = ['synopsis','genres','tags','recommendation'];
+// Extra review-only fields are never approved into catalog_works.
+const REVIEW_META = Object.freeze({
+  original_number:30,original_filename:420,original_path:1600,
+  original_sha256:64,duplicate_note:500,analysis_scope:160,
+  summary_progress:120,recheck_log:8000
+});
+function reviewMetadata(input,previous={}){
+  const result={};
+  for(const [name,max] of Object.entries(REVIEW_META)){
+    const source=Object.prototype.hasOwnProperty.call(input||{},name)?input[name]:previous?.[name];
+    if(source===undefined||source===null)continue;
+    const value=text(source);
+    if(value.length>max)throw catalogError(`${name} 검수 참고정보가 ${max}자를 초과했습니다.`);
+    if(name==='original_sha256'&&value&&!/^[a-f0-9]{64}$/i.test(value))
+      throw catalogError('원본 파일 식별자(SHA-256)가 올바르지 않습니다.');
+    result[name]=value;
+  }
+  return result;
+}
 const respond = (data,code=200) => jsonResponse(data,code,{'cache-control':'no-store'});
 const errorReply = error => respond({error:error?.message||'작품도감 엑셀 관리 요청에 실패했습니다.'},error?.status||500);
 const text = value => String(value??'').trim();
@@ -41,7 +60,7 @@ function sourceKey(item){
     throw catalogError('원본 유형 또는 ID가 올바르지 않습니다.');
   return {type,id};
 }
-function checkedDraft(item,source){
+function checkedDraft(item,source,previous={}){
   // Titles and authors are always grounded in today's public archive metadata.
   // Spreadsheet values cannot rename somebody else's source.
   if(!source)throw catalogError('사이트 공개 원본에서 찾을 수 없는 작품은 가져올 수 없습니다.',409);
@@ -55,10 +74,11 @@ function checkedDraft(item,source){
   const f=catalogFields(input);
   const reviewStatus=text(item.review_status).slice(0,60);
   const reviewNote=text(item.review_note);
-  if(reviewNote.length>700)throw catalogError('검수 메모는 700자 이내로 입력해 주세요.');
+  if(reviewNote.length>8000)throw catalogError('검수 메모는 8,000자 이내로 입력해 주세요.');
   return {title:f.title,author:f.author,
     synopsis:f.synopsis,genres:JSON.parse(f.genre_json),tags:JSON.parse(f.tags_json),
-    recommendation:f.recommendation,review_status:reviewStatus,review_note:reviewNote};
+    recommendation:f.recommendation,review_status:reviewStatus,review_note:reviewNote,
+    ...reviewMetadata(item,previous)};
 }
 function sameTitle(a,b){return text(a).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase()===text(b).normalize('NFKC').replace(/\s+/g,' ').toLocaleLowerCase();}
 function renderText(base,newPart){
@@ -139,10 +159,10 @@ export async function onRequestPost(context){
         const {type,id}=sourceKey(item),k=key(type,id);
         if(seen.has(k))throw catalogError('같은 원본 ID가 엑셀 배치 안에 중복돼 있습니다.');
         seen.add(k);
-        const value=checkedDraft(item,indexed.get(k));
-        const json=JSON.stringify(value);
         const existing=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
           .bind(type,id).first();
+        const value=checkedDraft(item,indexed.get(k),parse(existing?.draft_json,{}));
+        const json=JSON.stringify(value);
         if(existing?.draft_json===json){unchanged++;continue;}
         if(existing && limit(item.sheet_revision,1e9)!==Number(existing.sheet_revision))
           throw catalogError(`${value.title}: 엑셀 초안 버전이 오래됐습니다. 현재 관리 화면에서 최신 엑셀을 내보낸 후 수정해 주세요.`,409);
@@ -156,6 +176,41 @@ export async function onRequestPost(context){
       }
       if(jobs.length){const results=await db.batch(jobs);if(results.some(x=>x.meta?.changes!==1))throw catalogError('가져오기 저장을 검증할 수 없습니다.',409);}
       return respond({ok:true,changed:jobs.length,unchanged});
+    }
+    if(action==='seed_review_metadata'){
+      // Backfill missing review provenance ONLY. Never replace synopsis, review notes,
+      // a newer draft, approvals, or public catalog fields.
+      const input=body?.items;
+      if(!Array.isArray(input)||input.length<1||input.length>12)
+        throw catalogError('검수 참고정보 보충은 1~12행씩 진행합니다.');
+      let changed=0,unchanged=0;
+      const used=new Set(),jobs=[];
+      for(const item of input){
+        const {type,id}=sourceKey(item),k=key(type,id);
+        if(used.has(k))throw catalogError('중복 원본 ID가 있습니다.');
+        used.add(k);
+        const existing=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
+          .bind(type,id).first();
+        if(!existing)throw catalogError('검수함에 없는 원본입니다. 일반 엑셀 가져오기를 먼저 진행해 주세요.',409);
+        const old=parse(existing.draft_json,{});
+        const candidates=reviewMetadata(item);
+        const updates={};
+        for(const [name,val] of Object.entries(candidates)){
+          if(val&&!text(old[name]))updates[name]=val;
+        }
+        if(!Object.keys(updates).length){unchanged++;continue;}
+        jobs.push(db.prepare(`UPDATE catalog_sheet_drafts SET draft_json=?,
+          sheet_revision=sheet_revision+1,updated_at=?
+          WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?`)
+          .bind(JSON.stringify({...old,...updates}),now,type,id,existing.sheet_revision,existing.draft_json));
+      }
+      if(jobs.length){
+        const results=await db.batch(jobs);
+        if(results.some(x=>x.meta?.changes!==1))
+          throw catalogError('동시 변경이 있어 참고정보 보충을 중단했습니다. 새로고침 후 다시 시도해 주세요.',409);
+        changed=jobs.length;
+      }
+      return respond({ok:true,changed,unchanged});
     }
     if(action==='save_draft'){
       // Edit one staged row in place. Never write to catalog_works or publish here.
@@ -171,7 +226,7 @@ export async function onRequestPost(context){
       const sources=await catalogPublicSources(context.env);
       const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const previous=parse(row.draft_json,{});
-      const edited=checkedDraft({...body.draft,title:previous.title,author:previous.author},source);
+      const edited=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
       const updated=JSON.stringify(edited);
       if(updated===row.draft_json)return respond({ok:true,changed:false,sheet_revision:revision});
       const result=await db.prepare(`UPDATE catalog_sheet_drafts SET

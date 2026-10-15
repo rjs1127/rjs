@@ -447,7 +447,10 @@
   const anchor=document.getElementById('catalogRefresh');
   if(!anchor)return;
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const columns=['source_type','source_id','작품명','작가','줄거리','장르','키워드','추천 대상','검수 상태','검수 메모','초안 버전','도감 작품 ID','도감 공개 상태','엑셀 승인 상태'];
+  const baseColumns=['source_type','source_id','작품명','작가','줄거리','장르','키워드','추천 대상','검수 상태','검수 메모','초안 버전','도감 작품 ID','도감 공개 상태','엑셀 승인 상태'];
+  const reviewFields=['original_number','original_filename','original_path','original_sha256','duplicate_note','analysis_scope','summary_progress','recheck_log'];
+  const reviewColumns=['원본 번호','원본 파일명','원본 경로','원본 식별자','중복 참고','분석 범위','요약 진행 상태','재검수 기록'];
+  const columns=[...baseColumns,...reviewColumns];
   const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상'};
   const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0,lastFocus:null};
   const panel=anchor.closest('.catalog-admin-panel');
@@ -472,12 +475,14 @@
     <div id="catalogSheetStats" class="catalog-sheet-stats" aria-label="검수함 현황"></div>
     <div class="catalog-sheet-toolbar"><label class="catalog-sheet-upload" for="catalogSheetFile"><span>엑셀 가져오기</span>
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
+      <label class="catalog-sheet-upload" for="catalogSheetSeedFile"><span>기존 검수기록 보충</span>
+        <input id="catalogSheetSeedFile" type="file" accept=".xlsx" aria-label="기존 검수 참고정보 보충 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
       <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button></div>
     <p id="catalogSheetStatus" role="status" aria-live="polite" class="catalog-sheet-status muted"></p>
     <div class="catalog-sheet-directory">
       <div class="catalog-sheet-directory-head"><div><h4>작품 검수 목록</h4><p class="muted" id="catalogSheetResultCount">검색 및 필터로 작품을 찾을 수 있어요.</p></div></div>
-      <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명 또는 작가 검색" aria-label="엑셀 검수 작품 검색">
+      <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명·작가·검수 메모 검색" aria-label="엑셀 검수 작품 및 검수 메모 검색">
         <select id="catalogSheetFilter" aria-label="도감 승인 상태"><option value="pending">승인 대기</option><option value="all">전체 승인 상태</option><option value="approved">승인됨</option></select>
         <select id="catalogSheetReviewFilter" aria-label="엑셀 원고 검수 상태"><option value="all">전체 검수 상태</option><option value="검수 필요">검수 필요</option><option value="초안">초안</option><option value="검수 완료">검수 완료</option></select>
         <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select></div>
@@ -532,7 +537,7 @@
     const all=state.items.filter(item=>(filter==='all'||item.review_state===filter)&&
       (reviewFilter==='all'||normalize(item.draft.review_status)===reviewFilter)&&
       (linkFilter==='all'||(Boolean(item.work_id)===(linkFilter==='linked')))&&
-      (!q||`${item.draft.title} ${item.draft.author}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
+      (!q||`${item.draft.title} ${item.draft.author} ${item.draft.review_note||''} ${item.draft.duplicate_note||''} ${item.draft.analysis_scope||''} ${item.draft.recheck_log||''}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
     const total=state.items.length;
     const pending=state.items.filter(item=>item.review_state!=='approved').length;
     const approved=state.items.filter(item=>item.review_state==='approved').length;
@@ -565,15 +570,33 @@
   function colName(i){let s='';for(i++;i;i=Math.floor((i-1)/26))s=String.fromCharCode(65+(i-1)%26)+s;return s;}
   function makeWorkbook(rows){
     const ns='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
-    const rowXml=[columns,...rows].map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>
-      `<c r="${colName(j)}${i+1}" t="inlineStr" s="${i?0:1}"><is><t xml:space="preserve">${xlsxXml(v??'')}</t></is></c>`).join('')}</row>`).join('');
+    const sheetXml=(table,headers,widths,filterStart=1)=>{
+      const items=[headers,...table];
+      const rowXml=items.map((row,i)=>`<row r="${i+1}">${row.map((v,j)=>
+        `<c r="${colName(j)}${i+1}" t="inlineStr" s="${i?0:1}"><is><t xml:space="preserve">${xlsxXml(v??'')}</t></is></c>`).join('')}</row>`).join('');
+      return `<?xml version="1.0"?><worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${widths.map((v,i)=>`<col min="${i+1}" max="${i+1}" width="${v}" customWidth="1"/>`).join('')}</cols><sheetData>${rowXml}</sheetData><autoFilter ref="A${filterStart}:${colName(headers.length-1)}${items.length}"/></worksheet>`;
+    };
+    const widths=[15,34,25,16,60,34,40,40,16,30,14,35,18,18,14,40,50,52,32,22,20,48];
+    const counts=arr=>arr.reduce((map,v)=>(map[v]=(map[v]||0)+1,map),{});
+    const statuses=counts(rows.map(row=>String(row[8]||'미검수')));
+    const scopes=counts(rows.map(row=>String(row[19]||'미기록')));
+    const summary=[['전체 작품',rows.length,'도감_관리 시트가 유일한 수정·재가져오기 기준입니다.'],
+      ...Object.entries(statuses).map(([label,count])=>['검수 상태 · '+label,count,'']),
+      ...Object.entries(scopes).map(([label,count])=>['분석 범위 · '+label,count,'']),
+      ['도감 연결됨',rows.filter(row=>Boolean(row[11])).length,''],
+      ['도감 미등록',rows.filter(row=>!row[11]).length,''],
+      ['엑셀 승인됨',rows.filter(row=>row[13]==='approved').length,'']];
+    const needed=rows.filter(row=>row[8]==='검수 필요');
+    const helpRows=needed.map(row=>[row[2],row[3],row[8],row[9],row[19],row[20],row[21],row[1]]);
     const zip=new JSZip();
-    zip.file('[Content_Types].xml',`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
+    zip.file('[Content_Types].xml',`<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet2.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/worksheets/sheet3.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`);
     zip.file('_rels/.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>');
-    zip.file('xl/workbook.xml',`<?xml version="1.0"?><workbook xmlns="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="도감_관리" sheetId="1" r:id="rId1"/></sheets></workbook>`);
-    zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+    zip.file('xl/workbook.xml',`<?xml version="1.0"?><workbook xmlns="${ns}" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="도감_관리" sheetId="1" r:id="rId1"/><sheet name="검수필요_참고" sheetId="2" r:id="rId2"/><sheet name="진행현황_참고" sheetId="3" r:id="rId3"/></sheets></workbook>`);
+    zip.file('xl/_rels/workbook.xml.rels','<?xml version="1.0"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet2.xml"/><Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet3.xml"/><Relationship Id="rId4" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
     zip.file('xl/styles.xml',`<?xml version="1.0"?><styleSheet xmlns="${ns}"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FF254D4F"/></patternFill></fill></fills><borders count="1"><border/></borders><cellStyleXfs count="1"><xf/></cellStyleXfs><cellXfs count="2"><xf fontId="0" fillId="0" borderId="0" xfId="0"/><xf fontId="1" fillId="2" borderId="0" xfId="0" applyFont="1" applyFill="1"/></cellXfs></styleSheet>`);
-    zip.file('xl/worksheets/sheet1.xml',`<?xml version="1.0"?><worksheet xmlns="${ns}"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${columns.map((_,i)=>`<col min="${i+1}" max="${i+1}" width="${[15,34,25,16,60,34,40,40,16,30,14,35,18,18][i]}" customWidth="1"/>`).join('')}</cols><sheetData>${rowXml}</sheetData><autoFilter ref="A1:N${rows.length+1}"/></worksheet>`);
+    zip.file('xl/worksheets/sheet1.xml',sheetXml(rows,columns,widths));
+    zip.file('xl/worksheets/sheet2.xml',sheetXml(helpRows,['작품명','작가','검수 상태','검수 메모','분석 범위','요약 진행 상태','재검수 기록','사이트 원본 ID'],[27,20,18,65,24,19,65,36]));
+    zip.file('xl/worksheets/sheet3.xml',sheetXml(summary,['항목','수량','안내'],[36,18,74]));
     return zip.generateAsync({type:'blob',compression:'DEFLATE'});
   }
   const readXml = xml => {
@@ -607,7 +630,10 @@
       output.push(cols);
     }
     const head=output.shift()||[];
-    if(columns.some((c,i)=>String(head[i]||'').trim()!==c))throw Error('엑셀 양식 또는 열 순서가 다릅니다. 관리 도감 내보내기 파일을 사용해 주세요.');
+    if(baseColumns.some((c,i)=>String(head[i]||'').trim()!==c))throw Error('엑셀 양식 또는 열 순서가 다릅니다. 검수함 내보내기 파일을 사용해 주세요.');
+    const extrasPresent=reviewColumns.every((c,i)=>String(head[baseColumns.length+i]||'').trim()===c);
+    const anyExtra=reviewColumns.some((_,i)=>String(head[baseColumns.length+i]||'').trim());
+    if(anyExtra&&!extrasPresent)throw Error('재검수 참고정보 열이 일부 누락되거나 순서가 바뀌었습니다.');
     const entries=[],seen=new Set();
     for(const [i,row] of output.entries()){
       if(row.every(v=>!String(v||'').trim()))continue;
@@ -617,9 +643,11 @@
       entries.push({source_type:type,source_id:id,title:normalize(row[2]),author:normalize(row[3]),
         synopsis:String(row[4]||''),genres:genreTokens(row[5]),tags:tagTokens(row[6]),
         recommendation:String(row[7]||''),review_status:String(row[8]||''),review_note:String(row[9]||''),
-        sheet_revision:Number(row[10]||1)});
+        sheet_revision:Number(row[10]||1),
+        ...(extrasPresent?Object.fromEntries(reviewFields.map((field,j)=>[field,String(row[baseColumns.length+j]||'')])):{})});
     }
     if(!entries.length||entries.length>1000)throw Error('가져올 엑셀은 1~1,000행이어야 합니다.');
+    entries.hasReviewMetadata=extrasPresent;
     return entries;
   }
   async function importExcel(file){
@@ -630,12 +658,12 @@
       const current=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
       const stale=entries.filter(x=>{const old=current.get(sourceKey(x.source_type,x.source_id));
         return old&&Number(old.sheet_revision)!==Number(x.sheet_revision)&&
-          ['synopsis','genres','tags','recommendation','review_status','review_note'].some(f=>JSON.stringify(x[f])!==JSON.stringify(old.draft[f]));
+          [...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields].some(f=>x[f]!==undefined&&JSON.stringify(x[f])!==JSON.stringify(old.draft[f]??''));
       });
       if(stale.length)throw Error(`이전 버전 엑셀 데이터 ${stale.length}행이 발견됐습니다. 최신 검수함을 내보내서 다시 수정해 주세요.`);
       const changes=entries.filter(x=>{
         const old=current.get(sourceKey(x.source_type,x.source_id));
-        return !old||['synopsis','genres','tags','recommendation','review_status','review_note'].some(f=>JSON.stringify(x[f])!==JSON.stringify(old.draft[f]));
+        return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields].some(f=>x[f]!==undefined&&JSON.stringify(x[f])!==JSON.stringify(old.draft[f]??''));
       });
       if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
       if(!confirm(`${entries.length}행을 확인했습니다. 이 중 변경 후보 ${changes.length}행을 비공개 검수함에 저장할까요?\n\n기존 공개 작품과 이미 승인한 정보는 이 과정에서 변경되지 않습니다.`))return;
@@ -650,6 +678,32 @@
     }catch(error){status(`가져오기 중단: ${error.message}. 완료된 배치는 검수함에 남고 공개 데이터는 변경되지 않습니다.`,true);}
     finally{state.loading=false;$('catalogSheetFile').value='';}
   }
+  async function seedReviewMetadata(file){
+    if(state.loading)return;
+    state.loading=true;status('기존 재검수 참고정보를 확인하는 중…');
+    try{
+      const entries=await parseWorkbook(file);
+      if(!entries.hasReviewMetadata)throw Error('재검수 참고정보 8개 열이 포함된 최신 양식이 필요합니다.');
+      const existing=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
+      const missing=entries.filter(x=>!existing.has(sourceKey(x.source_type,x.source_id)));
+      if(missing.length)throw Error(`검수함에 아직 등록되지 않은 원본 ${missing.length}건이 있습니다. 일반 가져오기를 먼저 진행해 주세요.`);
+      const additions=entries.reduce((acc,x)=>{
+        const prev=existing.get(sourceKey(x.source_type,x.source_id)).draft;
+        return acc+(reviewFields.some(f=>x[f]&&!prev[f])?1:0);
+      },0);
+      if(!additions){status('보충할 검수 참고정보가 없습니다. 기존 데이터는 그대로 유지됩니다.');return;}
+      if(!confirm(`${entries.length}편 중 ${additions}편에 누락된 검수 참고정보를 보충할까요?\n줄거리·검수 메모·상태·승인 결과 및 공개 도감 내용은 변경하지 않습니다.`))return;
+      let changed=0;
+      for(let i=0;i<entries.length;i+=12){
+        status(`검수 참고정보 보충 중… ${Math.min(i+12,entries.length)} / ${entries.length}편`);
+        const out=await api({action:'seed_review_metadata',items:entries.slice(i,i+12)});
+        changed+=out.changed||0;
+      }
+      await reload(true);
+      status(`기존 검수 참고정보 ${changed}편 보충 완료. 줄거리·메모·공개/승인 상태는 유지됐습니다.`);
+    }catch(error){status(`참고정보 보충 중단: ${error.message}. 이미 완료된 보충만 남습니다.`,true);}
+    finally{state.loading=false;$('catalogSheetSeedFile').value='';}
+  }
   async function exportExcel(){
     if(state.loading)return;
     state.loading=true;status('엑셀 내보내기 생성 중…');
@@ -659,7 +713,8 @@
       const rows=items.map(item=>[item.source_type,item.source_id,item.draft.title,item.draft.author,
         item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(' · '),
         (item.draft.tags||[]).join(' · '),item.draft.recommendation,item.draft.review_status,item.draft.review_note,
-        item.sheet_revision,item.work_id||'',item.work_status||'',item.review_state]);
+        item.sheet_revision,item.work_id||'',item.work_status||'',item.review_state,
+        ...reviewFields.map(f=>item.draft[f]||'')]);
       download(`RRR_작품도감_엑셀검수함_${new Date().toISOString().slice(0,10)}.xlsx`,await makeWorkbook(rows));
       status(`${rows.length}편의 엑셀 검수함을 내보냈습니다. 원본 ID 열은 수정하지 마세요.`);
     }catch(e){status(e.message,true);}finally{state.loading=false;}
@@ -676,13 +731,17 @@
     }
     edited.review_status=area.querySelector('#catalogSheetReviewStatus')?.value||'';
     edited.review_note=area.querySelector('#catalogSheetReviewNote')?.value.trim()||'';
+    for(const field of ['duplicate_note','analysis_scope','summary_progress','recheck_log']){
+      const el=area.querySelector(`[data-review-meta="${field}"]`);
+      if(el)edited[field]=el.value.trim();
+    }
     return edited;
   }
   function isDraftDirty(){
     const previous=state.current?.item?.draft;
     if(!previous)return false;
     const edited=readDraftEditor();
-    return ['synopsis','genres','tags','recommendation','review_status','review_note']
+    return ['synopsis','genres','tags','recommendation','review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log']
       .some(field=>JSON.stringify(edited[field])!==JSON.stringify(previous[field]??(Array.isArray(edited[field])?[]:'')));
   }
   function refreshDraftButtons(){
@@ -723,7 +782,15 @@
         ${collision?'⚠ 같은 제목·작가의 미연결 도감 작품이 있습니다. 원본 연결을 먼저 확인해 주세요.':''}</p>
         <div class="catalog-sheet-diff-grid">${rows}</div>
         <div class="catalog-sheet-review-meta"><label>원고 검수 상태<select id="catalogSheetReviewStatus">${reviewStatuses.map(value=>`<option value="${escape(value)}" ${value===currentStatus?'selected':''}>${escape(value)}</option>`).join('')}</select></label>
-        <label>검수 메모<textarea id="catalogSheetReviewNote" rows="3" maxlength="700">${escape(item.draft.review_note||'')}</textarea></label></div>
+        <label>검수 메모<textarea id="catalogSheetReviewNote" rows="4" maxlength="8000">${escape(item.draft.review_note||'')}</textarea></label>
+        <div class="catalog-sheet-provenance"><strong>원본·재검수 참고정보</strong><p>${escape(item.draft.original_filename||'원본 파일명 미보충')}</p>
+        <p>원본 번호: ${escape(item.draft.original_number||'—')} · 식별자: ${escape(item.draft.original_sha256||'—')}</p>
+        <p class="catalog-sheet-provenance-path">${escape(item.draft.original_path||'원본 경로 미보충')}</p></div>
+        <label>중복 참고<textarea data-review-meta="duplicate_note" rows="2" maxlength="500">${escape(item.draft.duplicate_note||'')}</textarea></label>
+        <label>분석 범위<input data-review-meta="analysis_scope" maxlength="160" value="${escape(item.draft.analysis_scope||'')}"></label>
+        <label>요약 진행 상태<input data-review-meta="summary_progress" maxlength="120" value="${escape(item.draft.summary_progress||'')}"></label>
+        <label>재검수 기록 (날짜별로 이어서 추가)<textarea data-review-meta="recheck_log" rows="4" maxlength="8000" placeholder="예: 2026-10-15 · 원문 후반부 재확인, 인물 관계 수정 근거 등">${escape(item.draft.recheck_log||'')}</textarea></label>
+      </div>
         <p id="catalogSheetEditHint" class="catalog-sheet-edit-hint">검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.</p>
         <p id="catalogSheetModalStatus" class="catalog-sheet-modal-status" role="status" aria-live="polite"></p>
         <label class="catalog-sheet-publish"><input type="checkbox" id="catalogSheetPublish" ${(!work||work.status==='published')?'checked':''}> ${work?'승인하면서 비공개 작품인 경우 공개 전환':'신규 작품을 승인하고 공개 등록'}</label>
@@ -782,6 +849,7 @@
     finally{state.loading=false;}
   }
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
+  $('catalogSheetSeedFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void seedReviewMetadata(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
   $('catalogSheetReload').addEventListener('click',()=>void reload());
   $('catalogSheetSearch').addEventListener('input',()=>{state.limit=50;displayList();});
@@ -804,8 +872,8 @@
       else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
     }
   });
-  $('catalogSheetReview').addEventListener('input',event=>{if(event.target.matches('[data-sheet-edit],#catalogSheetReviewNote'))refreshDraftButtons();});
-  $('catalogSheetReview').addEventListener('change',event=>{if(event.target.matches('[data-sheet-edit],#catalogSheetReviewStatus'))refreshDraftButtons();});
+  $('catalogSheetReview').addEventListener('input',event=>{if(event.target.matches('[data-sheet-edit],[data-review-meta],#catalogSheetReviewNote'))refreshDraftButtons();});
+  $('catalogSheetReview').addEventListener('change',event=>{if(event.target.matches('[data-sheet-edit],[data-review-meta],#catalogSheetReviewStatus'))refreshDraftButtons();});
   $('catalogSheetReview').addEventListener('click',event=>{
     if(event.target===$('catalogSheetReview')||event.target.closest('[data-sheet-close]'))closeReview();
     else if(event.target.closest('#catalogSheetSave'))void saveDraft();
