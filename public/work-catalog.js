@@ -566,7 +566,7 @@
     const current=operation==='tag_add'?arr(data.currentWork?.tags):operation==='genre_add'?arr(data.currentWork?.genres):[];
     const context=correction?`${removing?'삭제':'수정'} 대상: ${editOld}`:
       operation==='recommendation_add'?`이미 등록된 추천 문구 ${recommendationLines(data.currentWork?.recommendation).length}개`:
-      current.length?`현재 등록된 ${operation==='tag_add'?'키워드':'장르'}: ${current.slice(0,8).map(v=>(operation==='tag_add'?'#':'')+v).join(' · ')}${current.length>8?' 외':''}`:'';
+      current.length?`현재 등록된 ${operation==='tag_add'?'키워드':'장르'}: ${current.slice(0,8).map(v=>(operation==='tag_add'?'#':'')+v).join(', ')}${current.length>8?' 외':''}`:'';
     const contextEl=$('wcEditExistingInfo');contextEl.hidden=!context;contextEl.textContent=context;
     $('wcEditBatchHint').textContent=['tag_add','genre_add'].includes(operation)?'입력 후 Enter 또는 추가를 눌러 주세요.':'문구를 입력하고 목록에 추가해 주세요.';
     editor.querySelectorAll('[data-wc-edit-choice]').forEach(button=>{

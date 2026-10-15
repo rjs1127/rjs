@@ -521,8 +521,8 @@
   const status=(s,error=false)=>{const el=$('catalogSheetStatus');el.textContent=s;el.style.color=error?'var(--sy-danger)':'';};
   const sourceKey=(a,b)=>`${a}\u0000${b}`;
   const normalize=t=>String(t||'').normalize('NFKC').trim();
-  const genreTokens=s=>String(s||'').split('·').map(normalize).filter(x=>x&&x.toUpperCase()!=='BL');
-  const tagTokens=s=>String(s||'').split('·').map(normalize).filter(Boolean);
+  const genreTokens=s=>String(s||'').split(/[,，·]/).map(normalize).filter(x=>x&&x.toUpperCase()!=='BL');
+  const tagTokens=s=>String(s||'').split(/[,，·]/).map(normalize).filter(Boolean);
   const importDifferent=(incoming,current,field)=>JSON.stringify(field==='adult_scene_status'?(incoming||'미확인'):(incoming??''))!==
     JSON.stringify(field==='adult_scene_status'?(current||'미확인'):(current??''));
   function download(name,blob){const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -727,8 +727,8 @@
       if(pending&&!confirm(`새 재검수 비교 대기 ${pending}편은 아직 병합되지 않아 이번 엑셀 내보내기에 포함되지 않습니다.\n계속 내보낼까요?`))return;
       if(!window.JSZip)throw Error('엑셀 라이브러리를 불러오지 못했습니다.');
       const rows=items.map(item=>[item.source_type,item.source_id,item.draft.title,item.draft.author,
-        item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(' · '),
-        (item.draft.tags||[]).join(' · '),item.draft.recommendation,item.draft.review_status,item.draft.review_note,
+        item.draft.synopsis,(item.draft.genres||[]).filter(v=>normalize(v).toUpperCase()!=='BL').join(', '),
+        (item.draft.tags||[]).join(', '),item.draft.recommendation,item.draft.review_status,item.draft.review_note,
         item.sheet_revision,item.work_id||'',item.work_status||'',item.review_state,
         ...reviewFields.map(f=>item.draft[f]||''),
         item.draft.adult_scene_status||'미확인',item.draft.adult_scene_note||'',
@@ -739,7 +739,7 @@
     }catch(e){status(e.message,true);}finally{state.loading=false;}
   }
   const editableFields=['synopsis','genres','tags','recommendation'];
-  const displayDraftField=value=>Array.isArray(value)?value.join(' · '):String(value??'');
+  const displayDraftField=value=>Array.isArray(value)?value.join(', '):String(value??'');
   function readDraftEditor(){
     const area=$('catalogSheetReview');
     const previous=state.current?.item?.draft||{};
@@ -804,7 +804,7 @@
         return `<div class="catalog-sheet-diff"><label class="catalog-sheet-diff-title"><input type="checkbox" name="sheetField" value="${field}" ${displayDraftField(staged)?'checked':''}> ${label} 승인</label>
           <div><em>현재 공개 데이터</em><pre>${escape(displayDraftField(current)||'—')}</pre>${approved!==undefined?`<small class="catalog-sheet-approved-source">마지막 엑셀 승인분: ${escape(displayDraftField(approved)||'(빈 값)')}</small>`:''}</div>
           <label class="catalog-sheet-edit-column"><em>엑셀 검수 초안 · 직접 수정 가능</em><textarea data-sheet-edit="${field}" rows="${listType?2:5}" maxlength="${lengthLimit}" spellcheck="false" aria-label="${label} 검수 초안 수정">${escape(displayDraftField(staged))}</textarea>
-          ${listType?'<small>여러 항목은 · 기호로 구분하세요. BL 장르는 자동 제외됩니다.</small>':''}</label></div>`;
+          ${listType?'<small>여러 항목은 쉼표(,)로 구분하세요. 예: 현대물, 재회, 성장. 기존 · 구분도 입력할 수 있습니다. BL 장르는 자동 제외됩니다.</small>':''}</label></div>`;
       }).join('');
       // Imported Work revisions are kept separately until explicitly reconciled.
       const allFields=[...editableFields,'review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields];
