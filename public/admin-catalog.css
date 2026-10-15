@@ -319,3 +319,10 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 /* v10.89: show partial approvals distinctly and keep one-click flow accessible. */
 .admin-next-page .catalog-sheet-pill.is-partial {color:#92601b;border-color:rgba(186,123,38,.28);background:rgba(186,123,38,.10);}
 .admin-next-page #catalogSheetQuickApprove {background:var(--sy-accent);color:#fff;}
+
+/* v10.95 read-only quote / catalog linkage audit */
+.catalog-quote-audit{margin:12px 0;padding:14px;border:1px solid var(--sy-border, #ccc);border-radius:12px;background:var(--sy-surface, var(--sy-card, #fff));color:var(--sy-text, inherit);}
+.catalog-quote-audit-list{display:grid;gap:10px;max-height:460px;overflow:auto;overscroll-behavior:contain;}
+.catalog-quote-audit-item{padding:12px;border:1px solid var(--sy-border, #ddd);border-radius:10px;overflow-wrap:anywhere;}
+.catalog-quote-audit-item p{margin:6px 0;font-size:.88rem;}
+.catalog-quote-audit-item code{overflow-wrap:anywhere;white-space:normal;}

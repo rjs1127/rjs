@@ -480,7 +480,9 @@
     <div class="catalog-sheet-toolbar"><label class="catalog-sheet-upload" for="catalogSheetFile"><span>엑셀 가져오기</span>
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
-      <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button></div>
+      <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button>
+      <button id="catalogQuoteAuditButton" type="button" class="secondary-admin-button">문장피드 연결 점검</button></div>
+    <section id="catalogQuoteAuditPanel" class="catalog-quote-audit" hidden aria-label="문장피드 미연결 작품 점검"></section>
     <p id="catalogSheetStatus" role="status" aria-live="polite" class="catalog-sheet-status muted"></p>
     <div class="catalog-sheet-directory">
       <div class="catalog-sheet-directory-head"><div><h4>작품 검수 목록</h4><p class="muted" id="catalogSheetResultCount">검색 및 필터로 작품을 찾을 수 있어요.</p></div></div>
@@ -1004,6 +1006,30 @@
     }catch(e){modalMessage(e.message,true);b.disabled=false;}
     finally{state.loading=false;}
   }
+  // Read-only mismatch audit; do not modify either the quote feed or the catalog.
+  $('catalogQuoteAuditButton').addEventListener('click',async()=>{
+    const panel=$('catalogQuoteAuditPanel');
+    if(!panel.hidden){panel.hidden=true;return;}
+    panel.hidden=false;panel.textContent='공개 문장과 작품도감의 원본 연결을 점검하는 중…';
+    const button=$('catalogQuoteAuditButton');button.disabled=true;
+    try{
+      const response=await fetch('/api/admin/catalog-quote-audit',{credentials:'same-origin',cache:'no-store'});
+      const data=await response.json();
+      if(!response.ok||!data.ok)throw Error(data.error||`HTTP ${response.status}`);
+      const items=Array.isArray(data.items)?data.items:[];
+      panel.innerHTML=`<h4>문장피드 연결 점검</h4>
+        <p class="muted">공개 문장 원본 ID를 기준으로 확인한 미연결 항목만 표시합니다. 이 화면은 데이터 변경을 하지 않습니다.</p>
+        <p><strong>${Number(data.unmatched_groups||0)}개 그룹 · 공개 문장 ${Number(data.unmatched_quote_count||0)}개</strong> 연결 확인 필요</p>
+        ${items.length?`<div class="catalog-quote-audit-list">${items.map(item=>`<article class="catalog-quote-audit-item">
+          <strong>${escape(item.feed_title||'제목 없음')}</strong> <small>${escape(item.feed_author||'작가 미상')}</small>
+          <p>${escape(item.reason)} · 공개 문장 ${Number(item.quote_count)||0}개${item.private_id_differs?' · 개인 저장 원본 ID 불일치':''}</p>
+          <p class="muted">공개 문장 원본 ID: <code>${escape(item.public_source_id||'(없음)')}</code></p>
+          ${item.private_id_differs?`<p class="muted">개인 저장 원본 ID: <code>${escape(item.private_source_id||'(없음)')}</code></p>`:''}
+          <p class="muted">${item.candidates?.length?'제목 기준 도감 후보(자동 연결 아님): '+item.candidates.map(c=>`${escape(c.title)} / ${escape(c.author)} [${escape(c.status)}] · ${escape(c.source_id||'원본 미연결')}`).join(' | '):'제목이 일치하는 도감 후보 없음'}${item.more_candidates?' · 후보 일부만 표시':''}</p>
+        </article>`).join('')}</div>`:'<p>공개 문장과 공개 작품도감 간 원본 ID 미연결 항목이 없습니다.</p>'}`;
+    }catch(error){panel.textContent=`연결 점검 실패: ${error.message}`;}
+    finally{button.disabled=false;}
+  });
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
   $('catalogSheetReload').addEventListener('click',()=>void reload());

@@ -1,3 +1,12 @@
+## v10.95 — 공개 문장과 작품도감 연결 진단
+
+- API: `GET /api/admin/catalog-quote-audit` (관리자 인증 필수, 읽기 전용, no-store).
+- UI: `public/admin-catalog.js` 검수함 내부 `문장피드 연결 점검` 버튼.
+- `shared_quotes.work_id`와 `catalog_source_links.source_id`, `catalog_works.status='published'`를 기준으로 진단.
+- 참고 후보는 제목을 정규화해 찾되 연결 판정에는 사용하지 않으며 관리자 승인 없이 어떤 DB도 쓰지 않습니다.
+- API는 문장 텍스트·공유 사용자 식별자·좋아요 정보를 반환하지 않습니다.
+- 이전 버전 위의 증분 패치이며 다른 소스는 수정하지 않습니다.
+
 ## v10.94 — 사용자 필터 표기 정규화 (2026-10-15)
 
 - 장르 더보기를 오른쪽으로 이동하고 여백을 확보합니다.
