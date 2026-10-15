@@ -219,3 +219,21 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
   .admin-next-page .catalog-sheet-approve-actions button {width:100%;}
 }
 @media(prefers-reduced-motion:reduce){.admin-next-page .catalog-manager-tab,.admin-next-page .catalog-sheet-row {transition:none;}}
+
+/* v10.82: staged editing before approval, with clear private/public separation. */
+.admin-next-page .catalog-sheet-edit-column {display:grid;min-width:0;gap:6px;cursor:text;}
+.admin-next-page .catalog-sheet-edit-column :is(textarea),.admin-next-page .catalog-sheet-review-meta :is(textarea,select) {width:100%;box-sizing:border-box;resize:vertical;min-height:44px;background:var(--sy-surface);color:var(--sy-text);border:1px solid var(--sy-line);border-radius:9px;font:inherit;font-size:12px;line-height:1.7;padding:10px;}
+.admin-next-page .catalog-sheet-edit-column :is(textarea):focus-visible,.admin-next-page .catalog-sheet-review-meta :is(textarea,select):focus-visible {outline:2px solid var(--sy-accent);outline-offset:1px;}
+.admin-next-page .catalog-sheet-edit-column small {font-size:10px;line-height:1.5;color:var(--sy-text-secondary);}
+.admin-next-page .catalog-sheet-review-meta {display:grid;grid-template-columns:minmax(145px,.8fr) minmax(0,2fr);gap:12px;padding:15px;margin-top:12px;border:1px solid var(--sy-line);border-radius:12px;}
+.admin-next-page .catalog-sheet-review-meta>label {display:grid;align-content:start;gap:8px;font-size:11px;font-weight:750;color:var(--sy-text-secondary);min-width:0;}
+.admin-next-page .catalog-sheet-edit-hint {margin:13px 0 4px;font-size:11px;line-height:1.6;color:var(--sy-text-secondary);}
+.admin-next-page .catalog-sheet-modal-status {min-height:17px;font-size:12px;line-height:1.6;margin:4px 0 8px;color:var(--sy-accent);}
+.admin-next-page .catalog-sheet-approve-actions {gap:10px;flex-wrap:wrap;}
+.admin-next-page .catalog-sheet-approve-actions button {min-height:42px;}
+.admin-next-page .catalog-sheet-approve-actions .secondary-admin-button {border:1px solid var(--sy-line);background:var(--sy-control);color:var(--sy-text);}
+@media(max-width:600px) {
+ .admin-next-page .catalog-sheet-review-meta {grid-template-columns:1fr;}
+ .admin-next-page .catalog-sheet-approve-actions {display:grid;grid-template-columns:1fr;}
+ .admin-next-page .catalog-sheet-edit-column textarea {font-size:13px;}
+}

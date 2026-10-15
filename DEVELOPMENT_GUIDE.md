@@ -1,3 +1,13 @@
+# v10.82 — 엑셀 검수함 등록 연결 필터와 초안 수정·승인 분리
+
+- v10.81 기준 후속 패치. 변경파일은 `public/admin-catalog.js`, `public/admin-catalog.css`, `functions/api/admin/work-catalog-sheets.js`, `public/version.json`과 필수 문서들입니다. 원본 TXT·POSTYPE/독자 자료·도감 공개 DB 마이그레이션은 하지 않습니다.
+- `catalog_sheet_drafts` 관리자 API `action:'save_draft'`: `source_type`, `source_id`, 현재 `sheet_revision`, `draft`의 줄거리·장르·태그·추천·검수상태·검수메모를 받아 원본 메타 검증 후 **비공개 초안 행만** `WHERE sheet_revision=? AND draft_json=?`으로 조건부 갱신합니다. 변경 시 revision+1 및 `review_state='pending'`으로 갱신하고 `applied_json`, 기존 `approved_work_id`는 남겨 두어 재승인 비교를 유지합니다. 401/403, 404, 409 등 기존 에러 규약을 그대로 사용합니다.
+- 관리자 팝업에 직접 편집 필드를 제공하며 `저장 전 승인 금지`, `변경 중 종료 경고`, `저장 후 최신 검수함 재조회`, `BL 제거`를 적용합니다. 공개 반영은 종전 `action:'approve'`를 호출하며 체크한 도감 필드에만 처리합니다. 원고 검수 상태와 메모는 공개 도감 승인 항목이 아닙니다.
+- 검수 목록 `도감 연결 여부`는 현재 실제 연결을 나타내는 `work_id`를 기준으로 검색/승인상태/원고검수상태 필터와 조합합니다. 링크 갱신은 백엔드 검수함 GET에서 다시 가져옵니다.
+- 이전 승인값을 바꾸는 일이 생겨도 기존 공개 데이터는 다음 승인까지 그대로 둡니다. 409 상황에서는 자동 병합/덮어쓰기/재시도를 하지 않고 관리자가 최신값을 확인하게 합니다. 엑셀 전체 업로드의 버전 검사 및 최신 XLSX 내보내기/재가져오기 계약 유지.
+- 공개 데이터 기존값 append/엑셀 부분 교체, 사용자 수정 충돌 차단은 v10.80 로직이므로 기존 기능을 재작성하지 않습니다. 변경된 문법은 `node --check`, 서버 API는 Node SQLite, 화면은 Chromium 모의 데이터로 검증하며 운영 Cloudflare D1 실제 쓰기 시험은 별도입니다.
+- HISTORY.md의 GitHub main 기반 자동 커밋 이력 생성 흐름 및 원본 파일 바이트를 그대로 유지합니다.
+
 # v10.81 — 작품도감 엑셀 검수함 탭 분리·목록 디자인 복구 (v10.80 후속 UI 패치)
 
 - **적용 기준: v10.80 배포 상태.** v10.80 ZIP이 누락했던 `public/admin-catalog.css`의 검수함 스타일을 포함하고, 관리자 작품 도감 안에 `등록 작품 목록` / `엑셀 검수함` 두 개의 내부 탭을 제공합니다.

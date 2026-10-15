@@ -157,6 +157,31 @@ export async function onRequestPost(context){
       if(jobs.length){const results=await db.batch(jobs);if(results.some(x=>x.meta?.changes!==1))throw catalogError('가져오기 저장을 검증할 수 없습니다.',409);}
       return respond({ok:true,changed:jobs.length,unchanged});
     }
+    if(action==='save_draft'){
+      // Edit one staged row in place. Never write to catalog_works or publish here.
+      const {type,id}=sourceKey(body);
+      const revision=limit(body.sheet_revision,1e9);
+      if(!revision||!body.draft||typeof body.draft!=='object'||Array.isArray(body.draft))
+        throw catalogError('저장할 검수 초안과 버전을 확인해 주세요.');
+      const row=await db.prepare('SELECT draft_json,sheet_revision FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
+        .bind(type,id).first();
+      if(!row)throw catalogError('엑셀 검수 초안이 없습니다.',404);
+      if(Number(row.sheet_revision)!==revision)
+        throw catalogError('다른 곳에서 초안이 변경됐습니다. 최신 검수함을 다시 열어 확인해 주세요.',409);
+      const sources=await catalogPublicSources(context.env);
+      const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
+      const previous=parse(row.draft_json,{});
+      const edited=checkedDraft({...body.draft,title:previous.title,author:previous.author},source);
+      const updated=JSON.stringify(edited);
+      if(updated===row.draft_json)return respond({ok:true,changed:false,sheet_revision:revision});
+      const result=await db.prepare(`UPDATE catalog_sheet_drafts SET
+        draft_json=?,sheet_revision=sheet_revision+1,review_state='pending',updated_at=?
+        WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?`)
+        .bind(updated,now,type,id,revision,row.draft_json).run();
+      if(result.meta?.changes!==1)
+        throw catalogError('초안이 동시에 수정됐습니다. 최신 버전을 다시 열어 주세요.',409);
+      return respond({ok:true,changed:true,sheet_revision:revision+1});
+    }
     if(action==='approve'){
       const {type,id}=sourceKey(body);
       const requested=body.fields;
