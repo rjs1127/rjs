@@ -478,8 +478,6 @@
     <div id="catalogSheetStats" class="catalog-sheet-stats" aria-label="검수함 현황"></div>
     <div class="catalog-sheet-toolbar"><label class="catalog-sheet-upload" for="catalogSheetFile"><span>엑셀 가져오기</span>
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
-      <label class="catalog-sheet-upload" for="catalogSheetSeedFile"><span>기존 검수기록 보충</span>
-        <input id="catalogSheetSeedFile" type="file" accept=".xlsx" aria-label="기존 검수 참고정보 보충 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
       <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button></div>
     <p id="catalogSheetStatus" role="status" aria-live="polite" class="catalog-sheet-status muted"></p>
@@ -695,48 +693,27 @@
         return !old||[...'synopsis,genres,tags,recommendation,review_status,review_note'.split(','),...reviewFields,...adultFields].some(f=>x[f]!==undefined&&importDifferent(x[f],old.draft[f],f));
       });
       if(!changes.length){status('변경된 엑셀 데이터가 없습니다.');return;}
-      // Validate the complete workbook in read-only batches before writing any row.
-      for(let i=0;i<entries.length;i+=12){
-        status(`재검수 엑셀 사전 점검 중… ${Math.min(i+12,entries.length)} / ${entries.length}행`);
-        await api({action:'preflight_import',items:entries.slice(i,i+12)});
+      // The unchanged 451+ rows were already compared locally against the current
+      // server snapshot. Only rows to be written need D1-level preflight; otherwise
+      // 459/12 sequential requests repeatedly enumerate all sources and can stall.
+      // Server revisions and pending incoming conflicts are still checked for every
+      // changed row before any write. Rechecked in import_batch to avoid races.
+      for(let i=0;i<changes.length;i+=12){
+        status(`재검수 엑셀 사전 점검 중… ${Math.min(i+12,changes.length)} / ${changes.length}개 변경 후보 (전체 ${entries.length}행 대조 완료)`);
+        await api({action:'preflight_import',items:changes.slice(i,i+12)});
       }
       if(!confirm(`${entries.length}행 확인 · 변경 후보 ${changes.length}행입니다.\n기존 행의 재검수 결과는 별도 비교 대기함에 저장되며 현재 관리자 초안과 공개 도감은 변경되지 않습니다.\n새 작품 행만 초안으로 생성합니다. 계속할까요?`))return;
       let changed=0,unchanged=0;
-      // Small bounded batches keep D1 writes and request payloads predictable.
-      for(let i=0;i<entries.length;i+=12){
-        status(`비공개 검수함 저장 중… ${Math.min(i+12,entries.length)} / ${entries.length}행`);
-        const result=await api({action:'import_batch',items:entries.slice(i,i+12)});
+      // Only changed rows are sent; unchanged workbook rows never need writes.
+      // The server validates the source identity, draft revision and pending state.
+      for(let i=0;i<changes.length;i+=12){
+        status(`비공개 검수함 저장 중… ${Math.min(i+12,changes.length)} / ${changes.length}개 변경 후보`);
+        const result=await api({action:'import_batch',items:changes.slice(i,i+12)});
         changed+=result.changed||0;unchanged+=result.unchanged||0;
       }
-      await reload(true);status(`가져오기 완료: 변경 후보 ${changed}행은 기존 초안 보존 후 비교 대기(신규 행은 비공개 등록) · 변경 없음 ${unchanged}행. 작품별 선택 병합과 공개 승인이 필요합니다.`);
+      await reload(true);status(`가져오기 완료: 변경 후보 ${changed}행은 기존 초안 보존 후 비교 대기(신규 행은 비공개 등록) · 원본 ${entries.length}행 중 ${entries.length-changed}행 변경 없음. 작품별 선택 병합과 공개 승인이 필요합니다.`);
     }catch(error){status(`가져오기 중단: ${error.message}. 완료된 배치는 검수함에 남고 공개 데이터는 변경되지 않습니다.`,true);}
     finally{state.loading=false;$('catalogSheetFile').value='';}
-  }
-  async function seedReviewMetadata(file){
-    if(state.loading)return;
-    state.loading=true;status('기존 재검수 참고정보를 확인하는 중…');
-    try{
-      const entries=await parseWorkbook(file);
-      if(!entries.hasReviewMetadata)throw Error('재검수 참고정보 8개 열이 포함된 최신 양식이 필요합니다.');
-      const existing=new Map(state.items.map(x=>[sourceKey(x.source_type,x.source_id),x]));
-      const missing=entries.filter(x=>!existing.has(sourceKey(x.source_type,x.source_id)));
-      if(missing.length)throw Error(`검수함에 아직 등록되지 않은 원본 ${missing.length}건이 있습니다. 일반 가져오기를 먼저 진행해 주세요.`);
-      const additions=entries.reduce((acc,x)=>{
-        const prev=existing.get(sourceKey(x.source_type,x.source_id)).draft;
-        return acc+(reviewFields.some(f=>x[f]&&!prev[f])?1:0);
-      },0);
-      if(!additions){status('보충할 검수 참고정보가 없습니다. 기존 데이터는 그대로 유지됩니다.');return;}
-      if(!confirm(`${entries.length}편 중 ${additions}편에 누락된 검수 참고정보를 보충할까요?\n줄거리·검수 메모·상태·승인 결과 및 공개 도감 내용은 변경하지 않습니다.`))return;
-      let changed=0;
-      for(let i=0;i<entries.length;i+=12){
-        status(`검수 참고정보 보충 중… ${Math.min(i+12,entries.length)} / ${entries.length}편`);
-        const out=await api({action:'seed_review_metadata',items:entries.slice(i,i+12)});
-        changed+=out.changed||0;
-      }
-      await reload(true);
-      status(`기존 검수 참고정보 ${changed}편 보충 완료. 줄거리·메모·공개/승인 상태는 유지됐습니다.`);
-    }catch(error){status(`참고정보 보충 중단: ${error.message}. 이미 완료된 보충만 남습니다.`,true);}
-    finally{state.loading=false;$('catalogSheetSeedFile').value='';}
   }
   async function exportExcel(){
     if(state.loading)return;
@@ -974,7 +951,6 @@
     finally{state.loading=false;}
   }
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
-  $('catalogSheetSeedFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void seedReviewMetadata(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
   $('catalogSheetReload').addEventListener('click',()=>void reload());
   $('catalogSheetSearch').addEventListener('input',()=>{state.limit=50;displayList();});

@@ -1022,3 +1022,9 @@
 - `html.user-design-next`는 기존 `style.css`/`theme.css`의 레거시 색상 변수(`--bg`, `--surface`, `--ink`, `--theme-*`)를 `--sy-*` 의미 토큰으로 연결한다.
 - 새 사용자 테마에서는 베이지/보라 등 직접 색상을 컴포넌트별로 추가하지 말고 `neutral/info/success/warning/danger`, source, offline, like 의미 토큰을 사용한다.
 - 사용자 테마 전환은 shell/components부터 진행하고 실제 reader body는 별도 단계에서 적용한다.
+
+
+## v10.87 엑셀 사전 점검 최적화 주의
+- XLSX 첫 시트의 모든 행은 브라우저에서 원본 ID/관리 버전/필드 비교 검증한 후, `changes`만 `preflight_import`와 `import_batch`에 전송한다.
+- 서버는 변경 후보 각각을 대상으로 여전히 `catalogPublicSources`, `checkedDraft`, 기존 버전, 대기 중인 incoming을 검증한다. 직접 서버 API 호출에는 기존 전체 검증이 그대로 적용된다.
+- 최초 보충 UI는 제거하지만 `seed_review_metadata` API와 테이블은 데이터 보존/복구 이유로 유지한다.
