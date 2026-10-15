@@ -7,7 +7,7 @@
   const refs = {
     browse: $('wcCatalogBrowser'), detail: $('wcCatalogDetail'),
     form: $('wcSearchForm'), query: $('wcSearchInput'), genres: $('wcGenreChoices'),
-    tags: $('wcTagChoices'), filter: $('wcFilterPanel'), filterToggle: $('wcFilterToggle'),
+    tags: $('wcTagChoices'), genreMore: $('wcGenreMore'), tagMore: $('wcTagMore'), filter: $('wcFilterPanel'), filterToggle: $('wcFilterToggle'),
     filterBadge: $('wcFilterBadge'), completion: $('wcCompletionFilter'),
     cp: $('wcCpFilter'), subcouple: $('wcSubcoupleFilter'), adultScene: $('wcAdultSceneFilter'), sort: $('wcSortSelect'),
     reset: $('wcResetFilters'), active: $('wcActiveFilters'),
@@ -45,13 +45,53 @@
     refs.moreLabel.textContent='더보기 20개';
     refs.moreProgress.textContent=`${data.items.length}개 표시 중`;
   }
+  const choiceOpen = {genre:false,tag:false};
+  function measureChoiceRows(container, button, rows, kind) {
+    if (!container || !button || !isOpen()) return;
+    // Re-measure in normal flow, including after mobile sheet becomes visible.
+    if (!container.getClientRects().length) return;
+    container.style.maxHeight='none';
+    const items=[...container.querySelectorAll(kind==='genre' ? '[data-wc-genre]' : '[data-wc-tag]')];
+    if (!items.length) { button.hidden=true; return; }
+    const tops=[];
+    for (const item of items) {
+      const top=item.offsetTop;
+      if (!tops.some(value=>Math.abs(value-top)<2)) tops.push(top);
+    }
+    const hasOverflow=tops.length>rows;
+    button.hidden=!hasOverflow;
+    button.setAttribute('aria-expanded',String(choiceOpen[kind] && hasOverflow));
+    button.innerHTML=(choiceOpen[kind] && hasOverflow?'접기':'더보기')+' <span aria-hidden="true">'+(choiceOpen[kind] && hasOverflow?'⌃':'⌄')+'</span>';
+    container.classList.toggle('wc-choices-collapsed',hasOverflow && !choiceOpen[kind]);
+    if (hasOverflow && !choiceOpen[kind]) {
+      // Stop just before row N+1. Keeps every chip of the last row fully visible.
+      const limit=tops[rows]-tops[0];
+      container.style.maxHeight=Math.max(0,limit-1)+'px';
+    }
+  }
+  function updateChoiceHeights() {
+    measureChoiceRows(refs.genres,refs.genreMore,2,'genre');
+    measureChoiceRows(refs.tags,refs.tagMore,5,'tag');
+  }
+  let measureQueued=false;
+  function queueChoiceHeights() {
+    if (measureQueued) return;
+    measureQueued=true;
+    requestAnimationFrame(()=>{ measureQueued=false; updateChoiceHeights(); });
+  }
+  for (const [kind,button] of [['genre',refs.genreMore],['tag',refs.tagMore]]) {
+    button.addEventListener('click',()=>{ choiceOpen[kind]=!choiceOpen[kind];queueChoiceHeights(); });
+  }
+  window.addEventListener('resize',queueChoiceHeights,{passive:true});
   function pills() {
     const entries=[{value:'',count:0},...data.genres];
     refs.genres.innerHTML=entries.map(({value})=>`<button class="wc-genre${data.genre===value?' is-active':''}" type="button" data-wc-genre="${escapeHtml(value)}" aria-pressed="${data.genre===value}">${value?escapeHtml(value):'전체 작품'}</button>`).join('');
+    queueChoiceHeights();
   }
   function tags() {
     const choices=[...new Set([...data.tags,...data.tagOptions.map(t=>t.value)])].slice(0,40);
     refs.tags.innerHTML=choices.length ? choices.map(tag=>`<button type="button" class="wc-tag${data.tags.includes(tag)?' is-active':''}" data-wc-tag="${escapeHtml(tag)}" aria-pressed="${data.tags.includes(tag)}">#${escapeHtml(tag)}</button>`).join('') : '<p class="wc-filter-hint">공개된 작품의 키워드가 아직 없어요.</p>';
+    queueChoiceHeights();
     root.querySelectorAll('[data-wc-mode]').forEach(button=>{
       const selected=button.dataset.wcMode===data.tagMode;
       button.classList.toggle('is-active',selected);
@@ -828,6 +868,7 @@
   refs.filterToggle.addEventListener('click',()=>{
     if(refs.filter.classList.contains('is-mobile-open')){closeMobileFilters({restoreFocus:true});return;}
     refs.filter.classList.add('is-mobile-open');
+    queueChoiceHeights();
     refs.filterToggle.setAttribute('aria-expanded','true');
     filterBackdrop.hidden=false;
     document.body.classList.add('wc-filter-sheet-open');

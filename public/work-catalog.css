@@ -659,3 +659,25 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
 .wc-adult-scene-row>span{color:var(--wc-muted)}
 .wc-adult-scene-row>strong{font-size:12px;color:var(--wc-ink)}
 .wc-adult-scene-row>.wc-inline-edit{margin-left:auto}
+
+/* v10.93: compact genre (2 rows) and taste keyword (5 rows) choices. */
+.work-catalog-page .wc-genre-group {min-width:0;flex:1 1 auto;}
+.work-catalog-page .wc-genre-group .wc-discovery {margin-bottom:0;}
+.work-catalog-page .wc-discovery.wc-choices-collapsed,
+.work-catalog-page .wc-tag-choices.wc-choices-collapsed {overflow:hidden!important;}
+.work-catalog-page .wc-choices-more {
+  display:inline-flex;align-items:center;gap:4px;min-height:26px;margin-top:5px;
+  padding:3px 8px;border:1px solid var(--wc-line);border-radius:8px;
+  background:var(--wc-bg);color:var(--wc-muted);font-size:10px;font-weight:650;
+}
+.work-catalog-page .wc-choices-more[hidden] {display:none!important;}
+.work-catalog-page .wc-choices-more:focus-visible {outline:2px solid var(--theme-primary-bg);outline-offset:2px;}
+@media (max-width:640px) {
+  .work-catalog-page .wc-quick-filters {align-items:flex-start;}
+  .work-catalog-page .wc-quick-filters .wc-genre-group {min-width:0;}
+  .work-catalog-page .wc-quick-filters .wc-discovery {
+    flex-wrap:wrap;overflow:visible;margin:0; padding:1px 0 0;
+    scrollbar-width:auto;gap:6px;
+  }
+  .work-catalog-page .wc-filter-panel .wc-tag-choices {max-height:none;overflow:visible;}
+}

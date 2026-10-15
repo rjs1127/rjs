@@ -76,7 +76,7 @@
   <link rel="stylesheet" href="/style.css?v=1073" />
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
   <link rel="stylesheet" href="/theme.css?v=1073" />
-  <link rel="stylesheet" href="/work-catalog.css?v=1086" />
+  <link rel="stylesheet" href="/work-catalog.css?v=1093" />
   <link rel="stylesheet" href="/user-next.css?v=984" />
   <style>
     @font-face { font-family:'Paperozi'; src:url('https://cdn.jsdelivr.net/gh/projectnoonnu/2408-3@1.0/Paperlogy-5Medium.woff2') format('woff2'); font-weight:500; font-style:normal; font-display:swap; }
@@ -463,7 +463,7 @@
             <button type="submit">검색</button>
           </form>
           <div class="wc-quick-filters">
-            <div class="wc-discovery" id="wcGenreChoices" aria-label="장르 빠른 선택"><button class="wc-genre is-active" type="button" data-wc-genre="">전체 작품</button></div>
+            <div class="wc-genre-group"><div class="wc-discovery" id="wcGenreChoices" aria-label="장르 빠른 선택"><button class="wc-genre is-active" type="button" data-wc-genre="">전체 작품</button></div><button type="button" class="wc-choices-more" id="wcGenreMore" aria-controls="wcGenreChoices" aria-expanded="false" hidden>더보기 <span aria-hidden="true">⌄</span></button></div>
             <div class="wc-mobile-filter-row"><button id="wcFilterToggle" class="wc-filter-toggle" type="button" aria-controls="wcFilterPanel" aria-expanded="false">☷ 필터 <span id="wcFilterBadge"></span></button></div>
           </div>
           <div id="wcFilterBackdrop" class="wc-filter-backdrop" hidden></div>
@@ -471,7 +471,7 @@
             <aside class="wc-filter-panel" id="wcFilterPanel" aria-label="상세 작품 필터">
               <div class="wc-panel-title"><strong>취향 필터</strong><div class="wc-panel-actions"><button type="button" id="wcResetFilters">초기화</button><button type="button" id="wcFilterClose" class="wc-filter-close" aria-label="필터 닫기" title="닫기"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 5l14 14M19 5L5 19"/></svg></button></div></div>
               <div class="wc-filter-block"><div class="wc-filter-heading"><strong>키워드</strong><small>최대 5개</small></div>
-                <div id="wcTagChoices" class="wc-tag-choices"><p class="wc-filter-hint">키워드를 불러오는 중…</p></div>
+                <div id="wcTagChoices" class="wc-tag-choices"><p class="wc-filter-hint">키워드를 불러오는 중…</p></div><button type="button" class="wc-choices-more" id="wcTagMore" aria-controls="wcTagChoices" aria-expanded="false" hidden>더보기 <span aria-hidden="true">⌄</span></button>
                 <div class="wc-mode" role="group" aria-label="선택 키워드 조건"><button type="button" data-wc-mode="all" class="is-active">모두 포함</button><button type="button" data-wc-mode="any">하나라도 포함</button></div>
               </div>
               <div class="wc-filter-block"><label for="wcCpFilter">메인 커플 (CP)</label><select id="wcCpFilter"><option value="">전체</option></select></div>
@@ -1303,6 +1303,6 @@
   </div>
 
   <script src="/app.js?v=1073" defer></script>
-  <script src="/work-catalog.js?v=1086" defer></script>
+  <script src="/work-catalog.js?v=1093" defer></script>
 </body>
 </html>
