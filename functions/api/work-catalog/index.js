@@ -1,7 +1,7 @@
 import { catalogPublicSources, catalogCpChunkedCte, catalogSourceMetadata, catalogLinkedMetadata, catalogLinkedKeys, catalogCompletionFilterCte } from '../../_catalog_cp.js';
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
-import { publicCatalogWork } from '../../_work_catalog.js';
+import { publicCatalogWork, ensureWorkCatalogSchema } from '../../_work_catalog.js';
 
 // v10.77: Opaque, filter-bound keyset cursor. Kept separate from the legacy page API.
 function filterFingerprint(values) {
@@ -31,7 +31,7 @@ function decodeCursor(value,sort,fingerprint) {
 // Read-only public encyclopedia. Every query is limited to published works.
 export async function onRequestGet(context) {
   try {
-    const db = requireUserDb(context.env);
+    const db = requireUserDb(context.env); await ensureWorkCatalogSchema(db);
     const params = new URL(context.request.url).searchParams;
     const q = (params.get('q') || '').trim().slice(0, 80);
     const genre = (params.get('genre') || '').trim().slice(0, 30);
@@ -44,12 +44,14 @@ export async function onRequestGet(context) {
     const cp = (params.get('cp') || '').trim();
     if (cp.length > 200) return jsonResponse({error:'CP 조건이 올바르지 않습니다.'},400);
     const subcouple = (params.get('subcouple') || '').trim();
+    const adultScene = (params.get('adult_scene') || '').trim();
+    if(adultScene && !['있음','없음','미확인','확인 필요'].includes(adultScene)) return jsonResponse({error:'성적 묘사 필터가 올바르지 않습니다.'},400);
     if (completion && !['unknown','ongoing','completed','incomplete','hiatus'].includes(completion)) return jsonResponse({error:'연재 상태가 올바르지 않습니다.'},400);
     if (subcouple && !['unknown','yes','no'].includes(subcouple)) return jsonResponse({error:'서브커플 조건이 올바르지 않습니다.'},400);
     const cursorMode=params.get('mode')==='cursor' || params.has('cursor');
     const page = Math.min(100, Math.max(1, Math.floor(Number(params.get('page') || 1) || 1)));
     const sort = params.get('sort') === 'title' ? 'title' : 'recent';
-    const fingerprint=filterFingerprint([q,genre,[...tags].sort(),tagMode,completion,cp,subcouple,sort]);
+    const fingerprint=filterFingerprint([q,genre,[...tags].sort(),tagMode,completion,cp,subcouple,adultScene,sort]);
     const cursor=cursorMode&&params.has('cursor')?decodeCursor(params.get('cursor'),sort,fingerprint):null;
     const where = ["status='published'"];
     const args=[];
@@ -81,6 +83,7 @@ export async function onRequestGet(context) {
     }
     if (cp) {where.push('EXISTS (SELECT 1 FROM work_cp WHERE work_id=catalog_works.id)');}
     if (subcouple) {where.push('subcouple=?');args.push(subcouple);}
+    if(adultScene){where.push(`COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=catalog_works.id),'미확인')=?`);args.push(adultScene);}
     const orderBy = sort === 'title' ? 'title COLLATE NOCASE ASC,id ASC' : 'updated_at DESC,id DESC';
     if(cursor) {
       if(sort==='title') {
@@ -100,6 +103,7 @@ export async function onRequestGet(context) {
     const ctes=[cpQuery?.cte?.replace(/^WITH /,''),completionQuery?.cte].filter(Boolean);
     const combinedCte=ctes.length?`WITH ${ctes.join(', ')} `:'';
     const rows = await db.prepare(`${combinedCte}SELECT catalog_works.*,
+      COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=catalog_works.id),'미확인') AS adult_scene_status,
       (SELECT json_group_array(json_object('type',source_type,'id',source_id))
         FROM catalog_source_links WHERE work_id=catalog_works.id) AS source_links_json
       FROM catalog_works WHERE ${where.join(' AND ')} ORDER BY ${orderBy} LIMIT 21${cursorMode?'':' OFFSET ?'}`)

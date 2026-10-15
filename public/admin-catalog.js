@@ -197,7 +197,7 @@
       completion_set:'연재 상태 변경',subcouple_set:'서브커플 상태 변경',
       subcouple_note_set:'서브커플 설명 변경',synopsis_set:'줄거리 변경',
       title_set:'제목 변경',author_set:'작가 변경',original_title_set:'원제 변경',
-      warnings_set:'주의 요소 변경',recommendation_add:'추천 대상 추가',
+      warnings_set:'주의 요소 변경',adult_scene_set:'성적 묘사 여부 변경 제안',recommendation_add:'추천 대상 추가',
       recommendation_remove:'추천 대상 제거',recommendation_edit:'추천 대상 수정'
     };
     proposals.forEach(p=>{
@@ -454,7 +454,7 @@
   const adultColumns=['성적 묘사 판정','성적 묘사 판정 근거'];
   const trackingColumns=['최근 재검수 처리일','재검수 처리 횟수'];
   const columns=[...baseColumns,...reviewColumns,...adultColumns,...trackingColumns];
-  const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상'};
+  const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상',adult_scene_status:'성적 묘사 여부'};
   const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0,lastFocus:null};
   const panel=anchor.closest('.catalog-admin-panel');
   const header=anchor.closest('.panel-head');
@@ -605,7 +605,7 @@
       ['도감 미등록',rows.filter(row=>!row[11]).length,''],
       ['엑셀 승인됨',rows.filter(row=>row[13]==='approved').length,''],
       ['v10.85 이후 재검수 병합 완료',rows.filter(row=>Number(row[25])>0).length,'횟수는 사이트가 병합된 Work 재검수 기록만 집계'],
-      ['성적 묘사 판정 · 직접적 묘사',rows.filter(row=>row[22]==='직접적 묘사').length,'관리자 승인 전에는 공개 키워드에 자동 반영되지 않음'],
+      ['성적 묘사 판정 · 직접적 묘사',rows.filter(row=>row[22]==='직접적 묘사').length,'관리자 승인 전에는 공개 주의사항에 반영되지 않음'],
       ['성적 묘사 판정 · 미확인',rows.filter(row=>!row[22]||row[22]==='미확인').length,'원문을 확인하지 않은 작품은 묘사 없음으로 단정하지 않음']];
     const needed=rows.filter(row=>row[8]==='검수 필요');
     const helpRows=needed.map(row=>[row[2],row[3],row[8],row[9],row[19],row[20],row[21],row[1]]);
@@ -805,6 +805,15 @@
       state.current=data;
       const {item,work,collision,incoming}=data;
       const rows=Object.entries(names).map(([field,label])=>{
+        if(field==='adult_scene_status'){
+          const current=work?.adult_scene_status||'미확인';
+          const staged=item.draft.adult_scene_status||'미확인';
+          const mapping={'직접적 묘사':'있음','묘사 없음':'없음','미확인':'미확인','확인 필요':'확인 필요'};
+          const selected=Object.prototype.hasOwnProperty.call(item.draft,'adult_scene_status')&&staged!=='미확인';
+          return `<div class="catalog-sheet-diff"><label class="catalog-sheet-diff-title"><input type="checkbox" name="sheetField" value="adult_scene_status" ${selected?'checked':''}> 성적 묘사 여부 승인 · 주의사항</label>
+            <div><em>현재 공개 상태</em><pre>${escape(current)}</pre></div>
+            <div><em>비공개 Work 검수 판정</em><pre>${escape(mapping[staged]||'미확인')}</pre><small>수정은 아래 ‘성적 묘사 판정’에서 저장한 후 승인하세요. 키워드에는 자동 추가하지 않습니다.</small></div></div>`;
+        }
         const current=work?(work[field]??((field==='genres'||field==='tags')?[]:'')):((field==='genres'||field==='tags')?[]:'');
         const staged=item.draft[field]??((field==='genres'||field==='tags')?[]:'');
         const listType=field==='genres'||field==='tags';
@@ -843,7 +852,7 @@
         <label>재검수 기록 (날짜별로 이어서 추가)<textarea data-review-meta="recheck_log" rows="4" maxlength="8000" placeholder="예: 2026-10-15 · 원문 후반부 재확인, 인물 관계 수정 근거 등">${escape(item.draft.recheck_log||'')}</textarea></label>
         <div class="catalog-sheet-provenance"><strong>재검수 처리 현황</strong><p>이 패치 이후 기록 ${Number(item.recheck_count)||0}회 · 마지막 병합: ${item.last_recheck_merged_at?escape(new Date(Number(item.last_recheck_merged_at)).toLocaleString('ko-KR')):'없음'}</p><small>이 숫자는 새 재검수 기록이 추가된 Work 결과를 관리자가 비교·병합한 횟수입니다. 이전 메모는 소급 계산하지 않습니다.</small></div>
         <label>성적 묘사 판정<select data-review-meta="adult_scene_status">${['미확인','직접적 묘사','묘사 없음','확인 필요'].map(v=>`<option value="${escape(v)}" ${(item.draft.adult_scene_status||'미확인')===v?'selected':''}>${escape(v)}</option>`).join('')}</select></label>
-        <label>성적 묘사 판정 근거<textarea data-review-meta="adult_scene_note" rows="3" maxlength="800" placeholder="구체적인 원문 장면의 맥락 및 확인 범위. 직접적인 본문 인용은 불필요합니다.">${escape(item.draft.adult_scene_note||'')}</textarea><small>원문 일부만 확인했다면 ‘묘사 없음’으로 단정하지 마세요. ‘직접적 묘사’는 최종 태그 승인 전 관리자 확인이 필요합니다.</small></label>
+        <label>성적 묘사 판정 근거<textarea data-review-meta="adult_scene_note" rows="3" maxlength="800" placeholder="구체적인 원문 장면의 맥락 및 확인 범위. 직접적인 본문 인용은 불필요합니다.">${escape(item.draft.adult_scene_note||'')}</textarea><small>원문 일부만 확인했다면 ‘묘사 없음’으로 단정하지 마세요. ‘직접적 묘사’는 주의사항 공개 반영 전 관리자 확인이 필요합니다.</small></label>
       </div>
         <p id="catalogSheetEditHint" class="catalog-sheet-edit-hint">검수 초안은 수정 후 별도 저장하며, 저장만으로 도감에 공개되지 않습니다.</p>
         <p id="catalogSheetModalStatus" class="catalog-sheet-modal-status" role="status" aria-live="polite"></p>
@@ -953,7 +962,7 @@
     const fields=[...$('catalogSheetReview').querySelectorAll('input[name="sheetField"]:checked')].map(x=>x.value);
     if(!fields.length){modalMessage('반영할 항목을 하나 이상 선택해 주세요.',true);return;}
     const {item}=current;
-    if(!confirm(`${item.draft.title}의 ${fields.map(x=>names[x]).join(', ')} 항목을 실제 도감에 반영할까요?\n기존 정보는 보존하고 승인된 검수 초안만 덧붙입니다.`))return;
+    if(!confirm(`${item.draft.title}의 ${fields.map(x=>names[x]).join(', ')} 항목을 실제 도감에 반영할까요?\n기존 정보는 보존하며, 성적 묘사 여부는 독립된 주의사항으로 반영됩니다.`))return;
     state.loading=true;
     const b=$('catalogSheetApprove');b.disabled=true;
     try{

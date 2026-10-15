@@ -7,7 +7,8 @@ import { requireAdminSession } from '../../_admin_session.js';
 import { catalogPublicSources } from '../../_catalog_cp.js';
 import { ensureWorkCatalogSchema, catalogFields, catalogError, allCatalogWork } from '../../_work_catalog.js';
 
-const RELEVANT = ['synopsis','genres','tags','recommendation'];
+const RELEVANT = ['synopsis','genres','tags','recommendation','adult_scene_status'];
+const PUBLIC_ADULT = Object.freeze({'직접적 묘사':'있음','묘사 없음':'없음','확인 필요':'확인 필요','미확인':'미확인'});
 const ADULT_STATUSES = new Set(['미확인','직접적 묘사','묘사 없음','확인 필요']);
 // Extra review-only fields are never approved into catalog_works.
 const REVIEW_META = Object.freeze({
@@ -113,14 +114,12 @@ function checkedDraft(item,source,previous={}){
   if(!ADULT_STATUSES.has(requestedStatus))throw catalogError('성적 묘사 판정값이 올바르지 않습니다.');
   const note=text(Object.hasOwn(item,'adult_scene_note')?item.adult_scene_note:previous.adult_scene_note);
   if(note.length>800)throw catalogError('성적 묘사 판정 근거는 800자 이내로 입력해 주세요.');
-  if(requestedStatus==='직접적 묘사'&&!JSON.parse(f.tags_json).includes('직접적 성적 묘사')&&JSON.parse(f.tags_json).length>=20)
-    throw catalogError('성적 묘사 태그를 추가할 자리가 없습니다. 기존 키워드를 정리해 주세요.');
   const extra={};
   if(requestedStatus!=='미확인'||Object.hasOwn(previous,'adult_scene_status'))extra.adult_scene_status=requestedStatus;
   if(note||Object.hasOwn(previous,'adult_scene_note'))extra.adult_scene_note=note;
   return {title:f.title,author:f.author,
     synopsis:f.synopsis,genres:JSON.parse(f.genre_json),
-    tags:requestedStatus==='직접적 묘사'?[...new Set([...JSON.parse(f.tags_json),'직접적 성적 묘사'])]:JSON.parse(f.tags_json),
+    tags:JSON.parse(f.tags_json),
     recommendation:f.recommendation,review_status:reviewStatus,review_note:reviewNote,
     ...reviewMetadata(item,previous),...extra};
 }
@@ -145,7 +144,8 @@ function proposed(current,draft,oldApplied,name){
   return {base,rendered:merged};
 }
 async function findContext(db,type,id,title,author){
-  const linked=await db.prepare(`SELECT w.* FROM catalog_source_links l
+  const linked=await db.prepare(`SELECT w.*,
+    COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=w.id),'미확인') AS adult_scene_status FROM catalog_source_links l
     JOIN catalog_works w ON w.id=l.work_id
     WHERE l.source_type=? AND l.source_id=?`).bind(type,id).first();
   if(linked)return {work:linked,collision:null};
@@ -409,7 +409,7 @@ export async function onRequestPost(context){
       const {type,id}=sourceKey(body);
       const requested=body.fields;
       const revision=limit(body.sheet_revision,1e9);
-      if(!revision||!Array.isArray(requested)||!requested.length||requested.length>4||
+      if(!revision||!Array.isArray(requested)||!requested.length||requested.length>5||
         new Set(requested).size!==requested.length||requested.some(x=>!RELEVANT.includes(x)))
         throw catalogError('승인할 항목과 최신 초안 버전을 선택해 주세요.');
       const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
@@ -423,36 +423,46 @@ export async function onRequestPost(context){
       if(!work && collision)throw catalogError('동일 제목·작가의 기존 도감이 있으나 원본 링크가 없습니다. 관리자가 기존 작품에 원본을 연결한 뒤 승인해 주세요.',409);
       let idWork=work?.id||crypto.randomUUID();
       let update={},nextApplied={...applied};
+      const coreRequested=requested.filter(field=>field!=='adult_scene_status');
+      const wantsAdult=requested.includes('adult_scene_status');
+      const desiredAdult=PUBLIC_ADULT[draft.adult_scene_status||'미확인'];
+      if(wantsAdult&&!desiredAdult)throw catalogError('성적 묘사 판정이 올바르지 않습니다.');
+      const previousAdult=applied.adult_scene_status;
+      const existingAdult=work?.adult_scene_status||'미확인';
+      if(wantsAdult&&previousAdult&&existingAdult!==previousAdult.rendered)
+        throw catalogError('성적 묘사 상태가 마지막 승인 이후 수정되었습니다. 최신 상태를 검토해 주세요.',409);
+      const adultChanged=wantsAdult&&desiredAdult!==existingAdult;
+      if(wantsAdult)nextApplied.adult_scene_status={base:previousAdult?.base??existingAdult,rendered:desiredAdult,source:draft.adult_scene_status||'미확인'};
       if(work){
         const current=allCatalogWork(work);
-        for(const field of requested){
+        for(const field of coreRequested){
           const piece=proposed(current,draft,applied,field);
           update[field]=piece.rendered;nextApplied[field]={...piece,source:draft[field]};
         }
         const validated=catalogFields({...current,...update});
-        for(const field of requested){
+        for(const field of coreRequested){
           update[field]=(field==='genres'?JSON.parse(validated.genre_json):field==='tags'?JSON.parse(validated.tags_json):validated[field]);
           nextApplied[field].rendered=update[field];
         }
       }else{
         const fields=catalogFields({title:draft.title,author:draft.author,
-          completion:'auto',synopsis:requested.includes('synopsis')?draft.synopsis:'',
-          recommendation:requested.includes('recommendation')?draft.recommendation:'',
-          genres:requested.includes('genres')?draft.genres:[],tags:requested.includes('tags')?draft.tags:[]});
+          completion:'auto',synopsis:coreRequested.includes('synopsis')?draft.synopsis:'',
+          recommendation:coreRequested.includes('recommendation')?draft.recommendation:'',
+          genres:coreRequested.includes('genres')?draft.genres:[],tags:coreRequested.includes('tags')?draft.tags:[]});
         update={synopsis:fields.synopsis,recommendation:fields.recommendation,
           genres:JSON.parse(fields.genre_json),tags:JSON.parse(fields.tags_json)};
-        for(const field of requested) nextApplied[field]={base:(field==='genres'||field==='tags')?[]:'',rendered:update[field],source:draft[field]};
+        for(const field of coreRequested) nextApplied[field]={base:(field==='genres'||field==='tags')?[]:'',rendered:update[field],source:draft[field]};
       }
       const jobs=[];
       const token=crypto.randomUUID();
-      const changed=work && requested.some(f=>!same(fieldValue(allCatalogWork(work),f),update[f]));
+      const changed=work && (adultChanged||coreRequested.some(f=>!same(fieldValue(allCatalogWork(work),f),update[f])));
       const needsWorkUpdate=Boolean(work && (changed || (body.publish===true&&work.status!=='published')));
       if(needsWorkUpdate){
-        const columns=requested.filter(f=>!same(fieldValue(allCatalogWork(work),f),update[f]));
+        const columns=coreRequested.filter(f=>!same(fieldValue(allCatalogWork(work),f),update[f]));
         if(body.publish===true&&work.status!=='published')columns.push('status');
         const updates=columns.map(f=>`${f==='genres'?'genre_json':f==='tags'?'tags_json':f}=?`).join(',');
         const args=columns.map(f=>f==='genres'||f==='tags'?JSON.stringify(update[f]):f==='status'?'published':update[f]);
-        jobs.push(db.prepare(`UPDATE catalog_works SET ${updates},revision=revision+1,last_mutation_token=?,updated_at=? WHERE id=? AND revision=?`)
+        jobs.push(db.prepare(`UPDATE catalog_works SET ${updates?updates+',':''}revision=revision+1,last_mutation_token=?,updated_at=? WHERE id=? AND revision=?`)
           .bind(...args,token,now,work.id,Number(work.revision||1)));
       }else if(!work){
         // New work only appears after administrator explicitly approves.
@@ -467,8 +477,15 @@ export async function onRequestPost(context){
           SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM catalog_works WHERE id=? AND last_mutation_token=?)`)
           .bind(type,id,idWork,now,idWork,token));
       }
+      // A separate public caution field; never alters taste keyword tags or free-text warnings.
+      if(wantsAdult&&(adultChanged||!work&&desiredAdult!=='미확인')){
+        jobs.push(db.prepare(`INSERT INTO catalog_adult_scene_status(work_id,status,updated_at)
+          SELECT ?,?,? FROM catalog_works WHERE id=? AND last_mutation_token=?
+          ON CONFLICT(work_id) DO UPDATE SET status=excluded.status,updated_at=excluded.updated_at`)
+          .bind(idWork,desiredAdult,now,idWork,token));
+      }
       const fullyApproved=RELEVANT.every(field=>
-        nextApplied[field]?same(nextApplied[field].source,draft[field]):!draft[field]?.length);
+        nextApplied[field]?same(nextApplied[field].source,draft[field]):(field==='adult_scene_status'?(draft[field]===undefined||draft[field]==='미확인'):!draft[field]?.length));
       const stageGuard=needsWorkUpdate?' AND EXISTS(SELECT 1 FROM catalog_works WHERE id=? AND last_mutation_token=?)':
         !work?' AND EXISTS(SELECT 1 FROM catalog_source_links WHERE source_type=? AND source_id=? AND work_id=?)':'';
       const stageArgs=needsWorkUpdate?[idWork,token]:!work?[type,id,idWork]:[];

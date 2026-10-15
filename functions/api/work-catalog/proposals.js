@@ -48,7 +48,7 @@ export async function onRequestPost(context){
     }
     if(kind==='edit'){
       if(!uuid(workId)) throw catalogError('작품 ID가 올바르지 않습니다.');
-      work=await auth.db.prepare("SELECT * FROM catalog_works WHERE id=? AND status='published'").bind(workId).first();
+      work=await auth.db.prepare("SELECT w.*,COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=w.id),'미확인') AS adult_scene_status FROM catalog_works w WHERE w.id=? AND w.status='published'").bind(workId).first();
       if(!work) throw catalogError('공개된 작품만 수정 제안할 수 있습니다.',404);
       baseUpdatedAt=work.updated_at;
     }

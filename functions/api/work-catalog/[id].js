@@ -1,16 +1,17 @@
 import { catalogPublicSources, catalogSourceMetadata, catalogLinkedMetadata, catalogLinkedKeys } from '../../_catalog_cp.js';
 import { jsonResponse } from '../../_shared.js';
 import { requireUserDb } from '../../_user.js';
-import { publicCatalogWork } from '../../_work_catalog.js';
+import { publicCatalogWork, ensureWorkCatalogSchema } from '../../_work_catalog.js';
 export async function onRequestGet(context) {
   try {
-    const db=requireUserDb(context.env);
+    const db=requireUserDb(context.env); await ensureWorkCatalogSchema(db);
     const id=String(context.params.id||'');
     if (!/^[0-9a-f-]{36}$/i.test(id)) return jsonResponse({error:'잘못된 작품 ID입니다.'},400);
     const sources=await catalogPublicSources(context.env);
     // Resolve CP and source-completion from this work's actual linked IDs.
     // No whole-archive CP JSON bind and no second completion SELECT.
     const work=await db.prepare(`SELECT catalog_works.*,
+      COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=catalog_works.id),'미확인') AS adult_scene_status,
       (SELECT json_group_array(json_object('type',source_type,'id',source_id))
         FROM catalog_source_links WHERE work_id=catalog_works.id) AS source_links_json
       FROM catalog_works WHERE id=? AND status='published'`).bind(id).first();

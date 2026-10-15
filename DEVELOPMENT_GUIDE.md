@@ -1,3 +1,12 @@
+# v10.86 — 작품도감 성적 묘사 판정 공개 주의사항 및 독자 필터
+
+- 상태 DB: `catalog_adult_scene_status(work_id PRIMARY KEY,status,updated_at)` 독립 확장 테이블. 불필요한 대량 backfill 없음; 행 미존재 => 미확인. 일반 관리자 전체 upsert와 분리하여 레거시 코드가 필드를 누락해도 상태가 초기화되지 않음.
+- 26열 Excel 계약 변경 없음. 비공개 검수함에서 `adult_scene_status`는 직접적 묘사/묘사 없음/미확인/확인 필요로 관리. `checkedDraft`가 더는 태그에 성적 묘사 키워드를 자동 제안하지 않음.
+- 관리자 `approve`에는 `adult_scene_status` 선택 항목 추가. 공개값 있음/없음/미확인/확인 필요로 매핑한 뒤 기존 공개 값과 다른 변경은 서버 측 별도 상태 테이블에 기록, D1 배치와 부모 작품 revision/변경토큰 guard를 재사용. 기존 적용본 이후 사용자가 상태를 바꿨다면 409. 관리자 미승인 Work 결과는 공개 조회에 노출되지 않음.
+- 공개 `/api/work-catalog` 커서 fingerprint에 adult_scene 포함; SQL 필터는 `COALESCE((SELECT status...),미확인)` 기준. 상세에도 동일 SQL 상태 반환. 기존 다른 필터와 AND 결합. `public/work-catalog.js`, `public/index.html`, scoped CSS 변경.
+- 독자 상태 변경은 별도 제안 `adult_scene_set` (v2 proposal), 승인 전 수정 불가. 관리자 기존 정보 제안 검토 및 재검증을 통과한 경우에만 DB 변경. 기존 바로 수정 API의 whitelist에 추가하지 않음.
+- JS 구문·백엔드/브라우저 동작 테스트 및 ZIP CRC 확인 후 배포. 운영 사이트 반영은 사용자 배포 때. `HISTORY.md`는 GitHub main 실제 커밋 재생성 관행대로 원본 보존.
+
 # v10.85 — 단계적 Work 재검수 추적 및 성적 묘사 판정
 
 ## DB/호환 원칙

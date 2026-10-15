@@ -18,6 +18,11 @@ export async function ensureWorkCatalogSchema(db) {
     )`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_catalog_works_status_recent ON catalog_works(status,updated_at DESC,id DESC)`),
     db.prepare(`CREATE INDEX IF NOT EXISTS idx_catalog_works_name ON catalog_works(title,author)`),
+    db.prepare(`CREATE TABLE IF NOT EXISTS catalog_adult_scene_status (
+      work_id TEXT PRIMARY KEY REFERENCES catalog_works(id),
+      status TEXT NOT NULL CHECK(status IN ('있음','없음','미확인','확인 필요')),
+      updated_at INTEGER NOT NULL
+    )`),
     db.prepare(`CREATE TABLE IF NOT EXISTS catalog_source_links (
       source_type TEXT NOT NULL CHECK(source_type IN ('drive','postype')),
       source_id TEXT NOT NULL, work_id TEXT NOT NULL REFERENCES catalog_works(id),
@@ -119,11 +124,11 @@ export function catalogFields(input) {
 }
 export function publicCatalogWork(row) {
   if (!row) return null;
-  const { id,title,author,original_title,country,completion,genre_json,tags_json,synopsis,subcouple,subcouple_note,recommendation,warnings,updated_at,revision } = row;
+  const { id,title,author,original_title,country,completion,genre_json,tags_json,synopsis,subcouple,subcouple_note,recommendation,warnings,updated_at,revision,adult_scene_status } = row;
   return { id,title,author,original_title,country,completion:completion==='auto'||completion==='manual_unknown'?'unknown':completion,
     completion_mode:completion==='auto'||completion==='unknown'?'auto':'manual',
     genres: JSON.parse(genre_json || '[]'),tags: JSON.parse(tags_json || '[]'),
-    synopsis,subcouple,subcouple_note,recommendation,warnings,updated_at,revision: Number(revision || 1) };
+    synopsis,subcouple,subcouple_note,recommendation,warnings,adult_scene_status:adult_scene_status||'미확인',updated_at,revision: Number(revision || 1) };
 }
 export function allCatalogWork(row) { return { ...publicCatalogWork(row),status: row.status,created_at: row.created_at }; }
 export function fieldsParams(f) {
@@ -139,7 +144,7 @@ const OPERATION_FIELDS = Object.freeze({
   title_set: 'title', author_set: 'author', original_title_set: 'original_title',
   completion_set: 'completion', subcouple_set: 'subcouple',
   subcouple_note_set: 'subcouple_note', synopsis_set: 'synopsis',
-  warnings_set: 'warnings', recommendation_add: 'recommendation',
+  warnings_set: 'warnings', adult_scene_set: 'adult_scene_status', recommendation_add: 'recommendation',
   recommendation_remove: 'recommendation', recommendation_edit: 'recommendation'
 });
 export const CATALOG_OPERATIONS = Object.keys(OPERATION_FIELDS);
@@ -155,6 +160,13 @@ export function catalogOperation(row, operation, change) {
   const column = OPERATION_FIELDS[operation];
   if (!column) throw catalogError('지원하지 않는 정보 제안 항목입니다.');
   if (!change || Array.isArray(change) || typeof change !== 'object') throw catalogError('변경 정보가 올바르지 않습니다.');
+  if(operation==='adult_scene_set'){
+    if(typeof change.value!=='string'||!['있음','없음','확인 필요'].includes(change.value))
+      throw catalogError('성적 묘사 제안은 있음·없음·확인 필요 중 선택해 주세요.');
+    const before=row.adult_scene_status||'미확인';
+    if(before===change.value)throw catalogError('이미 같은 상태로 등록되어 있습니다.',409);
+    return {column:'adult_scene_status',before,after:change.value,normalized:change.value};
+  }
   const obj = asWorkInput(row);
   const item = bounded(change.value, ['synopsis_set'].includes(operation) ? 3000 : 1500, '제안 값');
   let before;

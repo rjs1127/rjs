@@ -87,7 +87,7 @@ export async function onRequestPost(context) {
       if(saved?.user_id===auth.userId && saved.request_json===signature) return respond({ok:true,reused:true,work_id:id});
       throw catalogError('작품 정보가 변경되었습니다. 최신 정보를 다시 불러와 주세요.',409);
     }
-    const latest=await auth.db.prepare("SELECT * FROM catalog_works WHERE id=? AND status='published'").bind(id).first();
+    const latest=await auth.db.prepare("SELECT w.*,COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=w.id),'미확인') AS adult_scene_status FROM catalog_works w WHERE w.id=? AND w.status='published'").bind(id).first();
     return respond({ok:true,work:publicCatalogWork(latest)});
   }catch(error){return userErrorResponse(error);}
 }

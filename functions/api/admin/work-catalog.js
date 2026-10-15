@@ -351,7 +351,7 @@ export async function onRequestPost(context){
       const v2=payload?.format===2;
       let workId=p.work_id, newValue=null, column=null, fields=null, current=null;
       if(verdict==='approved' && p.kind==='edit'){
-        current=await db.prepare('SELECT * FROM catalog_works WHERE id=?').bind(p.work_id).first();
+        current=await db.prepare(`SELECT w.*,COALESCE((SELECT a.status FROM catalog_adult_scene_status a WHERE a.work_id=w.id),'미확인') AS adult_scene_status FROM catalog_works w WHERE w.id=?`).bind(p.work_id).first();
         if(!current) throw catalogError('수정 대상 작품이 없습니다.',409);
         if(v2){
           if(current.status!=='published' || Number(current.revision||1)!==Number(payload.base_revision))
@@ -388,7 +388,15 @@ export async function onRequestPost(context){
         const condition=" AND EXISTS (SELECT 1 FROM catalog_proposals WHERE id=? AND review_token=? AND status='approved')";
         if(v2){
           // Column comes only from the server-side whitelist; values are always bound.
-          jobs.push(db.prepare(`UPDATE catalog_works SET ${column}=?,revision=revision+1,updated_at=?
+          if(column==='adult_scene_status'){
+            jobs.push(db.prepare(`UPDATE catalog_works SET revision=revision+1,updated_at=?,last_mutation_token=?
+              WHERE id=? AND revision=?${condition}`)
+              .bind(now,token,p.work_id,Number(current.revision||1),id,token));
+            jobs.push(db.prepare(`INSERT INTO catalog_adult_scene_status(work_id,status,updated_at)
+              SELECT ?,?,? FROM catalog_works WHERE id=? AND last_mutation_token=?
+              ON CONFLICT(work_id) DO UPDATE SET status=excluded.status,updated_at=excluded.updated_at`)
+              .bind(p.work_id,newValue,now,p.work_id,token));
+          }else jobs.push(db.prepare(`UPDATE catalog_works SET ${column}=?,revision=revision+1,updated_at=?
             WHERE id=? AND revision=?${condition}`)
             .bind(newValue,now,p.work_id,Number(current.revision||1),id,token));
         }else{
