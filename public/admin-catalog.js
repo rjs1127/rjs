@@ -441,32 +441,72 @@
   if(!document.querySelector('[data-tab-panel="work-catalog"]')?.hidden)reload(true);
 })();
 
-// v10.79: isolated Excel review inbox. The ordinary source editor and
-// public reader flows above remain unchanged.
+// v10.81: separate the registered catalogue and Excel review UI.
+// v10.79 data contract and ordinary source/reader flows above remain unchanged.
 (() => {
   const anchor=document.getElementById('catalogRefresh');
   if(!anchor)return;
   const escape=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const columns=['source_type','source_id','작품명','작가','줄거리','장르','키워드','추천 대상','검수 상태','검수 메모','초안 버전','도감 작품 ID','도감 공개 상태','엑셀 승인 상태'];
   const names={synopsis:'줄거리',genres:'장르',tags:'키워드',recommendation:'추천 대상'};
-  const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0};
+  const state={items:[],ready:false,loading:false,current:null,limit:50,reviewSeq:0,lastFocus:null};
+  const panel=anchor.closest('.catalog-admin-panel');
+  const header=anchor.closest('.panel-head');
+  if(!panel||!header)return;
+  // Keep the established registered-work editor and user proposals as-is,
+  // but put them in their own in-page tab. No site-wide admin tab changes.
+  const registeredPane=document.createElement('div');
+  registeredPane.id='catalogRegisteredPane';registeredPane.className='catalog-admin-pane';
+  [...panel.children].filter(node=>node!==header).forEach(node=>registeredPane.append(node));
+  const tabs=document.createElement('div');
+  tabs.className='catalog-manager-tabs';tabs.setAttribute('role','tablist');
+  tabs.setAttribute('aria-label','작품 도감 관리 화면');
+  tabs.innerHTML=`<button type="button" id="catalogRegisteredTab" class="catalog-manager-tab is-active" role="tab" aria-selected="true" aria-controls="catalogRegisteredPane">등록 작품 목록</button>
+    <button type="button" id="catalogSheetTab" class="catalog-manager-tab" role="tab" aria-selected="false" aria-controls="catalogSheetPane">엑셀 검수함 <span id="catalogSheetTabCount" class="catalog-manager-count" hidden></span></button>`;
   const root=document.createElement('section');
-  root.className='catalog-sheet-panel';root.hidden=true;
-  root.innerHTML=`<div class="catalog-sheet-heading"><div><h3>엑셀 검수함</h3><p class="muted">가져오기는 비공개 초안에만 저장합니다. 기존 공개 작품은 덮어쓰지 않으며 관리자 항목별 승인을 통해 반영합니다.</p></div>
-      <button id="catalogSheetClose" type="button" class="secondary-admin-button">닫기</button></div>
-    <div class="catalog-sheet-controls"><label class="catalog-sheet-upload">엑셀 가져오기
+  root.className='catalog-sheet-panel catalog-admin-pane';root.id='catalogSheetPane';
+  root.hidden=true;root.setAttribute('role','tabpanel');root.setAttribute('aria-labelledby','catalogSheetTab');
+  registeredPane.setAttribute('role','tabpanel');registeredPane.setAttribute('aria-labelledby','catalogRegisteredTab');
+  root.innerHTML=`<div class="catalog-sheet-heading"><div><p class="catalog-sheet-eyebrow">SPREADSHEET REVIEW</p><h3>엑셀 검수함</h3>
+    <p class="muted">엑셀에서 정리한 내용을 비공개로 검수하고, 필요한 항목만 공개 도감에 승인해 반영합니다. 기존 사용자 데이터는 자동으로 바뀌지 않습니다.</p></div></div>
+    <div id="catalogSheetStats" class="catalog-sheet-stats" aria-label="검수함 현황"></div>
+    <div class="catalog-sheet-toolbar"><label class="catalog-sheet-upload" for="catalogSheetFile"><span>엑셀 가져오기</span>
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
       <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button></div>
-    <p id="catalogSheetStatus" role="status" aria-live="polite" class="muted"></p>
-    <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명 · 작가 검색" aria-label="엑셀 검수 작품 검색">
-      <select id="catalogSheetFilter" aria-label="엑셀 검수 상태"><option value="pending">승인 대기</option><option value="all">전체</option><option value="approved">승인됨</option></select></div>
-    <div id="catalogSheetList" class="catalog-sheet-list"></div>
-    <button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>더 보기</button>
-    <div id="catalogSheetReview" class="catalog-sheet-review" hidden></div>`;
-  anchor.closest('.panel-head')?.after(root);
-  const button=document.createElement('button');button.id='catalogSheetToggle';button.type='button';
-  button.className=anchor.className;button.textContent='엑셀 검수함';anchor.after(button);
+    <p id="catalogSheetStatus" role="status" aria-live="polite" class="catalog-sheet-status muted"></p>
+    <div class="catalog-sheet-directory">
+      <div class="catalog-sheet-directory-head"><div><h4>작품 검수 목록</h4><p class="muted" id="catalogSheetResultCount">검색 및 필터로 작품을 찾을 수 있어요.</p></div></div>
+      <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명 또는 작가 검색" aria-label="엑셀 검수 작품 검색">
+        <select id="catalogSheetFilter" aria-label="도감 승인 상태"><option value="pending">승인 대기</option><option value="all">전체 승인 상태</option><option value="approved">승인됨</option></select>
+        <select id="catalogSheetReviewFilter" aria-label="엑셀 원고 검수 상태"><option value="all">전체 검수 상태</option><option value="검수 필요">검수 필요</option><option value="초안">초안</option><option value="검수 완료">검수 완료</option></select></div>
+      <div class="catalog-sheet-table-labels" aria-hidden="true"><span>작품명 / 작가</span><span>원고 검수</span><span>도감 연결</span><span>승인 상태</span><span></span></div>
+      <div id="catalogSheetList" class="catalog-sheet-list"></div>
+      <div class="catalog-sheet-footer"><button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>다음 50편 보기</button></div>
+    </div>
+    <div id="catalogSheetReview" class="catalog-sheet-review" role="dialog" aria-modal="true" aria-labelledby="catalogSheetReviewTitle" hidden></div>`;
+  panel.append(tabs,registeredPane,root);
+  // Only the registered catalogue view needs its own refresh button.
+  function switchView(view){
+    const isSheet=view==='sheets';
+    root.hidden=!isSheet;registeredPane.hidden=isSheet;
+    panel.dataset.catalogView=isSheet?'sheets':'registered';
+    for(const [id,selected] of [['catalogSheetTab',isSheet],['catalogRegisteredTab',!isSheet]]){
+      const tab=panel.querySelector('#'+id);
+      tab.classList.toggle('is-active',selected);
+      tab.setAttribute('aria-selected',String(selected));
+      tab.tabIndex=selected?0:-1;
+    }
+    if(isSheet&&!state.ready)void reload();
+  }
+  tabs.querySelector('#catalogRegisteredTab').addEventListener('click',()=>switchView('registered'));
+  tabs.querySelector('#catalogSheetTab').addEventListener('click',()=>switchView('sheets'));
+  tabs.addEventListener('keydown',event=>{
+    if(!['ArrowLeft','ArrowRight'].includes(event.key))return;
+    event.preventDefault();
+    const next=event.key==='ArrowRight'?'sheets':'registered';
+    switchView(next);tabs.querySelector(next==='sheets'?'#catalogSheetTab':'#catalogRegisteredTab').focus();
+  });
   const $=id=>document.getElementById(id);
   const status=(s,error=false)=>{const el=$('catalogSheetStatus');el.textContent=s;el.style.color=error?'var(--sy-danger)':'';};
   const sourceKey=(a,b)=>`${a}\u0000${b}`;
@@ -486,20 +526,36 @@
   function displayList(){
     const q=normalize($('catalogSheetSearch').value).toLocaleLowerCase();
     const filter=$('catalogSheetFilter').value;
+    const reviewFilter=$('catalogSheetReviewFilter').value;
     const all=state.items.filter(item=>(filter==='all'||item.review_state===filter)&&
+      (reviewFilter==='all'||normalize(item.draft.review_status)===reviewFilter)&&
       (!q||`${item.draft.title} ${item.draft.author}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
-    $('catalogSheetList').innerHTML=all.length?all.slice(0,state.limit).map(item=>
-      `<button type="button" data-sheet-type="${escape(item.source_type)}" data-sheet-id="${escape(item.source_id)}">
-        <span><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author)} · ${escape(item.draft.review_status||'미검수')} · v${item.sheet_revision}</small></span>
-        <span>${item.work_id?'기존 도감 연결 · ':''}${item.review_state==='approved'?'승인됨':'비공개 검수 대기'} →</span>
-      </button>`).join(''):'<p class="muted">해당 조건의 엑셀 초안이 없습니다.</p>';
+    const total=state.items.length;
+    const pending=state.items.filter(item=>item.review_state!=='approved').length;
+    const approved=state.items.filter(item=>item.review_state==='approved').length;
+    const linked=state.items.filter(item=>Boolean(item.work_id||item.approved_work_id)).length;
+    $('catalogSheetStats').innerHTML=[['전체 초안',total],['승인 대기',pending],['승인됨',approved],['기존 도감 연결',linked]]
+      .map(([label,count])=>`<div class="catalog-sheet-stat"><span>${label}</span><strong>${count.toLocaleString('ko-KR')}</strong></div>`).join('');
+    const tabCount=$('catalogSheetTabCount');tabCount.hidden=!total;tabCount.textContent=total.toLocaleString('ko-KR');
+    $('catalogSheetResultCount').textContent=`${all.length.toLocaleString('ko-KR')}편 검색됨 · ${Math.min(all.length,state.limit).toLocaleString('ko-KR')}편 표시`;
+    $('catalogSheetList').innerHTML=all.length?all.slice(0,state.limit).map(item=>{
+      const review=normalize(item.draft.review_status)||'미검수';
+      const approved=item.review_state==='approved';
+      const linked=Boolean(item.work_id||item.approved_work_id);
+      return `<button type="button" class="catalog-sheet-row" data-sheet-type="${escape(item.source_type)}" data-sheet-id="${escape(item.source_id)}" aria-label="${escape(item.draft.title)} 검수 정보 비교 및 승인">
+        <span class="catalog-sheet-work"><strong>${escape(item.draft.title)}</strong><small>${escape(item.draft.author||'작가 미상')} <span aria-hidden="true">·</span> 엑셀 v${Number(item.sheet_revision)||1}</small></span>
+        <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">원고 검수</span><span class="catalog-sheet-pill ${review==='검수 완료'?'is-done':review==='검수 필요'?'is-needs':'is-neutral'}">${escape(review)}</span></span>
+        <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">도감 연결</span><span class="catalog-sheet-linked">${linked?'연결된 작품':'아직 미등록'}</span></span>
+        <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">승인 상태</span><span class="catalog-sheet-pill ${approved?'is-done':'is-waiting'}">${approved?'승인됨':'비공개 대기'}</span></span>
+        <span class="catalog-sheet-open" aria-hidden="true">›</span>
+      </button>`;
+    }).join(''):'<p class="catalog-sheet-empty">조건에 맞는 작품이 없습니다. 검색어 또는 필터를 변경해 주세요.</p>';
     $('catalogSheetMore').hidden=state.limit>=all.length;
-    status(`비공개 엑셀 초안 ${state.items.length}건 · 현재 표시 ${Math.min(all.length,state.limit)} / ${all.length}건`);
   }
   async function reload(force=false){
     if(state.loading&&!force)return;
     state.loading=true;status('엑셀 검수함을 불러오는 중…');
-    try{const data=await api(null);state.items=data.items||[];state.ready=true;displayList();}
+    try{const data=await api(null);state.items=data.items||[];state.ready=true;displayList();status(`검수함 ${state.items.length.toLocaleString('ko-KR')}편을 불러왔습니다. 승인 전 정보는 공개되지 않습니다.`);}
     catch(error){status(error.message,true);}finally{state.loading=false;}
   }
   function xlsxXml(t){return String(t).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
@@ -608,7 +664,7 @@
   async function openReview(type,id){
     if(state.loading)return;
     const ticket=++state.reviewSeq;
-    const area=$('catalogSheetReview');area.hidden=false;area.textContent='작품별 승인 비교 정보를 불러오는 중…';
+    const area=$('catalogSheetReview');state.lastFocus=document.activeElement;area.hidden=false;document.body.classList.add('catalog-sheet-dialog-open');area.textContent='작품별 승인 비교 정보를 불러오는 중…';
     try{
       const data=await api(null,'?'+new URLSearchParams({source_type:type,source_id:id}));
       if(ticket!==state.reviewSeq)return;
@@ -622,15 +678,20 @@
           <span><em>현재 공개 데이터</em><pre>${escape(display(current)||'—')}</pre></span>
           <span><em>엑셀 검수 초안</em><pre>${escape(display(staged)||'—')}</pre></span></label>`;
       }).join('');
-      area.innerHTML=`<div class="catalog-sheet-review-head"><div><h4>${escape(item.draft.title)}</h4><p class="muted">${escape(item.draft.author)} · 엑셀 버전 ${item.sheet_revision}</p></div>
+      area.innerHTML=`<div class="catalog-sheet-dialog"><div class="catalog-sheet-review-head"><div><p class="catalog-sheet-eyebrow">FIELD REVIEW</p><h4 id="catalogSheetReviewTitle">${escape(item.draft.title)}</h4><p class="muted">${escape(item.draft.author)} · 엑셀 버전 ${item.sheet_revision}</p></div>
         <button type="button" data-sheet-close="1" class="secondary-admin-button">닫기</button></div>
         <p class="muted">${work?'연결된 실제 도감 작품에 선택 항목만 병합합니다.':'승인 전에는 이용자가 직접 작품을 등록할 수 있습니다.'}
         ${collision?'⚠ 동일 제목·작가의 연결되지 않은 도감 작품이 있습니다. 관리자에서 먼저 원본 연결을 확인해 주세요.':''}</p>
         <div class="catalog-sheet-diff-grid">${rows}</div>
         <label class="catalog-sheet-publish"><input type="checkbox" id="catalogSheetPublish" ${(!work||work.status==='published')?'checked':''}> ${work?'승인하면서 비공개 작품인 경우 공개 전환':'신규 작품을 승인하고 공개 등록'}</label>
-        <div class="catalog-sheet-controls"><button id="catalogSheetApprove" type="button" ${collision?'disabled':''}>선택한 항목 실제 도감에 반영</button></div>`;
-      area.scrollIntoView({block:'nearest',behavior:'smooth'});
-    }catch(error){area.textContent=error.message;}
+        <div class="catalog-sheet-approve-actions"><button id="catalogSheetApprove" type="button" ${collision?'disabled':''}>선택 항목 도감에 반영</button></div></div>`;
+      area.querySelector('[data-sheet-close]')?.focus();
+    }catch(error){area.innerHTML=`<div class="catalog-sheet-dialog"><p>${escape(error.message)}</p><button type="button" data-sheet-close="1">닫기</button></div>`;}
+  }
+  function closeReview(){
+    ++state.reviewSeq;state.current=null;
+    $('catalogSheetReview').hidden=true;document.body.classList.remove('catalog-sheet-dialog-open');
+    if(state.lastFocus?.isConnected)state.lastFocus.focus();state.lastFocus=null;
   }
   async function approve(){
     const current=state.current;if(!current||state.loading)return;
@@ -643,25 +704,35 @@
     try{
       const out=await api({action:'approve',source_type:item.source_type,source_id:item.source_id,
         sheet_revision:item.sheet_revision,fields,publish:$('catalogSheetPublish').checked});
-      $('catalogSheetReview').hidden=true;state.current=null;
+      closeReview();
       await reload(true);status(`${item.draft.title}: ${fields.map(f=>names[f]).join('·')} 반영 완료${out.created?' (관리자 신규 등록)':''}.`);
     }catch(e){status(e.message,true);b.disabled=false;}
     finally{state.loading=false;}
   }
-  button.addEventListener('click',()=>{root.hidden=!root.hidden;if(!root.hidden&&!state.ready)void reload();});
-  $('catalogSheetClose').addEventListener('click',()=>{root.hidden=true;});
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
   $('catalogSheetReload').addEventListener('click',()=>void reload());
   $('catalogSheetSearch').addEventListener('input',()=>{state.limit=50;displayList();});
   $('catalogSheetFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetReviewFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetMore').addEventListener('click',()=>{state.limit+=50;displayList();});
   $('catalogSheetList').addEventListener('click',event=>{
     const target=event.target.closest('button[data-sheet-id]');
     if(target)void openReview(target.dataset.sheetType,target.dataset.sheetId);
   });
+  document.addEventListener('keydown',event=>{
+    const area=$('catalogSheetReview');if(area.hidden)return;
+    if(event.key==='Escape'){event.preventDefault();closeReview();}
+    else if(event.key==='Tab'){
+      const focusable=[...area.querySelectorAll('button:not([disabled]),input:not([disabled])')];
+      if(!focusable.length)return;
+      const first=focusable[0],last=focusable.at(-1);
+      if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus();}
+      else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus();}
+    }
+  });
   $('catalogSheetReview').addEventListener('click',event=>{
-    if(event.target.closest('[data-sheet-close]')){++state.reviewSeq;state.current=null;$('catalogSheetReview').hidden=true;}
+    if(event.target===$('catalogSheetReview')||event.target.closest('[data-sheet-close]'))closeReview();
     else if(event.target.closest('#catalogSheetApprove'))void approve();
   });
 })();
