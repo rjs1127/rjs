@@ -72,7 +72,7 @@
   }
   function updateChoiceHeights() {
     measureChoiceRows(refs.genres,refs.genreMore,2,'genre');
-    measureChoiceRows(refs.tags,refs.tagMore,5,'tag');
+    measureChoiceRows(refs.tags,refs.tagMore,window.matchMedia('(max-width:640px)').matches ? 3 : 5,'tag');
   }
   let measureQueued=false;
   function queueChoiceHeights() {
@@ -123,7 +123,7 @@
     return `<article class="wc-card"><button type="button" class="wc-card-open" data-wc-open="${escapeHtml(work.id)}" aria-label="${title} 작품 정보 보기">
       ${cover(work,index)}<span class="wc-card-main"><span class="wc-card-heading-row"><span class="wc-card-heading">${title}</span><span class="wc-card-arrow" aria-hidden="true">↗</span></span><span class="wc-card-author">${author}</span>
       <span class="wc-card-meta">${mainCp?`<span class="wc-card-cp">CP · ${mainCp}</span>`:''}<span class="wc-card-status" ${fromSource?'title="연결된 원본의 연재 상태 (도감 정보는 미확인)"':''}>${escapeHtml(statusLabel[displayCompletion]||'미확인')}${fromSource?'<span class="wc-card-mapped"> · 원본 기준</span>':''}</span></span>
-      <span class="wc-card-tags">${[...genres,...tagLabels.map(t=>'#'+t)].map(tag=>`<span>${escapeHtml(tag)}</span>`).join('') || '<span>분류 정보 미등록</span>'}</span>
+      <span class="wc-card-tags">${genres.length?`<span class="wc-card-genres">${genres.map(genre=>`<span class="wc-card-genre">${escapeHtml(genre)}</span>`).join('')}</span>`:''}${tagLabels.length?`<span class="wc-card-keywords">${tagLabels.map(tag=>`<span class="wc-card-keyword">#${escapeHtml(tag)}</span>`).join('')}</span>`:''}${!genres.length&&!tagLabels.length?'<span class="wc-card-taxonomy-empty">분류 정보 미등록</span>':''}</span>
       <span class="wc-card-fill"><span>정보 ${fill.count}/5</span><span class="wc-card-fill-track" aria-hidden="true"><i style="width:${fill.percent}%"></i></span><strong>${fill.percent}%</strong></span>
       </span></button></article>`;
   }
