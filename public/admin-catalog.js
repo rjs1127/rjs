@@ -1023,6 +1023,7 @@
       const data=await response.json();
       if(!response.ok||!data.ok)throw Error(data.error||`HTTP ${response.status}`);
       const items=Array.isArray(data.items)?data.items:[];
+      window.catalogQuoteAuditWorks=Array.isArray(data.works)?data.works:[];
       panel.innerHTML=`<h4>문장피드 연결 점검</h4>
         <p class="muted">공개 문장 원본 ID를 기준으로 확인한 미연결 항목만 표시합니다. 이 화면은 데이터 변경을 하지 않습니다.</p>
         <p><strong>${Number(data.unmatched_groups||0)}개 그룹 · 공개 문장 ${Number(data.unmatched_quote_count||0)}개</strong> 연결 확인 필요</p>
@@ -1032,9 +1033,45 @@
           <p class="muted">공개 문장 원본 ID: <code>${escape(item.public_source_id||'(없음)')}</code></p>
           ${item.private_id_differs?`<p class="muted">개인 저장 원본 ID: <code>${escape(item.private_source_id||'(없음)')}</code></p>`:''}
           <p class="muted">${item.candidates?.length?'제목 기준 도감 후보(자동 연결 아님): '+item.candidates.map(c=>`${escape(c.title)} / ${escape(c.author)} [${escape(c.status)}] · ${escape(c.source_id||'원본 미연결')}`).join(' | '):'제목이 일치하는 도감 후보 없음'}${item.more_candidates?' · 후보 일부만 표시':''}</p>
+          ${(item.quotes||[]).map(q=>`<div class="catalog-quote-repair" data-repair-quote="${q.quote_id}" data-repair-source="${escape(item.public_source_id||'')}">
+            <strong>공개 문장 #${q.quote_id}</strong>
+            <label>등록 작품 검색 (제목 또는 작가) <input type="search" class="catalog-repair-search" placeholder="전체 등록 작품에서 검색" autocomplete="off" /></label>
+            <select class="catalog-repair-target" aria-label="연결할 작품 선택"><option value="">검색 후 작품을 선택해 주세요</option></select>
+            <button type="button" class="secondary-admin-button catalog-repair-submit" disabled>이 문장 연결 복구</button>
+          </div>`).join('')}
         </article>`).join('')}</div>`:'<p>공개 문장과 공개 작품도감 간 원본 ID 미연결 항목이 없습니다.</p>'}`;
     }catch(error){panel.textContent=`연결 점검 실패: ${error.message}`;}
     finally{button.disabled=false;}
+  });
+  $('catalogQuoteAuditPanel').addEventListener('input',event=>{
+    if(!event.target.matches('.catalog-repair-search'))return;
+    const section=event.target.closest('[data-repair-quote]');
+    const select=section.querySelector('.catalog-repair-target');
+    const query=event.target.value.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
+    const matches=query.length>=1?(window.catalogQuoteAuditWorks||[]).filter(w=>
+      `${w.title} ${w.author}`.normalize('NFKC').replace(/\s+/g,'').toLowerCase().includes(query)).slice(0,30):[];
+    select.innerHTML='<option value="">검색 결과에서 작품을 선택해 주세요</option>'+matches.map(w=>
+      `<option value="${escape(w.id+'|'+w.source_id)}">${escape(w.title)} / ${escape(w.author)} · ${escape(w.source_type)}</option>`).join('');
+    section.querySelector('.catalog-repair-submit').disabled=true;
+  });
+  $('catalogQuoteAuditPanel').addEventListener('change',event=>{
+    if(event.target.matches('.catalog-repair-target'))event.target.closest('[data-repair-quote]').querySelector('.catalog-repair-submit').disabled=!event.target.value;
+  });
+  $('catalogQuoteAuditPanel').addEventListener('click',async event=>{
+    const button=event.target.closest('.catalog-repair-submit');if(!button)return;
+    const section=button.closest('[data-repair-quote]');
+    const selected=section.querySelector('.catalog-repair-target').value;
+    const [workId,sourceId]=selected.split('|');
+    const target=(window.catalogQuoteAuditWorks||[]).find(w=>w.id===workId&&w.source_id===sourceId);
+    if(!target)return;
+    const quoteId=Number(section.dataset.repairQuote);
+    if(!confirm(`공개 문장 #${quoteId}의 원본 연결을 아래 작품으로 수정할까요?\n\n${target.title} / ${target.author}\n${sourceId}\n\n문장 내용·좋아요·읽기 위치는 유지됩니다. 원본이 같은 작품인지 직접 확인해 주세요.`))return;
+    button.disabled=true;
+    try{
+      const response=await fetch('/api/admin/catalog-quote-audit',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({quote_id:quoteId,expected_source_id:section.dataset.repairSource,work_id:workId,source_id:sourceId,confirm:true})});
+      const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||`HTTP ${response.status}`);
+      section.textContent=`공개 문장 #${quoteId} 연결 복구 완료 — 점검 버튼을 다시 열어 최신 결과를 확인해 주세요.`;
+    }catch(error){alert('연결 복구 실패: '+error.message);button.disabled=false;}
   });
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());
