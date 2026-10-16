@@ -745,3 +745,28 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
     align-self:flex-end;margin:2px 0 0 auto;min-height:25px;padding:3px 9px;
   }
 }
+
+/* v11.12 — mobile genre 'more' lives visually inside row 2, not on a separate action row.
+   Reserve its width before JS measures wrapping; do not change desktop or taste-filter layout. */
+@media (max-width:640px) {
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more {
+    position:relative;
+    display:block;
+    min-width:0;
+  }
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more #wcGenreChoices {
+    box-sizing:border-box;
+    width:100%;
+    padding-right:76px;
+  }
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more #wcGenreMore:not([hidden]) {
+    position:absolute;
+    right:0;
+    bottom:1px;
+    z-index:1;
+    margin:0;
+    min-height:29px;
+    padding:3px 8px;
+    white-space:nowrap;
+  }
+}

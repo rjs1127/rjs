@@ -59,7 +59,20 @@
       const top=item.offsetTop;
       if (!tops.some(value=>Math.abs(value-top)<2)) tops.push(top);
     }
-    const hasOverflow=tops.length>rows;
+    let hasOverflow=tops.length>rows;
+    // v11.12: reserve the inline mobile 'more' slot before measuring row boundaries.
+    // Otherwise the button becoming visible changes wrap positions after the limit is calculated.
+    const genreGroup=kind==='genre' ? container.closest('.wc-genre-group') : null;
+    const reserveInline=!!(genreGroup && window.matchMedia('(max-width:640px)').matches && hasOverflow);
+    if (genreGroup) genreGroup.classList.toggle('wc-inline-more',reserveInline);
+    if (reserveInline) {
+      tops.length=0;
+      for (const item of items) {
+        const top=item.offsetTop;
+        if (!tops.some(value=>Math.abs(value-top)<2)) tops.push(top);
+      }
+      hasOverflow=tops.length>rows;
+    }
     button.hidden=!hasOverflow;
     button.setAttribute('aria-expanded',String(choiceOpen[kind] && hasOverflow));
     button.innerHTML=(choiceOpen[kind] && hasOverflow?'접기':'더보기')+' <span aria-hidden="true">'+(choiceOpen[kind] && hasOverflow?'⌃':'⌄')+'</span>';
