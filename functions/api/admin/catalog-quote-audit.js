@@ -33,9 +33,19 @@ export async function onRequestGet(context){
     ]);
     const all=quotesResult.results||[],works=worksResult.results||[];
     const detailRows=quoteDetails.results||[];
+    // v11.00: legacy Drive IDs confirmed as the same work are considered connected
+    // only while the current Drive ID is still attached to a published work.
+    let validAliases=new Set();
+    try {
+      const aliasRows=await db.prepare(`SELECT v.old_source_id FROM drive_source_versions v
+        JOIN catalog_source_links l ON l.work_id=v.work_id
+          AND l.source_type='drive' AND l.source_id=v.current_source_id
+        JOIN catalog_works w ON w.id=v.work_id AND w.status='published'`).all();
+      validAliases=new Set((aliasRows.results||[]).map(row=>String(row.old_source_id||'')));
+    } catch(error) {if(!/no such table/i.test(error?.message||''))throw error;}
     const output=[];
     for(const q of all){
-      if(Number(q.linked_published))continue;
+      if(Number(q.linked_published)||validAliases.has(String(q.public_source_id||'')))continue;
       const title=canonical(q.feed_title);
       const matches=title?works.filter(w=>canonical(w.title)===title):[];
       const candidates=matches.slice(0,8).map(w=>({title:w.title,author:w.author,work_id:w.id,

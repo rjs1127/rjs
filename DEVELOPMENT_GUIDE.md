@@ -1104,3 +1104,7 @@ v10.96: admin-catalog.js에서 catalogQuoteAuditButton과 결과 패널은 catal
 ## v10.88 모바일 검수 모달
 - 580px 이하에서는 고정 overlay에 `overflow:hidden`, 실제 `.catalog-sheet-dialog`에 `overflow-y:auto`를 사용하여 투명 딤 레이어가 문서 스크롤에 끼어들지 않게 한다.
 - 배경은 기존 `--sy-surface` 토큰을 사용하며 추가 JS/DB 변경 없음.
+
+
+## v11.00 교체 이력 주의
+`drive_source_versions`는 관리자 확인된 구버전 ID → 현재 Drive ID를 보관한다. 작품도감 공개 문장 조회만 별칭을 추가로 사용한다. 원본 리더 위치 이동을 자동 보정하지 않는다. 도감 작품을 삭제하거나 최신 원본 링크를 변경한 경우 별칭은 조회에서 제외한다.
