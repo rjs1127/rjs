@@ -3,7 +3,7 @@
 - 관리자 엔드포인트의 기존 인증은 유지하고, 제한된 게스트 엔드포인트만 명시적으로 별도 암호를 확인합니다. 외부 요청의 `reviewGuest` JSON 필드는 사용되지 않습니다.
 - `catalog_sheet_guest_assignments` 테이블은 멱등 생성되며, 기존 `catalog_sheet_drafts`, `catalog_sheet_incoming`, 승인 상태를 재작성하지 않습니다.
 - 게스트 허용 action: `merge_incoming`, `save_draft`, `approve`, `rework_mark`. 각 action에서 배정 레코드 존재 여부를 서버가 확인합니다. GET도 배정 결과로 제한됩니다.
-- `CATALOG_REVIEW_GUEST_PIN`은 `DRIVE_GUEST_SYNC_PIN`, `ADMIN_PASSWORD`와 서로 다른 강력한 Secret으로 설정합니다. 관리자 세션 쿠키는 사용하지 않습니다.
+- `DRIVE_GUEST_SYNC_PIN`을 드라이브 동기화와 공동 재검수에 공용으로 사용합니다. 별도 재검수 Secret은 만들지 않습니다. `ADMIN_PASSWORD`는 공유하지 않습니다. 관리자 세션 쿠키는 사용하지 않습니다.
 - 원본 ID·유형을 임의 변경하지 않으며 검수 워크플로의 버전 충돌 보호를 유지합니다. HISTORY.md는 GitHub main 실제 커밋 이력 기반 자동 생성 절차를 따릅니다.
 
 ## v11.03 줄거리 보완 표시 및 Work 전용 부분 재작성 (2026-10-16)

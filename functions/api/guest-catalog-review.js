@@ -17,8 +17,8 @@ export async function onRequestPost(context){
   const limited=checkGuestCatalogReviewRequest(req);if(limited)return limited;
   const raw=await req.text();if(raw.length>30000)return reply({error:'요청 크기가 제한을 초과했습니다.'},413);
   let body;try{body=JSON.parse(raw);}catch{return reply({error:'요청 형식이 올바르지 않습니다.'},400);}
-  const configured=String(context.env.CATALOG_REVIEW_GUEST_PIN||'').trim();
-  if(!configured)return reply({error:'재검수 전용 암호가 설정되지 않았습니다.'},503);
+  const configured=String(context.env.DRIVE_GUEST_SYNC_PIN||'').trim();
+  if(!configured)return reply({error:'공유 암호가 설정되지 않았습니다. 관리자에게 문의해 주세요.'},503);
   const pin=typeof body.code==='string'&&body.code.length<=64?body.code.trim():'';
   if(!pin||!await matches(configured,pin)){
     recordGuestCatalogReviewFailure(req);return reply({error:'암호가 올바르지 않습니다.'},401);
