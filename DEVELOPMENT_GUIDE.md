@@ -1108,3 +1108,7 @@ v10.96: admin-catalog.js에서 catalogQuoteAuditButton과 결과 패널은 catal
 
 ## v11.00 교체 이력 주의
 `drive_source_versions`는 관리자 확인된 구버전 ID → 현재 Drive ID를 보관한다. 작품도감 공개 문장 조회만 별칭을 추가로 사용한다. 원본 리더 위치 이동을 자동 보정하지 않는다. 도감 작품을 삭제하거나 최신 원본 링크를 변경한 경우 별칭은 조회에서 제외한다.
+
+
+## v11.01 자동 원본 후보
+`GET /api/admin/drive-source-versions?mode=discover`는 관리자 권한 읽기 전용. `shared_quotes`에서 미연결 원본을 모아 캐시된 Drive 목록과 `catalog_source_links`를 대조한다. 유사 제목 및 동일 작가 결과는 추천일 뿐 자동 교체/본문 위치 변경 금지.

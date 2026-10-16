@@ -42,9 +42,49 @@ async function inspect(db,env,oldId,newId){
   old_alias:oldAlias||null,new_alias:newAlias||null,old_catalog_link:oldLink||null,
   can_register:!oldAlias&&!newAlias&&oldId!==newId};
 }
+const normalize=value=>String(value||'').normalize('NFKC').replace(/\s*\((?:가독성\s*편집|수정본)\)\s*$/u,'').replace(/[\s\p{P}\p{S}]+/gu,'').toLocaleLowerCase('ko-KR');
+function candidateScore(group,work){
+ const a=normalize(group.feed_title),b=normalize(work.title);
+ if(!a||!b)return 0;
+ const title=a===b?100:(a.length>=3&&b.length>=3&&(a.includes(b)||b.includes(a))?48:0);
+ if(!title)return 0;
+ const authors=normalize(group.feed_author)&&normalize(group.feed_author)===normalize(work.author);
+ return title+(authors?30:0);
+}
+async function discover(db,env){
+ // Only surface legacy public IDs with no live published catalog link. Never mutate data here.
+ const [quotes,works,aliases]=await Promise.all([
+  db.prepare(`SELECT sq.work_id AS old_source_id,sq.title,sq.author,COUNT(*) AS quote_count,
+    MAX(CASE WHEN uq.work_id IS NOT NULL AND uq.work_id<>sq.work_id THEN 1 ELSE 0 END) AS private_differs
+    FROM shared_quotes sq LEFT JOIN user_quotes uq ON uq.id=sq.quote_id AND uq.user_id=sq.user_id
+    WHERE sq.work_id IS NOT NULL AND sq.work_id<>''
+    GROUP BY sq.work_id,sq.title,sq.author ORDER BY quote_count DESC`).all(),
+  db.prepare(`SELECT w.id AS work_id,w.title,w.author,w.status,l.source_type,l.source_id
+    FROM catalog_works w JOIN catalog_source_links l ON l.work_id=w.id AND l.source_type='drive'`).all(),
+  db.prepare(`SELECT old_source_id,current_source_id,work_id FROM drive_source_versions`).all()
+ ]);
+ const sourceItems=await driveItems(env);const activeDrive=new Set(sourceItems.map(x=>String(x.id)));
+ const candidates=(works.results||[]).filter(w=>w.source_id&&activeDrive.has(String(w.source_id)));
+ const resolved=new Set((aliases.results||[]).filter(a=>candidates.some(w=>w.work_id===a.work_id&&String(w.source_id)===String(a.current_source_id)&&w.status==='published')).map(a=>String(a.old_source_id)));
+ const linked=new Set((works.results||[]).filter(w=>w.status==='published').map(w=>String(w.source_id)));
+ const groups=new Map();
+ for(const q of quotes.results||[]){const old=String(q.old_source_id);if(linked.has(old)||resolved.has(old))continue;
+  const key=old+'\u0000'+normalize(q.title)+'\u0000'+normalize(q.author);
+  if(groups.has(key)){groups.get(key).quote_count+=Number(q.quote_count||0);continue;}
+  const matches=candidates.map(w=>({...w,score:candidateScore({feed_title:q.title,feed_author:q.author},w)}))
+    .filter(w=>w.score>0&&String(w.source_id)!==old).sort((a,b)=>b.score-a.score||String(a.title).localeCompare(String(b.title),'ko'));
+  groups.set(key,{old_source_id:old,title:q.title||'',author:q.author||'',quote_count:Number(q.quote_count||0),private_differs:!!q.private_differs,
+   already_registered:(aliases.results||[]).some(a=>String(a.old_source_id)===old),
+   candidates:matches.slice(0,10).map(w=>({work_id:w.work_id,title:w.title,author:w.author,status:w.status,source_id:w.source_id,score:w.score})),candidate_count:matches.length});
+ }
+ return {items:Array.from(groups.values()).sort((a,b)=>b.quote_count-a.quote_count).slice(0,300),
+   total_groups:groups.size,drive_cache_available:sourceItems.length>0,
+   note:'제목·작가 기반 후보일 뿐 동일 작품을 증명하지 않습니다. 구·신 파일의 내용과 문장 위치를 확인하세요.'};
+}
 export async function onRequestGet(context){
  try{await requireAdminSession(context);const db=requireUserDb(context.env);await ensureWorkCatalogSchema(db);await schema(db);
   const url=new URL(context.request.url);const oldId=url.searchParams.get('old_id');const newId=url.searchParams.get('new_id');
+  if(url.searchParams.get('mode')==='discover')return respond({ok:true,...await discover(db,context.env)});
   if(oldId!==null||newId!==null){if(!valid(oldId)||!valid(newId))return respond({error:'Drive 파일 ID 형식이 올바르지 않습니다.'},400);return respond({ok:true,preview:await inspect(db,context.env,oldId,newId)});}
   const rows=await db.prepare(`SELECT v.*,w.title,w.author FROM drive_source_versions v LEFT JOIN catalog_works w ON w.id=v.work_id ORDER BY v.created_at DESC LIMIT 250`).all();
   return respond({ok:true,items:rows.results||[]});
