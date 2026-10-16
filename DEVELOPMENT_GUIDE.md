@@ -1,3 +1,5 @@
+v10.96: admin-catalog.js에서 catalogQuoteAuditButton과 결과 패널은 catalogRegisteredPane 내부에 배치한다. 점검은 공유 문장·등록 작품 전체 원본 연결 조회이며 엑셀 검수함 전용이 아니다.
+
 ## v10.95 — 공개 문장과 작품도감 연결 진단
 
 - API: `GET /api/admin/catalog-quote-audit` (관리자 인증 필수, 읽기 전용, no-store).

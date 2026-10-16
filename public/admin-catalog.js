@@ -481,8 +481,7 @@
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
       <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button>
-      <button id="catalogQuoteAuditButton" type="button" class="secondary-admin-button">문장피드 연결 점검</button></div>
-    <section id="catalogQuoteAuditPanel" class="catalog-quote-audit" hidden aria-label="문장피드 미연결 작품 점검"></section>
+      </div>
     <p id="catalogSheetStatus" role="status" aria-live="polite" class="catalog-sheet-status muted"></p>
     <div class="catalog-sheet-directory">
       <div class="catalog-sheet-directory-head"><div><h4>작품 검수 목록</h4><p class="muted" id="catalogSheetResultCount">검색 및 필터로 작품을 찾을 수 있어요.</p></div></div>
@@ -498,6 +497,13 @@
       <div class="catalog-sheet-footer"><button id="catalogSheetMore" type="button" class="secondary-admin-button" hidden>다음 50편 보기</button></div>
     </div>
     <div id="catalogSheetReview" class="catalog-sheet-review" role="dialog" aria-modal="true" aria-labelledby="catalogSheetReviewTitle" hidden></div>`;
+  // v10.96: the quotation-to-catalog audit covers all registered works, including Postype,
+  // so it belongs to Registered Works rather than TXT-only spreadsheet review.
+  const quoteAuditTools=document.createElement('div');
+  quoteAuditTools.className='catalog-quote-audit-tools';
+  quoteAuditTools.innerHTML=`<button id="catalogQuoteAuditButton" type="button" class="secondary-admin-button" aria-controls="catalogQuoteAuditPanel" aria-expanded="false">문장피드 연결 점검</button>
+    <section id="catalogQuoteAuditPanel" class="catalog-quote-audit" hidden aria-label="문장피드 미연결 작품 점검"></section>`;
+  registeredPane.prepend(quoteAuditTools);
   panel.append(tabs,registeredPane,root);
   // Only the registered catalogue view needs its own refresh button.
   function switchView(view){
@@ -1009,8 +1015,8 @@
   // Read-only mismatch audit; do not modify either the quote feed or the catalog.
   $('catalogQuoteAuditButton').addEventListener('click',async()=>{
     const panel=$('catalogQuoteAuditPanel');
-    if(!panel.hidden){panel.hidden=true;return;}
-    panel.hidden=false;panel.textContent='공개 문장과 작품도감의 원본 연결을 점검하는 중…';
+    if(!panel.hidden){panel.hidden=true;$('catalogQuoteAuditButton').setAttribute('aria-expanded','false');return;}
+    panel.hidden=false;$('catalogQuoteAuditButton').setAttribute('aria-expanded','true');panel.textContent='공개 문장과 작품도감의 원본 연결을 점검하는 중…';
     const button=$('catalogQuoteAuditButton');button.disabled=true;
     try{
       const response=await fetch('/api/admin/catalog-quote-audit',{credentials:'same-origin',cache:'no-store'});

@@ -326,3 +326,7 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 .catalog-quote-audit-item{padding:12px;border:1px solid var(--sy-border, #ddd);border-radius:10px;overflow-wrap:anywhere;}
 .catalog-quote-audit-item p{margin:6px 0;font-size:.88rem;}
 .catalog-quote-audit-item code{overflow-wrap:anywhere;white-space:normal;}
+
+/* v10.96: place the cross-source quote audit in Registered Works. */
+.catalog-quote-audit-tools{margin:10px 0 18px;}
+.catalog-quote-audit-tools>.secondary-admin-button{max-width:100%;}
