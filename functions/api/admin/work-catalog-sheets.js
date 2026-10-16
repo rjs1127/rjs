@@ -203,7 +203,12 @@ export async function onRequestGet(context){
       const incoming=await db.prepare('SELECT candidate_json,base_revision,created_at FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
       const stats=await db.prepare('SELECT recheck_count,last_merged_at FROM catalog_sheet_recheck_stats WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
       const rework=await db.prepare('SELECT state,reason,proposal,request_id,requested_at,updated_at,completed_at FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
-      return respond({rework:rework||null,item:{...decode(row),recheck_count:stats?.recheck_count||0,last_recheck_merged_at:stats?.last_merged_at||0},work:work?allCatalogWork(work):null,collision,
+      const guestMerge=context.reviewGuest?await db.prepare(`SELECT MAX(h.created_at) AS merged_at
+        FROM catalog_sheet_history h JOIN catalog_sheet_guest_assignments a
+        ON a.source_type=h.source_type AND a.source_id=h.source_id
+        WHERE h.source_type=? AND h.source_id=? AND h.event_type='before_recheck_merge'
+        AND h.created_at>=a.assigned_at`).bind(pair.type,pair.id).first():null;
+      return respond({rework:rework||null,item:{...decode(row),recheck_count:stats?.recheck_count||0,last_recheck_merged_at:stats?.last_merged_at||0,...(context.reviewGuest?{guest_merged_at:guestMerge?.merged_at||0}: {})},work:work?allCatalogWork(work):null,collision,
         incoming:incoming?{draft:parse(incoming.candidate_json,{}),base_revision:incoming.base_revision,created_at:incoming.created_at}:null});
     }
     // 1,000 rows or an explicit error — never truncate an exported workbook.
@@ -214,6 +219,10 @@ export async function onRequestGet(context){
       CASE WHEN guest.source_id IS NULL THEN 0 ELSE 1 END AS guest_assigned,
       COALESCE(stats.recheck_count,0) AS recheck_count,
       COALESCE(stats.last_merged_at,0) AS last_recheck_merged_at,
+      guest.assigned_at AS guest_assigned_at,
+      (SELECT MAX(h.created_at) FROM catalog_sheet_history h
+        WHERE h.source_type=d.source_type AND h.source_id=d.source_id
+        AND h.event_type='before_recheck_merge' AND h.created_at>=guest.assigned_at) AS guest_merged_at,
       rework.state AS rework_state,rework.reason AS rework_reason
       FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_guest_assignments guest ON guest.source_type=d.source_type AND guest.source_id=d.source_id
       LEFT JOIN catalog_sheet_incoming incoming
