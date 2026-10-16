@@ -495,6 +495,7 @@
         <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select>
         <select id="catalogSheetIncomingFilter" aria-label="재검수 진행 여부"><option value="all">전체 재검수 진행</option><option value="never">재검수 미처리</option><option value="waiting">새 재검수 비교 대기</option><option value="merged">재검수 병합 완료</option><option value="approved">재검수 후 도감 승인</option></select>
         <select id="catalogSynopsisFilter" aria-label="줄거리 보완 상태"><option value="all">전체 줄거리 보완</option><option value="needed">보완 필요</option><option value="sent">Work 요청 중</option><option value="ready">보완 결과 확인</option><option value="done">보완 완료</option></select>
+        <select id="catalogSheetCpFilter" aria-label="메인 커플 CP 필터"><option value="all">전체 메인 커플 (CP)</option><option value="none">CP 미분류</option></select>
         <select id="catalogSheetAdultFilter" aria-label="성적 묘사 분류"><option value="all">전체 성적 묘사 분류</option><option value="미확인">미확인</option><option value="직접적 묘사">직접적 묘사</option><option value="묘사 없음">묘사 없음</option><option value="확인 필요">확인 필요</option></select>
         <select id="catalogSheetSort" aria-label="검수함 정렬"><option value="default">기본 순서</option><option value="latest">최근 재검수 처리순</option></select></div>
       <div class="catalog-sheet-table-labels" aria-hidden="true"><span>작품명 / 작가</span><span>원고 검수</span><span>도감 연결</span><span>승인 상태</span><span></span></div>
@@ -574,6 +575,7 @@
     const linkFilter=$('catalogSheetLinkFilter').value;
     const incomingFilter=$('catalogSheetIncomingFilter').value;
     const adultFilter=$('catalogSheetAdultFilter').value;
+    const cpFilter=$('catalogSheetCpFilter').value;
     const synopsisFilter=$('catalogSynopsisFilter').value;
     const recheckStage=item=>item.has_incoming?'waiting':!Number(item.recheck_count)?'never':
       Number(item.approved_at||0)>=Number(item.last_recheck_merged_at||0)?'approved':'merged';
@@ -584,6 +586,7 @@
       (linkFilter==='all'||(Boolean(item.work_id)===(linkFilter==='linked')))&&
       (incomingFilter==='all'||recheckStage(item)===incomingFilter)&&
       (adultFilter==='all'||(item.draft.adult_scene_status||'미확인')===adultFilter)&&
+      (cpFilter==='all'||(cpFilter==='none'?!item.main_cp:String(item.main_cp||'')===cpFilter))&&
       (synopsisFilter==='all'||item.rework_state===synopsisFilter)&&
       (!q||`${item.draft.title} ${item.draft.author} ${item.draft.review_note||''} ${item.draft.duplicate_note||''} ${item.draft.analysis_scope||''} ${item.draft.recheck_log||''}`.normalize('NFKC').toLocaleLowerCase().includes(q)));
     if($('catalogSheetSort').value==='latest')all.sort((a,b)=>Number(b.last_recheck_merged_at||0)-Number(a.last_recheck_merged_at||0));
@@ -615,10 +618,16 @@
     }).join(''):'<p class="catalog-sheet-empty">조건에 맞는 작품이 없습니다. 검색어 또는 필터를 변경해 주세요.</p>';
     $('catalogSheetMore').hidden=state.limit>=all.length;
   }
+  function refreshCpOptions(){
+    const el=$('catalogSheetCpFilter');const selected=el.value;
+    const values=[...new Set(state.items.map(x=>String(x.main_cp||'').trim()).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'ko'));
+    el.replaceChildren(new Option('전체 메인 커플 (CP)','all'),new Option('CP 미분류','none'),...values.map(x=>new Option(x,x)));
+    el.value=[...el.options].some(o=>o.value===selected)?selected:'all';
+  }
   async function reload(force=false){
     if(state.loading&&!force)return;
     state.loading=true;status('엑셀 검수함을 불러오는 중…');
-    try{const data=await api(null);state.items=data.items||[];state.ready=true;displayList();status(`검수함 ${state.items.length.toLocaleString('ko-KR')}편을 불러왔습니다. 승인 전 정보는 공개되지 않습니다.`);}
+    try{const data=await api(null);state.items=data.items||[];state.ready=true;refreshCpOptions();displayList();status(`검수함 ${state.items.length.toLocaleString('ko-KR')}편을 불러왔습니다. 승인 전 정보는 공개되지 않습니다.`);}
     catch(error){status(error.message,true);}finally{state.loading=false;}
   }
   function xlsxXml(t){return String(t).replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/g,'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));}
@@ -1253,6 +1262,7 @@
   $('catalogSheetLinkFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetIncomingFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetAdultFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetCpFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetSort').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetMore').addEventListener('click',()=>{state.limit+=50;displayList();});
   $('catalogSheetList').addEventListener('click',event=>{
