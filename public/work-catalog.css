@@ -726,3 +726,22 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
   .work-catalog-page .wc-card-tags .wc-card-genre{font-size:9.5px;padding:3px 8px}
   .work-catalog-page .wc-card-tags .wc-card-keyword{font-size:8.5px;padding:3px 6px}
 }
+
+/* v11.11: remove inherited background/padding from card taxonomy row wrappers. */
+.work-catalog-page .wc-card-tags > .wc-card-genres,
+.work-catalog-page .wc-card-tags > .wc-card-keywords {
+  background:transparent!important;border:0!important;border-radius:0!important;
+  padding:0!important;box-shadow:none!important;
+}
+/* Preserve the separate genre pills and translucent keyword chips. */
+.work-catalog-page .wc-card-tags .wc-card-genre {background:var(--wc-soft);border-radius:999px;}
+.work-catalog-page .wc-card-tags .wc-card-keyword {background:color-mix(in srgb,var(--wc-tint) 55%,transparent);border-radius:5px;}
+/* Keep expansion visibly adjacent to the genre rows rather than floating far below. */
+.work-catalog-page #wcGenreMore {margin:2px 0 0 auto;align-self:flex-end;line-height:1.2;}
+@media (max-width:640px) {
+  .work-catalog-page .wc-quick-filters .wc-genre-group {row-gap:0;}
+  .work-catalog-page .wc-quick-filters .wc-discovery {padding-bottom:0;}
+  .work-catalog-page .wc-quick-filters #wcGenreMore {
+    align-self:flex-end;margin:2px 0 0 auto;min-height:25px;padding:3px 9px;
+  }
+}
