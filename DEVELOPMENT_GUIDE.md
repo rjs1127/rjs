@@ -1,3 +1,8 @@
+## v11.10 · 긴급 CPU 경감
+
+- guest-catalog-review의 merge_incoming/save_draft에서 검증된 기존 draft_json의 title/author를 사용해 archive index KV 전체 조회를 생략. 관리자 임포트 검증과 권한·CAS는 그대로 유지.
+- DB 마이그레이션 없음. 1102 직접 원인 확정은 로그 관측 필요.
+
 ## v11.09 · 관리자 엑셀 검수함 메인 커플 (CP) 필터
 
 - 관리자 `엑셀 검수함`에 **메인 커플 (CP)** 필터 추가. 전체/미분류 및 실제 원본에 존재하는 CP 값만 선택지로 표시.

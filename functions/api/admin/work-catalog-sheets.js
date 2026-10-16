@@ -476,9 +476,13 @@ export async function onRequestPost(context){
       await requireNoIncoming(db,type,id);
       if(Number(row.sheet_revision)!==revision)
         throw catalogError('다른 곳에서 초안이 변경됐습니다. 최신 검수함을 다시 열어 확인해 주세요.',409);
-      const sources=await catalogPublicSources(context.env);
-      const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const previous=parse(row.draft_json,{});
+      // An existing staged row was source-checked on import. Guest edits must
+      // preserve its immutable title/author. Avoid loading/parsing the entire
+      // public archive index (KV) on every single-work guest merge/save.
+      const source=context.reviewGuest
+        ? {title:previous.title,author:previous.author}
+        : (await catalogPublicSources(context.env)).find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const edited=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
       const updated=JSON.stringify(edited);
       if(updated===row.draft_json)return respond({ok:true,changed:false,sheet_revision:revision});
@@ -503,9 +507,13 @@ export async function onRequestPost(context){
       if(!row||!incoming)throw catalogError('비교할 새 재검수본이 없습니다.',404);
       if(Number(row.sheet_revision)!==revision||Number(incoming.base_revision)!==revision)
         throw catalogError('재검수본을 가져온 뒤 초안이 바뀌었습니다. 최신 데이터를 다시 확인해 주세요.',409);
-      const sources=await catalogPublicSources(context.env);
-      const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const previous=parse(row.draft_json,{});
+      // An existing staged row was source-checked on import. Guest edits must
+      // preserve its immutable title/author. Avoid loading/parsing the entire
+      // public archive index (KV) on every single-work guest merge/save.
+      const source=context.reviewGuest
+        ? {title:previous.title,author:previous.author}
+        : (await catalogPublicSources(context.env)).find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const merged=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
       const completed=await db.prepare("SELECT state FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?").bind(type,id).first();
       const arrived=parse(incoming.candidate_json,{});
