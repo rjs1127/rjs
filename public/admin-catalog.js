@@ -1079,7 +1079,21 @@
       const response=await fetch('/api/admin/catalog-quote-audit',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({quote_id:quoteId,expected_source_id:section.dataset.repairSource,work_id:workId,source_id:sourceId,confirm:true})});
       const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||`HTTP ${response.status}`);
       section.textContent=`공개 문장 #${quoteId} 연결 복구 완료 — 점검 버튼을 다시 열어 최신 결과를 확인해 주세요.`;
-    }catch(error){alert('연결 복구 실패: '+error.message);button.disabled=false;}
+    }catch(error){
+      if(/개인 저장 문장의 원본 ID와 선택한 작품 원본/.test(error.message)){
+        try{
+          const inspection=await fetch('/api/admin/catalog-quote-audit',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'inspect',quote_id:quoteId,expected_source_id:section.dataset.repairSource,work_id:workId,source_id:sourceId,confirm:true})});
+          const details=await inspection.json();if(!inspection.ok||!details.ok)throw Error(details.error||'원본 ID 확인 실패');
+          const message=`원본 ID 불일치 — 예외 복구 사전 확인\n\n공개 문장 #${quoteId} (${details.feed_title} / ${details.feed_author})\n공개 문장 원본: ${details.public_source_id||'(없음)'}\n개인 저장 원본: ${details.private_source_id||'(없음)'}\n선택한 도감: ${details.target_title} / ${details.target_author}\n도감 원본: ${details.target_source_id}\n\n이 작품과 문장의 실제 내용 및 열리는 위치를 직접 대조했나요?\n다른 판본이면 문장 위치가 어긋날 수 있습니다.\n개인 저장 원본 ID는 바꾸지 않고 공개 문장 연결만 변경합니다.\n\n확인한 경우에만 [확인]을 누르세요.`;
+          if(!confirm(message)){button.disabled=false;return;}
+          const typed=prompt(`최종 확인: ${details.target_title}의 실제 원고에서 문장과 위치를 대조했다면\n'예외 복구'를 정확히 입력해 주세요.`, '');
+          if(typed!=='예외 복구'){button.disabled=false;return;}
+          const response=await fetch('/api/admin/catalog-quote-audit',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({action:'exception_repair',quote_id:quoteId,expected_source_id:details.public_source_id,expected_private_source_id:details.private_source_id,work_id:workId,source_id:sourceId,confirmed_target_title:details.target_title,verified_same_work:true,verified_quote_location:true,confirmation_text:typed,confirm:true})});
+          const data=await response.json();if(!response.ok||!data.ok)throw Error(data.error||`HTTP ${response.status}`);
+          section.textContent=`공개 문장 #${quoteId} 관리자 확인 예외 복구 완료 — 점검을 다시 실행해 주세요.`;
+        }catch(exceptionError){alert('예외 복구 실패: '+exceptionError.message);button.disabled=false;}
+      }else{alert('연결 복구 실패: '+error.message);button.disabled=false;}
+    }
   });
   $('catalogSheetFile').addEventListener('change',event=>{const file=event.target.files?.[0];if(file)void importExcel(file);});
   $('catalogSheetExport').addEventListener('click',()=>void exportExcel());

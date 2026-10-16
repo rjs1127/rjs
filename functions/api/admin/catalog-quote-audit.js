@@ -79,13 +79,23 @@ export async function onRequestPost(context){
       uq.work_id AS private_source_id FROM shared_quotes sq LEFT JOIN user_quotes uq
       ON uq.id=sq.quote_id AND uq.user_id=sq.user_id WHERE sq.quote_id=?`).bind(quoteId).first();
     if(!quote)return reply({error:'공개 문장이 없거나 공유가 취소됐습니다.'},404);
+    // Inspect mode never writes data; give the administrator the three current IDs.
+    const inspectOnly=body?.action==='inspect';
     if(String(quote.work_id||'')!==expected)return reply({error:'다른 작업에서 공개 문장 원본 ID가 바뀌었습니다. 점검 결과를 새로 열어 주세요.'},409);
     const target=await db.prepare(`SELECT w.id,w.title,w.author,l.source_id,l.source_type FROM catalog_works w
       JOIN catalog_source_links l ON l.work_id=w.id WHERE w.id=? AND w.status='published' AND l.source_id=?`)
       .bind(workId,sourceId).first();
     if(!target)return reply({error:'선택한 공개 작품의 원본 연결이 변경됐습니다.'},409);
+    if(inspectOnly)return reply({ok:true,quote_id:quoteId,feed_title:quote.title||'',feed_author:quote.author||'',public_source_id:String(quote.work_id||''),private_source_id:String(quote.private_source_id||''),target_source_id:sourceId,target_title:target.title,target_author:target.author,private_differs:!!quote.private_source_id&&String(quote.private_source_id)!==sourceId,already_linked:String(quote.work_id||'')===sourceId});
     const privateId=String(quote.private_source_id||'');
-    if(privateId&&privateId!==sourceId)return reply({error:'개인 저장 문장의 원본 ID와 선택한 작품 원본이 다릅니다. 자동 수정하지 않았습니다. 원본 연결을 먼저 확인해 주세요.'},409);
+    const exceptional=body?.action==='exception_repair';
+    if(privateId&&privateId!==sourceId&&!exceptional)return reply({error:'개인 저장 문장의 원본 ID와 선택한 작품 원본이 다릅니다. 자동 수정하지 않았습니다. 원본 연결을 먼저 확인해 주세요.'},409);
+    // The exception is deliberately separate from ordinary repairs. Require the exact
+    // current private ID, the target title, and an explicit verification assertion.
+    if(exceptional&&(!privateId||privateId===sourceId||body?.verified_same_work!==true||
+      body?.verified_quote_location!==true||String(body?.expected_private_source_id||'')!==privateId||
+      String(body?.confirmed_target_title||'')!==String(target.title||'')||body?.confirmation_text!=='예외 복구'))
+      return reply({error:'예외 복구 확인값이 일치하지 않습니다. 최신 원본 ID·대상 작품·문장 위치를 다시 점검해 주세요.'},409);
     if(expected===sourceId)return reply({ok:true,unchanged:true});
     const linked=await db.prepare(`SELECT w.id FROM catalog_source_links l JOIN catalog_works w ON w.id=l.work_id
       WHERE l.source_id=? AND w.status='published' LIMIT 1`).bind(expected).first();
@@ -94,11 +104,26 @@ export async function onRequestPost(context){
     await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_quote_link_repairs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,quote_id INTEGER NOT NULL,old_source_id TEXT,
       new_source_id TEXT NOT NULL,work_id TEXT NOT NULL,created_at INTEGER NOT NULL)`).run();
-    const result=await db.prepare(`UPDATE shared_quotes SET work_id=? WHERE quote_id=? AND COALESCE(work_id,'')=?`)
-      .bind(sourceId,quoteId,expected).run();
-    if(Number(result?.meta?.changes||0)!==1)return reply({error:'처리 중 문장 연결이 변경됐습니다. 다시 점검해 주세요.'},409);
-    await db.prepare(`INSERT INTO catalog_quote_link_repairs(quote_id,old_source_id,new_source_id,work_id,created_at)
-      VALUES(?,?,?,?,?)`).bind(quoteId,expected,sourceId,workId,now).run();
+    await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_quote_link_exception_audit (
+      quote_id INTEGER NOT NULL,old_source_id TEXT,new_source_id TEXT NOT NULL,
+      private_source_id TEXT NOT NULL,work_id TEXT NOT NULL,confirmed_title TEXT NOT NULL,
+      created_at INTEGER NOT NULL)`).run();
+    // Guard both shared and private IDs again in the conditional update. D1 batch is
+    // transactional so a failed audit INSERT cannot leave an unlogged correction.
+    const change=db.prepare(`UPDATE shared_quotes SET work_id=? WHERE quote_id=? AND COALESCE(work_id,'')=?
+      AND COALESCE((SELECT uq.work_id FROM user_quotes uq WHERE uq.id=shared_quotes.quote_id
+      AND uq.user_id=shared_quotes.user_id),'')=?`)
+      .bind(sourceId,quoteId,expected,privateId);
+    const audit=db.prepare(`INSERT INTO catalog_quote_link_repairs(quote_id,old_source_id,new_source_id,work_id,created_at)
+      SELECT ?,?,?,?,? WHERE EXISTS(SELECT 1 FROM shared_quotes WHERE quote_id=? AND work_id=?)`)
+      .bind(quoteId,expected,sourceId,workId,now,quoteId,sourceId);
+    const statements=[change,audit];
+    if(exceptional)statements.push(db.prepare(`INSERT INTO catalog_quote_link_exception_audit
+      (quote_id,old_source_id,new_source_id,private_source_id,work_id,confirmed_title,created_at)
+      SELECT ?,?,?,?,?,?,? WHERE EXISTS(SELECT 1 FROM shared_quotes WHERE quote_id=? AND work_id=?)`)
+      .bind(quoteId,expected,sourceId,privateId,workId,target.title,now,quoteId,sourceId));
+    const results=await db.batch(statements);
+    if(Number(results?.[0]?.meta?.changes||0)!==1)return reply({error:'처리 중 문장 연결이 변경됐습니다. 다시 점검해 주세요.'},409);
     return reply({ok:true,quote_id:quoteId,work_title:target.title});
   }catch(error){return reply({error:error?.message||'문장 연결 복구에 실패했습니다.'},error?.status||500);}
 }
