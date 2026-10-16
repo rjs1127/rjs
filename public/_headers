@@ -32,3 +32,11 @@
   Cache-Control: no-store
   Referrer-Policy: no-referrer
   X-Frame-Options: DENY
+
+/catalog-review.html
+  Cache-Control: no-store
+  Referrer-Policy: no-referrer
+  X-Frame-Options: DENY
+
+/catalog-review.js
+  Cache-Control: no-store

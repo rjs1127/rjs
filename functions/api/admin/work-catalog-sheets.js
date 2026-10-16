@@ -64,6 +64,10 @@ async function schema(db){
   )`).run();
   await db.prepare(`CREATE INDEX IF NOT EXISTS catalog_sheet_history_lookup
     ON catalog_sheet_history(source_type,source_id,created_at DESC)`).run();
+  await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_guest_assignments (
+    source_type TEXT NOT NULL,source_id TEXT NOT NULL, assigned_at INTEGER NOT NULL,
+    PRIMARY KEY(source_type,source_id)
+  )`).run();
   // Server-owned evidence of completed Work result reconciliation. Historical
   // free-text logs are never automatically converted into confirmed events.
   // Independent synopsis rework tracking; never occupies the global incoming slot.
@@ -89,6 +93,10 @@ function historyStatement(db,row,type,id,event,now){
   return db.prepare(`INSERT INTO catalog_sheet_history
     (id,source_type,source_id,event_type,sheet_revision,snapshot_json,created_at) VALUES(?,?,?,?,?,?,?)`)
     .bind(crypto.randomUUID(),type,id,event,Number(row.sheet_revision),snapshot(row),now);
+}
+async function assertGuestAssigned(db,type,id){
+  const assigned=await db.prepare('SELECT 1 AS ok FROM catalog_sheet_guest_assignments WHERE source_type=? AND source_id=?').bind(type,id).first();
+  if(!assigned)throw catalogError('이 작품은 배정되지 않았습니다.',403);
 }
 async function requireNoIncoming(db,type,id){
   const pending=await db.prepare('SELECT 1 AS pending FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(type,id).first();
@@ -173,10 +181,11 @@ async function findContext(db,type,id,title,author){
 }
 export async function onRequestGet(context){
   try{
-    await requireAdminSession(context);
+    if(!context.reviewGuest)await requireAdminSession(context);
     const db=requireUserDb(context.env);await schema(db);
     const url=new URL(context.request.url);
     const type=url.searchParams.get('source_type'),id=url.searchParams.get('source_id');
+    if(context.reviewGuest&&url.searchParams.get('history')==='1')throw catalogError('접근할 수 없는 기능입니다.',403);
     if(url.searchParams.get('history')==='1'){
       const pair=sourceKey({source_type:type,source_id:id});
       const results=await db.prepare(`SELECT id,event_type,sheet_revision,snapshot_json,created_at
@@ -189,6 +198,7 @@ export async function onRequestGet(context){
       const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?')
         .bind(pair.type,pair.id).first();
       if(!row)throw catalogError('엑셀 초안이 없습니다.',404);
+      if(context.reviewGuest)await assertGuestAssigned(db,pair.type,pair.id);
       const {work,collision}=await findContext(db,pair.type,pair.id,parse(row.draft_json,{}).title,parse(row.draft_json,{}).author);
       const incoming=await db.prepare('SELECT candidate_json,base_revision,created_at FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
       const stats=await db.prepare('SELECT recheck_count,last_merged_at FROM catalog_sheet_recheck_stats WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
@@ -201,10 +211,12 @@ export async function onRequestGet(context){
     if(Number(count?.total)>1000)throw catalogError('현재 내보내기 상한(1,000행)을 넘었습니다. 분할 내보내기 기능이 필요합니다.',409);
     const rows=await db.prepare(`SELECT d.*,l.work_id,w.status AS work_status,
       CASE WHEN incoming.source_id IS NULL THEN 0 ELSE 1 END AS has_incoming,
+      CASE WHEN guest.source_id IS NULL THEN 0 ELSE 1 END AS guest_assigned,
       COALESCE(stats.recheck_count,0) AS recheck_count,
       COALESCE(stats.last_merged_at,0) AS last_recheck_merged_at,
       rework.state AS rework_state,rework.reason AS rework_reason
-      FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_incoming incoming
+      FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_guest_assignments guest ON guest.source_type=d.source_type AND guest.source_id=d.source_id
+      LEFT JOIN catalog_sheet_incoming incoming
       ON incoming.source_type=d.source_type AND incoming.source_id=d.source_id
       LEFT JOIN catalog_sheet_recheck_stats stats
       ON stats.source_type=d.source_type AND stats.source_id=d.source_id
@@ -212,13 +224,14 @@ export async function onRequestGet(context){
       LEFT JOIN catalog_source_links l
       ON l.source_type=d.source_type AND l.source_id=d.source_id
       LEFT JOIN catalog_works w ON w.id=l.work_id
+      ${context.reviewGuest?'WHERE EXISTS(SELECT 1 FROM catalog_sheet_guest_assignments ga WHERE ga.source_type=d.source_type AND ga.source_id=d.source_id)':''}
       ORDER BY d.source_type,d.source_id LIMIT 1001`).all();
-    return respond({items:(rows.results||[]).map(decode),total:Number(count?.total||0)});
+    return respond({items:(rows.results||[]).map(decode),total:context.reviewGuest?(rows.results||[]).length:Number(count?.total||0)});
   }catch(e){return errorReply(e);}
 }
 export async function onRequestPost(context){
   try{
-    await requireAdminSession(context);
+    if(!context.reviewGuest)await requireAdminSession(context);
     const origin=context.request.headers.get('origin');
     if(origin&&new URL(origin).origin!==new URL(context.request.url).origin)
       throw catalogError('잘못된 요청 출처입니다.',403);
@@ -227,6 +240,31 @@ export async function onRequestPost(context){
     if(raw.length>100000)throw catalogError('한 번에 가져올 엑셀 데이터가 너무 큽니다.',413);
     let body;try{body=JSON.parse(raw);}catch{throw catalogError('JSON 형식이 잘못됐습니다.');}
     const action=body?.action,now=Date.now();
+    if(context.reviewGuest){
+      if(!['merge_incoming','save_draft','approve','rework_mark'].includes(action))
+        throw catalogError('재검수 전용 권한으로 실행할 수 없는 작업입니다.',403);
+      const pair=sourceKey(body);
+      await assertGuestAssigned(db,pair.type,pair.id);
+    }
+    if(action==='guest_assign'){
+      const pair=sourceKey(body);
+      const exists=await db.prepare('SELECT 1 AS ok FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
+      if(!exists)throw catalogError('검수 목록에 없는 작품입니다.',404);
+      if(body.assigned===true)await db.prepare('INSERT OR IGNORE INTO catalog_sheet_guest_assignments(source_type,source_id,assigned_at) VALUES(?,?,?)').bind(pair.type,pair.id,now).run();
+      else await db.prepare('DELETE FROM catalog_sheet_guest_assignments WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).run();
+      return respond({ok:true,assigned:body.assigned===true});
+    }
+    if(action==='guest_assign_batch'){
+      const count=limit(body.count,50);
+      if(!count)throw catalogError('배정할 작품 수를 확인해 주세요.');
+      const pending=await db.prepare(`SELECT d.source_type,d.source_id FROM catalog_sheet_drafts d
+        JOIN catalog_sheet_incoming i ON i.source_type=d.source_type AND i.source_id=d.source_id
+        LEFT JOIN catalog_sheet_guest_assignments a ON a.source_type=d.source_type AND a.source_id=d.source_id
+        WHERE a.source_id IS NULL ORDER BY d.source_type,d.source_id LIMIT ?`).bind(count).all();
+      const rows=pending.results||[];
+      if(rows.length)await db.batch(rows.map(r=>db.prepare('INSERT OR IGNORE INTO catalog_sheet_guest_assignments(source_type,source_id,assigned_at) VALUES(?,?,?)').bind(r.source_type,r.source_id,now)));
+      return respond({ok:true,count:rows.length});
+    }
     if(action==='rework_mark'){
       const {type,id}=sourceKey(body);
       const state=text(body.state);
@@ -632,7 +670,7 @@ export async function onRequestPost(context){
         WHERE d.source_type=? AND d.source_id=? AND d.approved_work_id=?
           AND d.approved_at=? AND d.sheet_revision=?)`)
         .bind(idWork,JSON.stringify({source_type:type,source_id:id,fields:requested,sheet_revision:revision,
-          created:!work}),now,idWork,type,id,idWork,now,revision));
+          created:!work,reviewer:context.reviewGuest?'guest-reviewer':'administrator'}),now,idWork,type,id,idWork,now,revision));
       jobs.push(historyStatement(db,row,type,id,'before_public_approval',now));
       let results;
       try{results=await db.batch(jobs);}catch(e){if(/UNIQUE|constraint/i.test(String(e?.message||'')))throw catalogError('승인 도중 원본·작품이 먼저 등록됐습니다. 새로 열어 병합 대상을 확인해 주세요.',409);throw e;}

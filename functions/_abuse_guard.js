@@ -157,3 +157,14 @@ export function recordGuestDriveSyncFailure(request) {
     if (entry.count === 5) entry.expiresAt = now + 30 * 60 * 1000;
   }
 }
+
+// Independent PIN throttle for delegated catalog review.
+export function checkGuestCatalogReviewRequest(request) {
+  const admission=take(ipKey(request,'guest-catalog-attempt'),30,MINUTE);
+  const seconds=admission.retryAfter||blocked(ipKey(request,'guest-catalog-failure'),5,30*MINUTE);
+  return seconds?limited(seconds):null;
+}
+export function recordGuestCatalogReviewFailure(request) {
+  const key=ipKey(request,'guest-catalog-failure');
+  if(key)take(key,5,30*MINUTE);
+}

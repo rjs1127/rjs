@@ -374,3 +374,6 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
   .admin-next-page .catalog-synopsis-rework {padding:11px;}
   .admin-next-page .catalog-synopsis-rework button {width:100%;justify-self:stretch;}
 }
+/* v11.04: delegated review assignment controls are administrator-only. */
+.admin-next-page .catalog-sheet-list>.catalog-guest-assign{justify-self:end;margin:0 12px 10px;padding:6px 11px;font-size:12px;max-width:calc(100% - 24px);}
+.admin-next-page .catalog-sheet-list>.catalog-guest-assign+ .catalog-sheet-row{border-top:1px solid var(--sy-line);}

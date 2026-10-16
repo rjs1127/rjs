@@ -481,6 +481,7 @@
       <input id="catalogSheetFile" type="file" accept=".xlsx" aria-label="도감 엑셀 파일 선택"></label>
       <button id="catalogSheetExport" type="button" class="secondary-admin-button">엑셀 내보내기</button>
       <button id="catalogSheetReload" type="button" class="secondary-admin-button">새로고침</button>
+      <button id="catalogGuestAssignBatch" type="button" class="secondary-admin-button">친구에게 대기 작품 배정</button>
       <button id="catalogSynopsisExport" type="button" class="secondary-admin-button">줄거리 보완 Work 목록 다운로드</button>
       <label class="catalog-sheet-upload" for="catalogSynopsisFile"><span>줄거리 보완 결과 가져오기</span><input id="catalogSynopsisFile" type="file" accept=".xlsx" aria-label="줄거리 보완 결과 선택"></label>
       </div>
@@ -530,6 +531,23 @@
     switchView(next);tabs.querySelector(next==='sheets'?'#catalogSheetTab':'#catalogRegisteredTab').focus();
   });
   const $=id=>document.getElementById(id);
+  root.addEventListener('click',async event=>{
+    const assign=event.target.closest('.catalog-guest-assign');
+    if(assign){
+      event.preventDefault();event.stopPropagation();
+      const row=state.items.find(x=>x.source_type===assign.dataset.type&&x.source_id===assign.dataset.id);
+      if(!row)return;
+      try{await api({action:'guest_assign',source_type:row.source_type,source_id:row.source_id,assigned:!row.guest_assigned});await reload(true);}catch(error){status(error.message,true);}
+    }
+    if(event.target.closest('#catalogGuestAssignBatch')){
+      const value=prompt('새 재검수 비교 대기 중인 미배정 작품을 몇 편 배정할까요? (1~50)','50');
+      if(value===null)return;
+      const count=Number(value);
+      if(!Number.isInteger(count)||count<1||count>50){status('1~50 사이의 숫자를 입력해 주세요.',true);return;}
+      if(!confirm(`미배정 대기 작품 최대 ${count}편을 친구에게 배정할까요?`))return;
+      try{const result=await api({action:'guest_assign_batch',count});await reload(true);status(`${result.count}편을 친구에게 배정했습니다.`);}catch(error){status(error.message,true);}
+    }
+  });
   const status=(s,error=false)=>{const el=$('catalogSheetStatus');el.textContent=s;el.style.color=error?'var(--sy-danger)':'';};
   const sourceKey=(a,b)=>`${a}\u0000${b}`;
   const normalize=t=>String(t||'').normalize('NFKC').trim();
@@ -590,7 +608,7 @@
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">도감 연결</span><span class="catalog-sheet-linked">${linked?'연결된 작품':'아직 미등록'}</span></span>
         <span class="catalog-sheet-cell"><span class="catalog-sheet-mini-label">승인 상태</span><span class="catalog-sheet-pill ${stage==='approved'?'is-done':stage==='partial'?'is-partial':'is-waiting'}">${stageLabel}</span></span>
         <span class="catalog-sheet-open" aria-hidden="true">›</span>
-      </button>`;
+      </button><button type="button" class="secondary-admin-button catalog-guest-assign" data-type="${escape(item.source_type)}" data-id="${escape(item.source_id)}">${item.guest_assigned?'친구 배정 해제':'친구에게 배정'}</button>`;
     }).join(''):'<p class="catalog-sheet-empty">조건에 맞는 작품이 없습니다. 검색어 또는 필터를 변경해 주세요.</p>';
     $('catalogSheetMore').hidden=state.limit>=all.length;
   }
