@@ -336,3 +336,21 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 .catalog-quote-repair label{display:grid;gap:5px;font-size:.86rem;}
 .catalog-quote-repair input,.catalog-quote-repair select{min-width:0;width:100%;max-width:100%;box-sizing:border-box;padding:9px;border:1px solid var(--sy-border,#ddd);border-radius:8px;color:var(--sy-text,inherit);background:var(--sy-surface,var(--sy-card,#fff));}
 .catalog-quote-repair button{justify-self:start;max-width:100%;}
+
+/* v11.02: mobile review filter selectors need readable option labels. */
+@media (max-width:580px) {
+  .admin-next-page .catalog-sheet-filters select {
+    flex:1 1 calc(50% - 4px);
+    width:calc(50% - 4px);
+    min-width:0;
+    max-width:100%;
+    font-size:12px;
+    padding:9px 28px 9px 10px;
+  }
+}
+@media (max-width:370px) {
+  .admin-next-page .catalog-sheet-filters select {
+    flex-basis:100%;
+    width:100%;
+  }
+}
