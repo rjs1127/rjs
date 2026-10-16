@@ -354,3 +354,23 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
     width:100%;
   }
 }
+
+/* v11.03 — synopsis-only Work follow-up within the existing review modal. */
+.admin-next-page .catalog-synopsis-rework {
+  display:grid;gap:10px;padding:14px;margin:12px 0 16px;
+  border:1px solid var(--sy-line);border-radius:13px;background:var(--sy-control);
+  color:var(--sy-text);min-width:0;
+}
+.admin-next-page .catalog-synopsis-rework h5 {margin:0;font-size:14px;}
+.admin-next-page .catalog-synopsis-rework label {display:grid;gap:6px;font-size:12px;font-weight:650;}
+.admin-next-page .catalog-synopsis-rework .catalog-synopsis-checkbox {display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
+.admin-next-page .catalog-synopsis-checkbox input {width:17px;height:17px;flex:0 0 17px;accent-color:var(--sy-accent);}
+.admin-next-page .catalog-synopsis-rework textarea {box-sizing:border-box;max-width:100%;width:100%;min-height:55px;resize:vertical;
+  border:1px solid var(--sy-line);border-radius:8px;background:var(--sy-surface);color:var(--sy-text);padding:9px;font:inherit;line-height:1.55;}
+.admin-next-page .catalog-synopsis-rework button {justify-self:start;max-width:100%;white-space:normal;text-align:center;}
+.admin-next-page .catalog-synopsis-proposal {display:grid;gap:10px;padding:12px;border:1px solid var(--sy-line);border-radius:10px;background:var(--sy-surface);}
+.admin-next-page .catalog-synopsis-proposal pre {white-space:pre-wrap;overflow-wrap:anywhere;max-height:300px;overflow:auto;margin:0;line-height:1.65;font:inherit;font-size:12px;}
+@media(max-width:580px){
+  .admin-next-page .catalog-synopsis-rework {padding:11px;}
+  .admin-next-page .catalog-synopsis-rework button {width:100%;justify-self:stretch;}
+}

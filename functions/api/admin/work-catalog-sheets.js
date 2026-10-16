@@ -66,6 +66,15 @@ async function schema(db){
     ON catalog_sheet_history(source_type,source_id,created_at DESC)`).run();
   // Server-owned evidence of completed Work result reconciliation. Historical
   // free-text logs are never automatically converted into confirmed events.
+  // Independent synopsis rework tracking; never occupies the global incoming slot.
+  await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_synopsis_rework (
+    source_type TEXT NOT NULL, source_id TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'needed' CHECK(state IN ('needed','sent','ready','done')),
+    reason TEXT NOT NULL DEFAULT '', proposal TEXT NOT NULL DEFAULT '',
+    request_id TEXT NOT NULL DEFAULT '', requested_at INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL, completed_at INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(source_type,source_id)
+  )`).run();
   await db.prepare(`CREATE TABLE IF NOT EXISTS catalog_sheet_recheck_stats (
     source_type TEXT NOT NULL, source_id TEXT NOT NULL,
     recheck_count INTEGER NOT NULL DEFAULT 0,
@@ -183,7 +192,8 @@ export async function onRequestGet(context){
       const {work,collision}=await findContext(db,pair.type,pair.id,parse(row.draft_json,{}).title,parse(row.draft_json,{}).author);
       const incoming=await db.prepare('SELECT candidate_json,base_revision,created_at FROM catalog_sheet_incoming WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
       const stats=await db.prepare('SELECT recheck_count,last_merged_at FROM catalog_sheet_recheck_stats WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
-      return respond({item:{...decode(row),recheck_count:stats?.recheck_count||0,last_recheck_merged_at:stats?.last_merged_at||0},work:work?allCatalogWork(work):null,collision,
+      const rework=await db.prepare('SELECT state,reason,proposal,request_id,requested_at,updated_at,completed_at FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?').bind(pair.type,pair.id).first();
+      return respond({rework:rework||null,item:{...decode(row),recheck_count:stats?.recheck_count||0,last_recheck_merged_at:stats?.last_merged_at||0},work:work?allCatalogWork(work):null,collision,
         incoming:incoming?{draft:parse(incoming.candidate_json,{}),base_revision:incoming.base_revision,created_at:incoming.created_at}:null});
     }
     // 1,000 rows or an explicit error — never truncate an exported workbook.
@@ -192,11 +202,13 @@ export async function onRequestGet(context){
     const rows=await db.prepare(`SELECT d.*,l.work_id,w.status AS work_status,
       CASE WHEN incoming.source_id IS NULL THEN 0 ELSE 1 END AS has_incoming,
       COALESCE(stats.recheck_count,0) AS recheck_count,
-      COALESCE(stats.last_merged_at,0) AS last_recheck_merged_at
+      COALESCE(stats.last_merged_at,0) AS last_recheck_merged_at,
+      rework.state AS rework_state,rework.reason AS rework_reason
       FROM catalog_sheet_drafts d LEFT JOIN catalog_sheet_incoming incoming
       ON incoming.source_type=d.source_type AND incoming.source_id=d.source_id
       LEFT JOIN catalog_sheet_recheck_stats stats
       ON stats.source_type=d.source_type AND stats.source_id=d.source_id
+      LEFT JOIN catalog_sheet_synopsis_rework rework ON rework.source_type=d.source_type AND rework.source_id=d.source_id
       LEFT JOIN catalog_source_links l
       ON l.source_type=d.source_type AND l.source_id=d.source_id
       LEFT JOIN catalog_works w ON w.id=l.work_id
@@ -215,6 +227,118 @@ export async function onRequestPost(context){
     if(raw.length>100000)throw catalogError('한 번에 가져올 엑셀 데이터가 너무 큽니다.',413);
     let body;try{body=JSON.parse(raw);}catch{throw catalogError('JSON 형식이 잘못됐습니다.');}
     const action=body?.action,now=Date.now();
+    if(action==='rework_mark'){
+      const {type,id}=sourceKey(body);
+      const state=text(body.state);
+      if(!['needed','clear'].includes(state))throw catalogError('보완 지정 상태가 올바르지 않습니다.');
+      const reason=text(body.reason);
+      if(reason.length>500)throw catalogError('보완 메모는 500자 이내여야 합니다.');
+      const exists=await db.prepare('SELECT 1 AS found FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?').bind(type,id).first();
+      if(!exists)throw catalogError('검수 목록에 없는 작품입니다.',404);
+      if(state==='clear'){
+        await db.prepare('DELETE FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?').bind(type,id).run();
+      }else{
+        await db.prepare(`INSERT INTO catalog_sheet_synopsis_rework(source_type,source_id,state,reason,updated_at)
+          VALUES(?,?,'needed',?,?) ON CONFLICT(source_type,source_id) DO UPDATE SET
+          state=CASE WHEN catalog_sheet_synopsis_rework.state='done' THEN 'needed' ELSE catalog_sheet_synopsis_rework.state END,
+          reason=excluded.reason,
+          proposal=CASE WHEN catalog_sheet_synopsis_rework.state='done' THEN '' ELSE catalog_sheet_synopsis_rework.proposal END,
+          request_id=CASE WHEN catalog_sheet_synopsis_rework.state='done' THEN '' ELSE catalog_sheet_synopsis_rework.request_id END,
+          requested_at=CASE WHEN catalog_sheet_synopsis_rework.state='done' THEN 0 ELSE catalog_sheet_synopsis_rework.requested_at END,
+          updated_at=excluded.updated_at`)
+          .bind(type,id,reason,now).run();
+      }
+      return respond({ok:true});
+    }
+    if(action==='rework_export_mark'){
+      const ids=body.items;
+      if(!Array.isArray(ids)||!ids.length||ids.length>100)throw catalogError('내보낼 작품은 1~100편이어야 합니다.');
+      const requestId=crypto.randomUUID();
+      const jobs=[];
+      for(const item of ids){
+        const {type,id}=sourceKey(item);
+        jobs.push(db.prepare(`UPDATE catalog_sheet_synopsis_rework SET state='sent',request_id=?,requested_at=?,updated_at=?
+          WHERE source_type=? AND source_id=? AND state='needed'`).bind(requestId,now,now,type,id));
+      }
+      const results=await db.batch(jobs);
+      if(results.some(result=>result.meta?.changes!==1))throw catalogError('보완 대상이 변경됐습니다. 목록을 새로고침하고 다시 내보내 주세요.',409);
+      return respond({ok:true,request_id:requestId});
+    }
+    if(action==='rework_results'){
+      const items=body.items;
+      if(!Array.isArray(items)||!items.length||items.length>12)throw catalogError('보완 결과는 한 번에 1~12행씩 가져올 수 있습니다.');
+      const jobs=[],seen=new Set();
+      for(const item of items){
+        const {type,id}=sourceKey(item),k=key(type,id);
+        if(seen.has(k))throw catalogError('보완 결과에 중복된 원본 ID가 있습니다.');
+        seen.add(k);
+        const synopsis=text(item.synopsis),requestId=text(item.request_id);
+        if(!synopsis||synopsis.length>12000)throw catalogError('보완 줄거리는 1~12,000자여야 합니다.');
+        const row=await db.prepare(`SELECT r.state,r.request_id,d.draft_json FROM catalog_sheet_synopsis_rework r
+          JOIN catalog_sheet_drafts d ON d.source_type=r.source_type AND d.source_id=r.source_id
+          WHERE r.source_type=? AND r.source_id=?`).bind(type,id).first();
+        if(!row||!['sent','ready'].includes(row.state)||!requestId||requestId!==row.request_id)
+          throw catalogError(`${type}/${id}: 해당 Work 요청 이력이 없거나 요청 ID가 다릅니다.`,409);
+        const draft=parse(row.draft_json,{});
+        if(text(item.title)!==text(draft.title)||text(item.author)!==text(draft.author))
+          throw catalogError(`${type}/${id}: 원본 작품명 또는 작가가 다릅니다.`,409);
+        // Only the dedicated proposal slot is modified, not the existing incoming review.
+        jobs.push(db.prepare(`UPDATE catalog_sheet_synopsis_rework SET state='ready',proposal=?,updated_at=?
+          WHERE source_type=? AND source_id=? AND request_id=? AND state IN ('sent','ready')`)
+          .bind(synopsis,now,type,id,requestId));
+      }
+      const results=await db.batch(jobs);
+      if(results.some(x=>x.meta?.changes!==1))throw catalogError('보완 결과가 동시에 변경됐습니다. 새로고침 후 다시 시도해 주세요.',409);
+      return respond({ok:true,changed:results.length});
+    }
+    if(action==='rework_accept'){
+      const {type,id}=sourceKey(body),revision=limit(body.sheet_revision,1e9);
+      if(!revision)throw catalogError('최신 검수 초안 버전이 필요합니다.');
+      const row=await db.prepare('SELECT * FROM catalog_sheet_drafts WHERE source_type=? AND source_id=?').bind(type,id).first();
+      const rework=await db.prepare('SELECT * FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?').bind(type,id).first();
+      if(!row||!rework||rework.state!=='ready'||Number(row.sheet_revision)!==revision)
+        throw catalogError('보완 결과가 대기 중이 아니거나 검수 초안이 변경됐습니다.',409);
+      const old=parse(row.draft_json,{});
+      const wantsPublic=body.publish===true;
+      const nextSynopsis=rework.proposal;
+      if(!nextSynopsis||nextSynopsis.length>3000)
+        throw catalogError('보완 줄거리의 길이는 1~3,000자여야 합니다. Work 결과를 수정한 뒤 다시 가져와 주세요.',409);
+      const next=JSON.stringify({...old,synopsis:nextSynopsis});
+      let publicJob=null,auditJob=null,nextApplied=null;
+      if(wantsPublic){
+        const {work,collision}=await findContext(db,type,id,old.title,old.author);
+        if(!work||collision)throw catalogError('공개 승인 전에 작품도감의 원본 연결을 확인해 주세요. 원본 미연결 작품은 비공개 초안만 반영할 수 있습니다.',409);
+        const applied=parse(row.applied_json,{}),previous=applied.synopsis;
+        if(previous&&!same(work.synopsis,previous.rendered))
+          throw catalogError('기존 승인 후 공개 줄거리가 따로 수정되었습니다. 공개 화면을 확인한 뒤 승인해 주세요.',409);
+        const validated=catalogFields({...allCatalogWork(work),synopsis:nextSynopsis});
+        const token=crypto.randomUUID();
+        publicJob=db.prepare(`UPDATE catalog_works SET synopsis=?,revision=revision+1,last_mutation_token=?,updated_at=?
+          WHERE id=? AND revision=? AND synopsis=?`).bind(validated.synopsis,token,now,work.id,Number(work.revision||1),work.synopsis);
+        nextApplied=JSON.stringify({...applied,synopsis:{base:'',rendered:validated.synopsis,source:nextSynopsis}});
+        auditJob=db.prepare(`INSERT INTO catalog_audit(work_id,action,details_json,created_at)
+          SELECT ?,'admin_synopsis_rework',?,? WHERE EXISTS(SELECT 1 FROM catalog_works WHERE id=? AND last_mutation_token=?)`)
+          .bind(work.id,JSON.stringify({source_type:type,source_id:id,sheet_revision:revision,request_id:rework.request_id}),now,work.id,token);
+      }
+      // The pre-existing incoming candidate is retained and its revision pointer
+      // moves with the draft; older synopsis must never overwrite this result silently.
+      const results=await db.batch([
+        db.prepare(`UPDATE catalog_sheet_drafts SET draft_json=?,sheet_revision=sheet_revision+1,
+          review_state='pending',updated_at=?,applied_json=COALESCE(?,applied_json),approved_at=CASE WHEN ? IS NOT NULL THEN ? ELSE approved_at END
+          WHERE source_type=? AND source_id=? AND sheet_revision=? AND draft_json=?`)
+          .bind(next,now,nextApplied,nextApplied,now,type,id,revision,row.draft_json),
+        db.prepare(`UPDATE catalog_sheet_incoming SET base_revision=base_revision+1 WHERE source_type=? AND source_id=? AND base_revision=?`)
+          .bind(type,id,revision),
+        db.prepare(`UPDATE catalog_sheet_synopsis_rework SET state='done',completed_at=?,updated_at=?
+          WHERE source_type=? AND source_id=? AND state='ready' AND proposal=?`)
+          .bind(now,now,type,id,rework.proposal),
+        historyStatement(db,row,type,id,'before_synopsis_rework',now),
+        ...(publicJob?[publicJob,auditJob]:[])
+      ]);
+      if(results[0]?.meta?.changes!==1||results[2]?.meta?.changes!==1||results[3]?.meta?.changes!==1||(publicJob&&(results[4]?.meta?.changes!==1||results[5]?.meta?.changes!==1)))
+        throw catalogError('보완 반영 중 동시 변경이 발견됐습니다.',409);
+      return respond({ok:true,sheet_revision:revision+1,published:wantsPublic,has_incoming:Boolean(results[1]?.meta?.changes)});
+    }
     if(action==='import_batch'||action==='preflight_import'){
       const input=body?.items;
       if(!Array.isArray(input)||input.length<1||input.length>12)
@@ -336,8 +460,11 @@ export async function onRequestPost(context){
       const source=sources.find(x=>key(x.source==='postype'?'postype':'drive',String(x.id))===key(type,id));
       const previous=parse(row.draft_json,{});
       const merged=checkedDraft({...body.draft,title:previous.title,author:previous.author},source,previous);
-      const updated=JSON.stringify(merged);
+      const completed=await db.prepare("SELECT state FROM catalog_sheet_synopsis_rework WHERE source_type=? AND source_id=?").bind(type,id).first();
       const arrived=parse(incoming.candidate_json,{});
+      if(completed?.state==='done'&&text(merged.synopsis)!==text(previous.synopsis)&&text(merged.synopsis)===text(arrived.synopsis))
+        throw catalogError('이미 보완한 줄거리를 과거 전체 재검수본으로 덮어쓰려 합니다. 줄거리 편집칸은 현재 보완본을 유지하고 다른 항목만 병합해 주세요.',409);
+      const updated=JSON.stringify(merged);
       // Count only a Work result with a NEW, appended audit note. Spreadsheet
       // edits without a new inspection log do not imply source-text review.
       const originalLog=text(previous.recheck_log);
