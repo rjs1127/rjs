@@ -1149,3 +1149,7 @@ v10.96: admin-catalog.js에서 catalogQuoteAuditButton과 결과 패널은 catal
 
 ## v11.01 자동 원본 후보
 `GET /api/admin/drive-source-versions?mode=discover`는 관리자 권한 읽기 전용. `shared_quotes`에서 미연결 원본을 모아 캐시된 Drive 목록과 `catalog_source_links`를 대조한다. 유사 제목 및 동일 작가 결과는 추천일 뿐 자동 교체/본문 위치 변경 금지.
+
+
+## v11.13 모바일 장르 UX
+work-catalog.js의 measureChoiceRows는 모바일 genre에 대해 maxHeight 제한을 해제하고 더보기 버튼을 숨깁니다. work-catalog.css에서 #wcGenreChoices에 flex-wrap:nowrap/overflow-x:auto를 적용합니다. 기존 태그 필터의 3줄/5줄 계산과 PC 장르 동작은 유지합니다.

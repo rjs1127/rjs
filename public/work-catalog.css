@@ -770,3 +770,69 @@ html.theme-dark .work-catalog-page .wc-catalog-status[data-kind="error"] {color:
     white-space:nowrap;
   }
 }
+
+/* v11.13 — mobile browse rail, not a multi-row expansion panel.
+   Genre is a horizontal scroller; the detailed filter button stays accessible.
+   Preserve existing theme tokens, desktop wrapping, and keyword filters. */
+@media (max-width:640px) {
+  .work-catalog-page .wc-quick-filters {
+    display:flex;
+    align-items:center;
+    gap:9px;
+    min-width:0;
+    margin:10px 0 15px;
+  }
+  .work-catalog-page .wc-quick-filters .wc-genre-group,
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more {
+    display:block;
+    flex:1 1 0;
+    min-width:0;
+    position:relative;
+    overflow:hidden;
+  }
+  .work-catalog-page .wc-quick-filters .wc-genre-group::after {
+    content:"";
+    position:absolute;
+    top:0;bottom:0;right:0;
+    width:18px;
+    pointer-events:none;
+    background:linear-gradient(to right,transparent,var(--wc-bg));
+    opacity:.9;
+  }
+  .work-catalog-page .wc-quick-filters #wcGenreChoices,
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more #wcGenreChoices {
+    display:flex;
+    flex-wrap:nowrap;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    width:100%;
+    max-height:none!important;
+    padding:2px 12px 3px 0;
+    margin:0;
+    gap:7px;
+    box-sizing:border-box;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    overscroll-behavior-x:contain;
+  }
+  .work-catalog-page #wcGenreChoices::-webkit-scrollbar {display:none;}
+  .work-catalog-page #wcGenreChoices .wc-genre {
+    flex:0 0 auto;
+    scroll-snap-align:start;
+    min-height:36px!important;
+    padding:7px 13px!important;
+    font-size:11px!important;
+  }
+  .work-catalog-page .wc-quick-filters #wcGenreMore,
+  .work-catalog-page .wc-quick-filters .wc-genre-group.wc-inline-more #wcGenreMore {display:none!important;}
+  .work-catalog-page .wc-quick-filters .wc-mobile-filter-row {
+    flex:0 0 auto;
+    align-self:center;
+    margin:0;
+  }
+  .work-catalog-page .wc-quick-filters .wc-filter-toggle {
+    min-height:36px!important;
+    padding:6px 12px!important;
+  }
+}

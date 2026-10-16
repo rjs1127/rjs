@@ -51,6 +51,17 @@
     if (!container || !button || !isOpen()) return;
     // Re-measure in normal flow, including after mobile sheet becomes visible.
     if (!container.getClientRects().length) return;
+    // v11.13: On phones, genre chips use a single horizontally scrollable rail.
+    // Do not run the old row-height calculation or show an inline expand button.
+    if (kind==='genre' && window.matchMedia('(max-width:640px)').matches) {
+      container.style.maxHeight='none';
+      container.classList.remove('wc-choices-collapsed');
+      const group=container.closest('.wc-genre-group');
+      if(group) group.classList.remove('wc-inline-more');
+      button.hidden=true;
+      button.setAttribute('aria-expanded','false');
+      return;
+    }
     container.style.maxHeight='none';
     const items=[...container.querySelectorAll(kind==='genre' ? '[data-wc-genre]' : '[data-wc-tag]')];
     if (!items.length) { button.hidden=true; return; }
