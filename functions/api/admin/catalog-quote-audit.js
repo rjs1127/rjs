@@ -54,7 +54,7 @@ export async function onRequestGet(context){
     }
     return reply({ok:true,scanned_groups:all.length,unmatched_groups:output.length,
       unmatched_quote_count:output.reduce((sum,x)=>sum+x.quote_count,0),items:output,
-      works:works.filter(w=>w.status==='published'&&w.source_id).map(w=>({id:w.id,title:w.title,author:w.author,source_type:w.source_type,source_id:w.source_id})),
+      works:works.map(w=>({id:w.id,title:w.title,author:w.author,status:w.status,source_type:w.source_type||'',source_id:w.source_id||''})),
       note:'제목 유사 후보는 참고용이며 원본 ID 일치를 증명하지 않습니다. 읽기 전용 점검입니다.'});
   }catch(error){
     if(/no such table/i.test(error?.message||''))return reply({ok:true,scanned_groups:0,unmatched_groups:0,unmatched_quote_count:0,items:[],note:'공개 문장 테이블이 존재하지 않습니다.'});

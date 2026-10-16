@@ -1047,11 +1047,19 @@
     if(!event.target.matches('.catalog-repair-search'))return;
     const section=event.target.closest('[data-repair-quote]');
     const select=section.querySelector('.catalog-repair-target');
-    const query=event.target.value.normalize('NFKC').replace(/\s+/g,'').toLowerCase();
-    const matches=query.length>=1?(window.catalogQuoteAuditWorks||[]).filter(w=>
-      `${w.title} ${w.author}`.normalize('NFKC').replace(/\s+/g,'').toLowerCase().includes(query)).slice(0,30):[];
-    select.innerHTML='<option value="">검색 결과에서 작품을 선택해 주세요</option>'+matches.map(w=>
-      `<option value="${escape(w.id+'|'+w.source_id)}">${escape(w.title)} / ${escape(w.author)} · ${escape(w.source_type)}</option>`).join('');
+    const normalize=value=>String(value||'').normalize('NFKC').replace(/[\s\u00b7·()[\]{}\-_.]/g,'').toLowerCase();
+    const query=normalize(event.target.value);
+    const candidates=(window.catalogQuoteAuditWorks||[]).filter(w=>query&&(
+      normalize(w.title).includes(query)||normalize(w.author).includes(query)||normalize(`${w.title} ${w.author}`).includes(query)||String(w.source_id||'').includes(event.target.value.trim())));
+    const matches=candidates.slice(0,50);
+    select.innerHTML='<option value="">검색 결과에서 작품을 선택해 주세요</option>'+matches.map(w=>{
+      const eligible=w.status==='published'&&!!w.source_id;
+      const reason=eligible?'복구 선택 가능':w.status!=='published'?'비공개 작품 · 공개 후 복구 가능':'원본 연결 없음 · 원본 연결 후 복구 가능';
+      return `<option value="${escape(w.id+'|'+(w.source_id||''))}" ${eligible?'':'disabled'}>${escape(w.title)} / ${escape(w.author)} · ${escape(w.source_type||'미연결')} · ${escape(reason)}</option>`;
+    }).join('');
+    let hint=section.querySelector('.catalog-repair-search-hint');
+    if(!hint){hint=document.createElement('p');hint.className='catalog-repair-search-hint muted';select.insertAdjacentElement('afterend',hint);}
+    hint.textContent=!query?'작품 제목·작가·원본 ID로 검색할 수 있어요.':!candidates.length?'등록 작품 전체에서 검색 결과가 없습니다. 제목이나 작가 표기를 확인해 주세요.':`${candidates.length}건 검색됨${candidates.length>50?' (처음 50건 표시 · 검색어를 더 구체적으로 입력해 주세요)':''}. 비공개·원본 미연결 작품은 확인만 가능하며 바로 복구할 수 없습니다.`;
     section.querySelector('.catalog-repair-submit').disabled=true;
   });
   $('catalogQuoteAuditPanel').addEventListener('change',event=>{
