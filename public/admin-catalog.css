@@ -377,3 +377,8 @@ body.catalog-sheet-dialog-open {overflow:hidden;}
 /* v11.04: delegated review assignment controls are administrator-only. */
 .admin-next-page .catalog-sheet-list>.catalog-guest-assign{justify-self:end;margin:0 12px 10px;padding:6px 11px;font-size:12px;max-width:calc(100% - 24px);}
 .admin-next-page .catalog-sheet-list>.catalog-guest-assign+ .catalog-sheet-row{border-top:1px solid var(--sy-line);}
+
+/* v11.07 - visibly selected Work comparison values */
+.admin-next-page .catalog-incoming-choice{display:inline-flex;align-items:center;gap:9px;margin-top:10px;padding:10px 12px;border:1px solid var(--sy-line);border-radius:9px;background:var(--sy-surface);color:var(--sy-text);font-size:12px;font-weight:750;cursor:pointer;max-width:100%;}
+.admin-next-page .catalog-incoming-choice:has(input:checked){border-color:var(--sy-accent,#4d876b);background:var(--sy-control);}
+.admin-next-page .catalog-incoming-choice input{accent-color:var(--sy-accent,#4d876b);width:17px;height:17px;margin:0;flex-shrink:0;}

@@ -490,6 +490,7 @@
       <div class="catalog-sheet-directory-head"><div><h4>작품 검수 목록</h4><p class="muted" id="catalogSheetResultCount">검색 및 필터로 작품을 찾을 수 있어요.</p></div></div>
       <div class="catalog-sheet-filters"><input id="catalogSheetSearch" type="search" placeholder="작품명·작가·검수 메모 검색" aria-label="엑셀 검수 작품 및 검수 메모 검색">
         <select id="catalogSheetFilter" aria-label="도감 승인 상태"><option value="pending">미승인·일부 승인</option><option value="all">전체 승인 상태</option><option value="none">미승인</option><option value="partial">일부 승인</option><option value="approved">전체 승인</option></select>
+        <select id="catalogSheetGuestFilter" aria-label="친구 배정 필터"><option value="all">전체 담당 작품</option><option value="assigned">친구에게 배정한 작품만</option><option value="mine">친구 미배정 작품만</option></select>
         <select id="catalogSheetReviewFilter" aria-label="엑셀 원고 검수 상태"><option value="all">전체 검수 상태</option><option value="검수 필요">검수 필요</option><option value="초안">초안</option><option value="검수 완료">검수 완료</option></select>
         <select id="catalogSheetLinkFilter" aria-label="도감 연결 여부"><option value="all">전체 도감 연결</option><option value="linked">도감 연결됨</option><option value="unlinked">도감 미등록</option></select>
         <select id="catalogSheetIncomingFilter" aria-label="재검수 진행 여부"><option value="all">전체 재검수 진행</option><option value="never">재검수 미처리</option><option value="waiting">새 재검수 비교 대기</option><option value="merged">재검수 병합 완료</option><option value="approved">재검수 후 도감 승인</option></select>
@@ -569,6 +570,7 @@
     const q=normalize($('catalogSheetSearch').value).toLocaleLowerCase();
     const filter=$('catalogSheetFilter').value;
     const reviewFilter=$('catalogSheetReviewFilter').value;
+    const guestFilter=$('catalogSheetGuestFilter').value;
     const linkFilter=$('catalogSheetLinkFilter').value;
     const incomingFilter=$('catalogSheetIncomingFilter').value;
     const adultFilter=$('catalogSheetAdultFilter').value;
@@ -578,6 +580,7 @@
     const approvalStage=item=>item.review_state==='approved'?'approved':(item.applied&&Object.keys(item.applied).length?'partial':'none');
     const all=state.items.filter(item=>(filter==='all'||approvalStage(item)===filter||(filter==='pending'&&approvalStage(item)!=='approved'))&&
       (reviewFilter==='all'||normalize(item.draft.review_status)===reviewFilter)&&
+      (guestFilter==='all'||(Boolean(item.guest_assigned)===(guestFilter==='assigned')))&&
       (linkFilter==='all'||(Boolean(item.work_id)===(linkFilter==='linked')))&&
       (incomingFilter==='all'||recheckStage(item)===incomingFilter)&&
       (adultFilter==='all'||(item.draft.adult_scene_status||'미확인')===adultFilter)&&
@@ -916,6 +919,7 @@
     if(hint)hint.textContent='편집과 승인 항목 선택을 마쳤다면 ‘선택 항목 한 번에 저장·반영’을 누르세요. 체크하지 않은 항목은 도감에 반영되지 않습니다. 비공개 저장만 하려면 기존 버튼을 이용하세요.';
   }
   async function openReview(type,id){
+    incomingOriginals.clear();
     if(state.loading)return;
     const ticket=++state.reviewSeq;
     const area=$('catalogSheetReview');if(area.hidden)state.lastFocus=document.activeElement;state.current=null;area.hidden=false;document.body.classList.add('catalog-sheet-dialog-open');area.textContent='작품별 승인 비교 정보를 불러오는 중…';
@@ -948,7 +952,7 @@
       const allFields=[...editableFields,'review_status','review_note','duplicate_note','analysis_scope','summary_progress','recheck_log',...adultFields];
       const incomingRows=incoming?allFields.filter(field=>JSON.stringify(item.draft[field]??'')!==JSON.stringify(incoming.draft[field]??''))
         .map(field=>{const label=names[field]||({review_status:'원고 검수 상태',review_note:'검수 메모',duplicate_note:'중복 참고',analysis_scope:'분석 범위',summary_progress:'요약 진행 상태',recheck_log:'재검수 기록',adult_scene_status:'성적 묘사 판정',adult_scene_note:'성적 묘사 판정 근거'}[field]);
-          return `<div class="catalog-sheet-incoming-row"><strong>${escape(label)}</strong><div class="catalog-sheet-incoming-values"><div><em>현재 관리자 초안</em><pre>${escape(displayDraftField(item.draft[field])||'—')}</pre></div><div><em>새 Work 재검수본</em><pre>${escape(displayDraftField(incoming.draft[field])||'—')}</pre></div></div><button type="button" class="secondary-admin-button" data-copy-incoming="${field}">이 항목 재검수안 사용</button></div>`;
+          return `<div class="catalog-sheet-incoming-row"><strong>${escape(label)}</strong><div class="catalog-sheet-incoming-values"><div><em>현재 관리자 초안</em><pre>${escape(displayDraftField(item.draft[field])||'—')}</pre></div><div><em>새 Work 재검수본</em><pre>${escape(displayDraftField(incoming.draft[field])||'—')}</pre></div></div><label class="catalog-incoming-choice"><input type="checkbox" data-copy-incoming="${field}"><span>이 항목 재검수안 사용</span></label></div>`;
         }).join(''):'';
       const incomingPanel=incoming?`<section class="catalog-sheet-incoming"><h5>새 재검수본 비교 대기</h5><p>기존 관리자 편집본은 보존돼 있어요. 아래 항목별로 채택하면 위의 최종 초안 편집칸에 복사됩니다. 필요하면 위에서 직접 문장을 다듬은 뒤 <b>선택 병합</b>하세요. 공개 도감은 승인 전까지 그대로입니다.</p>
         ${incomingRows||'<p>검수 항목은 현재 초안과 같습니다. 내용 확인 후 선택 병합하거나 취소해 주세요.</p>'}
@@ -1024,19 +1028,21 @@
     }catch(error){modalMessage(error.message,true);state.loading=false;refreshDraftButtons();}
     finally{state.loading=false;refreshDraftButtons();}
   }
-  function applyIncoming(field){
+  const incomingOriginals=new Map();
+  function applyIncoming(field,selected=true){
     const incoming=state.current?.incoming;
     if(!incoming||!Object.prototype.hasOwnProperty.call(incoming.draft,field))return;
     const area=$('catalogSheetReview');
     const element=area.querySelector(`[data-sheet-edit="${field}"],[data-review-meta="${field}"]`) ||
       (field==='review_status'?area.querySelector('#catalogSheetReviewStatus'):field==='review_note'?area.querySelector('#catalogSheetReviewNote'):null);
     if(!element)return;
-    element.value=displayDraftField(incoming.draft[field]);
+    if(selected){if(!incomingOriginals.has(field))incomingOriginals.set(field,element.value);element.value=displayDraftField(incoming.draft[field]);}
+    else{element.value=incomingOriginals.has(field)?incomingOriginals.get(field):displayDraftField(state.current.item.draft[field]);incomingOriginals.delete(field);}
     if(field==='review_status'&&element.value!==incoming.draft[field]){
       const opt=document.createElement('option');opt.value=incoming.draft[field];opt.textContent=incoming.draft[field];element.append(opt);element.value=opt.value;
     }
     refreshDraftButtons();
-    modalMessage(`${names[field]||field}: 재검수안이 편집란에 복사됐습니다. 다른 부분도 선택하거나 직접 조합한 뒤 병합 저장하세요.`);
+    modalMessage(`${names[field]||field}: ${selected?'새 재검수안을 선택했습니다.':'선택을 해제하고 이전 편집값으로 되돌렸습니다.'} 병합 저장 전까지 공개 데이터는 변경되지 않습니다.`);
   }
   async function persistSynopsisSelection(item){
     const desired=$('catalogSynopsisNeeded')?.checked;
@@ -1242,6 +1248,7 @@
   $('catalogSheetReload').addEventListener('click',()=>void reload());
   $('catalogSheetSearch').addEventListener('input',()=>{state.limit=50;displayList();});
   $('catalogSheetFilter').addEventListener('change',()=>{state.limit=50;displayList();});
+  $('catalogSheetGuestFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetReviewFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetLinkFilter').addEventListener('change',()=>{state.limit=50;displayList();});
   $('catalogSheetIncomingFilter').addEventListener('change',()=>{state.limit=50;displayList();});
@@ -1271,6 +1278,10 @@
     }
     if(event.target.matches('[data-sheet-edit],[data-review-meta],#catalogSheetReviewStatus'))refreshDraftButtons();
   });
+  $('catalogSheetReview').addEventListener('change',event=>{
+    const choice=event.target.closest('input[data-copy-incoming]');
+    if(choice)applyIncoming(choice.dataset.copyIncoming,choice.checked);
+  });
   $('catalogSheetReview').addEventListener('click',event=>{
     if(event.target===$('catalogSheetReview')||event.target.closest('[data-sheet-close]'))closeReview();
     else if(event.target.closest('#catalogSynopsisMark'))void saveSynopsisMark();
@@ -1279,7 +1290,7 @@
     else if(event.target.closest('#catalogSheetSave'))void saveDraft();
     else if(event.target.closest('#catalogSheetApprove'))void approve();
     else if(event.target.closest('#catalogSheetQuickApprove'))void quickApprove();
-    else if(event.target.closest('[data-copy-incoming]'))applyIncoming(event.target.closest('[data-copy-incoming]').dataset.copyIncoming);
+    
     else if(event.target.closest('#catalogSheetMerge'))void mergeIncoming();
     else if(event.target.closest('#catalogSheetDiscard'))void discardIncoming();
     else if(event.target.closest('#catalogSheetHistoryLoad'))void showHistory();
