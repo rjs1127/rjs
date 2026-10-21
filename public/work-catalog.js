@@ -939,5 +939,7 @@
       if(data.detailId)closeDetail({restoreScroll:false});
     }
   };
+  // Allow app.js SEO deep links to open after this controller is registered.
+  window.dispatchEvent(new Event('rjs-work-catalog-ready'));
   updateFilters();
 })();

@@ -18310,8 +18310,10 @@ if (READER_SHARE_ADMIN_EMBED_MODE) {
       showWorkCatalogPage();
       window.RJSWorkCatalog?.openSeoWork?.(seoId);
     };
-    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',revealSeoWork,{once:true});
-    else revealSeoWork();
+    // app.js is loaded before work-catalog.js. A DOMContentLoaded callback
+    // alone is not sufficient if the catalog controller has not registered yet.
+    if(window.RJSWorkCatalog?.openSeoWork) revealSeoWork();
+    else window.addEventListener('rjs-work-catalog-ready',revealSeoWork,{once:true});
   }
   void maybeOpenAdminReaderSharePreview();
 }
