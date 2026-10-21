@@ -1,3 +1,13 @@
+# v11.14 — 사이트 공통 SEO·공유 미리보기(정적, 1차)
+
+- `public/index.html`: SEO 제목 `셩냥책 | 신화팬픽 아카이브 사이트`, 메타 설명과 신화/릭셩/진셩/릭진셩 팬픽 키워드, absolute canonical 및 OG/Twitter 설명·이미지·locale 추가. 기존 로고/앱 브랜드 `__SITE_NAME__`과 UI 텍스트는 그대로 유지.
+- `public/share-preview.png`: 기존 `public/icon-512.png` 고양이 아이콘을 사용하여 1200×630 어두운 배경의 정적 OG 이미지 제작(새 아이콘 생성 없음).
+- `public/robots.txt`, `public/sitemap.xml`: 공개 홈만 검색 발견 대상, 관리자·API·친구 검수 경로는 크롤링 제한 안내(인증/보안 기능 대체 아님).
+- 사이트 대표 주소는 현재 `https://rjs-cj6.pages.dev/`; 커스텀 도메인 도입 시 HTML의 canonical/og:url/og:image/twitter:image 및 robots/sitemap 주소를 함께 변경.
+- 작품별 동적 SEO/HTMLRewriter/API·D1/KV 및 SPA 화면·Service Worker·기존 공유 링크 로직은 변경하지 않음.
+- Cloudflare 예상 추가 비용: Pages Functions/D1/KV 신규 호출 0건(정적 파일 조회 트래픽만 발생). 검색엔진 색인 순위나 개별 작품 검색 노출은 보장하지 않음.
+- `HISTORY.md`는 실제 GitHub main 커밋 이력 기반 자동 생성 구조에 따라 이전 바이트 유지.
+
 ## v11.12 모바일 작품도감 장르 더보기 위치 구조 수정 (2026-10-16)
 
 - 버튼의 단독 줄 문제를 모바일에서 장르 2번째 줄 오른쪽에 자리 확보 후 절대 배치하는 방식으로 수정합니다.

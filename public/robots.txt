@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /api/
+Disallow: /catalog-review.html
+
+Sitemap: https://rjs-cj6.pages.dev/sitemap.xml
