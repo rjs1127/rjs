@@ -3,7 +3,9 @@
   "include": [
     "/api/*",
     "/admin",
-    "/admin/*"
+    "/admin/*",
+    "/catalog/*",
+    "/sitemap.xml"
   ],
   "exclude": []
 }

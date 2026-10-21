@@ -922,6 +922,7 @@
     if(data.detailId&&!event.state?.rjsWorkCatalogDetailId)closeDetail({fromHistory:true});
   });
   window.RJSWorkCatalog={
+    openSeoWork(id){ if(validId(id))void openDetail(id,{push:false}); },
     onShow(){
       if(data.detailId){closeDetail();return;}
       if(!data.loaded&&!data.loading)loadItems();

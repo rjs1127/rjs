@@ -18301,5 +18301,17 @@ if (READER_SHARE_ADMIN_EMBED_MODE) {
   };
   if (document.readyState === "complete") restoreInitialContentPage();
   else document.addEventListener("DOMContentLoaded", restoreInitialContentPage, { once: true });
+  // v11.15 SEO deep links reuse the existing catalogue detail, not a new modal.
+  const seoMatch=location.pathname.match(/^\/catalog\/([a-f0-9-]{36})\/?$/i);
+  const seoId=seoMatch?.[1] || new URLSearchParams(location.search).get('catalog');
+  if(seoId && /^[a-f0-9-]{36}$/i.test(seoId)) {
+    const revealSeoWork=()=>{
+      document.getElementById('catalogSeoIntro')?.remove();
+      showWorkCatalogPage();
+      window.RJSWorkCatalog?.openSeoWork?.(seoId);
+    };
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',revealSeoWork,{once:true});
+    else revealSeoWork();
+  }
   void maybeOpenAdminReaderSharePreview();
 }

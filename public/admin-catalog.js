@@ -11,6 +11,36 @@
   let tagTokens = [], recommendationRows = [];
   const cleanToken = value => String(value||'').normalize('NFKC').trim().replace(/^#+\s*/, '').trim();
   // Audit entries are fetched on demand only; no history requests on normal tab loads.
+  // External search opt-in is independent of ordinary catalogue edits.
+  const seoPanel=document.createElement('div');
+  seoPanel.className='catalog-seo-setting';
+  seoPanel.style.cssText='margin:12px 0;padding:12px;border:1px solid var(--border, #bbb);border-radius:10px';
+  seoPanel.innerHTML='<label style="display:flex;gap:9px;align-items:center"><input type="checkbox" id="catalogSearchVisible"> 외부 검색 노출 허용 (Google·네이버)</label><small id="catalogSearchVisibleHint" style="display:block;margin-top:5px">기본 N · 관리자가 Y로 변경한 공개 작품만 검색됩니다.</small>';
+  form.querySelector('.catalog-dialog-footer')?.before(seoPanel);
+  let seoSeq=0;
+  async function loadSeoSetting(work){
+    const checkbox=seoPanel.querySelector('input'),hint=seoPanel.querySelector('small'),seq=++seoSeq;
+    checkbox.checked=false;checkbox.disabled=true;
+    if(!work?.id){hint.textContent='작품을 먼저 저장한 뒤 검색 노출을 설정할 수 있습니다.';return;}
+    hint.textContent='검색 노출 설정 확인 중…';
+    try{
+      const res=await fetch('/api/admin/catalog-seo?id='+encodeURIComponent(work.id),{credentials:'same-origin',cache:'no-store'});
+      const data=await res.json();if(!res.ok)throw Error(data.error||'조회 실패');
+      if(seq!==seoSeq||current?.work?.id!==work.id)return;
+      checkbox.checked=data.enabled;checkbox.disabled=work.status!=='published';
+      hint.textContent=work.status==='published'?'기본 N · Y로 변경하면 공개된 도감 정보만 검색됩니다.':'비공개 작품은 외부 검색에 노출할 수 없습니다.';
+    }catch(e){if(seq===seoSeq)hint.textContent='설정 조회 실패: '+e.message;}
+  }
+  seoPanel.querySelector('input').addEventListener('change',async event=>{
+    const checkbox=event.currentTarget,work=current?.work;if(!work?.id)return;
+    const desired=checkbox.checked;checkbox.disabled=true;
+    try{
+      const res=await fetch('/api/admin/catalog-seo',{method:'POST',credentials:'same-origin',headers:{'content-type':'application/json'},body:JSON.stringify({id:work.id,enabled:desired})});
+      const data=await res.json();if(!res.ok)throw Error(data.error||'변경 실패');
+      seoPanel.querySelector('small').textContent=desired?'Y · 외부 검색 허용':'N · 외부 검색 제외';
+    }catch(e){checkbox.checked=!desired;alert('검색 노출 설정을 저장하지 못했어요: '+e.message);}
+    finally{checkbox.disabled=work.status!=='published';}
+  });
   const restoreFooter=form.querySelector('.catalog-dialog-footer');
   const restoreToggle=document.createElement('button');
   restoreToggle.id='catalogRestoreToggle';restoreToggle.type='button';
@@ -305,6 +335,7 @@
     recommendationRows=work?.recommendation?String(work.recommendation).split(/\n\s*\n/):[''];
     renderRecommendations();
     resetRestorePanel(work);
+    void loadSeoSetting(work);
     $('catalogStatus').value=work?.status||'draft';
     $('catalogDelete').hidden=!work;
     $('catalogEditorTitle').textContent=work?'작품 도감 정보 수정':'작품 도감 정보 등록';

@@ -1,3 +1,11 @@
+## v11.15 작품별 외부 검색 제어
+
+- 검색 엔진용 `/catalog/{UUID}`는 공개 & 관리자가 검색 노출 Y로 승인한 작품만 200. 나머지는 404 + noindex.
+- `catalog_search_visibility` 별도 D1 테이블: 레코드 없는 모든 작품 포함 기본 N. 대량 자동 변경 없음.
+- 관리자 설정은 `/api/admin/catalog-seo` 세션 보호. 감사 이력 기록.
+- `/sitemap.xml` 동적 URL: 허용된 작품만 노출, 최대 5000개. 비용 증가 경로에만 Functions 라우트 추가.
+- 기존 앱에서 열 때 같은 도감 상세 뷰 재사용. 원문/임시 재검수/개인 정보 HTML에 포함하지 않음.
+
 # v11.14 — 사이트 공통 SEO·공유 미리보기(정적, 1차)
 
 - `public/index.html`: SEO 제목 `셩냥책 | 신화팬픽 아카이브 사이트`, 메타 설명과 신화/릭셩/진셩/릭진셩 팬픽 키워드, absolute canonical 및 OG/Twitter 설명·이미지·locale 추가. 기존 로고/앱 브랜드 `__SITE_NAME__`과 UI 텍스트는 그대로 유지.
